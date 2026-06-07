@@ -1,0 +1,40 @@
+{
+  "name": "andy-engine",
+  "version": "0.1.0",
+  "description": "心理学驱动的多智能体社会模拟引擎 — 让 AI 角色拥有记忆、情绪、人格和社交关系",
+  "main": "index.js",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest --coverage",
+    "test:ui": "vitest --ui",
+    "test:legacy": "node test.js",
+    "demo": "cd demo/character-lab && npm install && node server.js"
+  },
+  "keywords": [
+    "multi-agent",
+    "social-simulation",
+    "emotion-model",
+    "cognitive-appraisal",
+    "act-r",
+    "agent-based-modeling",
+    "personality",
+    "character-engine",
+    "ai-npc",
+    "virtual-world"
+  ],
+  "author": "bobbyhuang666",
+  "license": "AGPL-3.0",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.10.0",
+    "express": "^5.2.1",
+    "ws": "^8.21.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.7",
+    "vitest": "^4.1.7"
+  }
+}
