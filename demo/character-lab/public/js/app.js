@@ -4,6 +4,16 @@
 
 const state = { characterState: null, isProcessing: false, eventCount: 0 };
 
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/x27/g, "&#39;");
+}
 async function api(path, opts = {}) {
   const res = await fetch(`/api${path}`, {
     headers: { 'Content-Type': 'application/json' },
@@ -85,8 +95,8 @@ async function runDemoPath(type) {
 function renderEventGrid(events) {
   document.getElementById('event-grid').innerHTML = events.map(e =>
     `<button class="event-btn" data-id="${e.id}" onclick="handleEvent('${e.id}')">
-       <span class="event-btn-label">${e.label}</span>
-       <span class="event-btn-desc">${e.description}</span>
+       <span class="event-btn-label">${escapeHtml(e.label)}</span>
+       <span class="event-btn-desc">${escapeHtml(e.description)}</span>
      </button>`
   ).join('');
 }
@@ -148,7 +158,7 @@ function renderState(s) {
     { label: '刺激', value: s.needs.stimulation, color: 'var(--purple)' },
   ], true);
   document.getElementById('emotion-tags').innerHTML = s.dominantEmotions.map(e =>
-    `<span class="emotion-tag">${e.name} <span class="tag-value">${e.value}</span></span>`
+    `<span class="emotion-tag">${escapeHtml(e.name)} <span class="tag-value">${escapeHtml(e.value)}</span></span>`
   ).join('');
   document.getElementById('trait-bars').innerHTML = [
     { k: 'openness', c: 'O' }, { k: 'conscientiousness', c: 'C' },
@@ -168,13 +178,13 @@ function renderResponseAndBT(r) {
   const summary = trustDelta ? trustDelta.text : '';
 
   document.getElementById('response-box').innerHTML =
-    `<div class="response-event-label"><span class="label-dot"></span>你${r.eventLabel}</div>
+    `<div class="response-event-label"><span class="label-dot"></span>你${escapeHtml(r.eventLabel)}</div>
 
      <div class="bt-hero">
        <div class="bt-hero-row">
          <div class="bt-hero-engine">
            <div class="bt-hero-tag"><span class="bt-dot engine-dot"></span>Andy Engine</div>
-           <div class="bt-hero-quote fade-in">"${r.response}"</div>
+           <div class="bt-hero-quote fade-in">"${escapeHtml(r.response)}"</div>
          </div>
          <div class="bt-hero-tree">
            <div class="bt-hero-tag"><span class="bt-dot tree-dot"></span>行为树</div>
@@ -210,12 +220,12 @@ function renderExplanation(expl) {
   const label = { state: '状态', memory: '记忆', personality: '人格', emotion: '情绪' };
 
   const factors = expl.factors.map(f =>
-    `<div class="expl-factor"><span class="expl-icon">${icon[f.type] || '•'}</span><span class="expl-label">${label[f.type] || f.type}</span><span class="expl-text">${f.text}</span></div>`
+    `<div class="expl-factor"><span class="expl-icon">${icon[f.type] || '•'}</span><span class="expl-label">${label[f.type] || f.type}</span><span class="expl-text">${escapeHtml(f.text)}</span></div>`
   ).join('');
 
   box.innerHTML = `
     <div class="expl-factors">${factors || '<div class="expl-factor"><span class="expl-text">当前状态比较平稳，没有特别的因素被激活。</span></div>'}</div>
-    <div class="expl-conclusion">${expl.conclusion}</div>
+    <div class="expl-conclusion">${escapeHtml(expl.conclusion)}</div>
   `;
 }
 
@@ -228,7 +238,7 @@ function renderMemoryTimeline(memories) {
     `<div class="memory-item fade-in">
        <div class="memory-indicator ${m.emotionTag || 'neutral'}"></div>
        <div class="memory-content">
-         <div class="memory-text">${m.content}</div>
+         <div class="memory-text">${escapeHtml(m.content)}</div>
          <div class="memory-meta"><span>${m.emotionTag === 'happy' ? '积极' : m.emotionTag === 'sad' ? '消极' : '中性'}</span><span>重要性 ${m.importance}%</span></div>
        </div>
      </div>`

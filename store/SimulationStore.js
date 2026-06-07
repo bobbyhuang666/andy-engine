@@ -85,8 +85,8 @@ class SimulationStore {
     }
 
     // 加载故事缓冲
-    this.storyBuffer = this.db.getRecent('*', 24, this.maxStoryBuffer)
-      .catch ? [] : []; // getRecent 需要 agentId，这里用 getAll
+    this.storyBuffer = []
+; // 重启后从空缓冲开始，历史故事从DB按需查询
 
     return {
       restoredTick: this.tickCount,
