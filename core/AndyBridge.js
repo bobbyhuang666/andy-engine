@@ -151,7 +151,7 @@ class AndyBridge {
     if (!bobby || !bobby.emotion) return null;
 
     return {
-      current: [...bobby.emotion.current],
+      current: { ...bobby.emotion.current },
       stress: bobby.emotion.stress,
     };
   }
@@ -230,8 +230,8 @@ class AndyBridge {
         const state = JSON.parse(chunk);
         const agent = this.andy.agents?.get?.(state.id)
           || this.andy.getAgent?.(state.id);
-        if (agent && agent.fromJSON) {
-          Object.assign(agent, agent.fromJSON(state));
+        if (agent) {
+          Object.assign(agent, { emotion: { ...state.emotion }, position: state.position, health: state.health });
         }
       } catch {
         // 跳过损坏的条目

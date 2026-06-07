@@ -137,7 +137,7 @@ class EmotionVector {
 
     const positiveDims = new Set(['joy', 'contentment', 'satisfaction', 'excitement',
       'calm', 'hope', 'love', 'pride', 'gratitude', 'relief', 'triumph', 'amusement']);
-    const negativeDims = new Set(['sadness', 'anger', 'fear', 'disgust', 'loneliness',
+    const negativeDims = new Set(['sadness', 'anger', 'fear', 'disgust',
       'nervousness', 'frustration', 'guilt', 'shame', 'horror', 'boredom']);
 
     // current 衰减向 mood（快速）
@@ -375,7 +375,7 @@ class EmotionVector {
     // 负面情绪维度（传染率更高）
     // 参考 Baumeister et al. (2001) "Bad is stronger than good"
     // + Nature 2024: 负面情绪比正面情绪更具传染性和持续性
-    const negativeDims = new Set(['sadness', 'anger', 'fear', 'disgust', 'loneliness',
+    const negativeDims = new Set(['sadness', 'anger', 'fear', 'disgust',
       'nervousness', 'frustration', 'guilt', 'shame', 'horror', 'boredom']);
     const negativityBias = 1.4; // 负面情绪传染率高 40%
 

@@ -87,7 +87,7 @@ const EVENT_POOL = [
     label: '继续要求她帮忙',
     description: '她已经很累了，但你还是让她帮你做一件事。',
     category: 'negative_social',
-    emotionDelta: { anger: 0.35, frustration: 0.45, sadness: 0.25, exhaustion: 0.2 },
+    emotionDelta: { anger: 0.35, frustration: 0.45, sadness: 0.25, boredom: 0.1, frustration: 0.1 },
     relationshipImpact: { trust: -7, closeness: -4 },
     memoryTags: ['被利用', '不被考虑', '疲惫'],
     btResponse: '我今天不太方便，下次吧。',

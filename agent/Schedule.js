@@ -285,7 +285,7 @@ class Schedule {
           days: [0, 1, 2, 3, 4, 5, 6], probability: 0.7, noise: 30 },
         { startHour: 9, endHour: 11, region: '公园', activity: '在散步',
           days: [0, 1, 2, 3, 4, 5, 6], probability: 0.5, noise: 60 },
-        { startHour: 12, endHour: 13, region: '家', activity: '在食堂',
+        { startHour: 12, endHour: 13, region: '家', activity: '在吃饭',
           days: [0, 1, 2, 3, 4, 5, 6], probability: 0.8, noise: 20 },
         { startHour: 14, endHour: 16, region: '家', activity: '在看剧',
           days: [0, 1, 2, 3, 4, 5, 6], probability: 0.6, noise: 60 },
