@@ -203,7 +203,7 @@ class Agent {
           result.newEvents.push(skipMemory);
         }
       }
-    } else if (needsDrive && needsDrive.urgency > 0.15) {
+    } else if (needsDrive && needsDrive.urgency > 0.05) {
       // 紧急需求覆盖日程：寻找能满足需求的区域
       const needRegion = this._findNeedRegion(needsDrive.need);
       if (needRegion && needRegion !== this.position) {
