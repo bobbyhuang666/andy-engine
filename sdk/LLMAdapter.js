@@ -1,20 +1,15 @@
 /**
  * LLMAdapter — LLM 调用适配器
  *
- * 支持三种模式：
- *   1. 自定义函数：async (messages) => string
- *   2. OpenAI API：{ provider: 'openai', apiKey, model }
- *   3. Anthropic API：{ provider: 'anthropic', apiKey, model }
- *   4. OpenAI 兼容：{ provider: 'openai-compatible', baseUrl, apiKey, model }
- *
- * 不依赖任何第三方 SDK，用原生 fetch() 调用。
- * 内置重试逻辑（指数退避）。
+ * 支持：
+ *   - 自定义函数：async (messages) => string
+ *   - OpenAI API / OpenAI 兼容
+ *   - Anthropic API
+ *   - 流式输出（chatStream）
+ *   - 自动重试（指数退避）
  */
 
 class LLMAdapter {
-  /**
-   * @param {Object|Function} config
-   */
   constructor(config = {}) {
     if (typeof config === 'function') {
       this._customFn = config;
@@ -33,42 +28,69 @@ class LLMAdapter {
   }
 
   /**
-   * 调用 LLM（内置重试）
-   *
-   * @param {Object[]} messages - [{ role: 'system'|'user'|'assistant', content: '...' }]
-   * @returns {Promise<string>} LLM 回复文本
+   * 完整调用（非流式）
+   * @param {Object[]} messages
+   * @returns {Promise<string>}
    */
   async chat(messages) {
     let lastError = null;
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       try {
-        if (this._customFn) {
-          return await this._customFn(messages);
-        }
+        if (this._customFn) return await this._customFn(messages);
         switch (this.provider) {
           case 'openai':
           case 'openai-compatible':
-            return await this._callOpenAI(messages);
+            return await this._callOpenAI(messages, false);
           case 'anthropic':
-            return await this._callAnthropic(messages);
+            return await this._callAnthropic(messages, false);
           default:
-            throw new Error(`Unsupported LLM provider: ${this.provider}`);
+            throw new Error(`Unsupported provider: ${this.provider}`);
         }
       } catch (e) {
         lastError = e;
-        if (attempt < this.maxRetries) {
-          await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
-        }
+        if (attempt < this.maxRetries) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
       }
     }
     throw lastError;
   }
 
   /**
-   * OpenAI / OpenAI-compatible API 调用
-   * @private
+   * 流式调用（返回 async generator，逐 token 产出）
+   *
+   * @param {Object[]} messages
+   * @returns {AsyncGenerator<string>} 逐 token 产出
+   *
+   * @example
+   *   for await (const token of adapter.chatStream(messages)) {
+   *     process.stdout.write(token);
+   *   }
    */
-  async _callOpenAI(messages) {
+  async *chatStream(messages) {
+    if (this._customFn) {
+      // 自定义函数不支持流式，回退到完整调用
+      const result = await this._customFn(messages);
+      yield result;
+      return;
+    }
+
+    switch (this.provider) {
+      case 'openai':
+      case 'openai-compatible':
+        yield* this._streamOpenAI(messages);
+        break;
+      case 'anthropic':
+        yield* this._streamAnthropic(messages);
+        break;
+      default:
+        throw new Error(`Streaming not supported for provider: ${this.provider}`);
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // OpenAI
+  // ═══════════════════════════════════════════
+
+  async _callOpenAI(messages, stream = false) {
     const url = `${this.baseUrl}/chat/completions`;
     const response = await fetch(url, {
       method: 'POST',
@@ -81,6 +103,7 @@ class LLMAdapter {
         messages,
         max_tokens: this.maxTokens,
         temperature: this.temperature,
+        stream,
       }),
     });
 
@@ -89,15 +112,45 @@ class LLMAdapter {
       throw new Error(`OpenAI API error ${response.status}: ${err}`);
     }
 
+    if (stream) return response;
+
     const data = await response.json();
     return data.choices?.[0]?.message?.content || '';
   }
 
-  /**
-   * Anthropic API 调用
-   * @private
-   */
-  async _callAnthropic(messages) {
+  async *_streamOpenAI(messages) {
+    const response = await this._callOpenAI(messages, true);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') return;
+
+        try {
+          const parsed = JSON.parse(data);
+          const content = parsed.choices?.[0]?.delta?.content;
+          if (content) yield content;
+        } catch {}
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // Anthropic
+  // ═══════════════════════════════════════════
+
+  async _callAnthropic(messages, stream = false) {
     const url = `${this.baseUrl}/messages`;
     const systemMsg = messages.find(m => m.role === 'system');
     const chatMessages = messages.filter(m => m.role !== 'system');
@@ -107,6 +160,7 @@ class LLMAdapter {
       max_tokens: this.maxTokens,
       temperature: this.temperature,
       messages: chatMessages,
+      stream,
     };
     if (systemMsg) body.system = systemMsg.content;
 
@@ -125,9 +179,41 @@ class LLMAdapter {
       throw new Error(`Anthropic API error ${response.status}: ${err}`);
     }
 
+    if (stream) return response;
+
     const data = await response.json();
     return data.content?.[0]?.text || '';
   }
+
+  async *_streamAnthropic(messages) {
+    const response = await this._callAnthropic(messages, true);
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const parsed = JSON.parse(line.slice(6));
+          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+            yield parsed.delta.text;
+          }
+        } catch {}
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // 默认值
+  // ═══════════════════════════════════════════
 
   static _defaultModel(provider) {
     return { 'openai': 'gpt-4o', 'openai-compatible': 'gpt-4o', 'anthropic': 'claude-sonnet-4-20250514' }[provider] || 'gpt-4o';
