@@ -152,7 +152,7 @@ describe('AndyEngine 集成测试', () => {
     let ctx;
 
     beforeAll(() => {
-      ctx = engine.getWorldContextForBobby('bobby');
+      ctx = engine.getWorldContext('bobby');
     });
 
     it('应该存在', () => {
