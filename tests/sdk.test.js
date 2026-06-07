@@ -103,7 +103,7 @@ describe('NarrativeBuilder', () => {
     expect(prompt).toContain('TestChar');
     expect(prompt).toContain('性格内向');
     expect(prompt).toContain('喜欢读书');
-    expect(prompt).toContain('行为规则');
+    expect(prompt).toContain('怎么回复');
   });
 
   it('空上下文返回空字符串', () => {
@@ -226,5 +226,141 @@ describe('Andy 多角色引擎', () => {
     const restored = Andy.load(state);
     expect(restored.getCharacter('maya')).toBeDefined();
     expect(restored.getCharacter('bob')).toBeDefined();
+  });
+});
+
+describe('chatStream 流式输出', () => {
+  it('逐 token 产出', async () => {
+    const character = new Character({
+      name: 'Maya',
+      personality: 'INFP',
+      llm: async (messages) => '你好啊朋友',
+    });
+    const tokens = [];
+    for await (const token of character.chatStream('你好')) {
+      tokens.push(token);
+    }
+    expect(tokens.length).toBeGreaterThan(0);
+    expect(tokens.join('')).toBe('你好啊朋友');
+  });
+
+  it('流式输出后对话历史正确', async () => {
+    const character = new Character({
+      name: 'Maya',
+      personality: 'INFP',
+      llm: async (messages) => '你好',
+    });
+    for await (const token of character.chatStream('测试')) {}
+    expect(character._conversation.length).toBe(2);
+  });
+});
+
+describe('NarrativeBuilder 各种状态', () => {
+  it('疲劳状态生成正确提示', () => {
+    const ctx = {
+      hour: 3, weather: 'sunny', season: 'summer',
+      currentRegion: '宿舍',
+      needsState: '需求：饱腹充足，精力极度匮乏，社交一般，舒适充足，兴趣饱满。',
+      emotionState: '（效价=-0.12, 唤醒=0.2）。整体心境：心情不太好。',
+      personalityAnchor: '你性格内向。',
+      health: 90,
+    };
+    const prompt = NarrativeBuilder.buildSystemPrompt(ctx, { characterName: 'Test' });
+    expect(prompt).toContain('深夜');
+    expect(prompt).toContain('眼皮重得抬不起来');
+    expect(prompt).toContain('你现在很困');
+  });
+
+  it('开心状态生成正确提示', () => {
+    const ctx = {
+      hour: 15, weather: 'sunny', season: 'spring',
+      currentRegion: '操场',
+      needsState: '需求：饱腹充足，精力饱满，社交充足，舒适充足，兴趣饱满。',
+      emotionState: '满足的情绪主导着你的心境（效价=0.35, 唤醒=0.6）。整体心境：心情不错。',
+      personalityAnchor: '你性格外向。',
+      health: 100,
+    };
+    const prompt = NarrativeBuilder.buildSystemPrompt(ctx, { characterName: 'Test' });
+    expect(prompt).toContain('下午');
+    expect(prompt).toContain('春天');
+    expect(prompt).toContain('操场上');
+  });
+
+  it('空上下文返回空字符串', () => {
+    expect(NarrativeBuilder.buildSystemPrompt(null, {})).toBe('');
+    expect(NarrativeBuilder.buildSystemPrompt(undefined, {})).toBe('');
+  });
+
+  it('去重最近事件', () => {
+    const ctx = {
+      hour: 12, weather: 'sunny', season: 'summer',
+      recentEvents: '- 太阳太晒了\n- 太阳太晒了\n- 食堂人很多',
+    };
+    const prompt = NarrativeBuilder.buildSystemPrompt(ctx, { characterName: 'T' });
+    const recentSection = prompt.match(/# 最近的事\n([\s\S]*?)(?=\n#|$)/);
+    expect(recentSection).toBeTruthy();
+    expect(recentSection[1].split('\n').filter(l => l.includes('太阳太晒了')).length).toBe(1);
+  });
+});
+
+describe('Character 边界情况', () => {
+  it('空消息处理', async () => {
+    const c = new Character({ name: 'T', personality: 'INFP', llm: async () => '...' });
+    const reply = await c.chat('');
+    expect(typeof reply).toBe('string');
+  });
+
+  it('超长消息处理', async () => {
+    const c = new Character({ name: 'T', personality: 'INFP', llm: async () => 'ok' });
+    const longMsg = '你好'.repeat(500);
+    const reply = await c.chat(longMsg);
+    expect(typeof reply).toBe('string');
+  });
+
+  it('特殊字符消息', async () => {
+    const c = new Character({ name: 'T', personality: 'INFP', llm: async () => 'ok' });
+    const reply = await c.chat('<script>alert("xss")</script>');
+    expect(typeof reply).toBe('string');
+  });
+
+  it('LLM 返回空字符串时返回省略号', async () => {
+    const c = new Character({ name: 'T', personality: 'INFP', llm: async () => '' });
+    const reply = await c.chat('你好');
+    expect(reply).toBe('...');
+  });
+
+  it('LLM 抛错时传播错误', async () => {
+    const c = new Character({
+      name: 'T', personality: 'INFP',
+      llm: async () => { throw new Error('API error'); },
+    });
+    await expect(c.chat('你好')).rejects.toThrow('API error');
+  });
+
+  it('多次 save/load 保持一致性', async () => {
+    const c = new Character({ name: 'Maya', personality: 'INFP', llm: async () => 'ok' });
+    await c.chat('第一句');
+    const state1 = c.save();
+    const restored1 = Character.load(state1, async () => 'ok');
+    await restored1.chat('第二句');
+    const state2 = restored1.save();
+    expect(state2.conversation.messages.length).toBe(4);
+  });
+});
+
+describe('Andy 多角色边界情况', () => {
+  it('不存在的角色抛错', async () => {
+    const world = new Andy({ llm: async () => 'ok' });
+    await expect(world.chat('不存在', '你好')).rejects.toThrow('Character not found');
+  });
+
+  it('添加角色后 tick 正常', () => {
+    const world = new Andy();
+    for (let i = 0; i < 10; i++) {
+      world.addCharacter({ name: `Agent${i}`, personality: 'INFP' });
+    }
+    const result = world.tick();
+    expect(result.tickNumber).toBeGreaterThan(0);
+    expect(world.getStats().agentCount).toBe(10);
   });
 });

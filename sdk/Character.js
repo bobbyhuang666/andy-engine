@@ -153,6 +153,49 @@ class Character {
    * @param {string} [options.userText] - 用户消息（用于共情反应）
    * @returns {Object} { systemPrompt, narrative, worldContext, emotion, needs }
    */
+
+  /**
+   * 流式对话（逐 token 产出，适合 Web 实时显示）
+   *
+   * @param {string} message - 用户消息
+   * @param {Object} [options]
+   * @returns {AsyncGenerator<string>} 逐 token 产出
+   *
+   * @example
+   *   for await (const token of maya.chatStream("你好")) {
+   *     process.stdout.write(token);
+   *   }
+   */
+  async *chatStream(message, options = {}) {
+    this._autoTick.advance(this._engine);
+    this._conversation.addUserMessage(message);
+
+    const worldContext = this._engine.getWorldContext(this.id);
+    const systemPrompt = NarrativeBuilder.buildSystemPrompt(worldContext, {
+      characterName: this.name,
+      backstory: this.backstory,
+      scenario: this.scenario,
+      conversationHistory: this._conversation.getSummary(),
+    });
+
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...this._conversation.toMessages(),
+    ];
+
+    const llm = options.llm ? new LLMAdapter(options.llm) : this._llm;
+    let fullReply = "";
+
+    for await (const token of llm.chatStream(messages)) {
+      fullReply += token;
+      yield token;
+    }
+
+    if (fullReply.trim().length > 0) {
+      this._conversation.addAssistantMessage(fullReply);
+      this._recordConversation(message, fullReply);
+    }
+  }
   getContext(options = {}) {
     const worldContext = this._engine.getWorldContext(this.id);
     const narrative = this._engine.getNarrative(this.id, options);
