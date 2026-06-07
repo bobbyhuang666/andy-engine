@@ -36,5 +36,9 @@
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.7",
     "vitest": "^4.1.7"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./sdk": "./sdk/index.js"
   }
 }
