@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maya Memory Trial</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="top-bar">
+    <div class="top-bar-left">
+      <h1 class="logo">Maya Memory Trial</h1>
+      <span class="subtitle">她的反应不只取决于你做了什么，还取决于她记得什么</span>
+    </div>
+    <div class="top-bar-right">
+      <button id="btn-reset" class="btn btn-ghost"><span class="icon">↺</span> 重置</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ─── 左栏：角色状态 ─── -->
+    <aside class="panel panel-left">
+      <div class="panel-header">
+        <div class="character-avatar">
+          <div class="avatar-circle">M</div>
+          <div class="character-info">
+            <h2 class="character-name">Maya</h2>
+            <span class="character-role">你的朋友 · INFP</span>
+          </div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-title">心情</div>
+        <div class="mood-display"><span class="mood-emoji" id="mood-emoji">😐</span><span class="mood-text" id="mood-text">平静</span></div>
+      </div>
+      <div class="section">
+        <div class="section-title">状态</div>
+        <div class="meters" id="core-meters"></div>
+      </div>
+      <div class="section">
+        <div class="section-title">需要</div>
+        <div class="meters meters-small" id="needs-meters"></div>
+      </div>
+      <div class="section">
+        <div class="section-title">此刻感受</div>
+        <div class="emotion-tags" id="emotion-tags"></div>
+      </div>
+      <div class="section collapsible">
+        <div class="section-title clickable" data-target="personality-detail">人格 <span class="chevron">▾</span></div>
+        <div class="section-body hidden" id="personality-detail">
+          <div class="trait-bars" id="trait-bars"></div>
+          <div class="engine-note">OCEAN 大五人格 · Andy Engine 驱动</div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ─── 中栏：事件输入 + 回复 + 解释 ─── -->
+    <section class="panel panel-center">
+      <!-- 事件池 -->
+      <div class="section">
+        <div class="section-title">今天你要怎么做？</div>
+        <div class="demo-paths" id="demo-paths">
+          <button class="demo-path-btn" onclick="runDemoPath('positive')">
+            <span class="path-icon">💚</span>
+            <span>先建立信任，再看迟到</span>
+          </button>
+          <button class="demo-path-btn" onclick="runDemoPath('negative')">
+            <span class="path-icon">💔</span>
+            <span>先伤害关系，再看迟到</span>
+          </button>
+        </div>
+        <div class="event-grid" id="event-grid"></div>
+      </div>
+
+      <!-- 回复 + 行为树对比（合并） -->
+      <div class="section">
+        <div class="section-title">Maya 的反应</div>
+        <div class="response-box" id="response-box">
+          <div class="response-placeholder">点击上方事件，看看 Maya 会怎么反应。</div>
+        </div>
+      </div>
+
+      <!-- 内心独白 -->
+      <div class="section">
+        <div class="section-title">她心里在想</div>
+        <div class="narrative-box"><span class="narrative-text" id="narrative-text">—</span></div>
+      </div>
+
+      <!-- ★ 因果解释 ★ -->
+      <div class="section hidden" id="explanation-section">
+        <div class="section-title">她为什么这样反应</div>
+        <div class="explanation-box" id="explanation-box"></div>
+      </div>
+    </section>
+
+    <!-- ─── 右栏：记忆 ─── -->
+    <aside class="panel panel-right">
+      <div class="section">
+        <div class="section-title">她记住了什么</div>
+        <div class="memory-timeline" id="memory-timeline">
+          <div class="memory-empty">暂无记忆</div>
+        </div>
+      </div>
+      <div class="section collapsible">
+        <div class="section-title clickable" data-target="tech-details">技术细节 <span class="chevron">▾</span></div>
+        <div class="section-body hidden" id="tech-details">
+          <div class="explanation-text">
+            <p>Maya 的心理状态由 Andy Engine 持续维护：</p>
+            <ul>
+              <li><strong>情绪系统</strong> — 30 维情绪向量，三层时间尺度</li>
+              <li><strong>记忆系统</strong> — ACT-R 激活模型，五通路检索</li>
+              <li><strong>认知评价</strong> — 8 维评价调节事件影响</li>
+              <li><strong>人格</strong> — OCEAN 大五人格</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <div class="loading-overlay hidden" id="loading">
+    <div class="loading-spinner"></div><span>正在启动…</span>
+  </div>
+  <script src="js/app.js"></script>
+</body>
+</html>

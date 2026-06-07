@@ -1,0 +1,38 @@
+# Tests
+tests/
+test.js
+test_pipeline.js
+test_soa.js
+test_soa_contagion.js
+test_soa_debug.js
+test_store.js
+
+# Experiments & data
+experiments/
+data_generator/
+output_round5/
+
+# Docs & research
+docs/
+PAPER.md
+PAPER_BRIEF.md
+CHANGELOG.md
+TESTING_MIGRATION.md
+tests/MIGRATION_COMPLETE.md
+
+# Python cache
+__pycache__/
+*.pyc
+
+# IDE & OS
+.DS_Store
+.vscode/
+.idea/
+
+# Build artifacts
+native/target/
+*.node
+
+# Config
+vitest.config.js
+.gitignore
