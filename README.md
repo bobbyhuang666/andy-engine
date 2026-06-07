@@ -157,6 +157,34 @@ const context = engine.getNarrative('maya', {
 
 ---
 
+
+## SDK
+
+The easiest way to use Andy Engine. Three lines to create a character with memory, emotion, and personality:
+
+```javascript
+const { Character } = require("./sdk");
+
+const maya = new Character({
+  name: "Maya",
+  personality: "INFP",
+  backstory: ["A quiet librarian", "Loves stargazing", "Has a cat named Doudou"],
+  llm: { provider: "openai", apiKey: "sk-..." },
+});
+
+const reply = await maya.chat("I'm so tired today");
+// Maya replies based on her current emotion, memory, and personality
+```
+
+**Features:**
+- Auto time management (no manual `tick()` needed)
+- Rich system prompt built from character state (emotion, needs, memory, relationships)
+- Conversation history with sliding window
+- Save/restore character state
+- Supports OpenAI, Anthropic, and custom LLM functions
+- Multi-character mode with `Andy` class
+
+See `examples/` for working demos.
 ## Rust Native Acceleration
 
 For large-scale simulations, enable the Rust native module:
@@ -308,6 +336,34 @@ const context = engine.getNarrative('maya', {
 
 ---
 
+
+## SDK 使用
+
+最简单的方式，三行代码创建一个有记忆、有情绪、有性格的角色：
+
+```javascript
+const { Character } = require("./sdk");
+
+const maya = new Character({
+  name: "Maya",
+  personality: "INFP",
+  backstory: ["一个安静的图书馆管理员", "喜欢看星星", "养了一只橘猫叫豆豆"],
+  llm: { provider: "openai", apiKey: "sk-..." },
+});
+
+const reply = await maya.chat("我今天好累");
+// Maya 会根据她当前的情绪、记忆和性格来回复
+```
+
+**特性：**
+- 自动时间管理（不需要手动调用 `tick()`）
+- 从角色状态自动构建丰富的 system prompt（情绪、需求、记忆、社交关系）
+- 对话历史滑动窗口管理
+- 保存/恢复角色状态
+- 支持 OpenAI、Claude、自定义 LLM 函数
+- 多角色模式（`Andy` 类）
+
+详见 `examples/` 目录。
 ## 许可证
 
 [GNU Affero General Public License v3.0](LICENSE)
