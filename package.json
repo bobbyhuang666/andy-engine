@@ -40,5 +40,6 @@
   "exports": {
     ".": "./index.js",
     "./sdk": "./sdk/index.js"
-  }
+  },
+  "types": "sdk/types.d.ts"
 }
