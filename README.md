@@ -40,6 +40,7 @@ Plain AI is a **tool**. Andy Engine's AI are **characters** — they have their 
 | Feature | Andy | Generative Agents | CAMEL | ChatDev |
 |---|---|---|---|---|
 | 30-dimensional emotion | Cowen & Keltner (2017) | Valence only | None | None |
+| Continuous behavior field | 4D Langevin dynamics + personality modulation | Discrete states | Discrete states | Discrete states |
 | ACT-R memory model | 5-pathway retrieval + mood-congruent recall | Importance-based | Flat | Flat |
 | Big Five personality | OCEAN + 16 MBTI mapping | None | None | Role-based |
 | Maslow needs system | 5 drives + personality modulation | None | None | None |
@@ -62,6 +63,8 @@ Plain AI is a **tool**. Andy Engine's AI are **characters** — they have their 
 | Personality consistency | OCEAN variance = 0 after 50 turns |
 | Memory retention | 100% for high-importance events at Day 7 |
 | Emotion contagion | r = 0.818 for high-interaction pairs |
+| Behavior field: personality diff | INFP vs ESTP B-distance = 0.239 across 4D space |
+| Behavior field: hunger convergence | 25 ticks from library → cafeteria |
 | Performance (JS) | 20 agents × 10 days = 25.6s |
 | Performance (Rust SoA f32) | 50K agents × 20 ticks = 24.9ms/tick (**5.92x speedup**) |
 | Scale test | 500K agents, 8.94x speedup with Dunbar hierarchical contagion |
@@ -80,12 +83,14 @@ AndyEngine
 │   └── AndyBridge.js         Bridge to external LLM
 │
 ├── agent/
-│   ├── Agent.js              Autonomous agent (13 sub-modules)
+│   ├── Agent.js              Autonomous agent (behavior field driven)
+│   ├── BehaviorField.js      4D continuous behavior field (Langevin dynamics)
+│   ├── BehaviorLabeler.js    Semantic label projection (50 state centers)
 │   ├── Personality.js        MBTI → OCEAN → behavior mapping
 │   ├── EmotionVector.js      30-dim emotion (10-step evolution pipeline)
-│   ├── StateMachine.js       42-state machine (event-driven transitions)
+│   ├── StateMachine.js       State metadata only (42 states, read-only)
 │   ├── PersonalMemory.js     ACT-R memory (5-pathway retrieval + semantic classification)
-│   ├── NeedsSystem.js        Maslow hierarchy (5 drives + personality modulation)
+│   ├── NeedsSystem.js        Maslow hierarchy (5 drives + continuous gradient)
 │   ├── Appraisal.js          Cognitive appraisal (Scherer CPM, 8 dimensions)
 │   ├── EmotionRegulation.js  Gross process model (3 strategies)
 │   ├── IntrinsicMotivation.js Curiosity + self-generated goals
@@ -122,6 +127,61 @@ AndyEngine
 
 ---
 
+## Continuous Behavior Field
+
+Andy's characters don't jump between discrete states — they move through a continuous 4D behavior space:
+
+```
+B = (activity, sociality, focus, expressiveness) ∈ [0,1]⁴
+```
+
+| Dimension | 0 (low) | 1 (high) |
+|---|---|---|
+| activity | Resting / sleeping | Working / exercising |
+| sociality | Alone / daydreaming | Chatting / socializing |
+| focus | Mind-wandering | Deep concentration |
+| expressiveness | Withdrawn / reserved | Outward / expressive |
+
+**How it works:**
+
+```
+Needs (5D) ─────→ needs gradient ──────┐
+Emotion (30D) ──→ emotion gradient ────┤
+Schedule ───────→ schedule gradient ───┼──→ ∇U ──→ Langevin dynamics ──→ B ∈ [0,1]⁴
+Intrinsic ──────→ intrinsic gradient ──┤         v(t+dt) = v(t)·(1-γ·dt)
+Habit ──────────→ habit gradient ──────┘           - ∇U·dt + σ·√dt·ξ
+                                                        ↓
+                                                  BehaviorLabeler
+                                                        ↓
+                                                  Semantic label
+```
+
+- **5 gradient sources** create a potential energy surface — needs pull toward food/sleep, schedule pulls toward class/work, emotions push toward social/withdrawal
+- **Underdamped Langevin dynamics** — the behavior has mass (momentum), so a hungry character might keep chatting before going to eat
+- **Personality modulation** — high neuroticism → high friction (slow behavior change), high extraversion → high noise (unpredictable), high conscientiousness → strong schedule adherence
+- **Semantic labels** are projected from the continuous space via nearest-neighbor (50 state centers in 4D)
+- **Time-aware labels** — labels get penalties for time-inappropriate states (e.g., "in class" at 3 AM gets a distance penalty)
+
+**Why it matters:**
+
+- **Richer LLM prompts**: "In the library, but focus is only 0.3 and sociality is rising — she might leave soon"
+- **Continuous transitions**: behavior slides smoothly between states, not discrete jumps
+- **Personality emerges from physics**: different OCEAN values create different dynamics on the same potential surface — no hardcoded weight tables
+- **Needs → behavior is natural**: hunger creates a gradient that pulls B toward the food zone, not a discrete state switch
+
+**Validation** (`experiments/behavior_field_personality.js`):
+
+```
+── INFP ──  γ=4.20  σ=0.097  B=[0.38, 0.41, 0.20, 0.39]  12 unique labels
+── ESTP ──  γ=3.80  σ=0.213  B=[0.37, 0.32, 0.16, 0.41]   9 unique labels
+── ISTJ ──  γ=3.40  σ=0.108  B=[0.33, 0.34, 0.24, 0.35]  13 unique labels
+── ENFP ──  γ=4.20  σ=0.202  B=[0.43, 0.37, 0.20, 0.41]  14 unique labels
+
+INFP vs ESTP: B-distance=0.101, speed ratio=1.50×
+```
+
+---
+
 ## Quick Start
 
 ```bash
@@ -153,6 +213,16 @@ engine.tick();
 const context = engine.getNarrative('maya', {
   userText: "I'm so tired today",
 });
+
+// Access continuous behavior state
+const agent = engine.getAgent('maya');
+console.log(agent.behavior);
+// {
+//   vector: [0.35, 0.55, 0.15, 0.42],  // [activity, sociality, focus, expressiveness]
+//   label: '在食堂',
+//   speed: 0.12,                          // how fast behavior is changing
+//   gradient: [-0.08, 0.15, -0.03, 0.1]  // where behavior is heading
+// }
 ```
 
 ---
@@ -178,10 +248,10 @@ const reply = await maya.chat("I'm so tired today");
 
 **Features:**
 - Auto time management (no manual `tick()` needed)
-- Rich system prompt built from character state (emotion, needs, memory, relationships)
+- Rich system prompt built from character state (emotion, needs, memory, relationships, behavior trends)
 - Conversation history with sliding window
 - Save/restore character state
-- Supports OpenAI, Anthropic, and custom LLM functions
+- Supports OpenAI, Anthropic, Ollama, and custom LLM functions
 - Multi-character mode with `Andy` class
 
 See `examples/` for working demos.
@@ -220,6 +290,7 @@ See `experiments/` for the full experiment suite:
 - **practical_eval/** — A/B comparison, personality consistency, state awareness, memory, emergent behavior
 - **llm_ab_test/** — 100-turn long conversation evaluation across 5 dimensions
 - **spatial_eval/** — Spatial engine quality and scalability
+- **behavior_field_personality.js** — 4 personality types behavior field comparison
 - **output_round5/** — Round 5 iteration results
 
 ---
@@ -272,11 +343,35 @@ Andy 是一个心理学驱动的多智能体社会模拟引擎。每个角色拥
 
 | 能力 | 它意味着什么 |
 |---|---|
+| **连续行为场** | 角色在 4D 行为空间中平滑移动，不跳变 |
 | **长期记忆** | AI 会记住你，也会遗忘 |
 | **人格稳定** | 聊 100 轮也不会性格突变 |
 | **情绪动态** | 情绪会变化、会衰减、会传染 |
 | **社交网络** | AI 之间自动建立关系 |
 | **多角色社会** | 多个 AI 共同生活、互相影响 |
+
+---
+
+## 连续行为场
+
+Andy 的角色不在 42 个离散状态之间跳变——它们在 4 维连续行为空间中平滑移动：
+
+```
+B = (活跃度, 社交性, 专注度, 表达欲) ∈ [0,1]⁴
+```
+
+**工作原理：**
+
+1. 5 个梯度源（需求、情绪、日程、自发动机、习惯）在行为空间中创建势能面
+2. 欠阻尼朗之万动力学驱动行为演化——行为有"质量"（动量），饿了的人可能会先把天聊完再去吃饭
+3. 人格调制动力学参数：高神经质 → 高摩擦（行为难以改变），高外向性 → 高噪声（行为更随机）
+4. 语义标签从连续空间投影（50 个状态中心点的最近邻匹配）
+5. 时间感知惩罚：凌晨 3 点"在上课"会获得额外距离惩罚
+
+**实际效果：**
+- LLM prompt 更丰富："在图书馆，但专注度只有 0.3，社交性在上升——她可能几分钟后会离开"
+- 行为过渡平滑，不跳变
+- 人格差异从物理层面涌现，不需要硬编码权重表
 
 ---
 
@@ -300,6 +395,8 @@ Andy 是一个心理学驱动的多智能体社会模拟引擎。每个角色拥
 | 人格一致性 | 50 轮对话后 OCEAN 方差 = 0 |
 | 记忆保留 | 7 天后高重要事件 100% 保留 |
 | 情绪传染 | 高互动角色对 r=0.818 |
+| 行为场人格差异 | INFP vs ESTP B 距离 = 0.239 |
+| 行为场饥饿收敛 | 25 tick 从图书馆到食堂 |
 | 性能 (JS) | 20 个角色 × 10 天模拟 = 25.6 秒 |
 | 性能 (Rust SoA f32) | 50K agents × 20 ticks = 24.9ms/tick（5.92x 加速） |
 
@@ -332,6 +429,16 @@ engine.tick();
 const context = engine.getNarrative('maya', {
   userText: '我今天很累',
 });
+
+// 获取连续行为状态
+const agent = engine.getAgent('maya');
+console.log(agent.behavior);
+// {
+//   vector: [0.35, 0.55, 0.15, 0.42],  // [活跃度, 社交性, 专注度, 表达欲]
+//   label: '在食堂',
+//   speed: 0.12,                          // 行为变化速度
+//   gradient: [-0.08, 0.15, -0.03, 0.1]  // 行为移动方向
+// }
 ```
 
 ---
@@ -357,10 +464,10 @@ const reply = await maya.chat("我今天好累");
 
 **特性：**
 - 自动时间管理（不需要手动调用 `tick()`）
-- 从角色状态自动构建丰富的 system prompt（情绪、需求、记忆、社交关系）
+- 从角色状态自动构建丰富的 system prompt（情绪、需求、记忆、社交关系、行为趋势）
 - 对话历史滑动窗口管理
 - 保存/恢复角色状态
-- 支持 OpenAI、Claude、自定义 LLM 函数
+- 支持 OpenAI、Claude、Ollama、自定义 LLM 函数
 - 多角色模式（`Andy` 类）
 
 详见 `examples/` 目录。
