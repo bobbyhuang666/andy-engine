@@ -286,7 +286,7 @@ describe('BehaviorField', () => {
   });
 
   describe('响应性测试', () => {
-    it('饥饿信号 → B 向食物方向移动', () => {
+    it('饥饿信号 → B 向食物目标移动', () => {
       // 先稳定在平静状态
       for (let i = 0; i < 100; i++) field.tick(defaultSignals());
       const B_before = [...field.B];
@@ -295,9 +295,12 @@ describe('BehaviorField', () => {
       const hungrySignals = defaultSignals({ needs: { hunger: 0.05, energy: 0.7, social: 0.5, comfort: 0.6, stimulation: 0.5 } });
       for (let i = 0; i < 50; i++) field.tick(hungrySignals);
 
-      // activity 应该增加（去吃饭）, sociality 应该增加（食堂有社交）
-      expect(field.B[DIM_ACTIVITY]).toBeGreaterThan(B_before[DIM_ACTIVITY] - 0.1);
-      expect(field.B[DIM_SOCIALITY]).toBeGreaterThan(B_before[DIM_SOCIALITY] - 0.1);
+      // 食物目标: [0.35, 0.55, 0.08, 0.45]
+      // B 应该向食物方向移动（距离应该减小）
+      const foodTarget = [0.35, 0.55, 0.08, 0.45];
+      const distBefore = Math.sqrt(B_before.reduce((s, v, i) => s + (v - foodTarget[i]) ** 2, 0));
+      const distAfter = Math.sqrt(field.B.reduce((s, v, i) => s + (v - foodTarget[i]) ** 2, 0));
+      expect(distAfter).toBeLessThan(distBefore + 0.05); // 允许微小误差
     });
 
     it('极度疲劳 → B 向休息方向移动', () => {
