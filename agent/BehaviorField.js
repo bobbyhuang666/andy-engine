@@ -117,12 +117,12 @@ class BehaviorField {
     // 范围放大：extraversion 0→σ×0.3, extraversion 1→σ×1.7（5.7倍差异）
     this.sigma = this.cfg.sigma * (0.3 + ocean.extraversion * 1.4);
 
-    // 人格对驱力权重的调制（放大差异）
+    // 人格对驱力权重的调制（放大差异，让不同人格的行为轨迹可区分）
     this._weightModifiers = {
       needs:      0.8 + ocean.neuroticism * 0.6,           // N=0→0.8, N=1→1.4
-      emotion:    0.4 + ocean.openness * 1.2,              // O=0→0.4, O=1→1.6（4倍差异）
-      schedule:   0.3 + ocean.conscientiousness * 1.4,     // C=0→0.3, C=1→1.7（5.7倍差异）
-      intrinsic:  0.2 + ocean.openness * 1.6,              // O=0→0.2, O=1→1.8（9倍差异）
+      emotion:    0.3 + ocean.openness * 0.8 + ocean.extraversion * 0.9, // 外向者对情绪梯度响应3×更强
+      schedule:   0.3 + ocean.conscientiousness * 1.4,     // C=0→0.3, C=1→1.7（5.7×差异）
+      intrinsic:  0.2 + ocean.openness * 1.6,              // O=0→0.2, O=1→1.8（9×差异）
       habit:      0.3 + ocean.conscientiousness * 0.8,     // C=0→0.3, C=1→1.1
     };
 
