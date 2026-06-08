@@ -181,12 +181,23 @@ class BehaviorLabeler {
       return { primary: '在发呆', secondary: null, confidence: 0.5 };
     }
 
-    // 计算到每个状态中心的距离
+    const hour = options.hour;
+
+    // 计算到每个状态中心的距离（可选：时间惩罚）
     const distances = [];
     for (let i = 0; i < STATE_VECTORS.length; i++) {
+      let d = dist(B, STATE_VECTORS[i]);
+
+      // 时间惩罚：不合理的状态在距离上加罚
+      // 例如凌晨3点不应该投影到"在上课"
+      if (hour !== undefined) {
+        const penalty = _getTimeLabelPenalty(STATE_NAMES[i], hour);
+        d += penalty;
+      }
+
       distances.push({
         name: STATE_NAMES[i],
-        dist: dist(B, STATE_VECTORS[i]),
+        dist: d,
       });
     }
 
@@ -288,6 +299,39 @@ function _isSocialState(state) {
 
 function _isActiveState(state) {
   return ['在上课', '在工作', '在开会', '在打工', '在运动'].includes(state);
+}
+
+/**
+ * 标签时间合理性惩罚
+ * 不合理的状态在投影距离上加罚（0 = 无惩罚，0.3 = 强惩罚）
+ *
+ * 设计：不是硬约束，而是软偏好。凌晨3点"在上课"的距离加 0.3，
+ * 如果 B 确实非常接近"在上课"中心（距离 < 0.1），总距离 0.4
+ * 仍然可能大于"还没睡呢"的距离 0.3 → 合理标签胜出。
+ */
+const LABEL_TIME_PENALTIES = {
+  // 深夜不应该出现的标签
+  '在上课': { hours: [8,9,10,11,12,13,14,15,16], penalty: 0.3 },
+  '在工作': { hours: [8,9,10,11,12,13,14,15,16,17,18], penalty: 0.25 },
+  '在开会': { hours: [9,10,11,13,14,15,16,17], penalty: 0.25 },
+  '在打工': { hours: [10,11,12,13,14,15,16,17,18,19,20,21], penalty: 0.2 },
+  '在自习': { hours: [8,9,10,11,12,13,14,15,16,17,18,19,20], penalty: 0.15 },
+  '在图书馆': { hours: [8,9,10,11,12,13,14,15,16,17,18,19,20], penalty: 0.1 },
+  '下课了': { hours: [9,10,11,12,13,14,15,16,17], penalty: 0.15 },
+  '在食堂': { hours: [7,8,11,12,13,17,18,19], penalty: 0.1 },
+  '刚出门': { hours: [7,8,9], penalty: 0.2 },
+  '在洗漱': { hours: [6,7,8,9], penalty: 0.2 },
+  // 深夜专属
+  '还没睡呢': { hours: [22,23,0,1,2,3], penalty: 0.15 },
+  '熬夜了': { hours: [0,1,2,3,4,5], penalty: 0.2 },
+  '困了但睡不着': { hours: [23,0,1,2,3], penalty: 0.15 },
+};
+
+function _getTimeLabelPenalty(state, hour) {
+  const rule = LABEL_TIME_PENALTIES[state];
+  if (!rule) return 0; // 无规则 → 无惩罚
+  if (rule.hours.includes(hour)) return 0; // 合理时间 → 无惩罚
+  return rule.penalty;
 }
 
 module.exports = {

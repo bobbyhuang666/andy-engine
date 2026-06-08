@@ -40,7 +40,7 @@ const DEFAULTS = {
   // 摩擦系数 γ：控制行为惯性
   // 高 γ → 球快速停下来（行为惯性小，容易改变方向）
   // 低 γ → 球保持动量（行为惯性大，"忍着饿继续聊天"）
-  gamma: 4.0,
+  gamma: 2.5,
 
   // 噪声幅度 σ：控制行为随机性
   sigma: 0.15,
@@ -58,7 +58,7 @@ const DEFAULTS = {
   // 设计原则：各梯度源的典型输出量级应在同一数量级（~0.3-0.8），
   // 使任何单一来源都不至于完全压倒其他来源
   weights: {
-    needs: 2.5,       // 紧急需求权重最高（urgency sigmoid 输出 ~0.7, × 0.3距离 = ~0.5）
+    needs: 3.0,       // 紧急需求权重最高（确保饥饿时能压过其他梯度源）
     emotion: 2.0,     // 情绪驱力（maxDrive ~0.3, × 0.25偏移 = ~0.15，需要更高权重补偿）
     schedule: 1.8,    // 日程（距离 ~0.5, 直接乘权重，输出 ~0.9 — 最强驱力）
     intrinsic: 1.5,   // 好奇心（curiosity-0.3 ~0.3, × 0.3 = ~0.09，需要更高权重补偿）
@@ -73,8 +73,8 @@ const DEFAULTS = {
 
 /** 需求满足的最优行为位置 */
 const NEED_TARGETS = {
-  hunger:      [0.35, 0.45, 0.20, 0.40],  // 吃饭：中活跃, 中社交, 低专注
-  energy:      [0.08, 0.04, 0.05, 0.03],  // 休息：全面降低
+  hunger:      [0.35, 0.45, 0.08, 0.40],  // 吃饭：中活跃, 中社交, 极低专注(放下手头的事), 中表达
+  energy:      [0.08, 0.04, 0.02, 0.03],  // 休息：全面降低
   social:      [0.35, 0.85, 0.25, 0.80],  // 社交：高社交, 高表达
   comfort:     [0.15, 0.15, 0.20, 0.12],  // 舒适：低活跃, 安静
   stimulation: [0.45, 0.35, 0.40, 0.40],  // 刺激：中活跃, 寻求兴趣
@@ -208,8 +208,15 @@ class BehaviorField {
     const w = this.cfg.weights;
 
     // ── 1. 需求梯度 ──
+    // 紧急需求放大：当任何需求极度匮乏（<0.1）时，需求权重翻倍
+    // 这确保"快饿死了"能压过日程/时间/习惯等其他梯度源
     if (signals.needs) {
-      this._addNeedsGradient(grad, signals.needs, w.needs * this._weightModifiers.needs);
+      let needsWeight = w.needs * this._weightModifiers.needs;
+      const minNeed = Math.min(...Object.values(signals.needs));
+      if (minNeed < 0.1) {
+        needsWeight *= 1 + (0.1 - minNeed) * 10; // hunger=0 → 2×, hunger=0.05 → 1.5×
+      }
+      this._addNeedsGradient(grad, signals.needs, needsWeight);
     }
 
     // ── 2. 情绪梯度 ──
@@ -238,16 +245,23 @@ class BehaviorField {
     // ── 7. 边界软势能 ──
     this._addBoundaryGradient(grad);
 
-    // ── 8. 梯度裁剪 ──
-    // 防止多个梯度源叠加后过大，导致 velocity 爆炸和收敛过慢
-    // maxGradNorm = 0.8 意味着每 tick 最大位移约 0.8 * dt = 0.08（~3 tick 到达目标）
-    const maxGradNorm = 0.8;
-    let gradNorm = 0;
-    for (let d = 0; d < DIMS; d++) gradNorm += grad[d] * grad[d];
-    gradNorm = Math.sqrt(gradNorm);
-    if (gradNorm > maxGradNorm) {
-      const scale = maxGradNorm / gradNorm;
-      for (let d = 0; d < DIMS; d++) grad[d] *= scale;
+    // ── 8. 各向异性梯度裁剪 ──
+    // 不同维度允许不同的最大变化速率：
+    //   focus (1.2): 注意力可以快速转移（放下书本只需一念）
+    //   sociality (0.7): 社交状态变化中等（需要走到食堂）
+    //   expressiveness (0.7): 表达方式变化中等
+    //   activity (0.5): 身体活动变化最慢（需要实际移动）
+    const dimLimits = [0.8, 0.7, 1.2, 0.7]; // [activity, sociality, focus, expressiveness]
+    // 找到最小的缩放因子（保持方向，但按最紧的维度约束）
+    let minScale = 1.0;
+    for (let d = 0; d < DIMS; d++) {
+      const absGrad = Math.abs(grad[d]);
+      if (absGrad > dimLimits[d]) {
+        minScale = Math.min(minScale, dimLimits[d] / absGrad);
+      }
+    }
+    if (minScale < 1.0) {
+      for (let d = 0; d < DIMS; d++) grad[d] *= minScale;
     }
 
     return grad;
@@ -263,8 +277,8 @@ class BehaviorField {
       if (value === undefined) continue;
 
       // 需求越匮乏，拉力越强（sigmoid 映射）
-      // value=0 → urgency≈1, value=0.5 → urgency≈0.3, value=1 → urgency≈0
-      const urgency = 1 / (1 + Math.exp(5 * (value - 0.3)));
+      // 更陡的 sigmoid (k=8)：极端饥饿(value≈0)时 urgency≈0.97
+      const urgency = 1 / (1 + Math.exp(8 * (value - 0.25)));
 
       if (urgency < 0.05) continue;
 
@@ -367,8 +381,8 @@ class BehaviorField {
     const target = _getTimeTarget(hour);
     if (!target) return;
 
-    // 时间引力较弱（软约束，不是硬覆盖）
-    const timeWeight = 0.8;
+    // 时间引力（软约束，不应压过紧急需求）
+    const timeWeight = 0.4;
     for (let d = 0; d < DIMS; d++) {
       grad[d] += timeWeight * (this.B[d] - target[d]);
     }
@@ -549,9 +563,11 @@ const TIME_SCHEDULE = [
   { hour: 6,  target: 'sleep' },
   { hour: 7,  target: 'morning' },
   { hour: 9,  target: 'active' },
-  { hour: 12, target: 'midday' },
-  { hour: 14, target: 'active' },
+  { hour: 12, target: 'midday' },    // 12-13:30 午饭窗口
+  { hour: 13.5, target: 'active' },  // 13:30 回到学习/工作
   { hour: 17, target: 'evening' },
+  { hour: 18, target: 'midday' },    // 18-19:30 晚饭窗口
+  { hour: 19.5, target: 'evening' },
   { hour: 21, target: 'lateNight' },
   { hour: 23, target: 'sleep' },
   { hour: 24, target: 'sleep' },
