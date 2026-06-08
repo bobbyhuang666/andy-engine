@@ -73,6 +73,31 @@ describe('Character 基础功能', () => {
     expect(restored.name).toBe('Maya');
     expect(restored._conversation.length).toBe(4);
   });
+
+  it('save/load 保留 Agent 内在状态（情绪/记忆/关系）', async () => {
+    // 推进几轮让 Agent 积累内在状态
+    await character.chat('我今天好累');
+    await character.chat('工作压力好大');
+
+    // 记录恢复前的内在状态
+    const agentBefore = character._engine.getAgent(character.id);
+    const emotionBefore = agentBefore.emotion.getValence();
+    const memoryCountBefore = agentBefore.memory.memories.length;
+    const stressBefore = agentBefore.emotion.stress;
+    const positionBefore = agentBefore.position;
+
+    // save → load
+    const state = character.save();
+    const restored = Character.load(state, mockLLM);
+
+    // 验证内在状态完整保留
+    const agentAfter = restored._engine.getAgent(restored.id);
+    expect(agentAfter).toBeDefined();
+    expect(agentAfter.emotion.getValence()).toBe(emotionBefore);
+    expect(agentAfter.emotion.stress).toBe(stressBefore);
+    expect(agentAfter.memory.memories.length).toBe(memoryCountBefore);
+    expect(agentAfter.position).toBe(positionBefore);
+  });
 });
 
 describe('create() 快速创建', () => {
@@ -122,9 +147,8 @@ describe('LLMAdapter', () => {
     expect(typeof reply).toBe('string');
   });
 
-  it('无效 provider 抛错', async () => {
-    const adapter = new LLMAdapter({ provider: 'invalid' });
-    await expect(adapter.chat([{ role: 'user', content: 'test' }])).rejects.toThrow();
+  it('无效 provider 抛错', () => {
+    expect(() => new LLMAdapter({ provider: 'invalid' })).toThrow('不支持的 provider');
   });
 });
 
@@ -226,6 +250,30 @@ describe('Andy 多角色引擎', () => {
     const restored = Andy.load(state);
     expect(restored.getCharacter('maya')).toBeDefined();
     expect(restored.getCharacter('bob')).toBeDefined();
+  });
+
+  it('save/load 保留所有 Agent 内在状态', async () => {
+    const world = new Andy({ llm: mockLLM });
+    world.addCharacter({ name: 'Maya', personality: 'INFP', id: 'maya' });
+    world.addCharacter({ name: 'Bob', personality: 'ENTP', id: 'bob' });
+    await world.chat('maya', '你好');
+
+    // 记录恢复前状态
+    const mayaAgentBefore = world._engine.getAgent('maya');
+    const bobAgentBefore = world._engine.getAgent('bob');
+    const mayaEmotion = mayaAgentBefore.emotion.getValence();
+    const bobMemoryCount = bobAgentBefore.memory.memories.length;
+
+    const state = world.save();
+    const restored = Andy.load(state);
+
+    // 验证内在状态完整保留
+    const mayaAgentAfter = restored._engine.getAgent('maya');
+    const bobAgentAfter = restored._engine.getAgent('bob');
+    expect(mayaAgentAfter).toBeDefined();
+    expect(bobAgentAfter).toBeDefined();
+    expect(mayaAgentAfter.emotion.getValence()).toBe(mayaEmotion);
+    expect(bobAgentAfter.memory.memories.length).toBe(bobMemoryCount);
   });
 });
 
@@ -351,7 +399,7 @@ describe('Character 边界情况', () => {
 describe('Andy 多角色边界情况', () => {
   it('不存在的角色抛错', async () => {
     const world = new Andy({ llm: async () => 'ok' });
-    await expect(world.chat('不存在', '你好')).rejects.toThrow('Character not found');
+    await expect(world.chat('不存在', '你好')).rejects.toThrow('不存在');
   });
 
   it('添加角色后 tick 正常', () => {
@@ -362,5 +410,140 @@ describe('Andy 多角色边界情况', () => {
     const result = world.tick();
     expect(result.tickNumber).toBeGreaterThan(0);
     expect(world.getStats().agentCount).toBe(10);
+  });
+});
+
+describe('优化验证', () => {
+  it('_recordConversation 保留完整中文对话内容', async () => {
+    const character = new Character({
+      name: 'Maya',
+      personality: 'INFP',
+      backstory: ['图书馆管理员'],
+      llm: async () => '好的，我知道了。',
+    });
+
+    // 一段超过 50 字符的中文对话
+    const longMsg = '今天被裁员了，心里特别难受，不知道接下来该怎么办，感觉整个世界都塌了';
+    await character.chat(longMsg);
+
+    // 检查记忆中保存的内容没有被截断
+    const agent = character._engine.getAgent(character.id);
+    const memories = agent.memory.memories;
+    const socialMemory = memories.find(m =>
+      m.content && m.content.includes('对方说') && m.content.includes('裁员')
+    );
+    expect(socialMemory).toBeDefined();
+    // 旧的 50 字截断会丢失"感觉整个世界都塌了"，修复后应保留
+    expect(socialMemory.content).toContain('感觉整个世界都塌了');
+  });
+
+  it('ConversationLog._trim token 裁剪保持配对', () => {
+    const log = new ConversationLog({ maxMessages: 100, maxTokens: 50 });
+
+    // 添加多轮长对话（每条约 100 字 ≈ 200 token）
+    for (let i = 0; i < 10; i++) {
+      log.addUserMessage('这是一个很长的测试消息，用来模拟真实的对话场景，确保token裁剪逻辑正常工作' + i);
+      log.addAssistantMessage('好的，我收到了你的消息，让我来回复你一些内容，确保对话历史管理正确' + i);
+    }
+
+    // 消息数应被裁剪到 4（token 限制很紧）
+    expect(log.length).toBeLessThanOrEqual(6);
+    // 必须是偶数（保持 user/assistant 配对）
+    expect(log.length % 2).toBe(0);
+    // 第一条应该是 user 消息
+    expect(log.messages[0].role).toBe('user');
+    // 最后一条应该是 assistant 消息
+    expect(log.messages[log.length - 1].role).toBe('assistant');
+  });
+});
+
+describe('SDK 硬化验证', () => {
+  describe('LLMAdapter 输入校验', () => {
+    it('无效 provider 构造时抛错', () => {
+      expect(() => new LLMAdapter({ provider: 'invalid' })).toThrow('不支持的 provider');
+    });
+
+    it('ollama provider 默认配置正确', () => {
+      const adapter = new LLMAdapter({ provider: 'ollama' });
+      expect(adapter.provider).toBe('ollama');
+      expect(adapter.model).toBe('qwen2.5:7b');
+      expect(adapter.baseUrl).toBe('http://localhost:11434/v1');
+    });
+
+    it('ollama 自定义 model', () => {
+      const adapter = new LLMAdapter({ provider: 'ollama', model: 'llama3:8b' });
+      expect(adapter.model).toBe('llama3:8b');
+    });
+
+    it('openai 缺少 apiKey 不在构造时报错', () => {
+      // 构造成功（apiKey 延迟检查）
+      const adapter = new LLMAdapter({ provider: 'openai' });
+      expect(adapter.provider).toBe('openai');
+    });
+
+    it('openai 缺少 apiKey 在 chat() 时报错', async () => {
+      // 显式传空 apiKey，避免从环境变量读取到真实 key
+      const adapter = new LLMAdapter({ provider: 'openai', apiKey: '' });
+      await expect(adapter.chat([{ role: 'user', content: 'hi' }]))
+        .rejects.toThrow('需要 apiKey');
+    });
+
+    it('chat() 空 messages 抛错', async () => {
+      const adapter = new LLMAdapter(async () => 'ok');
+      await expect(adapter.chat([])).rejects.toThrow('非空数组');
+    });
+
+    it('函数模式构造成功', () => {
+      const adapter = new LLMAdapter(async () => 'ok');
+      expect(adapter.provider).toBe('custom');
+    });
+  });
+
+  describe('Character 输入校验', () => {
+    it('无参数构造有默认值', () => {
+      // 不抛错，有默认值
+      const c = new Character({ name: 'Test', llm: async () => 'ok' });
+      expect(c.name).toBe('Test');
+    });
+
+    it('空消息返回省略号', async () => {
+      const c = new Character({ name: 'T', llm: async () => 'ok' });
+      const reply = await c.chat('');
+      expect(reply).toBe('...');
+    });
+
+    it('空白消息返回省略号', async () => {
+      const c = new Character({ name: 'T', llm: async () => 'ok' });
+      const reply = await c.chat('   ');
+      expect(reply).toBe('...');
+    });
+
+    it('save/load 无效 state 抛错', () => {
+      expect(() => Character.load(null)).toThrow('state 必须是');
+      expect(() => Character.load({})).toThrow('缺少 engineState');
+    });
+  });
+
+  describe('Andy 输入校验', () => {
+    it('addCharacter 缺少 name 抛错', () => {
+      const world = new Andy({ llm: async () => 'ok' });
+      expect(() => world.addCharacter({})).toThrow('name 是必需的');
+    });
+
+    it('chat 缺少 characterId 抛错', async () => {
+      const world = new Andy({ llm: async () => 'ok' });
+      await expect(world.chat('', 'hi')).rejects.toThrow('characterId 是必需的');
+    });
+
+    it('chat 不存在的角色显示可用列表', async () => {
+      const world = new Andy({ llm: async () => 'ok' });
+      world.addCharacter({ name: 'Maya', id: 'maya', llm: async () => 'ok' });
+      await expect(world.chat('bob', 'hi')).rejects.toThrow('可用角色: maya');
+    });
+
+    it('load 无效 state 抛错', () => {
+      expect(() => Andy.load(null)).toThrow('state 必须是');
+      expect(() => Andy.load({})).toThrow('缺少 engineState');
+    });
   });
 });

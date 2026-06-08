@@ -548,15 +548,22 @@ class EventDispatcher {
     const now = this._simTime ? this._simTime.getTime() : Date.now();
     const cutoff = now - cfg.eventLifespan * 60 * 1000;
 
-    while (this.eventLog.length > 0 && this.eventLog[0].time.getTime() < cutoff) {
-      const removed = this.eventLog.shift();
-      this.eventIndex.delete(removed.id);
+    // 找到第一个未过期的事件索引（eventLog 按时间有序）
+    let cutoffIdx = 0;
+    while (cutoffIdx < this.eventLog.length && this.eventLog[cutoffIdx].time.getTime() < cutoff) {
+      cutoffIdx++;
     }
 
-    // 硬上限
-    while (this.eventLog.length > cfg.maxEventLogSize) {
-      const removed = this.eventLog.shift();
-      this.eventIndex.delete(removed.id);
+    // 硬上限：保留最新的 maxEventLogSize 条
+    const maxKeep = cfg.maxEventLogSize;
+    const removeCount = Math.max(cutoffIdx, this.eventLog.length - maxKeep);
+
+    if (removeCount > 0) {
+      // 用 splice 一次性移除（O(n) 而非 O(n²)）
+      const removed = this.eventLog.splice(0, removeCount);
+      for (const evt of removed) {
+        this.eventIndex.delete(evt.id);
+      }
     }
   }
 

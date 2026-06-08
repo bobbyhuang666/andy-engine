@@ -5,9 +5,12 @@
  *   - 自定义函数：async (messages) => string
  *   - OpenAI API / OpenAI 兼容
  *   - Anthropic API
+ *   - Ollama（本地，零成本）
  *   - 流式输出（chatStream）
  *   - 自动重试（指数退避）
  */
+
+const SUPPORTED_PROVIDERS = ['openai', 'openai-compatible', 'anthropic', 'ollama', 'custom'];
 
 class LLMAdapter {
   constructor(config = {}) {
@@ -17,13 +20,32 @@ class LLMAdapter {
       this.maxRetries = 2;
     } else {
       this.provider = config.provider || 'openai';
-      this.apiKey = config.apiKey || process.env.OPENAI_API_KEY || process.env.ANTHROPIC_API_KEY || '';
+
+      if (!SUPPORTED_PROVIDERS.includes(this.provider)) {
+        throw new Error(
+          `LLMAdapter: 不支持的 provider "${this.provider}"。可选: ${SUPPORTED_PROVIDERS.join(', ')}`
+        );
+      }
+
+      // Ollama 默认走本地，不需要 apiKey
+      if (this.provider === 'ollama') {
+        this.apiKey = config.apiKey ?? 'ollama';
+        this.baseUrl = config.baseUrl || 'http://localhost:11434/v1';
+      } else {
+        // 用 ?? 而非 ||：apiKey: '' 应该保留空字符串（用户显式清空），不应回退到环境变量
+        this.apiKey = config.apiKey ?? process.env.OPENAI_API_KEY ?? process.env.ANTHROPIC_API_KEY ?? '';
+      }
+
       this.model = config.model || LLMAdapter._defaultModel(this.provider);
-      this.baseUrl = config.baseUrl || LLMAdapter._defaultBaseUrl(this.provider);
+      if (this.provider !== 'ollama') {
+        this.baseUrl = config.baseUrl || LLMAdapter._defaultBaseUrl(this.provider);
+      }
       this.maxTokens = config.maxTokens || 1024;
       this.temperature = config.temperature ?? 0.8;
       this.maxRetries = config.maxRetries ?? 2;
       this._customFn = config.llm || null;
+
+      // apiKey 检查延迟到 chat()/chatStream() 时（构造时可能只是用于 tick，不需要 LLM）
     }
   }
 
@@ -33,6 +55,11 @@ class LLMAdapter {
    * @returns {Promise<string>}
    */
   async chat(messages) {
+    if (!Array.isArray(messages) || messages.length === 0) {
+      throw new Error('LLMAdapter.chat(): messages 必须是非空数组');
+    }
+    this._ensureApiKey();
+
     let lastError = null;
     for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
       try {
@@ -40,6 +67,7 @@ class LLMAdapter {
         switch (this.provider) {
           case 'openai':
           case 'openai-compatible':
+          case 'ollama':
             return await this._callOpenAI(messages, false);
           case 'anthropic':
             return await this._callAnthropic(messages, false);
@@ -66,16 +94,31 @@ class LLMAdapter {
    *   }
    */
   async *chatStream(messages) {
+    if (!Array.isArray(messages) || messages.length === 0) {
+      throw new Error('LLMAdapter.chatStream(): messages 必须是非空数组');
+    }
+    this._ensureApiKey();
+
     if (this._customFn) {
-      // 自定义函数不支持流式，回退到完整调用
-      const result = await this._customFn(messages);
-      yield result;
-      return;
+      // 自定义函数不支持流式，回退到完整调用（含重试）
+      let lastError = null;
+      for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+        try {
+          const result = await this._customFn(messages);
+          yield result;
+          return;
+        } catch (e) {
+          lastError = e;
+          if (attempt < this.maxRetries) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+        }
+      }
+      throw lastError;
     }
 
     switch (this.provider) {
       case 'openai':
       case 'openai-compatible':
+      case 'ollama':
         yield* this._streamOpenAI(messages);
         break;
       case 'anthropic':
@@ -87,7 +130,7 @@ class LLMAdapter {
   }
 
   // ═══════════════════════════════════════════
-  // OpenAI
+  // OpenAI（Ollama 也走这条路）
   // ═══════════════════════════════════════════
 
   async _callOpenAI(messages, stream = false) {
@@ -109,7 +152,10 @@ class LLMAdapter {
 
     if (!response.ok) {
       const err = await response.text().catch(() => '');
-      throw new Error(`OpenAI API error ${response.status}: ${err}`);
+      const providerHint = this.provider === 'ollama'
+        ? '\n提示：确保 Ollama 正在运行（ollama serve）且模型已拉取（ollama pull ' + this.model + '）'
+        : '';
+      throw new Error(`${this.provider} API error ${response.status}: ${err}${providerHint}`);
     }
 
     if (stream) return response;
@@ -212,15 +258,40 @@ class LLMAdapter {
   }
 
   // ═══════════════════════════════════════════
+  // 内部校验
+  // ═══════════════════════════════════════════
+
+  /** @private */
+  _ensureApiKey() {
+    if (!this._customFn && this.provider !== 'ollama' && !this.apiKey) {
+      throw new Error(
+        `LLMAdapter: provider "${this.provider}" 需要 apiKey。` +
+        `传入 config.apiKey 或设置环境变量 OPENAI_API_KEY / ANTHROPIC_API_KEY。` +
+        `如果想本地运行，用 { provider: "ollama" }。`
+      );
+    }
+  }
+
+  // ═══════════════════════════════════════════
   // 默认值
   // ═══════════════════════════════════════════
 
   static _defaultModel(provider) {
-    return { 'openai': 'gpt-4o', 'openai-compatible': 'gpt-4o', 'anthropic': 'claude-sonnet-4-20250514' }[provider] || 'gpt-4o';
+    return {
+      'openai': 'gpt-4o',
+      'openai-compatible': 'gpt-4o',
+      'anthropic': 'claude-sonnet-4-20250514',
+      'ollama': 'qwen2.5:7b',
+    }[provider] || 'gpt-4o';
   }
 
   static _defaultBaseUrl(provider) {
-    return { 'openai': 'https://api.openai.com/v1', 'openai-compatible': 'https://api.openai.com/v1', 'anthropic': 'https://api.anthropic.com/v1' }[provider] || '';
+    return {
+      'openai': 'https://api.openai.com/v1',
+      'openai-compatible': 'https://api.openai.com/v1',
+      'anthropic': 'https://api.anthropic.com/v1',
+      'ollama': 'http://localhost:11434/v1',
+    }[provider] || '';
   }
 }
 

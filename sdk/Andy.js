@@ -33,6 +33,10 @@ class Andy {
    * @param {string} [config.weather] - 初始天气
    */
   constructor(config = {}) {
+    if (typeof config !== 'object' || config === null) {
+      throw new Error('Andy: config 必须是一个对象');
+    }
+
     this._engine = new AndyEngine({
       startTime: config.startTime || new Date(),
       weather: config.weather || 'sunny',
@@ -48,6 +52,13 @@ class Andy {
    * @returns {Character}
    */
   addCharacter(config) {
+    if (!config || typeof config !== 'object') {
+      throw new Error('Andy.addCharacter(): config 必须是对象');
+    }
+    if (!config.name) {
+      throw new Error('Andy.addCharacter(): config.name 是必需的');
+    }
+
     const id = config.id || `char_${this._characters.size}`;
     const character = new Character({
       ...config,
@@ -77,8 +88,12 @@ class Andy {
    * @returns {Promise<string>}
    */
   async chat(characterId, message, options = {}) {
+    if (!characterId) throw new Error('Andy.chat(): characterId 是必需的');
     const character = this._characters.get(characterId);
-    if (!character) throw new Error(`Character not found: ${characterId}`);
+    if (!character) {
+      const available = [...this._characters.keys()].join(', ') || '(无)';
+      throw new Error(`Andy.chat(): 角色 "${characterId}" 不存在。可用角色: ${available}`);
+    }
     return character.chat(message, options);
   }
 
@@ -150,10 +165,20 @@ class Andy {
    * @returns {Andy}
    */
   static load(state) {
-    const world = new Andy({ llm: state.defaultLLM });
-    // 恢复引擎状态
+    if (!state || typeof state !== 'object') {
+      throw new Error('Andy.load(): state 必须是 save() 返回的对象');
+    }
+    if (!state.engineState) {
+      throw new Error('Andy.load(): state 缺少 engineState');
+    }
+
+    // 手动组装，不走构造函数（避免创建临时引擎再丢弃）
+    const world = Object.create(Andy.prototype);
     world._engine = AndyEngine.fromJSON(state.engineState);
-    // 恢复角色
+    world._characters = new Map();
+    world._defaultLLM = state.defaultLLM || {};
+
+    // 恢复每个角色（Character.load 不走构造函数，保留 Agent 内在状态）
     for (const [id, charState] of Object.entries(state.characters)) {
       const character = Character.load(charState, state.defaultLLM);
       world._characters.set(id, character);

@@ -61,6 +61,29 @@ const NEED_DRIVE_STATES = {
   stimulation: ['在看手机', '在看剧', '在操场', '在咖啡店', '在看书'],
 };
 
+// ─── 需求匮乏 → 4D 连续梯度目标 ───
+// [activity, sociality, focus, expressiveness]
+// 饥饿时应该去吃饭：中活跃、中社交、低专注
+// 疲劳时应该休息：全面降低
+const NEED_GRADIENT_TARGETS = {
+  hunger:      [0.35, 0.45, 0.20, 0.40],
+  energy:      [0.08, 0.04, 0.05, 0.03],
+  social:      [0.35, 0.85, 0.25, 0.80],
+  comfort:     [0.15, 0.15, 0.20, 0.12],
+  stimulation: [0.45, 0.35, 0.40, 0.40],
+};
+
+// ─── 需求满足 → 4D 连续满足中心 ───
+// 行为向量越接近这些中心点，对应需求恢复越快
+// 与 NEED_SATISFACTION（离散状态列表）的连续替代
+const NEED_SATISFACTION_CENTERS = {
+  hunger:      [0.35, 0.50, 0.20, 0.45],   // 吃饭场景
+  energy:      [0.06, 0.03, 0.05, 0.03],   // 休息/睡觉场景
+  social:      [0.40, 0.90, 0.30, 0.85],   // 社交场景
+  comfort:     [0.15, 0.15, 0.25, 0.15],   // 舒适/居家场景
+  stimulation: [0.50, 0.40, 0.50, 0.50],   // 刺激/娱乐场景
+};
+
 class NeedsSystem {
   /**
    * @param {Object} personality - Personality 实例
@@ -161,6 +184,35 @@ class NeedsSystem {
   }
 
   /**
+   * 连续行为版本的 tick（Phase 3）
+   *
+   * 与 tick() 的区别：
+   *   - tick() 使用离散状态名查表（NEED_SATISFACTION）
+   *   - tickWithBehavior() 使用连续行为向量计算恢复速率
+   *
+   * 衰减逻辑完全相同，只有恢复计算方式不同。
+   *
+   * @param {number} hoursElapsed - 经过的模拟小时数
+   * @param {number[]} behaviorVector - 4D 连续行为向量 [activity, sociality, focus, expressiveness]
+   */
+  tickWithBehavior(hoursElapsed, behaviorVector) {
+    // Step 1: 自然衰减（与 tick() 完全相同）
+    for (const [need, rate] of Object.entries(this._decayRates)) {
+      const current = this.needs[need];
+      const effectiveRate = rate * (0.5 + current * 0.5);
+      this.needs[need] = Math.max(0, current - effectiveRate * hoursElapsed);
+    }
+
+    // Step 2: 基于连续行为向量的恢复
+    const rates = this.getRecoveryRatesForBehavior(behaviorVector);
+    for (const [need, rate] of Object.entries(rates)) {
+      if (rate > 0) {
+        this.needs[need] = Math.min(1, this.needs[need] + rate * hoursElapsed);
+      }
+    }
+  }
+
+  /**
    * 获取需求驱力信号
    *
    * 当需求低于阈值时产生驱力，驱力强度 = 阈值 - 当前值
@@ -235,6 +287,69 @@ class NeedsSystem {
     }
 
     return `需求：${parts.join('，')}。`;
+  }
+
+  // ═══════════════════════════════════════════
+  // 连续梯度接口（Phase 1: BehaviorField 集成）
+  // ═══════════════════════════════════════════
+
+  /**
+   * 获取所有活跃需求驱力的连续梯度向量
+   *
+   * 每个匮乏需求返回在 4D 行为空间中的梯度方向：
+   *   gradient = w · urgency · (B - target)
+   * 其中 target 是该需求满足时的最优行为位置
+   *
+   * 与 getDrive() 的区别：
+   *   - getDrive() → 离散 targetStates: ['在食堂', '在便利店']
+   *   - getDriveGradient() → 连续 gradientVector: [0.3, -0.2, -0.1, -0.1]
+   *
+   * @returns {Array<{ need: string, urgency: number, gradient: number[] }>}
+   */
+  getDriveGradient() {
+    const drives = [];
+
+    for (const [need, value] of Object.entries(this.needs)) {
+      const threshold = cfg.threshold[need] || 0.3;
+      if (value >= threshold) continue;
+
+      const urgency = threshold - value;
+      const target = NEED_GRADIENT_TARGETS[need];
+      if (!target) continue;
+
+      drives.push({ need, urgency, gradient: [...target] });
+    }
+
+    return drives;
+  }
+
+  /**
+   * 给定连续行为向量，计算每个需求的恢复速率
+   *
+   * 行为向量越接近该需求的"满足中心"，恢复越快。
+   * 这是 NEED_SATISFACTION 的连续版本。
+   *
+   * @param {number[]} behaviorVector - 4D 行为向量 [activity, sociality, focus, expressiveness]
+   * @returns {Object} { hunger: rate, energy: rate, ... }
+   */
+  getRecoveryRatesForBehavior(behaviorVector) {
+    const rates = {};
+    const maxDist = 0.8; // 超过此距离无恢复
+
+    for (const [need, target] of Object.entries(NEED_SATISFACTION_CENTERS)) {
+      let distSq = 0;
+      for (let d = 0; d < 4; d++) {
+        const diff = behaviorVector[d] - target[d];
+        distSq += diff * diff;
+      }
+      const distance = Math.sqrt(distSq);
+      const factor = Math.max(0, 1 - distance / maxDist);
+      const baseRate = cfg.recoveryRate[need] || 0.3;
+      const multiplier = (this._recoveryMultipliers && this._recoveryMultipliers[need]) || 1.0;
+      rates[need] = baseRate * factor * multiplier;
+    }
+
+    return rates;
   }
 
   /**
