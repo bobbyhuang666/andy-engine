@@ -188,7 +188,8 @@ class Agent {
     }
 
     // ─── 2. 需求演化 ───
-    this.needs.tick(hoursElapsed, this.stateMachine.currentState, this.position);
+    // Phase 4: 使用连续行为向量替代离散状态查表
+    this.needs.tickWithBehavior(hoursElapsed, this.behaviorField.B);
 
     // ─── 2.5 自发动机演化 ───
     // 在需求之后、日程之前计算自发动机（优先级：紧急需求 > 自发动机 > 日程）
@@ -252,49 +253,34 @@ class Agent {
       }
     }
 
-    // ─── 4. 推进状态机 ───
-    // 构建外部事件（如果有其他 Agent 的交互）
-    const externalEvent = this._buildExternalEvent(safeEvents);
-
-    // ─── 行为后果预估 ───
-    // 基于过往经验评估每个潜在状态的情绪后果（Wall & Hayes 2016）
-    this._ticksSinceConsequenceAssess++;
-    if (this._ticksSinceConsequenceAssess >= this._consequenceAssessInterval) {
-      this._stateConsequences = this._assessStateConsequences();
-      this._ticksSinceConsequenceAssess = 0;
-    }
-
-    // 传递情绪状态和需求驱力给状态机（情绪-行为耦合 + 需求驱动 + 行为后果预估 + 健康状态 + 人格调制）
-    const emotionHint = {
-      valence: this.emotion.getValence(),
-      arousal: this.emotion.getArousal(),
-      emotionDims: this.emotion.current, // 原始30维情绪值（用于精确的行为类别映射）
-      needsDrive: needsDrive,
-      intrinsicDrive: imResult.drive,
-      stateConsequences: this._stateConsequences,
-      health: this.health,
-      ocean: this.personality.ocean, // 人格 OCEAN 值，用于调制行为权重
-    };
-    const stateResult = this.stateMachine.tick(
-      Math.floor(env.hour),
-      env.minutesElapsed,
-      externalEvent,
-      env.simTime,
-      emotionHint
-    );
-    if (stateResult.changed) {
-      result.stateChanged = true;
-      result.newEvents.push(stateResult.event);
-    }
-
-    // ─── 3.5 连续行为场（Phase 2: 与 StateMachine 并行运行）───
-    // BehaviorField 独立计算连续行为向量，不影响现有流程
-    // 用于验证连续系统与离散系统的一致性
+    // ─── 4. 连续行为场（BehaviorField，唯一行为决策源）───
+    const prevLabel = this.behaviorField.label;
     const behaviorSignals = this.buildBehaviorSignals(env);
     const behaviorResult = this.behaviorField.tick(behaviorSignals);
     result.behaviorField = behaviorResult;
 
-    // ─── 3.6 需求→情绪耦合 ───
+    // 标签变化 → 生成状态转移事件（向下游兼容）
+    if (behaviorResult.label !== prevLabel) {
+      result.stateChanged = true;
+      result.newEvents.push({
+        type: 'state_change',
+        from: prevLabel,
+        to: behaviorResult.label,
+        time: env.simTime?.toISOString(),
+      });
+      // 同步 StateMachine 的 stateEnteredAt（保持时间追踪）
+      this.stateMachine.stateEnteredAt = env.simTime || new Date();
+      this.stateMachine.history.push({
+        from: prevLabel,
+        to: behaviorResult.label,
+        at: (env.simTime || new Date()).toISOString(),
+      });
+      if (this.stateMachine.history.length > 20) {
+        this.stateMachine.history = this.stateMachine.history.slice(-20);
+      }
+    }
+
+    // ─── 4.1 需求→情绪耦合 ───
     // 需求匮乏直接影响情绪（Maslow 1943: 低层需求未满足产生焦虑/烦躁）
     // 参考: 反刍思维理论 (Nolen-Hoeksema 1991): 饥饿/疲劳增加负面情绪敏感性
     this._applyNeedsToEmotion();
