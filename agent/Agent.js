@@ -1595,6 +1595,41 @@ class Agent {
       parts.push('身体不太舒服');
     }
 
+    // ─── 7. 行为场动态（BehaviorField 独有信息）───
+    // 当行为向量与标签"典型值"有显著偏差时，补充连续信息
+    // 这让 LLM 知道"在图书馆但心不在焉"或"正在朝社交方向移动"
+    const B = this.behaviorField.B;
+    const vel = this.behaviorField.velocity;
+    const speed = this.behaviorField.speed;
+
+    // focus 偏差：标签期望高专注但实际很低 → "心不在焉"
+    const { STATE_CENTERS } = require('./BehaviorLabeler');
+    const center = STATE_CENTERS[state];
+    if (center) {
+      const focusDiff = center[DIM_FOCUS] - B[DIM_FOCUS];
+      if (focusDiff > 0.25 && center[DIM_FOCUS] > 0.4) {
+        parts.push('心思不太集中');
+      }
+      // sociality 偏差：标签期望低社交但实际在上升 → "想找人说话"
+      const socialVel = vel[DIM_SOCIALITY];
+      if (socialVel > 0.3 && B[DIM_SOCIALITY] < 0.4) {
+        parts.push('有点想找人聊天');
+      }
+    }
+
+    // 行为趋势：速度够快时说明正在变化
+    if (speed > 0.4) {
+      // 找到速度最大的维度
+      const dimNames = ['活动程度', '社交倾向', '专注度', '表达欲'];
+      let maxDim = 0;
+      for (let d = 1; d < 4; d++) { if (Math.abs(vel[d]) > Math.abs(vel[maxDim])) maxDim = d; }
+      const dir = vel[maxDim] > 0 ? '在上升' : '在下降';
+      // 只在变化显著且方向明确时提及
+      if (Math.abs(vel[maxDim]) > 0.3) {
+        parts.push(`${dimNames[maxDim]}${dir}`);
+      }
+    }
+
     // ─── 组装 ───
     if (parts.length === 0) return '';
     let narrative = parts[0];
