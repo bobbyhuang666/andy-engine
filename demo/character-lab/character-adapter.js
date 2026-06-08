@@ -16,7 +16,7 @@ const MAYA_CONFIG = {
   id: 'maya',
   name: 'Maya',
   mbti: 'INFP',
-  initialPosition: '宿舍',
+  initialPosition: '住处',
   background: [
     '一个敏感而温暖的年轻女性',
     '最近工作压力很大，经常加班',

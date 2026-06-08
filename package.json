@@ -39,7 +39,8 @@
   },
   "exports": {
     ".": "./index.js",
-    "./sdk": "./sdk/index.js"
+    "./sdk": "./sdk/index.js",
+    "./config/defaults": "./config/defaults.js"
   },
   "types": "sdk/types.d.ts"
 }

@@ -30,6 +30,7 @@ const IntrinsicMotivation = require('./IntrinsicMotivation');
 const { BehaviorField } = require('./BehaviorField');
 const { DIM_ACTIVITY, DIM_SOCIALITY, DIM_FOCUS, DIM_EXPRESSIVENESS } = require('./BehaviorLabeler');
 const { EMOTION_DIMENSIONS, ANDY_DEFAULTS } = require('../config/defaults');
+const { sanitizeText, safeRegion, safeActivity } = require('../core/WorldviewConstraints');
 
 class Agent {
   /**
@@ -85,7 +86,7 @@ class Agent {
       this.emotionRegulation = new EmotionRegulation(this.personality);
       this.intrinsicMotivation = new IntrinsicMotivation(this.personality);
       this.schedule = new Schedule(config.schedule || {});
-      this.position = config.initialPosition || '宿舍';
+      this.position = config.initialPosition || '住处';
       this.socialEnergy = 0.7; // 社交能量 (0-1)
       this.health = 1.0;       // 身体健康 (0-1)
       this.isOnline = true;
@@ -539,7 +540,7 @@ class Agent {
       }
 
       // ─── 4. 社交事件特殊处理 ───
-      const socialRegions = ['食堂', '校园广场', '咖啡店', '便利店'];
+      const socialRegions = ['餐厅', '小镇广场', '咖啡店', '便利店'];
       if (socialRegions.includes(activity.region)) {
         if (this.socialEnergy < 0.3 && valence < 0) {
           if (Math.random() > 0.4) {
@@ -596,17 +597,17 @@ class Agent {
         return '生病了';
 
       case 'skipClass': {
-        // 根据时间选择不同的翘课行为
+        // 根据时间选择不同的偷懒行为（已替换校园词）
         const options = [];
-        if (hour < 10) options.push('在宿舍躺着', '在看手机');  // 早上翘课→赖床
-        if (hour >= 10 && hour < 14) options.push('在外面闲逛', '在网吧', '在宿舍躺着');  // 上午翘课→闲逛
-        if (hour >= 14) options.push('在网吧', '在外面闲逛', '在拖延');  // 下午翘课→网吧/闲逛
-        return options[Math.floor(Math.random() * options.length)] || '翘课了';
+        if (hour < 10) options.push('在住处躺着', '在看手机');  // 早上偷懒→赖床
+        if (hour >= 10 && hour < 14) options.push('在外面闲逛', '在网吧', '在住处躺着');  // 上午偷懒→闲逛
+        if (hour >= 14) options.push('在网吧', '在外面闲逛', '在拖延');  // 下午偷懒→网吧/闲逛
+        return options[Math.floor(Math.random() * options.length)] || '偷懒了';
       }
 
       case 'skipWork': {
         const options = ['在拖延', '在看手机', '在休息'];
-        if (hour < 12) options.push('在宿舍躺着');
+        if (hour < 12) options.push('在住处躺着');
         return options[Math.floor(Math.random() * options.length)] || '在拖延';
       }
 
@@ -628,9 +629,9 @@ class Agent {
         return this.position; // 生病了留在原地
       case 'skipClass': {
         const isWorker = ['办公室', '家', '路上'].includes(this.position);
-        if (hour < 10) return isWorker ? '家' : '宿舍';  // 赖床
+        if (hour < 10) return isWorker ? '家' : '住处';  // 赖床
         if (Math.random() > 0.5) return '网吧';  // 50% 去网吧
-        return isWorker ? '家' : '宿舍';  // 50% 回宿舍/家
+        return isWorker ? '家' : '住处';  // 50% 回住处/家
       }
       case 'skipWork':
         return '家';
@@ -740,7 +741,7 @@ class Agent {
     // 恶劣天气暴露
     if (env.weather === 'cold') {
       // 在室外区域更易受寒
-      const outdoorRegions = ['操场', '校园广场', '公园', '路上', '回家路上'];
+      const outdoorRegions = ['运动场', '小镇广场', '公园', '路上', '回家路上'];
       if (outdoorRegions.includes(this.position)) {
         healthDelta -= 0.02 * hoursElapsed;
       } else {
@@ -748,7 +749,7 @@ class Agent {
       }
     }
     if (env.weather === 'rain') {
-      const outdoorRegions = ['操场', '校园广场', '公园', '路上', '回家路上'];
+      const outdoorRegions = ['运动场', '小镇广场', '公园', '路上', '回家路上'];
       if (outdoorRegions.includes(this.position)) {
         healthDelta -= 0.03 * hoursElapsed; // 淋雨
       }
@@ -834,11 +835,11 @@ class Agent {
         '头疼得厉害，还是休息一下吧',
       ],
       skipClass: [
-        '今天不想上课，在宿舍躺了一会',
-        '翘了课，在外面闲逛',
-        '翘了课去了网吧',
-        '心情不好，不想去教室',
-        '昨晚没睡好，翘了早上的课',
+        '今天不想工作，在住处躺了一会',
+        '偷懒了，在外面闲逛',
+        '偷懒去了网吧',
+        '心情不好，不想去工作区',
+        '昨晚没睡好，偷懒了早上',
       ],
       skipWork: [
         '今天不想上班，请了假在家休息',
@@ -888,10 +889,10 @@ class Agent {
       this.schedule.entries.some(e => e.region === '办公室' || e.region === '家');
 
     const needRegions = {
-      hunger: isWorker ? '家' : '食堂',
-      energy: this.position === '宿舍' ? '宿舍' : (isWorker ? '家' : '宿舍'),
-      social: isWorker ? '咖啡店' : '校园广场',
-      comfort: isWorker ? '家' : '宿舍',
+      hunger: isWorker ? '家' : '餐厅',
+      energy: this.position === '住处' ? '住处' : (isWorker ? '家' : '住处'),
+      social: isWorker ? '咖啡店' : '小镇广场',
+      comfort: isWorker ? '家' : '住处',
       stimulation: '咖啡店',
     };
     return needRegions[need] || null;
@@ -1499,28 +1500,40 @@ class Agent {
    *
    * @returns {string} 中文叙事文本
    */
-  toNarrative() {
+  toNarrative(externalState = null) {
     const parts = [];
 
     // ─── 1. 当前行为 ───
-    const state = this.stateMachine.currentState;
-    const pos = this.position;
+    // 优先使用 Andy Town 提供的干净状态（externalState）
+    // 降级到引擎内部状态
+    const rawState = this.stateMachine.currentState;
+    const rawPos = this.position;
     const info = this.stateMachine.getInfo(this.memory._simTime || null);
     const elapsedMin = info.elapsed || 0;
 
+    // 安全的状态映射（已替换校园词）
     const statePositionMap = {
-      '在上课': '在教室上课', '在自习': '在图书馆自习', '在图书馆': '在图书馆',
-      '在打工': '在便利店打工', '在食堂': '在食堂', '在路上': '在路上',
+      '在上课': '在工作区工作', '在自习': '在安静角落专注', '在图书馆': '在阅览室',
+      '在打工': '在店里打工', '在食堂': '在餐厅', '在路上': '在路上',
       '在做饭': '在做饭', '在吃饭': '在吃饭', '在看剧': '在看剧',
       '在看手机': '在看手机', '在发呆': '在发呆', '在听歌': '在听歌',
       '在看窗外': '在看窗外', '睡了': '在睡觉', '在洗澡': '在洗澡',
-      '在校园广场': '在校园广场', '在咖啡店': '在咖啡店',
+      '在校园广场': '在小镇广场', '在咖啡店': '在咖啡店',
     };
-    const stateDesc = statePositionMap[state] || (pos !== '宿舍' ? `在${pos}` : state);
+
+    // 优先使用 externalState（Andy Town 提供的干净数据）
+    let stateDesc;
+    if (externalState && externalState.scheduleActivity) {
+      stateDesc = safeActivity(externalState.scheduleActivity);
+    } else if (externalState && externalState.scheduleRegion) {
+      stateDesc = `在${safeRegion(externalState.scheduleRegion)}`;
+    } else {
+      stateDesc = statePositionMap[rawState] || (rawPos !== '住处' ? `在${safeRegion(rawPos)}` : safeActivity(rawState));
+    }
     parts.push(stateDesc);
 
     // ─── 2. 行为质量（状态持续太久 → 坐不住/无聊）───
-    if (elapsedMin > 60 && ['在自习', '在上课', '在打工', '在图书馆', '在工作'].includes(state)) {
+    if (elapsedMin > 60 && ['在自习', '在上课', '在打工', '在图书馆', '在工作', '在专注做事', '在工作区'].includes(rawState)) {
       parts.push('但有点坐不住');
     }
 
@@ -1576,9 +1589,11 @@ class Agent {
         const hoursAgo = mem.timestamp ? (simNow - mem.timestamp.getTime()) / 3600000 : 999;
         if (hoursAgo > 6) break;
         const snippet = mem.content.length > 20 ? mem.content.slice(0, 20) + '...' : mem.content;
-        if (!snippet.includes(state) && !snippet.includes(pos)) {
+        if (!snippet.includes(rawState) && !snippet.includes(rawPos)) {
           const timeLabel = hoursAgo < 0.5 ? '刚才' : hoursAgo < 2 ? '不久前' : '';
-          parts.push(`${timeLabel}${snippet}`);
+          // 对记忆内容做防污染处理
+          const safeSnippet = sanitizeText(snippet);
+          parts.push(`${timeLabel}${safeSnippet}`);
           break;
         }
       }
@@ -1597,14 +1612,14 @@ class Agent {
 
     // ─── 7. 行为场动态（BehaviorField 独有信息）───
     // 当行为向量与标签"典型值"有显著偏差时，补充连续信息
-    // 这让 LLM 知道"在图书馆但心不在焉"或"正在朝社交方向移动"
+    // 这让 LLM 知道"在阅览室但心不在焉"或"正在朝社交方向移动"
     const B = this.behaviorField.B;
     const vel = this.behaviorField.velocity;
     const speed = this.behaviorField.speed;
 
     // focus 偏差：标签期望高专注但实际很低 → "心不在焉"
     const { STATE_CENTERS } = require('./BehaviorLabeler');
-    const center = STATE_CENTERS[state];
+    const center = STATE_CENTERS[rawState];
     if (center) {
       const focusDiff = center[DIM_FOCUS] - B[DIM_FOCUS];
       if (focusDiff > 0.25 && center[DIM_FOCUS] > 0.4) {
@@ -1639,7 +1654,9 @@ class Agent {
         narrative += sep + parts[i];
       }
     }
-    return narrative;
+
+    // 最终防污染处理：确保输出不含校园词
+    return sanitizeText(narrative);
   }
 
   // ═══════════════════════════════════════════

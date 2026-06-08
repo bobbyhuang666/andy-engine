@@ -322,7 +322,7 @@ describe('NarrativeBuilder 各种状态', () => {
   it('开心状态生成正确提示', () => {
     const ctx = {
       hour: 15, weather: 'sunny', season: 'spring',
-      currentRegion: '操场',
+      currentRegion: '运动场',
       needsState: '需求：饱腹充足，精力饱满，社交充足，舒适充足，兴趣饱满。',
       emotionState: '满足的情绪主导着你的心境（效价=0.35, 唤醒=0.6）。整体心境：心情不错。',
       personalityAnchor: '你性格外向。',
@@ -331,7 +331,7 @@ describe('NarrativeBuilder 各种状态', () => {
     const prompt = NarrativeBuilder.buildSystemPrompt(ctx, { characterName: 'Test' });
     expect(prompt).toContain('下午');
     expect(prompt).toContain('春天');
-    expect(prompt).toContain('操场上');
+    expect(prompt).toContain('运动场上');
   });
 
   it('空上下文返回空字符串', () => {

@@ -28,6 +28,7 @@ const Agent = require('./agent/Agent');
 const Schedule = require('./agent/Schedule');
 const { ANDY_DEFAULTS } = require('./config/defaults');
 const { validateConfig, validateAgentConfig } = require('./config/validate');
+const { sanitizeText, safeRegion, safeActivity } = require('./core/WorldviewConstraints');
 
 // ═══════════════════════════════════════════
 // 种子记忆 → 文本
@@ -128,7 +129,7 @@ class AndyEngine {
       personality: personalityConfig,
       schedule: scheduleConfig,
       seedMemories: memories,
-      initialPosition: initialPosition || '宿舍',
+      initialPosition: initialPosition || '住处',
       initialState,
     });
 
@@ -303,7 +304,7 @@ class AndyEngine {
     );
     const eventTexts = perceivedEvents
       .filter(e => e.content)
-      .map(e => `- ${e.content}`)
+      .map(e => `- ${sanitizeText(e.content)}`)
       .join('\n');
 
     // 附近的人（含关系摘要）
@@ -350,7 +351,7 @@ class AndyEngine {
             else parts.push('环境因素');
           }
           if (parts.length > 0) {
-            lastAppraisal = `对最近的事(${(mem.content || '未知').substring(0, 15)})的感受：${parts.join('，')}`;
+            lastAppraisal = `对最近的事(${sanitizeText((mem.content || '未知').substring(0, 15))})的感受：${parts.join('，')}`;
           }
           break;
         }
@@ -364,7 +365,7 @@ class AndyEngine {
       weather: this.world.environment.weather,
       timeOfDay: this.world.environment.timeOfDay,
       season: this.world.environment.season,
-      currentRegion: agent.position,
+      currentRegion: safeRegion(agent.position),
       personalityAnchor: agent.personality ? agent.personality.toPromptString() : '',
       agentStatus: agent.getStatus(),
       recentEvents: eventTexts || '没有特别的事情发生',
