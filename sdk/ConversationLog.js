@@ -16,8 +16,8 @@ class ConversationLog {
    * @param {string} options.characterName - 角色名
    */
   constructor(options = {}) {
-    this.maxMessages = options.maxMessages || 50;
-    this.maxTokens = options.maxTokens || 4000;
+    this.maxMessages = Math.max(4, options.maxMessages || 50);
+    this.maxTokens = Math.max(100, options.maxTokens || 4000);
     this.characterName = options.characterName || '角色';
     this.messages = [];
     this._summarizedHistory = '';
@@ -28,6 +28,7 @@ class ConversationLog {
    * @param {string} text
    */
   addUserMessage(text) {
+    if (typeof text !== 'string' || text.length === 0) return;
     this.messages.push({
       role: 'user',
       content: text,
@@ -145,31 +146,34 @@ class ConversationLog {
    * @private
    */
   _trim() {
+    const allTrimmed = [];
+
     // 按消息数裁剪
     if (this.messages.length > this.maxMessages) {
       const overflow = this.messages.length - this.maxMessages;
       // 保留偶数条（保持 user/assistant 配对）
       const trimCount = overflow % 2 === 0 ? overflow : overflow + 1;
-      const trimmed = this.messages.splice(0, trimCount);
-      // 将被裁剪的消息生成摘要
-      const userMsgs = trimmed.filter(m => m.role === 'user').map(m => m.content);
+      allTrimmed.push(...this.messages.splice(0, trimCount));
+    }
+
+    // 按估算 token 数裁剪（粗略：1 中文字 ≈ 2 token）
+    // 循环裁剪直到满足限制（每次移除 2 条保持配对）
+    while (this.messages.length > 4) {
+      let totalChars = 0;
+      for (const msg of this.messages) {
+        totalChars += msg.content.length;
+      }
+      if (totalChars * 2 <= this.maxTokens) break;
+      allTrimmed.push(...this.messages.splice(0, 2));
+    }
+
+    // 将被裁剪的消息生成摘要
+    if (allTrimmed.length > 0) {
+      const userMsgs = allTrimmed.filter(m => m.role === 'user').map(m => m.content);
       if (userMsgs.length > 0) {
         const oldSummary = this._summarizedHistory ? `${this._summarizedHistory}\n` : '';
         this._summarizedHistory = `${oldSummary}更早聊过：${userMsgs.slice(0, 3).join('、')}`;
       }
-    }
-
-    // 按估算 token 数裁剪（粗略：1 中文字 ≈ 2 token）
-    let totalChars = 0;
-    for (const msg of this.messages) {
-      totalChars += msg.content.length;
-    }
-    const estimatedTokens = totalChars * 2;
-    if (estimatedTokens > this.maxTokens && this.messages.length > 4) {
-      // 移除最旧的 2 条（保持配对）
-      const trimmed = this.messages.splice(0, 2);
-      const oldSummary = this._summarizedHistory ? `${this._summarizedHistory}\n` : '';
-      this._summarizedHistory = `${oldSummary}更早聊过：${trimmed.map(m => m.content.substring(0, 15)).join('、')}`;
     }
   }
 }

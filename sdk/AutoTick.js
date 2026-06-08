@@ -19,10 +19,10 @@ class AutoTick {
    * @param {number} options.chatTickMax - 对话中每条消息最多 tick 数（默认 3）
    */
   constructor(options = {}) {
-    this.tickIntervalMinutes = options.tickIntervalMinutes || 5;
-    this.maxCatchupTicks = options.maxCatchupTicks || 288;
-    this.chatTickMin = options.chatTickMin || 1;
-    this.chatTickMax = options.chatTickMax || 3;
+    this.tickIntervalMinutes = Math.max(1, options.tickIntervalMinutes || 5);
+    this.maxCatchupTicks = Math.max(1, options.maxCatchupTicks || 288);
+    this.chatTickMin = Math.max(0, options.chatTickMin ?? 1);
+    this.chatTickMax = Math.max(this.chatTickMin, options.chatTickMax ?? 3);
 
     this._lastMessageTime = null;
     this._lastSimTime = null;
@@ -70,6 +70,9 @@ class AutoTick {
    * @returns {number} 实际推进的 tick 数
    */
   advance(engine) {
+    if (!engine || !engine.world) {
+      throw new Error('AutoTick.advance(): engine 必须是有效的 AndyEngine 实例');
+    }
     const ticks = this.calculateTicksToAdvance(engine);
     if (ticks > 0) {
       engine.runTicks(ticks);

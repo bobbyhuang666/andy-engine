@@ -27,6 +27,8 @@ const NeedsSystem = process.env.ANDY_USE_NATIVE === '1'
   : require('./NeedsSystem');
 const EmotionRegulation = require('./EmotionRegulation');
 const IntrinsicMotivation = require('./IntrinsicMotivation');
+const { BehaviorField } = require('./BehaviorField');
+const { DIM_ACTIVITY, DIM_SOCIALITY, DIM_FOCUS, DIM_EXPRESSIVENESS } = require('./BehaviorLabeler');
 const { EMOTION_DIMENSIONS, ANDY_DEFAULTS } = require('../config/defaults');
 
 class Agent {
@@ -62,6 +64,12 @@ class Agent {
       this.socialEnergy = savedState.socialEnergy ?? 0.7;
       this.health = savedState.health ?? 1.0;  // 身体健康 (0-1)
       this.isOnline = savedState.isOnline ?? true;
+      // 连续行为场（Phase 2: 与 StateMachine 并行运行）
+      this.behaviorField = new BehaviorField(this.personality, savedState.behaviorField || null);
+
+      // Phase 5: stateMachine.currentState 改为从 BehaviorField 派生的 getter
+      // 所有下游代码自动使用连续行为标签，无需逐一修改引用
+      this._wireBehaviorFieldToStateMachine();
     } else {
       // 创建新 Agent（支持顶层 mbti 便捷写法）
       const personalityConfig = { ...(config.personality || {}) };
@@ -81,6 +89,11 @@ class Agent {
       this.socialEnergy = 0.7; // 社交能量 (0-1)
       this.health = 1.0;       // 身体健康 (0-1)
       this.isOnline = true;
+      // 连续行为场（Phase 2: 与 StateMachine 并行运行）
+      this.behaviorField = new BehaviorField(this.personality);
+
+      // Phase 5: stateMachine.currentState 改为从 BehaviorField 派生的 getter
+      this._wireBehaviorFieldToStateMachine();
     }
 
     // 缓存行为参数
@@ -103,6 +116,23 @@ class Agent {
 
     // 人格漂移检查计数器
     this._ticksSinceDriftCheck = 0;
+  }
+
+  /**
+   * Phase 5: 将 stateMachine.currentState 替换为 BehaviorField 驱动的 getter
+   *
+   * 所有读取 `this.stateMachine.currentState` 的下游代码自动使用连续标签。
+   * stateMachine 的其他属性（history, stateEnteredAt 等）保持不变。
+   * @private
+   */
+  _wireBehaviorFieldToStateMachine() {
+    const bf = this.behaviorField;
+    Object.defineProperty(this.stateMachine, 'currentState', {
+      get() { return bf.label; },
+      set() { /* 忽略写入：currentState 由 BehaviorField 驱动 */ },
+      configurable: true,
+      enumerable: true,
+    });
   }
 
   // ═══════════════════════════════════════════
@@ -257,7 +287,14 @@ class Agent {
       result.newEvents.push(stateResult.event);
     }
 
-    // ─── 3.5 需求→情绪耦合 ───
+    // ─── 3.5 连续行为场（Phase 2: 与 StateMachine 并行运行）───
+    // BehaviorField 独立计算连续行为向量，不影响现有流程
+    // 用于验证连续系统与离散系统的一致性
+    const behaviorSignals = this.buildBehaviorSignals(env);
+    const behaviorResult = this.behaviorField.tick(behaviorSignals);
+    result.behaviorField = behaviorResult;
+
+    // ─── 3.6 需求→情绪耦合 ───
     // 需求匮乏直接影响情绪（Maslow 1943: 低层需求未满足产生焦虑/烦躁）
     // 参考: 反刍思维理论 (Nolen-Hoeksema 1991): 饥饿/疲劳增加负面情绪敏感性
     this._applyNeedsToEmotion();
@@ -309,8 +346,11 @@ class Agent {
     // ─── 8.5 心智游移（Mind Wandering / Default Mode Network）───
     // 在空闲/安静状态下，Agent 会自发产生与当前任务无关的思绪
     // 参考: Raichle (2001) DMN, Killingsworth & Gilbert (2010), Buckner et al. (2008)
-    const quietStates = ['在发呆', '在看窗外', '困了但睡不着', '在休息', '先躺一会', '在看书', '在自习', '趴一会'];
-    if (quietStates.includes(this.stateMachine.currentState)) {
+    // Phase 4: 使用连续行为向量替代离散状态列表
+    // 低活跃 (activity < 0.3) + 低专注 (focus < 0.3) = 空闲状态
+    const B = this.behaviorField.B;
+    const isQuiet = B[DIM_ACTIVITY] < 0.3 && B[DIM_FOCUS] < 0.3;
+    if (isQuiet) {
       // 空闲状态下概率发生心智游移（可配置）
       if (Math.random() < (ANDY_DEFAULTS.mindWander?.quietProbability || 0.25)) {
         const thought = this._mindWander();
@@ -602,6 +642,71 @@ class Agent {
     }
   }
 
+  // ═══════════════════════════════════════════
+  // 连续梯度接口（Phase 1: BehaviorField 集成）
+  // ═══════════════════════════════════════════
+
+  /**
+   * 构建 BehaviorField 所需的完整信号对象
+   *
+   * 将各子系统的内部状态打包为 BehaviorField.tick(signals) 的输入格式。
+   * 这是 Phase 2 集成时 Agent.tick() 调用的桥梁方法。
+   *
+   * @param {Object} env - 环境状态 { hour, dayOfWeek, weather, simTime, simDate }
+   * @returns {Object} signals 对象
+   */
+  buildBehaviorSignals(env) {
+    // 情绪驱力
+    const emotionDims = this.emotion.current;
+    const joy = (emotionDims.joy || 0) + (emotionDims.excitement || 0) * 0.7 + (emotionDims.amusement || 0) * 0.5;
+    const sadness = (emotionDims.sadness || 0) + (emotionDims.loneliness || 0) * 0.8 + (emotionDims.boredom || 0) * 0.3;
+    const anger = (emotionDims.anger || 0) + (emotionDims.frustration || 0) * 0.8 + (emotionDims.disgust || 0) * 0.4;
+    const fear = (emotionDims.fear || 0) + (emotionDims.nervousness || 0) * 0.7;
+
+    const approachDrive = Math.min(1, Math.max(0, joy * 1.2));
+    const avoidDrive = Math.min(1, Math.max(0, sadness * 0.8 + fear * 0.5));
+    const agenticDrive = Math.min(1, Math.max(0, anger * 1.0));
+
+    // 需求状态
+    const needsState = {};
+    for (const [k, v] of Object.entries(this.needs.needs)) {
+      needsState[k] = v;
+    }
+
+    // 日程
+    const scheduleResult = this.schedule.getCurrentActivity(env.hour, env.dayOfWeek, env.simDate);
+
+    // 自发动机
+    const imStatus = this.intrinsicMotivation.getStatus();
+
+    return {
+      emotion: {
+        valence: this.emotion.getValence(),
+        arousal: this.emotion.getArousal(),
+        approachDrive,
+        avoidDrive,
+        agenticDrive,
+      },
+      needs: needsState,
+      intrinsic: {
+        curiosity: this.intrinsicMotivation.curiosity,
+        explorationTarget: null,
+      },
+      schedule: {
+        targetActivity: scheduleResult.activity,
+        targetRegion: scheduleResult.region,
+        inSchedule: scheduleResult.inSchedule,
+      },
+      environment: {
+        hour: env.hour,
+        weather: env.weather,
+      },
+      health: this.health,
+      socialEnergy: this.socialEnergy,
+      ocean: this.personality.ocean,
+    };
+  }
+
   /**
    * 健康系统更新
    *
@@ -659,14 +764,15 @@ class Agent {
 
     // ─── 健康恢复因素 ───
 
-    // 休息和睡眠：在休息/睡眠状态时健康恢复
-    const restStates = ['睡了', '在翻身', '在休息', '在宿舍躺着', '生病了', '请假了'];
-    if (restStates.includes(this.stateMachine.currentState)) {
+    // 休息和睡眠：低活动性时健康恢复（Phase 4: 连续化）
+    // activity < 0.15 表示在休息/睡觉
+    const activity = this.behaviorField.B[DIM_ACTIVITY];
+    if (activity < 0.15) {
       healthDelta += 0.015 * hoursElapsed;
     }
 
-    // 正常睡眠（夜间睡着时恢复更快）
-    if (this.stateMachine.currentState === '睡了') {
+    // 深度睡眠：activity 接近 0 + sociality 接近 0
+    if (activity < 0.05 && this.behaviorField.B[DIM_SOCIALITY] < 0.05) {
       healthDelta += 0.025 * hoursElapsed;
     }
 
@@ -888,13 +994,16 @@ class Agent {
    * @private
    */
   _updateSocialEnergy(hoursElapsed) {
-    const isInSocialState = ['在聊天', '在食堂', '在校园广场', '在咖啡店', '在打工']
-      .includes(this.stateMachine.currentState);
+    // Phase 4: 使用连续行为向量的 sociality 维度，替代离散状态名检查
+    // sociality > 0.4 表示正在社交相关活动
+    const sociality = this.behaviorField.B[DIM_SOCIALITY];
+    const isSocial = sociality > 0.4;
 
-    if (isInSocialState) {
-      // 社交消耗
+    if (isSocial) {
+      // 社交消耗（强度随 sociality 连续变化）
+      const intensity = Math.min(1, sociality / 0.8);
       this.socialEnergy = Math.max(0,
-        this.socialEnergy - this._behavior.socialEnergyDrain * hoursElapsed * 0.1
+        this.socialEnergy - this._behavior.socialEnergyDrain * hoursElapsed * 0.1 * intensity
       );
     } else {
       // 社交恢复（独处时）
@@ -1506,6 +1615,21 @@ class Agent {
   // ═══════════════════════════════════════════
 
   /**
+   * 获取连续行为状态（Phase 2 新增）
+   *
+   * @returns {{ vector: number[], label: string, confidence: number, speed: number, gradient: number[] }}
+   */
+  get behavior() {
+    return {
+      vector: this.behaviorField.current,
+      label: this.behaviorField.label,
+      confidence: 0, // 由最近一次 tick 结果填充
+      speed: this.behaviorField.speed,
+      gradient: this.behaviorField.snapshot().gradient,
+    };
+  }
+
+  /**
    * 获取 Agent 的完整状态描述（用于调试 / prompt 注入）
    * @returns {Object}
    */
@@ -1514,6 +1638,7 @@ class Agent {
       id: this.id,
       name: this.name,
       state: this.stateMachine.getInfo(this.memory._simTime || null),
+      behavior: this.behavior,
       position: this.position,
       emotion: this.emotion.toPromptString(),
       intrinsicMotivation: this.intrinsicMotivation.toPromptString(),
@@ -1533,6 +1658,7 @@ class Agent {
       personality: this.personality.toJSON(),
       emotion: this.emotion.toJSON(),
       stateMachine: this.stateMachine.toJSON(),
+      behaviorField: this.behaviorField.toJSON(),
       memory: this.memory.toJSON(),
       appraisalBiases: this.memory.biasesToJSON(),
       proceduralMemory: this.proceduralMemory.toJSON(),

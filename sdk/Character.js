@@ -45,6 +45,13 @@ class Character {
    * @param {Object} [config.engine] - 共享的 AndyEngine 实例（多角色场景）
    */
   constructor(config = {}) {
+    if (typeof config !== 'object' || config === null) {
+      throw new Error('Character: config 必须是一个对象。用法: new Character({ name: "Maya", personality: "INFP", llm: ... })');
+    }
+    if (!config.name && !config.id) {
+      throw new Error('Character: 至少需要 name 或 id。用法: new Character({ name: "Maya", llm: ... })');
+    }
+
     this.id = config.id || `char_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     this.name = config.name || '角色';
     this.backstory = config.backstory || [];
@@ -110,8 +117,16 @@ class Character {
    * @returns {Promise<string>} 角色回复
    */
   async chat(message, options = {}) {
+    if (typeof message !== 'string' || message.trim().length === 0) {
+      return '...';
+    }
+
     // 1. 自动推进时间
-    this._autoTick.advance(this._engine);
+    try {
+      this._autoTick.advance(this._engine);
+    } catch (e) {
+      // 时间推进失败不应阻断对话
+    }
 
     // 2. 记录用户消息
     this._conversation.addUserMessage(message);
@@ -132,8 +147,13 @@ class Character {
     ];
 
     // 5. 调用 LLM
-    const llm = options.llm ? new LLMAdapter(options.llm) : this._llm;
-    const reply = await llm.chat(messages);
+    let reply;
+    try {
+      const llm = options.llm ? new LLMAdapter(options.llm) : this._llm;
+      reply = await llm.chat(messages);
+    } catch (e) {
+      throw new Error(`Character.chat() LLM 调用失败: ${e.message}`);
+    }
     if (!reply || reply.trim().length === 0) {
       return "...";
     }
@@ -229,6 +249,9 @@ class Character {
    * @returns {Object} 可序列化的状态对象
    */
   save() {
+    if (!this._engine) {
+      throw new Error('Character.save(): 引擎未初始化，无法保存');
+    }
     return {
       version: 1,
       id: this.id,
@@ -248,17 +271,28 @@ class Character {
    * @returns {Character}
    */
   static load(state, llmConfig = {}) {
+    if (!state || typeof state !== 'object') {
+      throw new Error('Character.load(): state 必须是 save() 返回的对象');
+    }
+    if (!state.engineState) {
+      throw new Error('Character.load(): state 缺少 engineState，是否用 save() 生成的？');
+    }
+
+    // 不走构造函数——构造函数会 createCharacter()（覆盖已恢复的 Agent）+ tick()（推进时间）
+    // 手动组装实例，保留引擎中已恢复的 Agent 完整状态（情绪/记忆/关系/需求）
     const engine = AndyEngine.fromJSON(state.engineState);
-    const character = new Character({
-      id: state.id,
-      name: state.name,
-      backstory: state.backstory,
-      scenario: state.scenario,
-      llm: llmConfig,
-      engine,
-    });
+
+    const character = Object.create(Character.prototype);
+    character.id = state.id;
+    character.name = state.name;
+    character.backstory = state.backstory || [];
+    character.scenario = state.scenario || '';
+    character._engine = engine;
+    character._ownsEngine = true;
+    character._agent = engine.getAgent(state.id);
+    character._llm = new LLMAdapter(llmConfig || {});
+    character._autoTick = AutoTick.fromJSON(state.autoTick || {});
     character._conversation = ConversationLog.fromJSON(state.conversation);
-    character._autoTick = AutoTick.fromJSON(state.autoTick);
     return character;
   }
 
@@ -277,7 +311,7 @@ class Character {
 
       // 用户说的话
       agent.memory.addExperience({
-        content: `对方说："${userMsg.substring(0, 50)}"`,
+        content: `对方说："${userMsg.substring(0, 150)}"`,
         category: 'social',
         emotionTag: 'neutral',
         importance: 0.6,
@@ -285,7 +319,7 @@ class Character {
 
       // 自己的回复
       agent.memory.addExperience({
-        content: `我说了："${agentReply.substring(0, 50)}"`,
+        content: `我说了："${agentReply.substring(0, 150)}"`,
         category: 'social',
         emotionTag: 'neutral',
         importance: 0.5,

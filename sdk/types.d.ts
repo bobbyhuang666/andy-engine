@@ -173,7 +173,7 @@ export class Andy {
 export type LLMFunction = (messages: Array<{ role: string; content: string }>) => Promise<string>;
 
 export interface LLMConfig {
-  /** 'openai' | 'anthropic' | 'openai-compatible' */
+  /** 'openai' | 'anthropic' | 'openai-compatible' | 'ollama' */
   provider?: string;
   /** API key */
   apiKey?: string;

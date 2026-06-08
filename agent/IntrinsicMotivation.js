@@ -155,12 +155,21 @@ class IntrinsicMotivation {
 
     // ─── 6. 生成驱力信号 ───
     if (effectiveCuriosity > this._cfg.curiosityThreshold) {
+      const urgency = effectiveCuriosity - this._cfg.curiosityThreshold;
       result.drive = {
         type: 'curiosity',
-        urgency: effectiveCuriosity - this._cfg.curiosityThreshold,
+        urgency,
         explorationDrive: this._explorationDrive,
         targetStates: this._getExplorationStates(),
         targetRegions: this._getExplorationRegions(position),
+        // 连续梯度：好奇心高 → 增加活动性、社交性、表达性
+        // [activity, sociality, focus, expressiveness]
+        gradientVector: [
+          urgency * 0.3 * this._explorationDrive,  // 轻微增加活跃
+          urgency * 0.15 * this._explorationDrive,  // 轻微增加社交
+          -urgency * 0.1,                            // 降低专注（探索=分散注意力）
+          urgency * 0.2 * this._explorationDrive,  // 增加表达
+        ],
       };
     }
 
