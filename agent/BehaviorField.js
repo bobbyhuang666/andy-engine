@@ -110,18 +110,20 @@ class BehaviorField {
     const ocean = personality ? personality.ocean : { neuroticism: 0.5, extraversion: 0.5, openness: 0.5, conscientiousness: 0.5, agreeableness: 0.5 };
 
     // γ（摩擦）：高神经质 → 高摩擦（行为难以改变）
-    this.gamma = this.cfg.gamma * (0.7 + ocean.neuroticism * 0.6);
+    // 范围放大：neuroticism 0→γ×0.5, neuroticism 1→γ×1.5（3倍差异）
+    this.gamma = this.cfg.gamma * (0.5 + ocean.neuroticism * 1.0);
 
     // σ（噪声）：高外向性 → 高噪声（行为更随机/探索性）
-    this.sigma = this.cfg.sigma * (0.6 + ocean.extraversion * 0.8);
+    // 范围放大：extraversion 0→σ×0.3, extraversion 1→σ×1.7（5.7倍差异）
+    this.sigma = this.cfg.sigma * (0.3 + ocean.extraversion * 1.4);
 
-    // 人格对驱力权重的调制
+    // 人格对驱力权重的调制（放大差异）
     this._weightModifiers = {
-      needs:      1.0 + ocean.neuroticism * 0.3,      // 高神经质更受需求驱动
-      emotion:    0.7 + ocean.openness * 0.6,          // 高开放性更受情绪驱动
-      schedule:   0.6 + ocean.conscientiousness * 0.8, // 高尽责性更遵守日程
-      intrinsic:  0.5 + ocean.openness * 0.8,          // 高开放性更受好奇心驱动
-      habit:      0.4 + ocean.conscientiousness * 0.5, // 高尽责性更有习惯性
+      needs:      0.8 + ocean.neuroticism * 0.6,           // N=0→0.8, N=1→1.4
+      emotion:    0.4 + ocean.openness * 1.2,              // O=0→0.4, O=1→1.6（4倍差异）
+      schedule:   0.3 + ocean.conscientiousness * 1.4,     // C=0→0.3, C=1→1.7（5.7倍差异）
+      intrinsic:  0.2 + ocean.openness * 1.6,              // O=0→0.2, O=1→1.8（9倍差异）
+      habit:      0.3 + ocean.conscientiousness * 0.8,     // C=0→0.3, C=1→1.1
     };
 
     if (savedState) {
@@ -235,6 +237,18 @@ class BehaviorField {
 
     // ── 7. 边界软势能 ──
     this._addBoundaryGradient(grad);
+
+    // ── 8. 梯度裁剪 ──
+    // 防止多个梯度源叠加后过大，导致 velocity 爆炸和收敛过慢
+    // maxGradNorm = 0.8 意味着每 tick 最大位移约 0.8 * dt = 0.08（~3 tick 到达目标）
+    const maxGradNorm = 0.8;
+    let gradNorm = 0;
+    for (let d = 0; d < DIMS; d++) gradNorm += grad[d] * grad[d];
+    gradNorm = Math.sqrt(gradNorm);
+    if (gradNorm > maxGradNorm) {
+      const scale = maxGradNorm / gradNorm;
+      for (let d = 0; d < DIMS; d++) grad[d] *= scale;
+    }
 
     return grad;
   }
@@ -524,14 +538,52 @@ function _activityToTarget(activity) {
   return null;
 }
 
-/** 时间段 → 目标行为位置 */
+/**
+ * 时间段 → 目标行为位置（平滑插值版）
+ *
+ * 在时间段边界附近做线性插值，避免硬跳变。
+ * 例如 8:50 到 9:10 之间，从 morning 平滑过渡到 active。
+ */
+const TIME_SCHEDULE = [
+  { hour: 0,  target: 'sleep' },
+  { hour: 6,  target: 'sleep' },
+  { hour: 7,  target: 'morning' },
+  { hour: 9,  target: 'active' },
+  { hour: 12, target: 'midday' },
+  { hour: 14, target: 'active' },
+  { hour: 17, target: 'evening' },
+  { hour: 21, target: 'lateNight' },
+  { hour: 23, target: 'sleep' },
+  { hour: 24, target: 'sleep' },
+];
+
 function _getTimeTarget(hour) {
-  if (hour >= 23 || hour < 6) return TIME_TARGETS.sleep;
-  if (hour >= 6 && hour < 9) return TIME_TARGETS.morning;
-  if ((hour >= 9 && hour < 12) || (hour >= 14 && hour < 17)) return TIME_TARGETS.active;
-  if (hour >= 12 && hour < 14) return TIME_TARGETS.midday;
-  if (hour >= 17 && hour < 21) return TIME_TARGETS.evening;
-  return TIME_TARGETS.lateNight;
+  const h = ((hour % 24) + 24) % 24; // 确保 0-24
+
+  // 找到 h 两侧的 schedule 条目
+  let lo = TIME_SCHEDULE[0], hi = TIME_SCHEDULE[1];
+  for (let i = 0; i < TIME_SCHEDULE.length - 1; i++) {
+    if (h >= TIME_SCHEDULE[i].hour && h < TIME_SCHEDULE[i + 1].hour) {
+      lo = TIME_SCHEDULE[i];
+      hi = TIME_SCHEDULE[i + 1];
+      break;
+    }
+  }
+
+  const loTarget = TIME_TARGETS[lo.target];
+  const hiTarget = TIME_TARGETS[hi.target];
+  if (!loTarget || !hiTarget) return TIME_TARGETS.sleep;
+
+  // 在边界的 1 小时范围内做线性插值
+  const span = hi.hour - lo.hour;
+  const t = span > 0 ? (h - lo.hour) / span : 0;
+  const blend = Math.max(0, Math.min(1, t)); // 0=完全lo, 1=完全hi
+
+  const result = new Array(DIMS);
+  for (let d = 0; d < DIMS; d++) {
+    result[d] = loTarget[d] * (1 - blend) + hiTarget[d] * blend;
+  }
+  return result;
 }
 
 module.exports = {
