@@ -10,6 +10,8 @@
  *   6. 自然语言 — 不暴露任何引擎内部数值
  */
 
+const { sanitizeText, safeRegion, safeActivity } = require('../core/WorldviewConstraints');
+
 class NarrativeBuilder {
   static buildSystemPrompt(worldContext, options = {}) {
     const {
@@ -68,7 +70,9 @@ class NarrativeBuilder {
     // 10. 行为指南
     sections.push(NarrativeBuilder._buildGuidelines(characterName, worldContext));
 
-    return sections.filter(Boolean).join('\n\n');
+    // 组装并做最终防污染处理
+    const rawPrompt = sections.filter(Boolean).join('\n\n');
+    return sanitizeText(rawPrompt);
   }
 
   // ═══════════════════════════════════════════
@@ -102,13 +106,16 @@ class NarrativeBuilder {
     const parts = [];
 
     // 当前行为（第一人称感觉）
+    // 使用安全的地点映射（已替换校园词）
     if (ctx.currentRegion) {
       const regionMap = {
-        '图书馆': '在图书馆，周围很安静', '食堂': '在食堂，人声嘈杂',
-        '教室': '在教室里', '宿舍': '在宿舍', '操场': '在操场上',
-        '咖啡店': '在咖啡店里', '校园广场': '在校园广场', '便利店': '在便利店', '家': '在家里',
+        '阅览室': '在阅览室，周围很安静', '餐厅': '在餐厅，人声嘈杂',
+        '工作区': '在工作区里', '住处': '在住处', '运动场': '在运动场上',
+        '咖啡店': '在咖啡店里', '小镇广场': '在小镇广场', '便利店': '在便利店', '家': '在家里',
       };
-      parts.push(regionMap[ctx.currentRegion] || `在${ctx.currentRegion}`);
+      // 先做安全替换，再查映射
+      const safeRegionName = safeRegion(ctx.currentRegion);
+      parts.push(regionMap[safeRegionName] || `在${safeRegionName}`);
     }
 
     // 生理状态
@@ -208,6 +215,9 @@ class NarrativeBuilder {
       '通过你的语气和用词展现情绪，不要说"我现在感到难过"这种话。',
       '如果你不知道的事，就说不知道，不要编。',
       '可以有情绪起伏：开心时多说两句，累时回复简短，烦时可以不耐烦。',
+      // 世界观约束：禁止校园词
+      '【世界观约束】这是一个小镇世界观，不是校园世界观。禁止提及：教室、图书馆、宿舍、食堂、操场、校园广场、学生、老师、上课、自习等校园相关词汇。',
+      '使用安全的替代表达：工作区（代替教室）、阅览室（代替图书馆）、住处（代替宿舍）、餐厅（代替食堂）、年轻人（代替学生）、前辈（代替老师）、工作（代替上课）。',
     ];
 
     if (ctx.emotionState) {

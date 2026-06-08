@@ -196,34 +196,34 @@ class Schedule {
     return new Schedule({
       entries: [
         // 早晨洗漱
-        { startHour: 7, endHour: 7.5, region: '宿舍', activity: '在洗漱',
+        { startHour: 7, endHour: 7.5, region: '住处', activity: '在洗漱',
           days: [1, 2, 3, 4, 5], probability: 0.95, noise: 15 },
         // 早餐
-        { startHour: 7.5, endHour: 8, region: '食堂', activity: '在食堂',
+        { startHour: 7.5, endHour: 8, region: '餐厅', activity: '在餐厅',
           days: [1, 2, 3, 4, 5], probability: 0.6, noise: 20 },
-        // 上午上课
-        { startHour: morningClass, endHour: morningClass + 2, region: '教室', activity: '在上课',
+        // 上午工作
+        { startHour: morningClass, endHour: morningClass + 2, region: '工作区', activity: '在工作',
           days: [1, 2, 3, 4, 5], probability: 0.85, noise: 10 },
-        // 上午第二节课
-        { startHour: morningClass + 2.5, endHour: morningClass + 4.5, region: '教室', activity: '在上课',
+        // 上午第二轮工作
+        { startHour: morningClass + 2.5, endHour: morningClass + 4.5, region: '工作区', activity: '在工作',
           days: [1, 2, 3, 4, 5], probability: 0.8, noise: 10 },
         // 午饭
-        { startHour: 12, endHour: 13, region: '食堂', activity: '在食堂',
+        { startHour: 12, endHour: 13, region: '餐厅', activity: '在餐厅',
           days: [0, 1, 2, 3, 4, 5, 6], probability: 0.9, noise: 30 },
-        // 午休/自习
-        { startHour: 13, endHour: 14, region: '宿舍', activity: '先躺一会',
+        // 午休/休息
+        { startHour: 13, endHour: 14, region: '住处', activity: '先躺一会',
           days: [1, 2, 3, 4, 5], probability: 0.5, noise: 20 },
-        // 下午课/自习
-        { startHour: afternoonClass, endHour: afternoonClass + 2, region: '教室', activity: '在上课',
+        // 下午工作
+        { startHour: afternoonClass, endHour: afternoonClass + 2, region: '工作区', activity: '在工作',
           days: [1, 2, 3, 4], probability: 0.75, noise: 15 },
-        // 图书馆自习
-        { startHour: afternoonClass + 2, endHour: 17, region: '图书馆', activity: '在图书馆',
+        // 阅览室专注
+        { startHour: afternoonClass + 2, endHour: 17, region: '阅览室', activity: '在专注做事',
           days: [1, 2, 3, 4, 5], probability: 0.5, noise: 30 },
         // 打工
         { startHour: workStart, endHour: workEnd, region: '便利店', activity: '在打工',
           days: workDays, probability: 0.9, noise: 15 },
         // 晚饭
-        { startHour: 18, endHour: 19, region: '食堂', activity: '在食堂',
+        { startHour: 18, endHour: 19, region: '餐厅', activity: '在餐厅',
           days: [0, 2, 4, 6], probability: 0.7, noise: 30 }, // 非打工日
       ],
     });
@@ -243,7 +243,7 @@ class Schedule {
           days: [1, 2, 3, 4, 5], probability: 0.9, noise: 20 },
         { startHour: workStart, endHour: 12, region: '办公室', activity: '在工作',
           days: [1, 2, 3, 4, 5], probability: 0.95, noise: 10 },
-        { startHour: 12, endHour: 13, region: '食堂', activity: '在食堂',
+        { startHour: 12, endHour: 13, region: '餐厅', activity: '在餐厅',
           days: [1, 2, 3, 4, 5], probability: 0.8, noise: 20 },
         { startHour: 13, endHour: workEnd, region: '办公室', activity: '在工作',
           days: [1, 2, 3, 4, 5], probability: 0.95, noise: 10 },
@@ -263,7 +263,7 @@ class Schedule {
           days: [0, 1, 2, 3, 4, 5, 6], probability: 0.7, noise: 60 },
         { startHour: 10, endHour: 12, region: '家', activity: '在工作',
           days: [1, 2, 3, 4, 5], probability: 0.7, noise: 60 },
-        { startHour: 12, endHour: 13, region: '食堂', activity: '在食堂',
+        { startHour: 12, endHour: 13, region: '餐厅', activity: '在餐厅',
           days: [0, 1, 2, 3, 4, 5, 6], probability: 0.8, noise: 30 },
         { startHour: 14, endHour: 18, region: '咖啡店', activity: '在工作',
           days: [1, 2, 3, 4, 5], probability: 0.6, noise: 60 },
