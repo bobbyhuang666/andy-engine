@@ -106,11 +106,6 @@ class Agent {
     this._ticksSinceReflection = 0;
     this._reflectionInterval = 12; // 每 12 个 tick（约 1 小时）反思一次
 
-    // 行为后果评估缓存（每 N 个 tick 更新一次）
-    this._ticksSinceConsequenceAssess = 0;
-    this._consequenceAssessInterval = 3; // 每 3 个 tick 评估一次
-    this._stateConsequences = null; // 缓存的行为后果数据
-
     // 最近事件类型追踪（P0 性能优化：Appraisal._evalSuddenness 用 O(1) 查表代替 memory.retrieve）
     this._recentEventTypes = new Set();
 
@@ -216,14 +211,30 @@ class Agent {
 
       // 处理跳过日程的替代行为
       if (scheduleResult.skipEvent) {
-        // 强制转移到替代状态（绕过状态机的正常转移逻辑）
+        // 强制转移到替代状态：将 BehaviorField B 向量设为目标状态的中心点
+        // 这比写 stateMachine.currentState 更可靠（getter 已被 BehaviorField 驱动）
         if (scheduleResult.altState) {
-          const forceResult = this.stateMachine._doTransition(
-            scheduleResult.altState, env.simTime || new Date()
-          );
-          if (forceResult.changed) {
-            result.stateChanged = true;
-            result.newEvents.push(forceResult.event);
+          const { STATE_CENTERS } = require('./BehaviorLabeler');
+          const targetCenter = STATE_CENTERS[scheduleResult.altState];
+          if (targetCenter) {
+            const prevLabel = this.behaviorField.label;
+            this.behaviorField.B = [...targetCenter];
+            this.behaviorField.velocity = [0, 0, 0, 0]; // 重置速度
+            if (prevLabel !== scheduleResult.altState) {
+              result.stateChanged = true;
+              result.newEvents.push({
+                type: 'state_change',
+                from: prevLabel,
+                to: scheduleResult.altState,
+                time: env.simTime?.toISOString(),
+              });
+              this.stateMachine.stateEnteredAt = env.simTime || new Date();
+              this.stateMachine.history.push({
+                from: prevLabel,
+                to: scheduleResult.altState,
+                at: (env.simTime || new Date()).toISOString(),
+              });
+            }
           }
         }
 

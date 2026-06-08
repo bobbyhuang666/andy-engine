@@ -77,7 +77,7 @@ const NEED_GRADIENT_TARGETS = {
 // 行为向量越接近这些中心点，对应需求恢复越快
 // 与 NEED_SATISFACTION（离散状态列表）的连续替代
 const NEED_SATISFACTION_CENTERS = {
-  hunger:      [0.35, 0.50, 0.20, 0.45],   // 吃饭场景
+  hunger:      [0.35, 0.55, 0.15, 0.45],   // 吃饭场景（接近"在食堂"中心）
   energy:      [0.06, 0.03, 0.05, 0.03],   // 休息/睡觉场景
   social:      [0.40, 0.90, 0.30, 0.85],   // 社交场景
   comfort:     [0.15, 0.15, 0.25, 0.15],   // 舒适/居家场景
