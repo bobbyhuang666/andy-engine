@@ -145,6 +145,25 @@ class NarrativeBuilder {
     // 最近感受
     if (ctx.lastAppraisal) parts.push(ctx.lastAppraisal);
 
+    // 行为场动态（BehaviorField 独有信息）
+    // 告诉 LLM 角色的行为趋势，而非仅当前状态
+    const behavior = ctx.agentStatus?.behavior;
+    if (behavior && behavior.speed > 0.3) {
+      const vec = behavior.vector;
+      // 社交倾向上升 → "想去人多的地方"
+      if (vec[1] > 0.5 && behavior.gradient[1] < -0.1) {
+        parts.push('想去人多的地方');
+      }
+      // 专注度下降 → "心思不太集中"
+      if (vec[2] < 0.3 && behavior.gradient[2] > 0.1) {
+        parts.push('心思不太集中');
+      }
+      // 活动度上升 → "想动起来"
+      if (behavior.gradient[0] < -0.2 && vec[0] < 0.4) {
+        parts.push('想动起来');
+      }
+    }
+
     if (parts.length === 0) return '';
 
     const narrative = parts.join('，').replace(/，，/g, '，');
