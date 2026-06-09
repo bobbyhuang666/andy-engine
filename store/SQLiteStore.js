@@ -1,12 +1,12 @@
 /**
  * SQLiteStore — 统一的 SQLite 持久化实现
  *
-/** 
+ * 实现 StoryStore、SnapshotStore、MetaStore 三个接口。
+ * 使用 better-sqlite3（同步 API，比 async sqlite3 快 3-5x）。
+ *
  * 注意: 接口定义为 async，但 SQLiteStore 是同步实现 (better-sqlite3)。
  * SimulationStore 调用时不加 await，这对同步实现是安全的。
  * 如果将来实现 PostgreSQLStore (async)，需要在 SimulationStore 中加 await。
- */ * 实现 StoryStore、SnapshotStore、MetaStore 三个接口。
- * 使用 better-sqlite3（同步 API，比 async sqlite3 快 3-5x）。
  *
  * 将来迁移到 PostgreSQL 时，只需新建一个类实现相同接口，
  * 业务代码一行不动。

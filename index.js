@@ -63,11 +63,13 @@ class AndyEngine {
 
     // 初始化 domain
     if (config.domain) {
-      const validation = validateDomain(config.domain);
-      if (!validation.valid) {
-        throw new Error(`domain 配置无效: ${validation.errors.join(', ')}`);
+      // 校验 custom domain，抛出包含字段路径的错误
+      const result = validateDomain(config.domain, { strict: false, throwOnError: false });
+      if (!result.valid) {
+        const errorMessages = result.errors.map(e => e.path ? `${e.path}: ${e.message}` : e.message);
+        throw new Error(`Invalid domain config: ${errorMessages.join('; ')}`);
       }
-      this.domain = new DomainRegistry(config.domain);
+      this.domain = new DomainRegistry(config.domain, { validate: false });
     } else {
       this.domain = new DomainRegistry();
     }

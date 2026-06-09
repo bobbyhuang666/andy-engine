@@ -8,7 +8,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "test:ui": "vitest --ui",
-    "test:domain": "vitest run tests/domain.test.js tests/domain-deep.test.js tests/source-scan.test.js tests/fallback-minimal.test.js",
+    "test:domain": "vitest run tests/domain.test.js tests/domain-deep.test.js tests/domain-contract.test.js tests/source-scan.test.js tests/fallback-minimal.test.js",
+    "test:compat": "vitest run tests/compatibility.test.js tests/package-boundary.test.js",
+    "release:check": "npm test && npm run test:domain && npm run pack:dry-run",
     "demo": "cd demo/character-lab && npm install && node server.js",
     "pack:dry-run": "npm pack --dry-run"
   },
@@ -58,6 +60,10 @@
   "exports": {
     ".": "./index.js",
     "./sdk": "./sdk/index.js",
+    "./domain": "./domain/index.js",
+    "./domain/validate": "./domain/validateDomain.js",
+    "./domain/registry": "./domain/DomainRegistry.js",
+    "./store": "./store/index.js",
     "./config/defaults": "./config/defaults.js",
     "./presets/campus": "./presets/campus/index.js",
     "./presets/tavern": "./presets/tavern/index.js"
