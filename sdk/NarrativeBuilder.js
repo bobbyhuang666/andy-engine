@@ -10,7 +10,8 @@
  *   6. 自然语言 — 不暴露任何引擎内部数值
  */
 
-const { sanitizeText, safeRegion, safeActivity } = require('../core/WorldviewConstraints');
+const { applyForbiddenTerms } = require('../core/WorldviewConstraints');
+const { getDefaultDomain } = require('../domain/DomainRegistry');
 
 class NarrativeBuilder {
   static buildSystemPrompt(worldContext, options = {}) {
@@ -19,60 +20,55 @@ class NarrativeBuilder {
       backstory = [],
       scenario = '',
       conversationHistory = null,
+      domain = null,
     } = options;
 
     if (!worldContext) return '';
 
+    const usedDomain = domain || getDefaultDomain();
+    const narrativeTemplates = usedDomain.narrativeTemplates;
+
     const sections = [];
 
-    // 1. 身份声明
     sections.push(NarrativeBuilder._buildIdentity(characterName, worldContext));
 
-    // 2. 人格描述
     if (worldContext.personalityAnchor) {
       sections.push(`# 你的性格\n${worldContext.personalityAnchor}`);
     }
 
-    // 3. 背景故事
     if (backstory.length > 0) {
       sections.push(`# 你的故事\n${backstory.map(b => `- ${b}`).join('\n')}`);
     }
 
-    // 4. 当前状态
-    const state = NarrativeBuilder._buildCurrentState(worldContext);
+    const state = NarrativeBuilder._buildCurrentState(worldContext, narrativeTemplates);
     if (state) sections.push(state);
 
-    // 5. 记忆
     const memory = NarrativeBuilder._buildMemory(worldContext.memoryContext);
     if (memory) sections.push(memory);
 
-    // 6. 社交关系
     if (worldContext.nearbyPeople && worldContext.nearbyPeople !== '附近没有人') {
       sections.push(`# 你身边的人\n${worldContext.nearbyPeople}`);
     }
 
-    // 7. 最近发生的事（去重）
     if (worldContext.recentEvents && worldContext.recentEvents !== '没有特别的事情发生') {
       const unique = [...new Set(worldContext.recentEvents.split('\n'))];
       sections.push(`# 最近的事\n${unique.join('\n')}`);
     }
 
-    // 8. 对话历史
     if (conversationHistory) {
       sections.push(`# 你们之前聊过\n${conversationHistory}`);
     }
 
-    // 9. 场景
     if (scenario) {
       sections.push(`# 场景\n${scenario}`);
     }
 
-    // 10. 行为指南
-    sections.push(NarrativeBuilder._buildGuidelines(characterName, worldContext));
+    sections.push(NarrativeBuilder._buildGuidelines(characterName, worldContext, usedDomain));
 
-    // 组装并做最终防污染处理
     const rawPrompt = sections.filter(Boolean).join('\n\n');
-    return sanitizeText(rawPrompt);
+
+    // Domain-aware guard：使用 applyForbiddenTerms 替代 sanitizeText
+    return applyForbiddenTerms(rawPrompt, usedDomain);
   }
 
   // ═══════════════════════════════════════════
@@ -102,20 +98,14 @@ class NarrativeBuilder {
   // ═══════════════════════════════════════════
   // 当前状态（自然语言叙述）
   // ═══════════════════════════════════════════
-  static _buildCurrentState(ctx) {
+  static _buildCurrentState(ctx, narrativeTemplates = {}) {
     const parts = [];
 
-    // 当前行为（第一人称感觉）
-    // 使用安全的地点映射（已替换校园词）
     if (ctx.currentRegion) {
-      const regionMap = {
-        '阅览室': '在阅览室，周围很安静', '餐厅': '在餐厅，人声嘈杂',
-        '工作区': '在工作区里', '住处': '在住处', '运动场': '在运动场上',
-        '咖啡店': '在咖啡店里', '小镇广场': '在小镇广场', '便利店': '在便利店', '家': '在家里',
-      };
-      // 先做安全替换，再查映射
-      const safeRegionName = safeRegion(ctx.currentRegion);
-      parts.push(regionMap[safeRegionName] || `在${safeRegionName}`);
+      // 从 domain 的 narrativeTemplates 取 regionMap，不再有默认 fallback
+      const regionMap = narrativeTemplates.regionMap || {};
+      const regionDesc = regionMap[ctx.currentRegion];
+      parts.push(regionDesc || `在${ctx.currentRegion}`);
     }
 
     // 生理状态
@@ -208,17 +198,22 @@ class NarrativeBuilder {
   // ═══════════════════════════════════════════
   // 行为指南（正面引导 + 动态规则）
   // ═══════════════════════════════════════════
-  static _buildGuidelines(name, ctx) {
+  static _buildGuidelines(name, ctx, domain = null) {
     const rules = [
       `你就是${name}，不是 AI，不是助手。你有自己的生活、感受和想法。`,
       '像真人发消息一样回复：简短、自然、有口语感。不要写长段落。',
       '通过你的语气和用词展现情绪，不要说"我现在感到难过"这种话。',
       '如果你不知道的事，就说不知道，不要编。',
       '可以有情绪起伏：开心时多说两句，累时回复简短，烦时可以不耐烦。',
-      // 世界观约束：禁止校园词
-      '【世界观约束】这是一个小镇世界观，不是校园世界观。禁止提及：教室、图书馆、宿舍、食堂、操场、校园广场、学生、老师、上课、自习等校园相关词汇。',
-      '使用安全的替代表达：工作区（代替教室）、阅览室（代替图书馆）、住处（代替宿舍）、餐厅（代替食堂）、年轻人（代替学生）、前辈（代替老师）、工作（代替上课）。',
     ];
+
+    // 只在非默认 domain 时添加世界观约束
+    if (domain && domain.id !== 'campus') {
+      const forbiddenTerms = domain.forbiddenTerms || [];
+      if (forbiddenTerms.length > 0) {
+        rules.push(`【世界观约束】禁止提及以下词汇：${forbiddenTerms.join('、')}`);
+      }
+    }
 
     if (ctx.emotionState) {
       if (ctx.emotionState.includes('效价=-') || ctx.emotionState.includes('不太好')) {

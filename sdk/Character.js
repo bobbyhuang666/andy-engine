@@ -9,7 +9,7 @@
  *   const maya = new Character({
  *     name: 'Maya',
  *     personality: 'INFP',
- *     backstory: ['一个安静的图书馆管理员', '喜欢看星星'],
+ *     backstory: ['一个安静的阅览处管理员', '喜欢看星星'],
  *     llm: { provider: 'openai', apiKey: 'sk-...' },
  *   });
  *
@@ -70,13 +70,28 @@ class Character {
     }
 
     // 创建角色
+    // schedule 策略：如果未传，根据 engine domain 决定默认值
+    // - campus domain: 默认 'student'
+    // - 其他 domain: 使用 domain 的 roleArchetypes 或空 schedule
+    let scheduleConfig = config.schedule;
+    if (scheduleConfig === undefined) {
+      const domain = this._engine.domain;
+      if (domain.id === 'campus') {
+        scheduleConfig = 'student';
+      } else {
+        // 尝试从 domain 的 roleArchetypes 取第一个，否则空 schedule
+        const archetypes = Object.keys(domain.roleArchetypes || {});
+        scheduleConfig = archetypes.length > 0 ? archetypes[0] : {};
+      }
+    }
+
     this._agent = this._engine.createCharacter({
       id: this.id,
       name: this.name,
       mbti: config.personality,
       personality: config.ocean ? { ocean: config.ocean } : undefined,
       background: this.backstory,
-      schedule: config.schedule || 'student',
+      schedule: scheduleConfig,
       initialPosition: config.initialPosition || undefined,
     });
 
@@ -138,6 +153,7 @@ class Character {
       backstory: this.backstory,
       scenario: this.scenario,
       conversationHistory: this._conversation.getSummary(),
+      domain: this._engine.domain,
     });
 
     // 4. 构建 messages
@@ -196,6 +212,7 @@ class Character {
       backstory: this.backstory,
       scenario: this.scenario,
       conversationHistory: this._conversation.getSummary(),
+      domain: this._engine.domain,
     });
 
     const messages = [
@@ -226,6 +243,7 @@ class Character {
         backstory: this.backstory,
         scenario: this.scenario,
         conversationHistory: this._conversation.getSummary(),
+        domain: this._engine.domain,
       }),
       narrative,
       worldContext,

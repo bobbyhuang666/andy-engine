@@ -331,7 +331,7 @@ describe('NarrativeBuilder 各种状态', () => {
     const prompt = NarrativeBuilder.buildSystemPrompt(ctx, { characterName: 'Test' });
     expect(prompt).toContain('下午');
     expect(prompt).toContain('春天');
-    expect(prompt).toContain('运动场上');
+    expect(prompt).toContain('在运动场');
   });
 
   it('空上下文返回空字符串', () => {

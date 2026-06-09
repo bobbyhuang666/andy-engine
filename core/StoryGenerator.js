@@ -83,17 +83,17 @@ const STATE_NAMES = {
   cooking: '做饭',
 };
 
-// 地点中文映射
+// 地点中文映射（中性，不依赖 campus）
 const LOCATION_NAMES = {
   home: '家',
-  office: '办公室',
-  library: '图书馆',
+  office: '工作地',
+  library: '阅览处',
   cafe: '咖啡馆',
   park: '公园',
   gym: '健身房',
   restaurant: '餐厅',
   street: '街上',
-  school: '学校',
+  school: '学堂',
 };
 
 class StoryGenerator {

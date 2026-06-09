@@ -109,10 +109,10 @@ const KEYWORD_EFFECTS = {
   '失眠':   { frustration: 0.06, nervousness: 0.05 },
   '熬夜':   { boredom: 0.03, frustration: 0.03 },
 
-  // ── 工作/学习 ──
+  // ── 工作/劳动 ──
   '加班':   { frustration: 0.05, anger: 0.03, boredom: 0.03 },
-  '考试':   { nervousness: 0.06, fear: 0.04 },
-  '作业':   { boredom: 0.04, frustration: 0.03 },
+  '考核':   { nervousness: 0.06, fear: 0.04 },
+  '任务':   { boredom: 0.04, frustration: 0.03 },
   '放假':   { joy: 0.06, relief: 0.05, excitement: 0.04 },
   '下班':   { relief: 0.05, joy: 0.03, calm: 0.03 },
 };

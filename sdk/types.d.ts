@@ -3,6 +3,68 @@
  */
 
 // ═══════════════════════════════════════════
+// Domain Config
+// ═══════════════════════════════════════════
+
+export interface DomainConfig {
+  id: string;
+  name: string;
+  version: string;
+  regions: string[];
+  adjacency?: [string, string, number][];
+  regionCoords?: Record<string, any>;
+  placeTypes?: Record<string, string[]>;
+  placeMapping?: Record<string, string[]>;
+  states: Record<string, {
+    next: string[];
+    hours: number[];
+    category: string;
+  }>;
+  stateCenters: Record<string, [number, number, number, number]>;
+  labelTimePenalties?: Record<string, { hours: number[]; penalty: number }>;
+  activityTargets?: Record<string, string>;
+  needSatisfactionMap?: Record<string, { states: string[]; regions: string[] }>;
+  needDriveStates?: Record<string, string[]>;
+  needRegionConfig?: Record<string, Record<string, string>>;
+  eventTemplates?: {
+    genericEvents?: Array<{ content: string; delta: Record<string, number> }>;
+    timeEvents?: Record<string, Array<{ content: string; delta: Record<string, number> }>>;
+    weatherEvents?: Record<string, Array<{ content: string; delta: Record<string, number> }>>;
+    regionEvents?: Record<string, Array<{ content: string; delta: Record<string, number> }>>;
+  };
+  memoryTemplates?: {
+    semanticCategories?: {
+      typeMap?: Record<string, string>;
+      keywordMap?: Record<string, string[]>;
+      stateCategoryMap?: Record<string, string>;
+    };
+  };
+  appraisalConfig?: {
+    needKeywords?: Record<string, string[]>;
+    socialStates?: string[];
+    outdoorPositions?: string[];
+    scheduledStates?: string[];
+  };
+  intrinsicMotivationConfig?: {
+    domainRegionMap?: Record<string, string>;
+    explorationStates?: string[];
+  };
+  skipBehavior?: Record<string, { states: string[]; regions: string[]; memories: string[] }>;
+  narrativeTemplates?: {
+    statePositionMap?: Record<string, string>;
+    regionMap?: Record<string, string>;
+  };
+  roleArchetypes?: Record<string, { entries: Array<Record<string, any>> }>;
+  fallback?: {
+    defaultRegion?: string;
+    defaultState?: string;
+    unknownState?: string;
+    unknownRegion?: string;
+  };
+  forbiddenTerms?: string[];
+}
+
+// ═══════════════════════════════════════════
 // Character
 // ═══════════════════════════════════════════
 
@@ -23,7 +85,7 @@ export interface CharacterConfig {
   };
   /** 背景故事 */
   backstory?: string[];
-  /** 日程预设或配置 */
+  /** 日程预设或配置（支持 domain roleArchetypes） */
   schedule?: string | object;
   /** 初始位置 */
   initialPosition?: string;
@@ -31,7 +93,7 @@ export interface CharacterConfig {
   llm?: LLMConfig | LLMFunction;
   /** 场景描述 */
   scenario?: string;
-  /** 共享的 AndyEngine 实例（多角色场景） */
+  /** 共享的 AndyEngine 实例（可使用 custom-domain engine） */
   engine?: object;
   /** 模拟开始时间 */
   startTime?: Date;
@@ -130,6 +192,8 @@ export interface AndyConfig {
   startTime?: Date;
   /** 初始天气 */
   weather?: string;
+  /** 自定义 domain 配置（默认使用 presets/campus） */
+  domain?: DomainConfig;
 }
 
 export class Andy {
@@ -209,6 +273,7 @@ export class NarrativeBuilder {
       backstory?: string[];
       scenario?: string;
       conversationHistory?: string | null;
+      domain?: DomainConfig;
     }
   ): string;
 }

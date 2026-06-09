@@ -212,6 +212,24 @@ function safeStateDescription({ region, activity, state }) {
   };
 }
 
+/**
+ * Domain-aware guard：根据 domain 的 forbiddenTerms 替换文本
+ *
+ * @param {string} text - 原始文本
+ * @param {Object} domain - DomainRegistry 实例
+ * @returns {string} 处理后的文本
+ */
+function applyForbiddenTerms(text, domain) {
+  if (!text || typeof text !== 'string') return text;
+  if (!domain || !domain.forbiddenTerms || domain.forbiddenTerms.length === 0) return text;
+
+  let result = text;
+  for (const term of domain.forbiddenTerms) {
+    result = result.replace(new RegExp(term, 'g'), '***');
+  }
+  return result;
+}
+
 module.exports = {
   FORBIDDEN_CAMPUS_PLACES,
   FORBIDDEN_CAMPUS_IDENTITY,
@@ -224,4 +242,5 @@ module.exports = {
   safeRegion,
   safeActivity,
   safeStateDescription,
+  applyForbiddenTerms,
 };

@@ -5,7 +5,7 @@
  * 用于 LLM prompt 注入、故事生成、记忆记录等下游系统。
  *
  * 维度定义：
- *   B[0] = activity      0=休息/睡觉  1=上课/工作/运动
+ *   B[0] = activity      0=休息/睡觉  1=工作/运动
  *   B[1] = sociality     0=独处/发呆  1=聊天/社交
  *   B[2] = focus         0=漫无目的   1=高度专注
  *   B[3] = expressiveness 0=封闭退缩  1=外向表达
@@ -15,6 +15,8 @@
  *   - 次标签：第二近的状态中心点（当距离比 < 1.5 时返回）
  *   - 置信度：主标签的相对距离优势
  */
+
+const { getDefaultDomain } = require('../domain/DomainRegistry');
 
 // ═══════════════════════════════════════════
 // 维度索引常量
@@ -26,102 +28,13 @@ const DIM_EXPRESSIVENESS = 3;
 const DIMS = 4;
 
 // ═══════════════════════════════════════════
-// 状态中心点：每个原有状态在 4D 行为空间中的位置
-//
-// 坐标 [activity, sociality, focus, expressiveness]
-// 基于状态语义分析确定，不是精确测量
+// 向后兼容：默认 STATE_CENTERS（从 campus domain 取）
+// 新代码应使用 BehaviorLabeler.create(domain) 创建 domain-aware 实例
 // ═══════════════════════════════════════════
-const STATE_CENTERS = {
-  // ── 睡眠 ──
-  '睡了':           [0.00, 0.00, 0.00, 0.00],
-  '在翻身':         [0.05, 0.00, 0.00, 0.00],
-  '快睡了':         [0.05, 0.00, 0.05, 0.00],
-  '困了但睡不着':   [0.08, 0.00, 0.10, 0.05],
-
-  // ── 深夜 ──
-  '还没睡呢':       [0.12, 0.05, 0.15, 0.10],
-  '在发呆':         [0.08, 0.05, 0.08, 0.05],
-  '在听歌':         [0.10, 0.05, 0.20, 0.08],
-  '在看窗外':       [0.06, 0.02, 0.10, 0.03],
-  '熬夜了':         [0.15, 0.08, 0.12, 0.10],
-
-  // ── 早晨 ──
-  '刚醒':           [0.15, 0.05, 0.10, 0.08],
-  '在洗漱':         [0.35, 0.02, 0.15, 0.05],
-  '在换衣服':       [0.30, 0.02, 0.10, 0.05],
-  '刚出门':         [0.50, 0.10, 0.15, 0.20],
-
-  // ── 学习/工作 ──
-  '在教学楼':       [0.55, 0.20, 0.50, 0.20],
-  '在上课':         [0.75, 0.15, 0.85, 0.15],
-  '在走神':         [0.35, 0.10, 0.12, 0.08],
-  '下课了':         [0.40, 0.50, 0.20, 0.50],
-  '在图书馆':       [0.20, 0.08, 0.70, 0.05],
-  '在自习':         [0.25, 0.05, 0.80, 0.05],
-  '在工作':         [0.70, 0.15, 0.80, 0.25],
-  '在开会':         [0.50, 0.45, 0.65, 0.40],
-  '在办公室':       [0.45, 0.15, 0.50, 0.20],
-
-  // ── 餐饮 ──
-  '在食堂':         [0.30, 0.55, 0.20, 0.50],
-  '吃完了':         [0.25, 0.35, 0.15, 0.35],
-  '在做饭':         [0.55, 0.15, 0.50, 0.15],
-  '做好了':         [0.30, 0.20, 0.15, 0.20],
-  '在吃饭':         [0.25, 0.30, 0.15, 0.30],
-  '吃完了晚饭':     [0.20, 0.25, 0.10, 0.25],
-  '在洗碗':         [0.40, 0.05, 0.25, 0.05],
-
-  // ── 社交 ──
-  '在聊天':         [0.30, 0.85, 0.30, 0.90],
-  '在校园广场':     [0.35, 0.70, 0.25, 0.65],
-  '在咖啡店':       [0.25, 0.55, 0.35, 0.50],
-  '在看书':         [0.18, 0.05, 0.75, 0.05],
-
-  // ── 娱乐/休闲 ──
-  '在看剧':         [0.12, 0.15, 0.45, 0.10],
-  '看完了':         [0.15, 0.10, 0.15, 0.10],
-  '在收拾':         [0.35, 0.05, 0.30, 0.05],
-  '在看手机':       [0.10, 0.10, 0.35, 0.10],
-  '在听歌':         [0.10, 0.05, 0.20, 0.08],
-
-  // ── 居家 ──
-  '到家了':         [0.20, 0.10, 0.15, 0.15],
-  '先躺一会':       [0.08, 0.05, 0.08, 0.05],
-  '在洗澡':         [0.40, 0.00, 0.15, 0.02],
-  '洗完了':         [0.20, 0.05, 0.10, 0.08],
-  '在吹头发':       [0.25, 0.05, 0.15, 0.05],
-
-  // ── 疲劳/休息 ──
-  '有点困':         [0.15, 0.08, 0.15, 0.08],
-  '趴一会':         [0.06, 0.03, 0.05, 0.03],
-  '有点累':         [0.12, 0.10, 0.10, 0.10],
-  '在休息':         [0.10, 0.08, 0.10, 0.08],
-  '困了':           [0.08, 0.05, 0.08, 0.05],
-
-  // ── 通勤 ──
-  '在路上':         [0.55, 0.10, 0.15, 0.15],
-  '刚下班':         [0.50, 0.15, 0.12, 0.20],
-  '在回家路上':     [0.50, 0.08, 0.10, 0.10],
-
-  // ── 购物/打工 ──
-  '在便利店':       [0.50, 0.25, 0.45, 0.20],
-  '在打工':         [0.65, 0.30, 0.60, 0.35],
-
-  // ── 偏差行为 ──
-  '翘课了':         [0.25, 0.15, 0.10, 0.20],
-  '在外面闲逛':     [0.40, 0.20, 0.12, 0.30],
-  '在网吧':         [0.35, 0.25, 0.50, 0.25],
-  '在宿舍躺着':     [0.06, 0.05, 0.08, 0.05],
-  '在拖延':         [0.15, 0.08, 0.08, 0.10],
-
-  // ── 生病 ──
-  '生病了':         [0.08, 0.02, 0.05, 0.05],
-  '请假了':         [0.12, 0.05, 0.10, 0.08],
-};
-
-// 预计算：每个状态中心点的坐标数组（避免每次 Object.values 创建新数组）
-const STATE_NAMES = Object.keys(STATE_CENTERS);
-const STATE_VECTORS = STATE_NAMES.map(name => STATE_CENTERS[name]);
+const defaultDomain = getDefaultDomain();
+const STATE_CENTERS = defaultDomain.stateCenters;
+const STATE_NAMES = defaultDomain.getStateNames();
+const STATE_VECTORS = defaultDomain.getStateVectors();
 
 // ═══════════════════════════════════════════
 // 时间约束势能：根据小时惩罚不合理的高活跃/高社交行为
@@ -139,7 +52,7 @@ function getTimePenalty(B, hour) {
   else if (hour >= 5 && hour < 7) {
     if (B[DIM_ACTIVITY] > 0.7) penalty += (B[DIM_ACTIVITY] - 0.7) * 0.5;
   }
-  // 上课时间 (8-12, 14-17): 完全不活跃被轻微惩罚（应该做事）
+  // 工作时间 (8-12, 14-17): 完全不活跃被轻微惩罚（应该做事）
   else if ((hour >= 8 && hour < 12) || (hour >= 14 && hour < 17)) {
     if (B[DIM_ACTIVITY] < 0.2) penalty += (0.2 - B[DIM_ACTIVITY]) * 0.3;
   }
@@ -168,7 +81,16 @@ function dist(a, b) {
 
 class BehaviorLabeler {
   /**
-   * 将连续行为向量投影为语义标签
+   * 创建 domain-aware 的 BehaviorLabeler
+   * @param {Object} domain - DomainRegistry 实例
+   * @returns {BehaviorLabelerDomain}
+   */
+  static create(domain) {
+    return new BehaviorLabelerDomain(domain);
+  }
+
+  /**
+   * 将连续行为向量投影为语义标签（使用默认 domain）
    *
    * @param {number[]} B - 4 维行为向量 [activity, sociality, focus, expressiveness]
    * @param {Object} [options]
@@ -184,15 +106,18 @@ class BehaviorLabeler {
     const hour = options.hour;
 
     // 计算到每个状态中心的距离（可选：时间惩罚）
+    // 从 defaultDomain 获取 labelTimePenalties
+    const labelTimePenalties = defaultDomain.labelTimePenalties || {};
     const distances = [];
     for (let i = 0; i < STATE_VECTORS.length; i++) {
       let d = dist(B, STATE_VECTORS[i]);
 
       // 时间惩罚：不合理的状态在距离上加罚
-      // 例如凌晨3点不应该投影到"在上课"
       if (hour !== undefined) {
-        const penalty = _getTimeLabelPenalty(STATE_NAMES[i], hour);
-        d += penalty;
+        const rule = labelTimePenalties[STATE_NAMES[i]];
+        if (rule && !rule.hours.includes(hour)) {
+          d += rule.penalty;
+        }
       }
 
       distances.push({
@@ -230,7 +155,7 @@ class BehaviorLabeler {
   /**
    * 生成带修饰的行为描述（超越简单标签）
    *
-   * 例如：不只是"在图书馆"，而是"在图书馆，但有点心不在焉"
+   * 例如：不只是"在阅览处"，而是"在阅览处，但有点心不在焉"
    *
    * @param {number[]} B - 4 维行为向量
    * @param {Object} [options]
@@ -239,24 +164,27 @@ class BehaviorLabeler {
   static describe(B, options = {}) {
     const { primary, secondary, confidence } = BehaviorLabeler.project(B, options);
 
+    // 从 defaultDomain 获取配置
+    const domain = defaultDomain;
+
     // 基础描述
     let desc = primary;
 
     // 低置信度时添加修饰
     if (secondary && confidence < 0.6) {
-      desc = `${primary}，但也${_stateToVerb(secondary)}`;
+      desc = `${primary}，但也${_stateToVerb(secondary, domain)}`;
     }
 
     // 根据 B 向量维度添加情绪/状态修饰
     const modifiers = [];
 
-    if (B[DIM_FOCUS] < 0.25 && _isHighFocusState(primary)) {
+    if (B[DIM_FOCUS] < 0.25 && _isHighFocusState(primary, domain)) {
       modifiers.push('有点心不在焉');
     }
-    if (B[DIM_SOCIALITY] > 0.6 && !_isSocialState(primary)) {
+    if (B[DIM_SOCIALITY] > 0.6 && !_isSocialState(primary, domain)) {
       modifiers.push('想找人说话');
     }
-    if (B[DIM_ACTIVITY] < 0.15 && _isActiveState(primary)) {
+    if (B[DIM_ACTIVITY] < 0.15 && _isActiveState(primary, domain)) {
       modifiers.push('不太想动');
     }
 
@@ -277,65 +205,111 @@ class BehaviorLabeler {
 }
 
 // ═══════════════════════════════════════════
+// Domain-aware BehaviorLabeler
+// ═══════════════════════════════════════════
+class BehaviorLabelerDomain {
+  constructor(domain) {
+    this.domain = domain;
+    this.stateNames = domain.getStateNames();
+    this.stateVectors = domain.getStateVectors();
+    this.labelTimePenalties = domain.labelTimePenalties;
+  }
+
+  project(B, options = {}) {
+    if (!B || B.length < DIMS) {
+      return { primary: this.domain.fallback.unknownState, secondary: null, confidence: 0.5 };
+    }
+
+    const hour = options.hour;
+    const distances = [];
+
+    for (let i = 0; i < this.stateVectors.length; i++) {
+      let d = dist(B, this.stateVectors[i]);
+
+      if (hour !== undefined) {
+        const penalty = this._getTimeLabelPenalty(this.stateNames[i], hour);
+        d += penalty;
+      }
+
+      distances.push({
+        name: this.stateNames[i],
+        dist: d,
+      });
+    }
+
+    distances.sort((a, b) => a.dist - b.dist);
+
+    const primary = distances[0];
+    const secondary = distances[1];
+
+    const ratio = primary.dist < 1e-10
+      ? 0
+      : (secondary.dist > 0 ? primary.dist / secondary.dist : 1);
+    const confidence = primary.dist < 1e-10
+      ? 1.0
+      : Math.max(0.3, Math.min(1, 1 - ratio * 0.5));
+
+    const secondaryLabel = ratio < 0.75 ? secondary.name : null;
+
+    return {
+      primary: primary.name,
+      secondary: secondaryLabel,
+      confidence,
+    };
+  }
+
+  _getTimeLabelPenalty(state, hour) {
+    const rule = this.labelTimePenalties[state];
+    if (!rule) return 0;
+    if (rule.hours.includes(hour)) return 0;
+    return rule.penalty;
+  }
+}
+
+// ═══════════════════════════════════════════
 // 辅助函数
 // ═══════════════════════════════════════════
+// 辅助函数（从 domain 获取配置）
+// ═══════════════════════════════════════════
 
-function _stateToVerb(state) {
-  const verbMap = {
-    '在发呆': '在走神', '在看手机': '在刷手机', '在聊天': '想聊天',
-    '在自习': '想学习', '在休息': '想休息', '在看剧': '想看剧',
-    '在食堂': '想去吃饭', '在图书馆': '想去图书馆',
-  };
+function _stateToVerb(state, domain) {
+  // 从 domain 的 narrativeTemplates 获取 verb map
+  const verbMap = (domain && domain.narrativeTemplates && domain.narrativeTemplates.verbMap) || {};
   return verbMap[state] || `在${state.replace(/^在/, '')}`;
 }
 
-function _isHighFocusState(state) {
-  return ['在上课', '在自习', '在图书馆', '在工作', '在开会', '在看书'].includes(state);
+function _isHighFocusState(state, domain) {
+  // 从 domain 的 states 获取高专注状态
+  if (!domain || !domain.states) return false;
+  const stateDef = domain.states[state];
+  return stateDef && (stateDef.category === 'active' || stateDef.category === 'quiet');
 }
 
-function _isSocialState(state) {
-  return ['在聊天', '在食堂', '在校园广场', '在咖啡店', '在开会'].includes(state);
+function _isSocialState(state, domain) {
+  // 从 domain 的 states 获取社交状态
+  if (!domain || !domain.states) return false;
+  const stateDef = domain.states[state];
+  return stateDef && stateDef.category === 'social';
 }
 
-function _isActiveState(state) {
-  return ['在上课', '在工作', '在开会', '在打工', '在运动'].includes(state);
+function _isActiveState(state, domain) {
+  // 从 domain 的 states 获取活跃状态
+  if (!domain || !domain.states) return false;
+  const stateDef = domain.states[state];
+  return stateDef && stateDef.category === 'active';
 }
 
 /**
- * 标签时间合理性惩罚
+ * 标签时间合理性惩罚（Campus Legacy）
  * 不合理的状态在投影距离上加罚（0 = 无惩罚，0.3 = 强惩罚）
  *
- * 设计：不是硬约束，而是软偏好。凌晨3点"在上课"的距离加 0.3，
- * 如果 B 确实非常接近"在上课"中心（距离 < 0.1），总距离 0.4
+ * 设计：不是硬约束，而是软偏好。凌晨3点"在工作"的距离加 0.3，
+ * 如果 B 确实非常接近"在工作"中心（距离 < 0.1），总距离 0.4
  * 仍然可能大于"还没睡呢"的距离 0.3 → 合理标签胜出。
  */
-const LABEL_TIME_PENALTIES = {
-  // 白天活动：深夜出现时强惩罚（0.5+），白天出现时无惩罚
-  '在上课':   { hours: [8,9,10,11,12,13,14,15,16], penalty: 0.5 },
-  '在工作':   { hours: [8,9,10,11,12,13,14,15,16,17,18], penalty: 0.4 },
-  '在开会':   { hours: [9,10,11,13,14,15,16,17], penalty: 0.4 },
-  '在打工':   { hours: [10,11,12,13,14,15,16,17,18,19,20,21], penalty: 0.35 },
-  '在自习':   { hours: [8,9,10,11,12,13,14,15,16,17,18,19,20], penalty: 0.3 },
-  '在图书馆': { hours: [8,9,10,11,12,13,14,15,16,17,18,19,20], penalty: 0.25 },
-  '下课了':   { hours: [9,10,11,12,13,14,15,16,17], penalty: 0.3 },
-  '在食堂':   { hours: [7,8,11,12,13,17,18,19], penalty: 0.25 },
-  '刚出门':   { hours: [7,8,9], penalty: 0.4 },
-  '在洗漱':   { hours: [6,7,8,9], penalty: 0.35 },
-  // 深夜专属：白天出现时惩罚
-  '还没睡呢':     { hours: [22,23,0,1,2,3], penalty: 0.3 },
-  '熬夜了':       { hours: [0,1,2,3,4,5], penalty: 0.35 },
-  '困了但睡不着': { hours: [23,0,1,2,3], penalty: 0.3 },
-  // 睡眠：白天出现时强惩罚
-  '睡了': { hours: [0,1,2,3,4,5,6,7,8], penalty: 0.5 },
-  '快睡了': { hours: [22,23,0,1,2,3,4], penalty: 0.4 },
-};
-
-function _getTimeLabelPenalty(state, hour) {
-  const rule = LABEL_TIME_PENALTIES[state];
-  if (!rule) return 0; // 无规则 → 无惩罚
-  if (rule.hours.includes(hour)) return 0; // 合理时间 → 无惩罚
-  return rule.penalty;
-}
+// LABEL_TIME_PENALTIES 已迁移到 domain.labelTimePenalties
+// 保留空对象作为 fallback
+const LABEL_TIME_PENALTIES = {};
 
 module.exports = {
   BehaviorLabeler,

@@ -108,21 +108,17 @@ AndyEngine
 │   └── WorldMap.js           Map with named locations
 │
 ├── store/                    Persistence layer (SQLite)
-│   ├── SQLiteStore.js        WAL mode, prepared statements, 64MB cache
-│   ├── SimulationStore.js    Lifecycle management + buffering
-│   ├── StoryStore.js         Story/narrative storage
-│   ├── SnapshotStore.js      World state snapshots
-│   └── MetaStore.js          Simulation metadata
 │
-├── native/                   Rust N-API acceleration
-│   └── src/
-│       ├── emotion/          SoA f32 emotion engine (rayon parallel)
-│       └── needs/            Needs computation
+├── domain/                   Domain architecture
+│   ├── DomainRegistry.js     Domain parsing and management
+│   └── validateDomain.js     Domain config validation
 │
-├── experiments/              Experiment suite with results
-├── data_generator/           Training data generation pipeline
-├── demo/character-lab/       Web demo (Express + WebSocket)
-└── config/defaults.js        All tunable parameters
+├── presets/                  World presets
+│   ├── campus/               Campus world (default)
+│   └── tavern/               Medieval tavern world (example)
+│
+├── config/defaults.js        All tunable parameters
+└── sdk/                      High-level SDK
 ```
 
 ---
@@ -192,10 +188,10 @@ node server.js
 # → http://localhost:3456
 ```
 
-**3 lines to create a character with memory:**
+**Default campus mode (backward compatible):**
 
 ```javascript
-const AndyEngine = require('./index');
+const AndyEngine = require('andy-engine');
 
 const engine = new AndyEngine();
 const maya = engine.createCharacter({
@@ -217,13 +213,55 @@ const context = engine.getNarrative('maya', {
 // Access continuous behavior state
 const agent = engine.getAgent('maya');
 console.log(agent.behavior);
-// {
-//   vector: [0.35, 0.55, 0.15, 0.42],  // [activity, sociality, focus, expressiveness]
-//   label: '在食堂',
-//   speed: 0.12,                          // how fast behavior is changing
-//   gradient: [-0.08, 0.15, -0.03, 0.1]  // where behavior is heading
-// }
 ```
+
+**Custom domain mode:**
+
+```javascript
+const AndyEngine = require('andy-engine');
+const tavernDomain = require('andy-engine/presets/tavern');
+
+const engine = new AndyEngine({ domain: tavernDomain });
+
+const blacksmith = engine.createCharacter({
+  id: 'blacksmith',
+  name: '铁匠',
+  mbti: 'ISTJ',
+  schedule: 'blacksmith', // Uses domain.roleArchetypes.blacksmith
+});
+
+engine.tick();
+console.log(blacksmith.toNarrative());
+// "在铁匠铺，炉火熊熊。有点累了"
+```
+
+---
+
+## Domain Architecture
+
+Andy Engine supports **domain config** — a declarative way to define a world's regions, states, events, and semantics.
+
+```javascript
+const engine = new AndyEngine({ domain: customDomain });
+```
+
+**Key concept:** Core engine is world-agnostic. All world-specific semantics (regions, states, events, narratives) come from the domain preset.
+
+| Component | Source |
+|---|---|
+| Regions & adjacency | `domain.regions`, `domain.adjacency` |
+| States & behavior centers | `domain.states`, `domain.stateCenters` |
+| Events | `domain.eventTemplates` |
+| Needs mapping | `domain.needSatisfactionMap`, `domain.needRegionConfig` |
+| Narratives | `domain.narrativeTemplates` |
+| Schedule presets | `domain.roleArchetypes` |
+| Forbidden terms | `domain.forbiddenTerms` (final guard only) |
+
+**Default preset:** `presets/campus` (campus world, backward compatible)
+
+**Custom domain example:** `presets/tavern` (medieval tavern, 5 regions, 6 states)
+
+See [`docs/DOMAIN.md`](docs/DOMAIN.md) for full schema reference.
 
 ---
 
@@ -411,8 +449,10 @@ node server.js
 # → http://localhost:3456
 ```
 
+**默认校园模式（向后兼容）：**
+
 ```javascript
-const AndyEngine = require('./index');
+const AndyEngine = require('andy-engine');
 
 const engine = new AndyEngine();
 const maya = engine.createCharacter({
@@ -433,13 +473,55 @@ const context = engine.getNarrative('maya', {
 // 获取连续行为状态
 const agent = engine.getAgent('maya');
 console.log(agent.behavior);
-// {
-//   vector: [0.35, 0.55, 0.15, 0.42],  // [活跃度, 社交性, 专注度, 表达欲]
-//   label: '在食堂',
-//   speed: 0.12,                          // 行为变化速度
-//   gradient: [-0.08, 0.15, -0.03, 0.1]  // 行为移动方向
-// }
 ```
+
+**自定义世界观模式：**
+
+```javascript
+const AndyEngine = require('andy-engine');
+const tavernDomain = require('andy-engine/presets/tavern');
+
+const engine = new AndyEngine({ domain: tavernDomain });
+
+const blacksmith = engine.createCharacter({
+  id: 'blacksmith',
+  name: '铁匠',
+  mbti: 'ISTJ',
+  schedule: 'blacksmith', // 使用 domain.roleArchetypes.blacksmith
+});
+
+engine.tick();
+console.log(blacksmith.toNarrative());
+// "在铁匠铺，炉火熊熊。有点累了"
+```
+
+---
+
+## 领域架构
+
+Andy Engine 支持 **domain config** — 一种声明式的方式来定义世界的区域、状态、事件和语义。
+
+```javascript
+const engine = new AndyEngine({ domain: customDomain });
+```
+
+**核心概念：** 引擎核心是世界无关的。所有世界特定的语义（区域、状态、事件、叙事）来自 domain preset。
+
+| 组件 | 来源 |
+|------|------|
+| 区域与邻接 | `domain.regions`, `domain.adjacency` |
+| 状态与行为中心 | `domain.states`, `domain.stateCenters` |
+| 事件 | `domain.eventTemplates` |
+| 需求映射 | `domain.needSatisfactionMap`, `domain.needRegionConfig` |
+| 叙事 | `domain.narrativeTemplates` |
+| 日程预设 | `domain.roleArchetypes` |
+| 禁止词 | `domain.forbiddenTerms`（仅作最后防线） |
+
+**默认预设：** `presets/campus`（校园世界，向后兼容）
+
+**自定义 domain 示例：** `presets/tavern`（中世纪酒馆，5 个区域，6 个状态）
+
+详见 [`docs/DOMAIN.md`](docs/DOMAIN.md) 完整 schema 参考。
 
 ---
 

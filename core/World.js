@@ -14,14 +14,19 @@ const SpatialEngine = require('../spatial/SpatialEngine');
 const SocialGraph = require('../social/SocialGraph');
 const EventDispatcher = require('./EventDispatcher');
 const { ANDY_DEFAULTS } = require('../config/defaults');
+const { getDefaultDomain } = require('../domain/DomainRegistry');
 
 class AndyWorld {
   /**
    * @param {Object} config
    * @param {Date} [config.startTime] - 初始时间
    * @param {Object} [savedState] - 恢复状态
+   * @param {Object} [domain] - DomainRegistry 实例
    */
-  constructor(config = {}, savedState = null) {
+  constructor(config = {}, savedState = null, domain = null) {
+    // ─── Domain ───
+    this.domain = domain || getDefaultDomain();
+
     // ─── 时间系统 ───
     this.time = savedState ? new Date(savedState.time) : (config.startTime || new Date());
     this.tickCount = savedState ? savedState.tickCount : 0;
@@ -34,10 +39,10 @@ class AndyWorld {
       season: this._calcSeason(this.time.getMonth()),
     };
 
-    // ─── 区域空间 ───
-    this.regions = new RegionGrid(ANDY_DEFAULTS.spatial.regions);
+    // ─── 区域空间（从 domain 取）───
+    this.regions = new RegionGrid(this.domain.regions);
     // 初始化区域邻接关系
-    for (const [regionA, regionB, distance] of ANDY_DEFAULTS.spatial.adjacency || []) {
+    for (const [regionA, regionB, distance] of this.domain.adjacency || []) {
       this.regions.setAdjacent(regionA, regionB, distance);
     }
 
@@ -45,7 +50,10 @@ class AndyWorld {
     this.spatial = null;
     if (config.spatial === 'continuous') {
       const spatialConfig = ANDY_DEFAULTS.spatial.continuous || {};
-      const regionDefs = this._buildRegionDefs(ANDY_DEFAULTS.spatial);
+      const regionDefs = this._buildRegionDefs({
+        regionCoords: this.domain.regionCoords,
+        regions: this.domain.regions,
+      });
       this.spatial = new SpatialEngine({
         worldWidth: spatialConfig.worldWidth || 500,
         worldHeight: spatialConfig.worldHeight || 500,
@@ -59,7 +67,7 @@ class AndyWorld {
         baseProb: spatialConfig.baseProb || 0.3,
         distanceDecay: spatialConfig.distanceDecay || 0.3,
         regions: regionDefs,
-        adjacency: this._buildAdjacencyMap(ANDY_DEFAULTS.spatial.adjacency),
+        adjacency: this._buildAdjacencyMap(this.domain.adjacency),
       });
     }
 
@@ -73,7 +81,7 @@ class AndyWorld {
     );
 
     // ─── 事件系统 ───
-    this.eventDispatcher = new EventDispatcher();
+    this.eventDispatcher = new EventDispatcher(this.domain);
     if (savedState && savedState.events) {
       // 恢复最近的事件
       for (const evt of savedState.events.eventLog || []) {

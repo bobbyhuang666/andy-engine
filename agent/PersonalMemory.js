@@ -15,31 +15,28 @@
 
 const { ANDY_DEFAULTS, SEMANTIC_EVENT_CATEGORIES } = require('../config/defaults');
 const cfg = ANDY_DEFAULTS.memory;
+const { getDefaultDomain } = require('../domain/DomainRegistry');
 
 class PersonalMemory {
   /**
    * @param {string} agentId - 所属 Agent ID
    * @param {Object[]} [seedMemories] - 种子记忆（角色背景）
    * @param {Object[]} [savedMemories] - 恢复的序列化记忆
+   * @param {Object} [domain] - DomainRegistry 实例
    */
-  constructor(agentId, seedMemories = [], savedMemories = null) {
+  constructor(agentId, seedMemories = [], savedMemories = null, domain = null) {
     this.agentId = agentId;
+    this.domain = domain || getDefaultDomain();
 
-    // ── tick 级检索缓存（P0 性能优化）──
-    // 同一 tick 内相同关键词的 retrieve 结果复用，避免 O(500) 重复遍历
+    // 从 domain 取语义分类
+    this._semanticCategories = this.domain.memoryTemplates.semanticCategories || SEMANTIC_EVENT_CATEGORIES;
+
     this._tickCache = new Map();
     this._tickCacheTick = -1;
-
-    // 模拟时间引用（由 Agent 每 tick 更新）
-    // 解决 ACT-R 时间计算在快速模拟下失效的问题：
-    // 旧实现用 Date.now()，所有记忆看起来都是"刚刚"创建的
     this._simTime = Date.now();
-
-    // ── Appraisal Bias：重大事件的持久评价偏移 ──
     this.appraisalBiases = [];
 
     if (savedMemories) {
-      // 兼容旧格式（纯数组）和新格式（{ memories, appraisalBiases }）
       const memArray = Array.isArray(savedMemories) ? savedMemories : (savedMemories.memories || []);
       this.memories = memArray.map(m => ({
         ...m,
@@ -48,7 +45,6 @@ class PersonalMemory {
         presentations: (m.presentations || []).map(t => new Date(t)),
         semanticCategory: m.semanticCategory || null,
       }));
-      // 恢复 appraisalBiases
       if (!Array.isArray(savedMemories) && savedMemories.appraisalBiases) {
         this.appraisalBiases = savedMemories.appraisalBiases;
       }
@@ -856,15 +852,12 @@ class PersonalMemory {
    * @private
    */
   _classifySemanticCategory(event) {
-    const cats = SEMANTIC_EVENT_CATEGORIES;
+    const cats = this._semanticCategories;
 
-    // 优先级策略：从显式到推断
-    // 1. 事件类型映射（显式标记：社交/天气/心智游移等，最可靠）
     if (event.type && cats.typeMap[event.type]) {
       return cats.typeMap[event.type];
     }
 
-    // 2. 内容关键词分类（推断：捕获事件的实际语义含义）
     const content = (event.content || event.description || '').toLowerCase();
     if (content) {
       for (const [category, keywords] of Object.entries(cats.keywordMap)) {
@@ -874,21 +867,19 @@ class PersonalMemory {
       }
     }
 
-    // 3. 状态上下文映射（后备：用于无类型和无关键词匹配的事件）
     if (event._currentState) {
-      const stateDef = require('./StateMachine').STATES[event._currentState];
+      const stateDef = this.domain.states[event._currentState];
       if (stateDef && stateDef.category && cats.stateCategoryMap[stateDef.category]) {
         return cats.stateCategoryMap[stateDef.category];
       }
     }
 
-    // 4. 默认分类
     return '日常琐事';
   }
 
   /**
    * 从转移字符串中提取目标状态名
-   * @param {string} transition - 格式如 "在图书馆 → 在自习"
+   * @param {string} transition - 格式如 "在阅览处 → 在专注"
    * @returns {string|null} 目标状态名
    * @private
    */
