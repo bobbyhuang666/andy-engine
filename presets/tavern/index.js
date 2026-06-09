@@ -1,8 +1,8 @@
 /**
- * Tavern Domain — 极简中世纪酒馆世界观
+ * Tavern Domain — 中世纪酒馆世界观
  *
  * 用于验证 Andy Engine 的 domain-agnostic 架构。
- * 只有 5 个区域、6 个状态，完全不包含校园内容。
+ * 5 个区域、8 个状态，完全不包含校园内容。
  */
 
 const tavernDomain = {

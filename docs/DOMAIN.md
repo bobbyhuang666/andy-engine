@@ -301,15 +301,90 @@ const minimalDomain = {
 
 ## Custom Domain Checklist
 
-- [ ] `id` is unique
+- [ ] `id` is unique string
+- [ ] `name` is non-empty string
 - [ ] `regions` is non-empty array
 - [ ] `states` has at least one state
-- [ ] `stateCenters` has entries for all states (4D vectors)
+- [ ] `stateCenters` has entries for all states (4D vectors, each 0-1)
 - [ ] `fallback` values reference existing regions/states
 - [ ] `adjacency` references existing regions
 - [ ] `needSatisfactionMap` states/regions exist in domain
+- [ ] `needDriveStates` references existing states
 - [ ] `eventTemplates` regions exist in domain
-- [ ] `roleArchetypes` entries reference existing regions/activities
+- [ ] `eventTemplates` events have `content`
+- [ ] `roleArchetypes` entries reference existing regions
+- [ ] `forbiddenTerms` is string array (if provided)
+- [ ] `states[*].next` references existing states
+
+---
+
+## Validation
+
+```javascript
+const { validateDomain } = require('andy-engine/domain');
+
+// Basic validation
+const result = validateDomain(domain);
+// { valid: boolean, errors: [...], warnings: [...] }
+
+// Strict mode (warnings become errors)
+const strict = validateDomain(domain, { strict: true });
+
+// Throw on error
+validateDomain(domain, { throwOnError: true });
+```
+
+**Error format:**
+```javascript
+{
+  valid: false,
+  errors: [
+    { path: 'stateCenters.休息', message: '必须是 4 维数组' },
+    { path: 'states.休息.next[0]', message: '引用了不存在的状态 "不存在"' }
+  ],
+  warnings: [
+    { path: 'eventTemplates.regionEvents', message: '...' }
+  ]
+}
+```
+
+**Strict mode:** Set `strict: true` to promote warnings to errors. Use for new domains; relax for legacy presets.
+
+---
+
+## Role Archetypes
+
+Role archetypes define schedule presets within a domain:
+
+```javascript
+roleArchetypes: {
+  blacksmith: {
+    entries: [
+      {
+        startHour: 8,          // Start hour (0-23)
+        endHour: 12,           // End hour
+        region: '铁匠铺',       // Must be in domain.regions
+        activity: '工作',       // Activity label
+        days: [0,1,2,3,4,5,6], // Days of week (0=Sunday)
+        probability: 0.9,      // Execution probability (0-1)
+        noise: 10,             // Time jitter in minutes
+      },
+    ],
+  },
+}
+```
+
+**Usage:**
+```javascript
+const engine = new AndyEngine({ domain: myDomain });
+const agent = engine.createCharacter({
+  id: 'smith',
+  name: '铁匠',
+  schedule: 'blacksmith', // Uses domain.roleArchetypes.blacksmith
+});
+```
+
+**Rule:** If `schedule` is a string and exists in `domain.roleArchetypes`, it's used directly. If not found and domain is campus, falls back to legacy presets (`student`, `worker`, etc.). Custom domains should always define their own archetypes.
 
 ---
 
@@ -320,3 +395,5 @@ const minimalDomain = {
 3. **`forbiddenTerms` is last resort** — not the primary mechanism for world-agnostic behavior
 4. **Default is campus** — `new AndyEngine()` uses `presets/campus` for backward compatibility
 5. **Custom domains are self-contained** — should not depend on campus preset
+6. **Campus preset is just a default** — not the core world model
+7. **Validation is mandatory** — custom domains are validated on creation

@@ -25,7 +25,7 @@ describe('AndyEngine 集成测试', () => {
         name: 'Bobby',
         personality: { mbti: 'INFP' },
         schedule: Schedule.createStudentSchedule().toJSON(),
-        initialPosition: '图书馆',
+        initialPosition: '校园广场',
       },
       {
         id: 'xiaoming',
@@ -35,7 +35,7 @@ describe('AndyEngine 集成测试', () => {
           morningClass: 9,
           workDays: [2, 4],
         }).toJSON(),
-        initialPosition: '教室',
+        initialPosition: '校园广场',
       },
       {
         id: 'xiaohong',
@@ -45,7 +45,7 @@ describe('AndyEngine 集成测试', () => {
           morningClass: 8,
           workDays: [1, 3, 5],
         }).toJSON(),
-        initialPosition: '食堂',
+        initialPosition: '校园广场',
       },
     ];
 

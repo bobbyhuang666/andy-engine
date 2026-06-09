@@ -15,7 +15,7 @@ const CAMPUS_TERMS = [
   '教室', '自习室', '网吧', '办公室',
   '学生', '老师', '教授', '上课', '自习', '翘课', '逃课',
   '考试', '作业', '学分', '绩点',
-  '便利店', '打工地点',
+  '便利店', '打工地点', '咖啡店',
 ];
 
 // banned API 列表（custom-domain runtime 不应使用）
@@ -34,6 +34,7 @@ const ALLOWED_PATHS = [
   'AGENTS.md',
   'core/WorldviewConstraints.js', // transitional
   'config/defaults.js', // campus legacy spatial config
+  'agent/Schedule.js', // campus legacy schedule presets
 ];
 
 // 允许使用 banned API 的路径
@@ -104,6 +105,7 @@ describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
     'core',
     'agent',
     'sdk',
+    'spatial',
   ];
 
   it('runtime 文件中不应有 campus-only 字符串', () => {

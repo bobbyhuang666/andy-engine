@@ -2,7 +2,7 @@
  * WorldMap - 世界地图与区域几何
  *
  * 将离散的区域标签扩展为连续 2D 空间中的几何形状。
- * 保留区域标签的语义性（"图书馆"），同时支持连续坐标。
+ * 保留区域标签的语义性，同时支持连续坐标。
  *
  * 设计：
  *   - 区域可以是矩形、圆形、多边形
@@ -76,7 +76,7 @@ class WorldMap {
 
   /**
    * 从 ANDY_DEFAULTS.spatial.adjacency 自动设置区域邻接
-   * @param {Object} adjacencyMap - { "宿舍": ["图书馆", "食堂"], ... }
+   * @param {Object} adjacencyMap - { "区域A": ["区域B", "区域C"], ... }
    */
   setAdjacency(adjacencyMap) {
     for (const [region, neighbors] of Object.entries(adjacencyMap)) {

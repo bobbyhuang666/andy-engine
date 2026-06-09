@@ -259,7 +259,7 @@ const engine = new AndyEngine({ domain: customDomain });
 
 **Default preset:** `presets/campus` (campus world, backward compatible)
 
-**Custom domain example:** `presets/tavern` (medieval tavern, 5 regions, 6 states)
+**Custom domain example:** `presets/tavern` (medieval tavern, 5 regions, 8 states)
 
 See [`docs/DOMAIN.md`](docs/DOMAIN.md) for full schema reference.
 
@@ -309,14 +309,36 @@ The Rust SoA f32 engine achieves **5.92x speedup** over JS at 50K agents, with p
 ## Persistence
 
 ```javascript
-const { createStore } = require('./store');
+const AndyEngine = require('andy-engine');
+const { createStore } = require('andy-engine/store');
 
+// Create store with SQLite backend
 const store = createStore({ dbPath: './data/andy.db' });
-store.saveSnapshot(engine.toJSON());
 
-// Later: restore
-const data = store.loadLatestSnapshot();
-const engine2 = AndyEngine.fromJSON(data);
+// Initialize with serialization functions
+await store.init({
+  onSnapshot: () => Buffer.from(JSON.stringify(engine.toJSON())),
+  onRestore: (data) => {
+    const state = JSON.parse(data.toString());
+    // Restore engine from saved state
+  },
+});
+
+// In your tick loop, store will auto-save snapshots
+// based on snapshotInterval (default: every 12 ticks)
+
+// Shutdown gracefully
+await store.shutdown();
+```
+
+**Advanced:** For direct SQLite access:
+
+```javascript
+const { SQLiteStore } = require('andy-engine/store');
+
+const db = new SQLiteStore('./data/andy.db');
+db.saveSnapshot(tick, virtualTime, data);
+const latest = db.loadLatest();
 ```
 
 ---
@@ -519,7 +541,7 @@ const engine = new AndyEngine({ domain: customDomain });
 
 **默认预设：** `presets/campus`（校园世界，向后兼容）
 
-**自定义 domain 示例：** `presets/tavern`（中世纪酒馆，5 个区域，6 个状态）
+**自定义 domain 示例：** `presets/tavern`（中世纪酒馆，5 个区域，8 个状态）
 
 详见 [`docs/DOMAIN.md`](docs/DOMAIN.md) 完整 schema 参考。
 
