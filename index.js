@@ -28,7 +28,9 @@ const Agent = require('./agent/Agent');
 const Schedule = require('./agent/Schedule');
 const { ANDY_DEFAULTS } = require('./config/defaults');
 const { validateConfig, validateAgentConfig } = require('./config/validate');
-const { sanitizeText, safeRegion, safeActivity } = require('./core/WorldviewConstraints');
+const { applyForbiddenTerms } = require('./core/WorldviewConstraints');
+const { DomainRegistry } = require('./domain/DomainRegistry');
+const { validateDomain } = require('./domain/validateDomain');
 
 // ═══════════════════════════════════════════
 // 种子记忆 → 文本
@@ -53,20 +55,32 @@ class AndyEngine {
    * @param {Object} [config]
    * @param {Date}   [config.startTime] - 初始模拟时间（默认当前）
    * @param {string} [config.weather]   - 初始天气（默认 'sunny'）
+   * @param {Object} [config.domain]    - 自定义 domain 配置（默认 campus）
    * @param {Object} [savedState]       - 从持久化恢复的世界状态
    */
   constructor(config = {}, savedState = null) {
     validateConfig(config);
 
+    // 初始化 domain
+    if (config.domain) {
+      const validation = validateDomain(config.domain);
+      if (!validation.valid) {
+        throw new Error(`domain 配置无效: ${validation.errors.join(', ')}`);
+      }
+      this.domain = new DomainRegistry(config.domain);
+    } else {
+      this.domain = new DomainRegistry();
+    }
+
     this.config = { ...ANDY_DEFAULTS, ...config };
-    this.world = new AndyWorld(config, savedState);
+    this.world = new AndyWorld(config, savedState, this.domain);
     this.simulator = new Simulator(this.world);
 
     // 恢复已保存的 Agent
     if (savedState && savedState.agents) {
       for (const [agentId, agentData] of Object.entries(savedState.agents)) {
         const agent = new Agent(
-          { id: agentId, name: agentData.name || agentId, schedule: {} },
+          { id: agentId, name: agentData.name || agentId, schedule: {}, domain: this.domain },
           agentData
         );
         this.world.addAgent(agent);
@@ -119,9 +133,23 @@ class AndyEngine {
     const memories = seedMemories || backgroundToMemories(background);
 
     // 解析日程（支持预设名）
-    const scheduleConfig = typeof schedule === 'string'
-      ? Schedule.resolvePreset(schedule).toJSON()
-      : (schedule || {});
+    let scheduleConfig;
+    if (typeof schedule === 'string') {
+      // 先查 domain 的 roleArchetypes
+      const archetype = this.domain.roleArchetypes[schedule];
+      if (archetype) {
+        // 直接使用 archetype 构造 Schedule，不走 resolvePreset
+        scheduleConfig = new Schedule(archetype).toJSON();
+      } else if (this.domain.id === 'campus') {
+        // 只有 campus domain 才 fallback 到旧 preset
+        scheduleConfig = Schedule.resolvePreset(schedule).toJSON();
+      } else {
+        // custom domain 找不到时使用空 schedule，不 fallback 到 campus
+        scheduleConfig = {};
+      }
+    } else {
+      scheduleConfig = schedule || {};
+    }
 
     const agent = new Agent({
       id,
@@ -129,8 +157,9 @@ class AndyEngine {
       personality: personalityConfig,
       schedule: scheduleConfig,
       seedMemories: memories,
-      initialPosition: initialPosition || '住处',
+      initialPosition: initialPosition || this.domain.fallback.defaultRegion,
       initialState,
+      domain: this.domain,
     });
 
     this.world.addAgent(agent);
@@ -148,7 +177,7 @@ class AndyEngine {
    */
   addAgent(config) {
     validateAgentConfig(config);
-    const agent = new Agent(config);
+    const agent = new Agent({ ...config, domain: this.domain });
     this.world.addAgent(agent);
     return agent;
   }
@@ -304,7 +333,7 @@ class AndyEngine {
     );
     const eventTexts = perceivedEvents
       .filter(e => e.content)
-      .map(e => `- ${sanitizeText(e.content)}`)
+      .map(e => `- ${applyForbiddenTerms(e.content, this.domain)}`)
       .join('\n');
 
     // 附近的人（含关系摘要）
@@ -351,7 +380,7 @@ class AndyEngine {
             else parts.push('环境因素');
           }
           if (parts.length > 0) {
-            lastAppraisal = `对最近的事(${sanitizeText((mem.content || '未知').substring(0, 15))})的感受：${parts.join('，')}`;
+            lastAppraisal = `对最近的事(${applyForbiddenTerms((mem.content || '未知').substring(0, 15), this.domain)})的感受：${parts.join('，')}`;
           }
           break;
         }
@@ -365,7 +394,7 @@ class AndyEngine {
       weather: this.world.environment.weather,
       timeOfDay: this.world.environment.timeOfDay,
       season: this.world.environment.season,
-      currentRegion: safeRegion(agent.position),
+      currentRegion: agent.position,
       personalityAnchor: agent.personality ? agent.personality.toPromptString() : '',
       agentStatus: agent.getStatus(),
       recentEvents: eventTexts || '没有特别的事情发生',

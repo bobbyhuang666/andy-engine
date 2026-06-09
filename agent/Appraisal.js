@@ -26,6 +26,7 @@
  */
 
 const { ANDY_DEFAULTS } = require('../config/defaults');
+const { getDefaultDomain } = require('../domain/DomainRegistry');
 
 class Appraisal {
   /**
@@ -36,21 +37,22 @@ class Appraisal {
    * @returns {Object} 评价结果 { dimensions: {...}, emotionModifier: {...}, importance: number }
    */
   static evaluate(event, agent) {
+    // 从 domain 取配置
+    const domain = agent._domain || getDefaultDomain();
+    const appraisalConfig = domain.appraisalConfig;
+
     const dims = {
       suddenness:         Appraisal._evalSuddenness(event, agent),
       pleasantness:       Appraisal._evalPleasantness(event, agent),
-      goalRelevance:      Appraisal._evalGoalRelevance(event, agent),
-      goalConduciveness:  Appraisal._evalGoalConduciveness(event, agent),
+      goalRelevance:      Appraisal._evalGoalRelevance(event, agent, appraisalConfig),
+      goalConduciveness:  Appraisal._evalGoalConduciveness(event, agent, appraisalConfig),
       compatibility:      Appraisal._evalCompatibility(event, agent),
       agency:             Appraisal._evalAgency(event, agent),
       copingPotential:    Appraisal._evalCopingPotential(event, agent),
       normConformity:     Appraisal._evalNormConformity(event, agent),
     };
 
-    // 基于评价结果生成情绪修正因子
     const emotionModifier = Appraisal._appraisalToEmotion(dims, agent);
-
-    // 综合重要性评分（决定记忆深度）
     const importance = Appraisal._computeImportance(dims);
 
     return {
@@ -150,50 +152,39 @@ class Appraisal {
    * 基于 CPM-RL: 检查事件是否影响当前正在进行的目标
    * @private
    */
-  static _evalGoalRelevance(event, agent) {
+  static _evalGoalRelevance(event, agent, appraisalConfig = {}) {
     const currentState = agent.stateMachine.currentState;
     const currentPosition = agent.position;
 
-    let relevance = 0.3; // 基线
+    let relevance = 0.3;
 
-    // 事件类型与当前活动的关联
     if (event.type === 'social') {
-      // 社交事件在社交状态下更相关
-      const socialStates = ['在聊天', '在食堂', '在校园广场', '在咖啡店', '在打工'];
+      // 从 domain 取社交状态，缺省时用当前状态（不 fallback 到 campus）
+      const socialStates = appraisalConfig.socialStates || [];
       relevance += socialStates.includes(currentState) ? 0.3 : 0.1;
 
-      // 如果参与者是自己，相关性更高
       if (event.participants && event.participants.includes(agent.id)) {
         relevance += 0.3;
       }
     }
 
     if (event.type === 'weather') {
-      // 天气对户外活动更相关
-      const outdoorPositions = ['操场', '校园广场', '回家路上', '路上', '公园'];
+      // 从 domain 取室外位置，缺省时用当前位置（不 fallback 到 campus）
+      const outdoorPositions = appraisalConfig.outdoorPositions || [];
       relevance += outdoorPositions.includes(currentPosition) ? 0.3 : 0.1;
     }
 
     if (event.type === 'random') {
-      // 随机事件与当前位置相关
       relevance += 0.2;
     }
 
-    // 开放性高的 Agent 对更多事件感到相关（好奇心驱动）
     relevance += agent.personality.ocean.openness * 0.1;
 
-    // 需求匮乏提升相关性（饥饿的人对"食堂"事件更敏感）
     if (agent.needs) {
       const drive = agent.needs.getDrive();
       if (drive && drive.urgency > 0.1) {
-        // 如果事件内容包含与需求相关的关键词
-        const needKeywords = {
-          hunger: ['吃', '饭', '菜', '食', '好吃', '食堂'],
-          energy: ['睡', '休息', '累', '困'],
-          social: ['聊天', '朋友', '一起', '偶遇'],
-          comfort: ['家', '宿舍', '舒服'],
-          stimulation: ['有趣', '好玩', '新', '刺激'],
-        };
+        // 从 domain 取 needKeywords，缺省时用空对象（不 fallback 到 campus）
+        const needKeywords = appraisalConfig.needKeywords || {};
         const content = (event.content || '');
         const keywords = needKeywords[drive.need] || [];
         for (const kw of keywords) {
@@ -214,8 +205,7 @@ class Appraisal {
    * 基于 CPM-RL: 评估事件对目标进展的影响
    * @private
    */
-  static _evalGoalConduciveness(event, agent) {
-    // 基于事件效价
+  static _evalGoalConduciveness(event, agent, appraisalConfig = {}) {
     let conduciveness = 0;
 
     for (const effect of event.effects || []) {
@@ -228,15 +218,12 @@ class Appraisal {
       }
     }
 
-    // 当前状态的"目标成功"感受
-    // 如果正在做计划中的事（在上课、在打工），正面事件更促进目标
-    const scheduledStates = ['在上课', '在工作', '在自习', '在打工', '在图书馆'];
+    // 从 domain 取 scheduledStates，缺省时用空数组（不 fallback 到 campus）
+    const scheduledStates = appraisalConfig.scheduledStates || [];
     if (scheduledStates.includes(agent.stateMachine.currentState)) {
-      // 正在执行计划时，正面事件对目标更有促进作用
       conduciveness *= 1.2;
     }
 
-    // 自我效能感：尽责性高 → 对自身控制力更有信心
     const selfEfficacy = agent.personality.ocean.conscientiousness * 0.3;
     if (conduciveness > 0) {
       conduciveness *= (1 + selfEfficacy);

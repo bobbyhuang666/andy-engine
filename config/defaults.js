@@ -199,7 +199,8 @@ const ANDY_DEFAULTS = {
   },
 
   // ═══════════════════════════════════════════
-  // 空间系统
+  // 空间系统（Campus Legacy 配置）
+  // 自定义 domain 应使用 domain.regions, domain.adjacency 等
   // ═══════════════════════════════════════════
   spatial: {
     regions: [

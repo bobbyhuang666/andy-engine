@@ -15,9 +15,12 @@
 
 const { ANDY_DEFAULTS, SEMANTIC_EVENT_CATEGORIES } = require('../config/defaults');
 const cfg = ANDY_DEFAULTS.events;
+const { getDefaultDomain } = require('../domain/DomainRegistry');
 
 class EventDispatcher {
-  constructor() {
+  constructor(domain = null) {
+    this.domain = domain || getDefaultDomain();
+
     /** @type {Object[]} 有序事件日志 */
     this.eventLog = [];
     /** @type {Object[]} 本 tick 待分发的事件 */
@@ -32,6 +35,9 @@ class EventDispatcher {
     this._recentEncounterPairs = new Set();
     /** @type {Date|null} 模拟时间（由 Simulator 每 tick 注入） */
     this._simTime = null;
+
+    // 从 domain 取事件模板
+    this._regionEvents = this.domain.eventTemplates.regionEvents || {};
   }
 
   // ═══════════════════════════════════════════
@@ -127,8 +133,7 @@ class EventDispatcher {
     ];
 
     if (strength > 0.6) {
-      // 好朋友：大部分正面，但偶尔也会有冲突
-      const negChance = 0.08; // 8% 概率产生负面互动
+      const negChance = 0.08;
       if (Math.random() < negChance) {
         content = negativeInteractions[Math.floor(Math.random() * negativeInteractions.length)];
         valence = -(0.2 + Math.random() * 0.3);
@@ -137,10 +142,11 @@ class EventDispatcher {
         valence = 0.5 + Math.random() * 0.3;
       }
 
-      // 区域加成
-      if (['食堂', '咖啡店'].includes(region)) {
+      // 区域加成（从 domain 取社交区域）
+      const socialRegions = this.domain.placeTypes.social || ['酒馆', '广场'];
+      if (socialRegions.includes(region)) {
         if (valence > 0) {
-          content = '和好朋友一起' + (region === '食堂' ? '吃饭' : '喝咖啡') + '，聊得很开心';
+          content = `和好朋友一起在${region}，聊得很开心`;
           valence += 0.1;
         }
       }
@@ -261,41 +267,19 @@ class EventDispatcher {
    * @returns {Object}
    */
   generateEnvironmentEvent(weatherType, affectedAgentIds) {
-    const weatherEvents = {
-      rain: {
-        content: '下雨了',
-        effects: [
-          { target: '*', type: 'emotion', delta: { frustration: 0.04, sadness: 0.03, calm: 0.02 } },
-        ],
-      },
-      sunny: {
-        content: '天气晴朗',
-        effects: [
-          { target: '*', type: 'emotion', delta: { joy: 0.06, calm: 0.04, excitement: 0.02 } },
-        ],
-      },
-      cold: {
-        content: '天气很冷',
-        effects: [
-          { target: '*', type: 'emotion', delta: { frustration: 0.04, calm: -0.03, sadness: 0.02 } },
-        ],
-      },
-      hot: {
-        content: '天气很热',
-        effects: [
-          { target: '*', type: 'emotion', delta: { frustration: 0.06, anger: 0.02, calm: -0.03 } },
-        ],
-      },
-    };
+    // 从 domain 取天气事件模板（唯一来源）
+    const domainWeatherEvents = this.domain.eventTemplates.weatherEvents || {};
+    const domainEvent = domainWeatherEvents[weatherType];
 
-    const weatherEvent = weatherEvents[weatherType] || {
+    // 如果 domain 没有配置该天气事件，使用中性内容
+    const weatherEvent = domainEvent || {
       content: `天气变化: ${weatherType}`,
-      effects: [],
+      effects: [{ target: '*', type: 'emotion', delta: {} }],
     };
 
     // 将 * 替换为所有受影响的 Agent
     const effects = [];
-    for (const effect of weatherEvent.effects) {
+    for (const effect of (weatherEvent.effects || [])) {
       for (const agentId of affectedAgentIds) {
         effects.push({ ...effect, target: agentId });
       }
@@ -327,114 +311,36 @@ class EventDispatcher {
   generateRandomEvent(agentId, region, context = {}) {
     if (Math.random() > cfg.randomEventProbability) return null;
 
-    // 根据上下文选择合适的事件池
     const candidates = [];
 
-    // ─── 通用事件（任何时间地点）───
-    const generic = [
-      { content: '在路边看到一只流浪猫', delta: { interest: 0.04, calm: 0.03 }, tags: ['outdoor'] },
-      { content: '手机突然响了一下，是条无聊的推送', delta: { boredom: 0.03 }, tags: [] },
-      { content: '闻到了一股好闻的味道', delta: { joy: 0.03, contentment: 0.02 }, tags: [] },
-      { content: '路过了一个卖唱的人', delta: { interest: 0.03, calm: 0.02 }, tags: ['outdoor'] },
-      { content: '看到一对情侣在路边吵架', delta: { nervousness: 0.02, sympathy: 0.03 }, tags: ['outdoor'] },
-      { content: '发现食堂出了新菜', delta: { excitement: 0.03, interest: 0.02 }, tags: ['canteen'] },
-      { content: '突然想起明天还有作业没写', delta: { nervousness: 0.04, frustration: 0.03 }, tags: [] },
-      { content: '天空很美，忍不住看了一眼', delta: { calm: 0.03, awe: 0.03 }, tags: ['outdoor'] },
-      { content: '踩到了一个水坑', delta: { frustration: 0.03, surprise: 0.02 }, tags: ['outdoor'] },
-      { content: '发现耳机里正在播的歌特别好听', delta: { joy: 0.03, calm: 0.02 }, tags: [] },
-      { content: '手机电量只剩 5% 了，没带充电器', delta: { nervousness: 0.04, frustration: 0.03 }, tags: [] },
-      { content: '被蚊子咬了一口，好痒', delta: { frustration: 0.03, anger: 0.01 }, tags: [] },
-      { content: '想起一件很久以前的尴尬事', delta: { shame: 0.03, embarrassment: 0.02 }, tags: [] },
-      { content: '被路上的陌生人白了一眼', delta: { anger: 0.03, frustration: 0.02 }, tags: [] },
-      { content: '突然觉得生活很没意思', delta: { sadness: 0.04, loneliness: 0.03, boredom: 0.02 }, tags: [] },
-      { content: '钱包好像忘在什么地方了', delta: { nervousness: 0.05, frustration: 0.04 }, tags: [] },
-      { content: '发的消息已读不回，有点在意', delta: { sadness: 0.03, nervousness: 0.02 }, tags: [] },
-      { content: '今天什么都不想做', delta: { boredom: 0.04, frustration: 0.02, sadness: 0.02 }, tags: [] },
-    ];
-    candidates.push(...generic);
+    // ─── 通用事件（从 domain 取）───
+    const genericEvents = this.domain.eventTemplates.genericEvents || [];
+    candidates.push(...genericEvents);
 
-    // ─── 区域特定事件 ───
-    const regionEvents = {
-      '宿舍': [
-        { content: '室友带了好吃的回来分享', delta: { joy: 0.04, gratitude: 0.03 } },
-        { content: '隔壁宿舍太吵了', delta: { frustration: 0.04, anger: 0.02 } },
-        { content: '发现宿舍的WiFi修好了', delta: { relief: 0.03, joy: 0.02 } },
-      ],
-      '教室': [
-        { content: '老师讲了个有趣的例子', delta: { interest: 0.04, amusement: 0.02 } },
-        { content: '课堂太无聊了，忍不住走神', delta: { boredom: 0.04 } },
-        { content: '突然被老师点名回答问题', delta: { nervousness: 0.05, surprise: 0.03 } },
-      ],
-      '图书馆': [
-        { content: '找到了一本很有趣的书', delta: { interest: 0.05, excitement: 0.02 } },
-        { content: '旁边的人一直在小声说话', delta: { frustration: 0.03, anger: 0.01 } },
-        { content: '图书馆很安静，感觉很舒服', delta: { calm: 0.04, contentment: 0.02 } },
-      ],
-      '食堂': [
-        { content: '今天的菜特别好吃', delta: { satisfaction: 0.04, joy: 0.03 } },
-        { content: '排了很长的队', delta: { frustration: 0.03, boredom: 0.02 } },
-        { content: '在食堂偶遇了好久没见的朋友', delta: { joy: 0.05, surprise: 0.03 } },
-      ],
-      '操场': [
-        { content: '跑步跑到一半突然下雨了', delta: { frustration: 0.03, surprise: 0.02 } },
-        { content: '打球赢了一局', delta: { joy: 0.05, triumph: 0.04 } },
-        { content: '运动后感觉神清气爽', delta: { calm: 0.04, satisfaction: 0.03 } },
-      ],
-      '咖啡店': [
-        { content: '咖啡师拉花拉得很好看', delta: { interest: 0.03, calm: 0.02 } },
-        { content: '咖啡店放的音乐很好听', delta: { calm: 0.04, contentment: 0.02 } },
-      ],
-      '便利店': [
-        { content: '便利店来了限定零食', delta: { excitement: 0.03, interest: 0.02 } },
-        { content: '有个客人很难缠', delta: { frustration: 0.04, anger: 0.02 } },
-      ],
-      '公园': [
-        { content: '看到老人家在下棋', delta: { calm: 0.03, interest: 0.02 } },
-        { content: '公园里的花开了', delta: { calm: 0.04, awe: 0.02 } },
-      ],
-      '家': [
-        { content: '窝在沙发上看了会电视', delta: { calm: 0.03, contentment: 0.02 } },
-        { content: '突然想起来小时候的事', delta: { calm: 0.02, loneliness: 0.02 } },
-      ],
-    };
-    if (regionEvents[region]) {
-      candidates.push(...regionEvents[region]);
+    // ─── 区域特定事件（从 domain 取）───
+    if (this._regionEvents[region]) {
+      candidates.push(...this._regionEvents[region]);
     }
 
-    // ─── 时间特定事件 ───
+    // ─── 时间特定事件（从 domain 取）───
     const hour = context.hour || 12;
+    const timeEvents = this.domain.eventTemplates.timeEvents || {};
     if (hour >= 23 || hour < 5) {
-      candidates.push(
-        { content: '深夜刷到一条让人心酸的帖子', delta: { sadness: 0.04, loneliness: 0.03 } },
-        { content: '深夜突然很想吃宵夜', delta: { desire: 0.03, boredom: 0.02 } },
-        { content: '凌晨了还没睡，思绪万千', delta: { loneliness: 0.03, calm: 0.02 } },
-        { content: '深夜突然感到一种空虚感', delta: { loneliness: 0.04, sadness: 0.02 } },
-      );
+      if (timeEvents.lateNight) candidates.push(...timeEvents.lateNight);
     } else if (hour >= 5 && hour < 8) {
-      candidates.push(
-        { content: '早起看到日出了', delta: { calm: 0.04, awe: 0.03 } },
-        { content: '清晨的空气很清新', delta: { calm: 0.03, contentment: 0.02 } },
-      );
+      if (timeEvents.morning) candidates.push(...timeEvents.morning);
     } else if (hour >= 17 && hour < 20) {
-      candidates.push(
-        { content: '傍晚的夕阳很美', delta: { calm: 0.04, awe: 0.03 } },
-        { content: '下班/放学高峰期人很多', delta: { frustration: 0.02 } },
-      );
+      if (timeEvents.evening) candidates.push(...timeEvents.evening);
     }
 
-    // ─── 天气特定事件 ───
+    // ─── 天气特定事件（从 domain 取）───
     const weather = context.weather;
-    if (weather === 'rain') {
-      candidates.push(
-        { content: '没带伞被淋湿了', delta: { frustration: 0.05, sadness: 0.02 } },
-        { content: '听着雨声发了一会呆', delta: { calm: 0.04, boredom: 0.02 } },
-      );
-    } else if (weather === 'sunny') {
-      candidates.push(
-        { content: '阳光正好，心情也好了', delta: { joy: 0.04, calm: 0.02 } },
-        { content: '太阳太晒了，有点烦躁', delta: { frustration: 0.02 } },
-      );
+    const weatherEvents = this.domain.eventTemplates.weatherEvents || {};
+    if (weather && weatherEvents[weather]) {
+      candidates.push(...weatherEvents[weather]);
     }
+
+    if (candidates.length === 0) return null;
 
     // 去重
     const recent = this._recentContentByAgent.get(agentId) || [];
@@ -443,7 +349,6 @@ class EventDispatcher {
 
     const chosen = available[Math.floor(Math.random() * available.length)];
 
-    // 更新去重缓冲
     const updatedRecent = [...recent, chosen.content].slice(-8);
     this._recentContentByAgent.set(agentId, updatedRecent);
 

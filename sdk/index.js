@@ -8,7 +8,7 @@
  *   const maya = new Character({
  *     name: 'Maya',
  *     personality: 'INFP',
- *     backstory: ['一个安静的图书馆管理员', '喜欢看星星'],
+ *     backstory: ['一个安静的阅览处管理员', '喜欢看星星'],
  *     llm: { provider: 'openai', apiKey: 'sk-...' },
  *   });
  *

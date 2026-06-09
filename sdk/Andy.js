@@ -9,7 +9,7 @@
  *
  *   const world = new Andy({ llm: { provider: 'openai', apiKey: 'sk-...' } });
  *
- *   world.addCharacter({ name: 'Maya', personality: 'INFP', backstory: ['图书馆管理员'] });
+ *   world.addCharacter({ name: 'Maya', personality: 'INFP', backstory: ['阅览处管理员'] });
  *   world.addCharacter({ name: 'Bob', personality: 'ENTP', backstory: ['程序员'] });
  *
  *   // 与某个角色对话

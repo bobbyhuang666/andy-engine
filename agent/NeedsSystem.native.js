@@ -7,15 +7,11 @@
 
 const { ANDY_DEFAULTS } = require('../config/defaults');
 const cfg = ANDY_DEFAULTS.needs;
+const { getDefaultDomain } = require('../domain/DomainRegistry');
 
-// Same as NeedsSystem.js — read-only queries compute from JS mirror
-const NEED_DRIVE_STATES = {
-  hunger: ['在食堂', '在便利店'],
-  energy: ['在休息', '睡了', '趴一会', '先躺一会'],
-  social: ['在聊天', '在校园广场', '在咖啡店'],
-  comfort: ['到家了', '在休息', '先躺一会'],
-  stimulation: ['在看手机', '在看剧', '在操场', '在咖啡店', '在看书'],
-};
+// 从 domain 获取 NEED_DRIVE_STATES
+const defaultDomain = getDefaultDomain();
+const NEED_DRIVE_STATES = defaultDomain.needDriveStates || {};
 
 let _NativeCtor = null;
 let _loadAttempted = false;

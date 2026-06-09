@@ -1,6 +1,6 @@
 {
   "name": "andy-engine",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "心理学驱动的多智能体社会模拟引擎 — 让 AI 角色拥有记忆、情绪、人格和社交关系",
   "main": "index.js",
   "scripts": {
@@ -8,9 +8,26 @@
     "test:watch": "vitest",
     "test:coverage": "vitest --coverage",
     "test:ui": "vitest --ui",
-    "test:legacy": "node test.js",
-    "demo": "cd demo/character-lab && npm install && node server.js"
+    "test:domain": "vitest run tests/domain.test.js tests/domain-deep.test.js tests/source-scan.test.js tests/fallback-minimal.test.js",
+    "demo": "cd demo/character-lab && npm install && node server.js",
+    "pack:dry-run": "npm pack --dry-run"
   },
+  "files": [
+    "index.js",
+    "agent/",
+    "core/",
+    "social/",
+    "spatial/",
+    "store/",
+    "sdk/",
+    "domain/",
+    "presets/",
+    "config/",
+    "examples/",
+    "docs/DOMAIN.md",
+    "README.md",
+    "LICENSE"
+  ],
   "keywords": [
     "multi-agent",
     "social-simulation",
@@ -21,7 +38,8 @@
     "personality",
     "character-engine",
     "ai-npc",
-    "virtual-world"
+    "virtual-world",
+    "domain-config"
   ],
   "author": "bobbyhuang666",
   "license": "AGPL-3.0",
@@ -40,7 +58,9 @@
   "exports": {
     ".": "./index.js",
     "./sdk": "./sdk/index.js",
-    "./config/defaults": "./config/defaults.js"
+    "./config/defaults": "./config/defaults.js",
+    "./presets/campus": "./presets/campus/index.js",
+    "./presets/tavern": "./presets/tavern/index.js"
   },
   "types": "sdk/types.d.ts"
 }

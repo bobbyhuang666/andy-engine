@@ -15,10 +15,10 @@ class Schedule {
    * {
    *   startHour: 8,        // 开始时间（小时）
    *   endHour: 10,         // 结束时间
-   *   region: '教室',       // 应在的区域
-   *   activity: '在上课',   // 对应的状态
+   *   region: '工作区',     // 应在的区域
+   *   activity: '在工作',   // 对应的状态
    *   days: [1,2,3,4,5],   // 适用的星期几（0=周日，1=周一...）
-   *   probability: 0.9,    // 执行概率（0-1，模拟偶尔逃课）
+   *   probability: 0.9,    // 执行概率（0-1，模拟偶尔缺勤）
    *   noise: 30,           // 时间扰动范围（分钟）
    * }
    */
@@ -147,7 +147,7 @@ class Schedule {
     for (let i = 0; i < this.entries.length; i++) {
       const entry = this.entries[i];
 
-      // 概率检查（模拟偶尔逃课/旷工）
+      // 概率检查（模拟偶尔旷工）
       if (Math.random() > entry.probability) {
         this._todayVariations[i] = null;
         continue;
@@ -178,9 +178,13 @@ class Schedule {
   // ═══════════════════════════════════════════
   // 静态工厂方法
   // ═══════════════════════════════════════════
+  // Campus Legacy Presets（仅供 campus domain 使用）
+  // 自定义 domain 应使用 domain.roleArchetypes
+  // ═══════════════════════════════════════════
 
   /**
-   * 创建大学生日程模板
+   * 创建日程模板（campus legacy preset）
+   * @deprecated 自定义 domain 应使用 domain.roleArchetypes
    * @param {Object} options
    * @returns {Schedule}
    */
@@ -220,7 +224,7 @@ class Schedule {
         { startHour: afternoonClass + 2, endHour: 17, region: '阅览室', activity: '在专注做事',
           days: [1, 2, 3, 4, 5], probability: 0.5, noise: 30 },
         // 打工
-        { startHour: workStart, endHour: workEnd, region: '便利店', activity: '在打工',
+        { startHour: workStart, endHour: workEnd, region: '打工处', activity: '在打工',
           days: workDays, probability: 0.9, noise: 15 },
         // 晚饭
         { startHour: 18, endHour: 19, region: '餐厅', activity: '在餐厅',
@@ -230,7 +234,8 @@ class Schedule {
   }
 
   /**
-   * 创建上班族日程模板
+   * 创建上班族日程模板（campus legacy preset）
+   * @deprecated 自定义 domain 应使用 domain.roleArchetypes
    */
   static createWorkerSchedule(options = {}) {
     const { workStart = 9, workEnd = 18 } = options;
@@ -241,11 +246,11 @@ class Schedule {
           days: [1, 2, 3, 4, 5], probability: 0.95, noise: 15 },
         { startHour: 8, endHour: 8.5, region: '路上', activity: '在路上',
           days: [1, 2, 3, 4, 5], probability: 0.9, noise: 20 },
-        { startHour: workStart, endHour: 12, region: '办公室', activity: '在工作',
+        { startHour: workStart, endHour: 12, region: '工作地', activity: '在工作',
           days: [1, 2, 3, 4, 5], probability: 0.95, noise: 10 },
         { startHour: 12, endHour: 13, region: '餐厅', activity: '在餐厅',
           days: [1, 2, 3, 4, 5], probability: 0.8, noise: 20 },
-        { startHour: 13, endHour: workEnd, region: '办公室', activity: '在工作',
+        { startHour: 13, endHour: workEnd, region: '工作地', activity: '在工作',
           days: [1, 2, 3, 4, 5], probability: 0.95, noise: 10 },
         { startHour: 19, endHour: 20, region: '家', activity: '在做饭',
           days: [0, 1, 2, 3, 4, 5, 6], probability: 0.6, noise: 30 },

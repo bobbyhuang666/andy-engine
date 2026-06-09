@@ -30,7 +30,7 @@ const IntrinsicMotivation = require('./IntrinsicMotivation');
 const { BehaviorField } = require('./BehaviorField');
 const { DIM_ACTIVITY, DIM_SOCIALITY, DIM_FOCUS, DIM_EXPRESSIVENESS } = require('./BehaviorLabeler');
 const { EMOTION_DIMENSIONS, ANDY_DEFAULTS } = require('../config/defaults');
-const { sanitizeText, safeRegion, safeActivity } = require('../core/WorldviewConstraints');
+const { applyForbiddenTerms } = require('../core/WorldviewConstraints');
 
 class Agent {
   /**
@@ -45,72 +45,54 @@ class Agent {
   constructor(config, savedState = null) {
     this.id = config.id;
     this.name = config.name;
+    this._domain = config.domain || null;
 
     if (savedState) {
-      // 从保存的状态恢复
       this.personality = Personality.fromJSON(savedState.personality);
       this.emotion = new EmotionVector(this.personality, savedState.emotion);
-      this.stateMachine = new StateMachine(null, savedState.stateMachine);
-      this.memory = new PersonalMemory(this.id, [], savedState.memory);
-      // 恢复 appraisalBiases（从 Agent 层序列化）
+      this.stateMachine = new StateMachine(null, savedState.stateMachine, this._domain);
+      this.memory = new PersonalMemory(this.id, [], savedState.memory, this._domain);
       if (savedState.appraisalBiases) {
         this.memory.appraisalBiases = savedState.appraisalBiases;
       }
       this.proceduralMemory = new ProceduralMemory(savedState.proceduralMemory);
-      this.needs = new NeedsSystem(this.personality, savedState.needs);
+      this.needs = new NeedsSystem(this.personality, savedState.needs, this._domain);
       this.emotionRegulation = new EmotionRegulation(this.personality, savedState.emotionRegulation);
-      this.intrinsicMotivation = new IntrinsicMotivation(this.personality, savedState.intrinsicMotivation);
+      this.intrinsicMotivation = new IntrinsicMotivation(this.personality, savedState.intrinsicMotivation, this._domain);
       this.schedule = new Schedule(config.schedule, savedState.schedule);
       this.position = savedState.position;
       this.socialEnergy = savedState.socialEnergy ?? 0.7;
-      this.health = savedState.health ?? 1.0;  // 身体健康 (0-1)
+      this.health = savedState.health ?? 1.0;
       this.isOnline = savedState.isOnline ?? true;
-      // 连续行为场（Phase 2: 与 StateMachine 并行运行）
-      this.behaviorField = new BehaviorField(this.personality, savedState.behaviorField || null);
-
-      // Phase 5: stateMachine.currentState 改为从 BehaviorField 派生的 getter
-      // 所有下游代码自动使用连续行为标签，无需逐一修改引用
+      this.behaviorField = new BehaviorField(this.personality, savedState.behaviorField || null, {}, this._domain);
       this._wireBehaviorFieldToStateMachine();
     } else {
-      // 创建新 Agent（支持顶层 mbti 便捷写法）
       const personalityConfig = { ...(config.personality || {}) };
       if (config.mbti && !personalityConfig.mbti) {
         personalityConfig.mbti = config.mbti;
       }
       this.personality = new Personality(personalityConfig);
       this.emotion = new EmotionVector(this.personality);
-      this.stateMachine = new StateMachine(config.initialState || '在图书馆');
-      this.memory = new PersonalMemory(this.id, config.seedMemories || []);
+      this.stateMachine = new StateMachine(config.initialState || null, null, this._domain);
+      this.memory = new PersonalMemory(this.id, config.seedMemories || [], null, this._domain);
       this.proceduralMemory = new ProceduralMemory();
-      this.needs = new NeedsSystem(this.personality);
+      this.needs = new NeedsSystem(this.personality, null, this._domain);
       this.emotionRegulation = new EmotionRegulation(this.personality);
-      this.intrinsicMotivation = new IntrinsicMotivation(this.personality);
+      this.intrinsicMotivation = new IntrinsicMotivation(this.personality, null, this._domain);
       this.schedule = new Schedule(config.schedule || {});
-      this.position = config.initialPosition || '住处';
-      this.socialEnergy = 0.7; // 社交能量 (0-1)
-      this.health = 1.0;       // 身体健康 (0-1)
+      this.position = config.initialPosition || (this._domain ? this._domain.fallback.defaultRegion : '住处');
+      this.socialEnergy = 0.7;
+      this.health = 1.0;
       this.isOnline = true;
-      // 连续行为场（Phase 2: 与 StateMachine 并行运行）
-      this.behaviorField = new BehaviorField(this.personality);
-
-      // Phase 5: stateMachine.currentState 改为从 BehaviorField 派生的 getter
+      this.behaviorField = new BehaviorField(this.personality, null, {}, this._domain);
       this._wireBehaviorFieldToStateMachine();
     }
 
-    // 缓存行为参数
     this._behavior = this.personality.behavior;
-
-    // 社交图谱引用（由 World 注入，用于 Appraisal 代理性评估）
     this._socialGraphRef = null;
-
-    // 反射计数器（每 N 个 tick 触发一次深度反思）
     this._ticksSinceReflection = 0;
-    this._reflectionInterval = 12; // 每 12 个 tick（约 1 小时）反思一次
-
-    // 最近事件类型追踪（P0 性能优化：Appraisal._evalSuddenness 用 O(1) 查表代替 memory.retrieve）
+    this._reflectionInterval = 12;
     this._recentEventTypes = new Set();
-
-    // 人格漂移检查计数器
     this._ticksSinceDriftCheck = 0;
   }
 
@@ -481,7 +463,7 @@ class Agent {
    *
    * 行为决策优先级：
    *   1. 生病/身体不适 → 请假/休息
-   *   2. 极端负面情绪 → 逃课/旷工
+   *   2. 极端负面情绪 → 旷工/旷职
    *   3. 社交能量耗尽 → 回避社交
    *   4. 正常日程执行
    *   5. 习惯驱动（无日程时）
@@ -495,7 +477,7 @@ class Agent {
       const valence = this.emotion.getValence();
 
       // ─── 1. 生病/身体不适 → 请假机制 ───
-      // 当健康值低于阈值时，Agent 可能请假不去上班/上课
+      // 当健康值低于阈值时，Agent 可能请假不去工作
       if (this.health < 0.4) {
         const sickProb = (0.4 - this.health) * 2 * (1 - this.personality.ocean.conscientiousness * 0.3);
         if (Math.random() < Math.min(0.8, sickProb)) {
@@ -504,7 +486,7 @@ class Agent {
         }
       }
 
-      // ─── 2. 高沮丧/低效价 → 逃课/旷工 ───
+      // ─── 2. 高沮丧/低效价 → 旷工/旷职 ───
       // 灵感：情绪-行为耦合 (Gross 2014), 冲动性 (Dickman 2000)
       // 尽责性低 + 情绪差 → 更容易放弃计划
       //
@@ -521,11 +503,12 @@ class Agent {
       if (emotionalDistress > 0.15) {
         const skipProb = emotionalDistress * 0.4 * (1 - this.personality.ocean.conscientiousness * 0.5);
         if (Math.random() < Math.min(0.5, skipProb)) {
-          // 判断是学生还是上班族（基于日程活动，而非当前状态）
-          // 当前状态可能已因分心而改变（如"在看手机"），但仍应按日程判断身份
+          // 判断角色类型（基于日程活动，而非当前状态）
+          // 使用 domain 的 placeTypes.work 判断是否是工作者
           const activityName = activity.activity || '';
-          const isStudent = activityName.includes('上课') || activityName.includes('教学楼');
-          const skipType = isStudent ? 'skipClass' : 'skipWork';
+          const workPlaces = this._domain ? (this._domain.placeTypes.work || []) : [];
+          const isWorker = workPlaces.some(place => activityName.includes(place));
+          const skipType = isWorker ? 'skipWork' : 'skipClass';
           const altState = this._getSkipAlternative(skipType, hour);
           const altRegion = this._getSkipRegion(skipType, hour);
           return { moved: true, region: altRegion || this.position, skipEvent: skipType, altState };
@@ -539,8 +522,8 @@ class Agent {
         }
       }
 
-      // ─── 4. 社交事件特殊处理 ───
-      const socialRegions = ['餐厅', '小镇广场', '咖啡店', '便利店'];
+      // ─── 4. 社交事件特殊处理（从 domain 取社交区域）───
+      const socialRegions = this._domain ? (this._domain.placeTypes.social || []) : [];
       if (socialRegions.includes(activity.region)) {
         if (this.socialEnergy < 0.3 && valence < 0) {
           if (Math.random() > 0.4) {
@@ -592,25 +575,23 @@ class Agent {
    * @private
    */
   _getSkipAlternative(skipType, hour) {
+    // 从 domain 取跳过行为配置
+    const skipBehavior = this._domain ? this._domain.skipBehavior : null;
+
+    if (skipBehavior && skipBehavior[skipType]) {
+      const states = skipBehavior[skipType].states || [];
+      if (states.length > 0) {
+        return states[Math.floor(Math.random() * states.length)];
+      }
+    }
+
+    // fallback：通用状态
     switch (skipType) {
       case 'sick':
         return '生病了';
-
-      case 'skipClass': {
-        // 根据时间选择不同的偷懒行为（已替换校园词）
-        const options = [];
-        if (hour < 10) options.push('在住处躺着', '在看手机');  // 早上偷懒→赖床
-        if (hour >= 10 && hour < 14) options.push('在外面闲逛', '在网吧', '在住处躺着');  // 上午偷懒→闲逛
-        if (hour >= 14) options.push('在网吧', '在外面闲逛', '在拖延');  // 下午偷懒→网吧/闲逛
-        return options[Math.floor(Math.random() * options.length)] || '偷懒了';
-      }
-
-      case 'skipWork': {
-        const options = ['在拖延', '在看手机', '在休息'];
-        if (hour < 12) options.push('在住处躺着');
-        return options[Math.floor(Math.random() * options.length)] || '在拖延';
-      }
-
+      case 'skipClass':
+      case 'skipWork':
+        return '在休息';
       default:
         return null;
     }
@@ -624,20 +605,18 @@ class Agent {
    * @private
    */
   _getSkipRegion(skipType, hour) {
-    switch (skipType) {
-      case 'sick':
-        return this.position; // 生病了留在原地
-      case 'skipClass': {
-        const isWorker = ['办公室', '家', '路上'].includes(this.position);
-        if (hour < 10) return isWorker ? '家' : '住处';  // 赖床
-        if (Math.random() > 0.5) return '网吧';  // 50% 去网吧
-        return isWorker ? '家' : '住处';  // 50% 回住处/家
+    // 从 domain 取跳过行为配置
+    const skipBehavior = this._domain ? this._domain.skipBehavior : null;
+
+    if (skipBehavior && skipBehavior[skipType]) {
+      const regions = skipBehavior[skipType].regions || [];
+      if (regions.length > 0) {
+        return regions[Math.floor(Math.random() * regions.length)];
       }
-      case 'skipWork':
-        return '家';
-      default:
-        return this.position;
     }
+
+    // fallback：留在原地
+    return this.position;
   }
 
   // ═══════════════════════════════════════════
@@ -739,19 +718,20 @@ class Agent {
     }
 
     // 恶劣天气暴露
-    if (env.weather === 'cold') {
-      // 在室外区域更易受寒
-      const outdoorRegions = ['运动场', '小镇广场', '公园', '路上', '回家路上'];
-      if (outdoorRegions.includes(this.position)) {
-        healthDelta -= 0.02 * hoursElapsed;
-      } else {
-        healthDelta -= 0.005 * hoursElapsed; // 室内也轻微影响
+    if (env.weather === 'cold' || env.weather === 'rain') {
+      // 从 domain 取室外区域
+      const outdoorRegions = this._domain ? (this._domain.placeTypes.outdoor || []) : ['运动场', '小镇广场', '公园', '路上', '回家路上'];
+      const isOutdoor = outdoorRegions.includes(this.position);
+
+      if (env.weather === 'cold') {
+        if (isOutdoor) {
+          healthDelta -= 0.02 * hoursElapsed;
+        } else {
+          healthDelta -= 0.005 * hoursElapsed;
+        }
       }
-    }
-    if (env.weather === 'rain') {
-      const outdoorRegions = ['运动场', '小镇广场', '公园', '路上', '回家路上'];
-      if (outdoorRegions.includes(this.position)) {
-        healthDelta -= 0.03 * hoursElapsed; // 淋雨
+      if (env.weather === 'rain' && isOutdoor) {
+        healthDelta -= 0.03 * hoursElapsed;
       }
     }
 
@@ -828,27 +808,23 @@ class Agent {
    * @private
    */
   _generateSkipMemory(skipType, env) {
-    const skipContents = {
-      sick: [
-        '身体不舒服，请了假在休息',
-        '感觉浑身没力气，决定今天不去了',
-        '头疼得厉害，还是休息一下吧',
-      ],
-      skipClass: [
-        '今天不想工作，在住处躺了一会',
-        '偷懒了，在外面闲逛',
-        '偷懒去了网吧',
-        '心情不好，不想去工作区',
-        '昨晚没睡好，偷懒了早上',
-      ],
-      skipWork: [
-        '今天不想上班，请了假在家休息',
-        '身体不舒服，请了一天假',
-        '实在不想去办公室，在家待着',
-      ],
-    };
+    // 通用的生病记忆
+    const sickMemories = [
+      '身体不舒服，请了假在休息',
+      '感觉浑身没力气，决定今天不去了',
+      '头疼得厉害，还是休息一下吧',
+    ];
 
-    const contents = skipContents[skipType];
+    // 从 domain 取跳过行为记忆
+    const skipBehavior = this._domain ? this._domain.skipBehavior : null;
+    let contents;
+
+    if (skipType === 'sick') {
+      contents = sickMemories;
+    } else if (skipBehavior && skipBehavior[skipType]) {
+      contents = skipBehavior[skipType].memories || [];
+    }
+
     if (!contents || contents.length === 0) return null;
 
     const content = contents[Math.floor(Math.random() * contents.length)];
@@ -863,7 +839,7 @@ class Agent {
           target: this.id,
           type: 'emotion',
           delta: {
-            // 翘课有轻微的内疚感，但也有解脱感
+            // 旷工有轻微的内疚感，但也有解脱感
             guilt: skipType === 'skipClass' ? 0.02 : (skipType === 'skipWork' ? 0.03 : 0),
             relief: 0.03,
             calm: 0.02,
@@ -878,24 +854,29 @@ class Agent {
   /**
    * 根据匮乏需求找到合适的区域
    *
-   * 考虑 Agent 当前位置和个人场景（学生 vs 上班族）
+   * 考虑 Agent 当前位置和个人场景（劳动者 vs 上班族）
    * @private
    * @param {string} need - 需求类型
    * @returns {string|null} 目标区域
    */
   _findNeedRegion(need) {
-    // 判断是否是上班族场景（如果当前在办公室/家/路上，可能是上班族）
-    const isWorker = ['办公室', '家', '路上'].includes(this.position) ||
-      this.schedule.entries.some(e => e.region === '办公室' || e.region === '家');
+    // 从 domain 取需求区域配置
+    const needRegionConfig = this._domain ? this._domain.needRegionConfig : null;
 
-    const needRegions = {
-      hunger: isWorker ? '家' : '餐厅',
-      energy: this.position === '住处' ? '住处' : (isWorker ? '家' : '住处'),
-      social: isWorker ? '咖啡店' : '小镇广场',
-      comfort: isWorker ? '家' : '住处',
-      stimulation: '咖啡店',
-    };
-    return needRegions[need] || null;
+    if (needRegionConfig && needRegionConfig[need]) {
+      const config = needRegionConfig[need];
+
+      // 判断角色类型
+      const isWorker = this._domain && this._domain.placeTypes.work &&
+        this._domain.placeTypes.work.some(r => this.schedule.entries.some(e => e.region === r));
+
+      if (config.any) return config.any;
+      if (isWorker && config.worker) return config.worker;
+      if (!isWorker && config.student) return config.student;
+    }
+
+    // fallback：留在原地
+    return null;
   }
 
   /**
@@ -1097,7 +1078,7 @@ class Agent {
    *   - ACT-R: 基于实例的学习 (Instance-Based Learning)
    *
    * Agent 不是每次都"从零思考"，而是参考过往经验预估：
-   *   - "上次在图书馆自习感觉很好" → 增加选择图书馆的倾向
+   *   - "上次在阅览处专注感觉很好" → 增加选择阅览处的倾向
    *   - "深夜看手机后总是更焦虑" → 减少选择看手机的倾向
    *
    * 这不是硬性决策，而是为 StateMachine 的加权随机选择提供额外信息。
@@ -1504,36 +1485,34 @@ class Agent {
     const parts = [];
 
     // ─── 1. 当前行为 ───
-    // 优先使用 Andy Town 提供的干净状态（externalState）
-    // 降级到引擎内部状态
     const rawState = this.stateMachine.currentState;
     const rawPos = this.position;
     const info = this.stateMachine.getInfo(this.memory._simTime || null);
     const elapsedMin = info.elapsed || 0;
 
-    // 安全的状态映射（已替换校园词）
-    const statePositionMap = {
-      '在上课': '在工作区工作', '在自习': '在安静角落专注', '在图书馆': '在阅览室',
-      '在打工': '在店里打工', '在食堂': '在餐厅', '在路上': '在路上',
-      '在做饭': '在做饭', '在吃饭': '在吃饭', '在看剧': '在看剧',
-      '在看手机': '在看手机', '在发呆': '在发呆', '在听歌': '在听歌',
-      '在看窗外': '在看窗外', '睡了': '在睡觉', '在洗澡': '在洗澡',
-      '在校园广场': '在小镇广场', '在咖啡店': '在咖啡店',
-    };
+    // 从 domain 取叙事模板
+    const narrativeTemplates = this._domain ? this._domain.narrativeTemplates : {};
+    const statePositionMap = narrativeTemplates.statePositionMap || {};
 
     // 优先使用 externalState（Andy Town 提供的干净数据）
+    // 使用 domain 的 narrativeTemplates，不使用 campus replacement
     let stateDesc;
     if (externalState && externalState.scheduleActivity) {
-      stateDesc = safeActivity(externalState.scheduleActivity);
+      stateDesc = statePositionMap[externalState.scheduleActivity] || externalState.scheduleActivity;
     } else if (externalState && externalState.scheduleRegion) {
-      stateDesc = `在${safeRegion(externalState.scheduleRegion)}`;
+      const regionMap = narrativeTemplates.regionMap || {};
+      stateDesc = regionMap[externalState.scheduleRegion] || `在${externalState.scheduleRegion}`;
     } else {
-      stateDesc = statePositionMap[rawState] || (rawPos !== '住处' ? `在${safeRegion(rawPos)}` : safeActivity(rawState));
+      stateDesc = statePositionMap[rawState] || `在${rawPos}`;
     }
     parts.push(stateDesc);
 
     // ─── 2. 行为质量（状态持续太久 → 坐不住/无聊）───
-    if (elapsedMin > 60 && ['在自习', '在上课', '在打工', '在图书馆', '在工作', '在专注做事', '在工作区'].includes(rawState)) {
+    // 从 domain 取活跃状态类别
+    const activeCategories = ['active', 'quiet'];
+    const stateDef = this._domain ? this._domain.states[rawState] : null;
+    const isActiveCategory = stateDef && activeCategories.includes(stateDef.category);
+    if (elapsedMin > 60 && isActiveCategory) {
       parts.push('但有点坐不住');
     }
 
@@ -1591,8 +1570,8 @@ class Agent {
         const snippet = mem.content.length > 20 ? mem.content.slice(0, 20) + '...' : mem.content;
         if (!snippet.includes(rawState) && !snippet.includes(rawPos)) {
           const timeLabel = hoursAgo < 0.5 ? '刚才' : hoursAgo < 2 ? '不久前' : '';
-          // 对记忆内容做防污染处理
-          const safeSnippet = sanitizeText(snippet);
+          // 使用 domain-aware guard 处理记忆内容
+          const safeSnippet = applyForbiddenTerms(snippet, this._domain);
           parts.push(`${timeLabel}${safeSnippet}`);
           break;
         }
@@ -1655,8 +1634,8 @@ class Agent {
       }
     }
 
-    // 最终防污染处理：确保输出不含校园词
-    return sanitizeText(narrative);
+    // Domain-aware guard：确保输出不含 forbiddenTerms
+    return applyForbiddenTerms(narrative, this._domain);
   }
 
   // ═══════════════════════════════════════════

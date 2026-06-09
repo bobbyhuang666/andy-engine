@@ -30,18 +30,22 @@
  */
 
 const { ANDY_DEFAULTS } = require('../config/defaults');
+const { getDefaultDomain } = require('../domain/DomainRegistry');
 
 class IntrinsicMotivation {
   /**
    * @param {Object} personality - Personality 实例
    * @param {Object} [savedState] - 恢复状态
+   * @param {Object} [domain] - DomainRegistry 实例
    */
-  constructor(personality, savedState = null) {
+  constructor(personality, savedState = null, domain = null) {
     const cfg = ANDY_DEFAULTS.intrinsicMotivation;
     const behavior = personality.behavior;
 
+    this.domain = domain || getDefaultDomain();
+    this._imConfig = this.domain.intrinsicMotivationConfig;
+
     if (savedState) {
-      // 从保存状态恢复
       this.curiosity = savedState.curiosity ?? 0.5;
       this.familiarity = savedState.familiarity || {};
       this.activeGoals = savedState.activeGoals || [];
@@ -51,42 +55,22 @@ class IntrinsicMotivation {
       this._ticksSinceGoal = savedState._ticksSinceGoal ?? 0;
       this._lastGoalId = savedState._lastGoalId ?? 0;
     } else {
-      // 好奇心驱力（0-1，类似需求，会衰减，被满足时回升）
       this.curiosity = 0.5;
-
-      // 区域熟悉度 { regionName: { visits: number, lastVisit: Date, totalTime: number } }
       this.familiarity = {};
-
-      // 活动熟悉度 { activityName: { count: number, lastTime: Date } }
       this.activityFamiliarity = {};
-
-      // 当前活跃目标列表
       this.activeGoals = [];
-
-      // 已完成目标历史（最近 20 个）
       this.completedGoals = [];
-
-      // 胜任感追踪 { activityDomain: { attempts, successes, ema: 指数移动平均 } }
       this.competence = {};
-
-      // 探索历史（用于检测探索模式）
       this.explorationHistory = [];
-
-      // 计数器
       this._ticksSinceGoal = 0;
       this._lastGoalId = 0;
     }
 
-    // 人格驱动的行为参数（不序列化，从 personality 重建）
     this._behavior = behavior;
     this._cfg = cfg;
-
-    // 解构常用参数
     this._noveltySensitivity = behavior.noveltySeeking;
     this._competenceSensitivity = behavior.competenceMotivation;
     this._explorationDrive = behavior.explorationDrive;
-
-    // Tick 内缓存（避免同 tick 内重复计算）
     this._noveltyCache = null;
     this._noveltyCacheTime = null;
   }
@@ -415,16 +399,10 @@ class IntrinsicMotivation {
    * @private
    */
   _domainToRegion(domain, currentPosition) {
-    // 活动→区域映射
-    const domainRegionMap = {
-      '图书馆自习': '图书馆',
-      '在咖啡店探索': '咖啡店',
-      '校园广场社交': '校园广场',
-    };
+    const domainRegionMap = this._imConfig.domainRegionMap || {};
 
     if (domainRegionMap[domain]) return domainRegionMap[domain];
 
-    // 默认：找一个相关的新奇区域
     return this._findLeastFamiliarRegion(currentPosition);
   }
 
@@ -433,7 +411,7 @@ class IntrinsicMotivation {
    * @private
    */
   _findLeastFamiliarRegion(currentPosition) {
-    const regions = ANDY_DEFAULTS.spatial.regions;
+    const regions = this.domain.regions;
     let bestRegion = null;
     let bestNovelty = -1;
 
@@ -447,7 +425,6 @@ class IntrinsicMotivation {
       }
     }
 
-    // 只有当新奇性足够高时才值得探索
     return bestNovelty > 0.3 ? bestRegion : null;
   }
 
@@ -476,7 +453,7 @@ class IntrinsicMotivation {
    * @private
    */
   _findForgottenRegion(currentPosition, simTime) {
-    const regions = ANDY_DEFAULTS.spatial.regions;
+    const regions = this.domain.regions;
     const now = simTime ? simTime.getTime() : Date.now();
     let bestRegion = null;
     let longestGap = 0;
@@ -485,7 +462,7 @@ class IntrinsicMotivation {
       if (region === currentPosition) continue;
 
       const fam = this.familiarity[region];
-      if (!fam) continue; // 从未去过不算"遗忘"
+      if (!fam) continue;
 
       const gap = now - fam.lastVisit;
       if (gap > longestGap) {
@@ -494,7 +471,6 @@ class IntrinsicMotivation {
       }
     }
 
-    // 只有超过 24 小时没去才算"遗忘"
     return longestGap > 24 * 60 * 60 * 1000 ? bestRegion : null;
   }
 
@@ -724,15 +700,13 @@ class IntrinsicMotivation {
   _getExplorationRegions(currentPosition) {
     const regions = [];
 
-    // 如果有活跃目标，优先推荐目标区域
     for (const goal of this.activeGoals) {
       if (goal.target && goal.status === 'active') {
         regions.push(goal.target);
       }
     }
 
-    // 补充：新奇性最高的区域
-    const allRegions = ANDY_DEFAULTS.spatial.regions;
+    const allRegions = this.domain.regions;
     const noveltyRanked = allRegions
       .filter(r => r !== currentPosition && !regions.includes(r))
       .map(r => ({ region: r, novelty: this.getNovelty(r) }))
@@ -751,7 +725,7 @@ class IntrinsicMotivation {
    * @private
    */
   _getExplorationStates() {
-    return ['在路上', '在校园广场', '在咖啡店', '在图书馆', '在看书', '在公园'];
+    return this._imConfig.explorationStates || ['在路上'];
   }
 
   // ═══════════════════════════════════════════

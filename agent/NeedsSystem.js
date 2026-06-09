@@ -25,46 +25,18 @@
 
 const { ANDY_DEFAULTS } = require('../config/defaults');
 const cfg = ANDY_DEFAULTS.needs;
+const { getDefaultDomain } = require('../domain/DomainRegistry');
 
-// ─── 需求 → 满足行为映射 ───
-// 当 Agent 处于某个状态时，对应的需求得到恢复
-const NEED_SATISFACTION = {
-  hunger: {
-    states: ['在食堂', '在吃饭', '在做饭', '做好了', '在便利店'],
-    regions: ['食堂', '便利店'],
-  },
-  energy: {
-    states: ['睡了', '在翻身', '快睡了', '在休息', '趴一会', '先躺一会'],
-    regions: [], // R5: 去掉区域恢复（在家/宿舍≠在睡觉）
-  },
-  social: {
-    states: ['在聊天', '在食堂', '在校园广场', '在咖啡店', '在开会'],
-    regions: ['食堂', '校园广场', '咖啡店'],
-  },
-  comfort: {
-    states: ['在家', '到家了', '在宿舍', '在休息', '在看剧', '在洗澡'],
-    regions: ['家', '宿舍'],
-  },
-  stimulation: {
-    states: ['在看剧', '在听歌', '在看书', '在咖啡店', '在看手机', '在打工'],
-    regions: ['咖啡店', '操场', '公园'],
-  },
-};
+// 默认 domain（向后兼容）
+const defaultDomain = getDefaultDomain();
 
-// ─── 需求匮乏 → 目标状态映射 ───
-// 当某个需求严重匮乏时，Agent 应该去满足它
-const NEED_DRIVE_STATES = {
-  hunger: ['在食堂', '在便利店'],
-  energy: ['在休息', '睡了', '趴一会', '先躺一会'],
-  social: ['在聊天', '在校园广场', '在咖啡店'],
-  comfort: ['到家了', '在休息', '先躺一会'],
-  stimulation: ['在看手机', '在看剧', '在操场', '在咖啡店', '在看书'],
-};
+// ─── 需求 → 满足行为映射（从 domain 取）───
+const NEED_SATISFACTION = defaultDomain.needSatisfactionMap;
+
+// ─── 需求匮乏 → 目标状态映射（从 domain 取）───
+const NEED_DRIVE_STATES = defaultDomain.needDriveStates;
 
 // ─── 需求匮乏 → 4D 连续梯度目标 ───
-// [activity, sociality, focus, expressiveness]
-// 饥饿时应该去吃饭：中活跃、中社交、低专注
-// 疲劳时应该休息：全面降低
 const NEED_GRADIENT_TARGETS = {
   hunger:      [0.35, 0.45, 0.20, 0.40],
   energy:      [0.08, 0.04, 0.05, 0.03],
@@ -74,22 +46,27 @@ const NEED_GRADIENT_TARGETS = {
 };
 
 // ─── 需求满足 → 4D 连续满足中心 ───
-// 行为向量越接近这些中心点，对应需求恢复越快
-// 与 NEED_SATISFACTION（离散状态列表）的连续替代
 const NEED_SATISFACTION_CENTERS = {
-  hunger:      [0.35, 0.55, 0.15, 0.45],   // 吃饭场景（接近"在食堂"中心）
-  energy:      [0.06, 0.03, 0.05, 0.03],   // 休息/睡觉场景
-  social:      [0.40, 0.90, 0.30, 0.85],   // 社交场景
-  comfort:     [0.15, 0.15, 0.25, 0.15],   // 舒适/居家场景
-  stimulation: [0.50, 0.40, 0.50, 0.50],   // 刺激/娱乐场景
+  hunger:      [0.35, 0.55, 0.15, 0.45],
+  energy:      [0.06, 0.03, 0.05, 0.03],
+  social:      [0.40, 0.90, 0.30, 0.85],
+  comfort:     [0.15, 0.15, 0.25, 0.15],
+  stimulation: [0.50, 0.40, 0.50, 0.50],
 };
 
 class NeedsSystem {
   /**
    * @param {Object} personality - Personality 实例
    * @param {Object} [savedState] - 恢复状态
+   * @param {Object} [domain] - DomainRegistry 实例
    */
-  constructor(personality, savedState = null) {
+  constructor(personality, savedState = null, domain = null) {
+    this.domain = domain || defaultDomain;
+
+    // 从 domain 获取需求满足映射
+    this._needSatisfaction = this.domain.needSatisfactionMap;
+    this._needDriveStates = this.domain.needDriveStates;
+
     // 人格影响需求衰减速率
     const ocean = personality.ocean;
 
@@ -99,11 +76,11 @@ class NeedsSystem {
       this._recoveryMultipliers = savedState._recoveryMultipliers || NeedsSystem._calcRecoveryMultipliers(ocean);
     } else {
       this.needs = {
-        hunger: 0.8,     // 饱腹感
-        energy: 0.9,     // 精力
-        social: 0.6,     // 社交满足
-        comfort: 0.7,    // 舒适感
-        stimulation: 0.5, // 刺激/兴趣满足
+        hunger: 0.8,
+        energy: 0.9,
+        social: 0.6,
+        comfort: 0.7,
+        stimulation: 0.5,
       };
       this._decayRates = NeedsSystem._calcDecayRates(ocean);
       this._recoveryMultipliers = NeedsSystem._calcRecoveryMultipliers(ocean);
@@ -157,21 +134,18 @@ class NeedsSystem {
     // Step 1: 自然衰减
     for (const [need, rate] of Object.entries(this._decayRates)) {
       const current = this.needs[need];
-      // 指数衰减，但越低衰减越慢（接近 0 时不会完全归零）
       const effectiveRate = rate * (0.5 + current * 0.5);
       this.needs[need] = Math.max(0, current - effectiveRate * hoursElapsed);
     }
 
-    // Step 2: 活动恢复需求（乘以人格恢复乘数）
-    for (const [need, mapping] of Object.entries(NEED_SATISFACTION)) {
+    // Step 2: 活动恢复需求（从 domain 取映射）
+    for (const [need, mapping] of Object.entries(this._needSatisfaction)) {
       let recovery = 0;
 
-      // 当前状态满足需求
       if (mapping.states.includes(currentState)) {
         recovery += cfg.recoveryRate[need] || 0.3;
       }
 
-      // 当前区域也满足需求（较低恢复量）
       if (mapping.regions.includes(currentRegion)) {
         recovery += (cfg.recoveryRate[need] || 0.3) * 0.3;
       }
@@ -240,7 +214,7 @@ class NeedsSystem {
     return {
       need: urgentNeed,
       urgency: maxUrgency,
-      targetStates: NEED_DRIVE_STATES[urgentNeed] || [],
+      targetStates: this._needDriveStates[urgentNeed] || [],
     };
   }
 
@@ -301,7 +275,7 @@ class NeedsSystem {
    * 其中 target 是该需求满足时的最优行为位置
    *
    * 与 getDrive() 的区别：
-   *   - getDrive() → 离散 targetStates: ['在食堂', '在便利店']
+   *   - getDrive() → 离散 targetStates: ['在餐厅', '在打工处']
    *   - getDriveGradient() → 连续 gradientVector: [0.3, -0.2, -0.1, -0.1]
    *
    * @returns {Array<{ need: string, urgency: number, gradient: number[] }>}

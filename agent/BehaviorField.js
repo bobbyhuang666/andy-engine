@@ -4,7 +4,7 @@
  * 将离散的 42-状态 StateMachine 替换为 4 维连续行为空间中的动力学系统。
  *
  * 行为空间 B ∈ [0,1]^4：
- *   B[0] = activity       0=休息/睡觉  1=上课/工作/运动
+ *   B[0] = activity       0=休息/睡觉  1=工作/运动
  *   B[1] = sociality      0=独处/发呆  1=聊天/社交
  *   B[2] = focus          0=漫无目的   1=高度专注
  *   B[3] = expressiveness  0=封闭退缩  1=外向表达
@@ -32,6 +32,7 @@ const {
   BehaviorLabeler, DIM_ACTIVITY, DIM_SOCIALITY, DIM_FOCUS, DIM_EXPRESSIVENESS,
   DIMS, dist, getTimePenalty,
 } = require('./BehaviorLabeler');
+const { getDefaultDomain } = require('../domain/DomainRegistry');
 
 // ═══════════════════════════════════════════
 // 默认动力学参数
@@ -73,7 +74,7 @@ const DEFAULTS = {
 
 /** 需求满足的最优行为位置 */
 const NEED_TARGETS = {
-  hunger:      [0.35, 0.55, 0.08, 0.45],  // 吃饭：中活跃, 中高社交(食堂有人), 极低专注, 中表达
+  hunger:      [0.35, 0.55, 0.08, 0.45],  // 吃饭：中活跃, 中高社交(餐厅有人), 极低专注, 中表达
   energy:      [0.08, 0.04, 0.02, 0.03],  // 休息：全面降低
   social:      [0.35, 0.85, 0.25, 0.80],  // 社交：高社交, 高表达
   comfort:     [0.15, 0.15, 0.20, 0.12],  // 舒适：低活跃, 安静
@@ -91,7 +92,7 @@ const EMOTION_TARGETS = {
 const TIME_TARGETS = {
   sleep:      [0.02, 0.00, 0.02, 0.00],   // 23-6: 睡觉
   morning:    [0.45, 0.20, 0.30, 0.25],   // 6-9: 起床准备
-  active:     [0.60, 0.25, 0.65, 0.25],   // 9-12, 14-17: 上课/工作
+  active:     [0.60, 0.25, 0.65, 0.25],   // 9-12, 14-17: 工作
   midday:     [0.35, 0.50, 0.20, 0.45],   // 12-14: 午饭/社交
   evening:    [0.30, 0.30, 0.25, 0.30],   // 17-21: 傍晚活动
   lateNight:  [0.10, 0.08, 0.12, 0.08],   // 21-23: 深夜放松
@@ -102,9 +103,13 @@ class BehaviorField {
    * @param {Object} personality - Personality 实例
    * @param {Object} [savedState] - 恢复状态
    * @param {Object} [config] - 覆盖默认参数
+   * @param {Object} [domain] - DomainRegistry 实例
    */
-  constructor(personality, savedState = null, config = {}) {
+  constructor(personality, savedState = null, config = {}, domain = null) {
     this.cfg = { ...DEFAULTS, ...config };
+    this.domain = domain || getDefaultDomain();
+    this._labeler = BehaviorLabeler.create(this.domain);
+    this._stateCenters = this.domain.stateCenters;
 
     // 人格调制参数
     const ocean = personality ? personality.ocean : { neuroticism: 0.5, extraversion: 0.5, openness: 0.5, conscientiousness: 0.5, agreeableness: 0.5 };
@@ -170,8 +175,8 @@ class BehaviorField {
     // 3. 边界处理
     this._enforceBoundary();
 
-    // 4. 语义标签投影
-    const projection = BehaviorLabeler.project(this.B, { hour: signals.environment?.hour });
+    // 4. 语义标签投影（使用 domain-aware labeler）
+    const projection = this._labeler.project(this.B, { hour: signals.environment?.hour });
 
     // 缓存
     this._prevB = [...this.B];
@@ -248,7 +253,7 @@ class BehaviorField {
     // ── 8. 各向异性梯度裁剪 ──
     // 不同维度允许不同的最大变化速率：
     //   focus (1.2): 注意力可以快速转移（放下书本只需一念）
-    //   sociality (0.7): 社交状态变化中等（需要走到食堂）
+    //   sociality (0.7): 社交状态变化中等（需要走到餐厅）
     //   expressiveness (0.7): 表达方式变化中等
     //   activity (0.5): 身体活动变化最慢（需要实际移动）
     const dimLimits = [0.8, 0.7, 1.2, 0.7]; // [activity, sociality, focus, expressiveness]
@@ -336,8 +341,7 @@ class BehaviorField {
   _addScheduleGradient(grad, schedule, weight) {
     if (!schedule.inSchedule || !schedule.targetActivity) return;
 
-    // 根据目标活动确定目标行为向量
-    const target = _activityToTarget(schedule.targetActivity);
+    const target = this._activityToTarget(schedule.targetActivity);
     if (!target) return;
 
     for (let d = 0; d < DIMS; d++) {
@@ -482,7 +486,25 @@ class BehaviorField {
    * @returns {string}
    */
   describe(options = {}) {
-    return BehaviorLabeler.describe(this.B, options);
+    return this._labeler.describe(this.B, options);
+  }
+
+  /**
+   * 活动名 → 4D 目标位置（domain-aware）
+   * @private
+   */
+  _activityToTarget(activity) {
+    const centers = this._stateCenters;
+    if (centers[activity]) return centers[activity];
+
+    // 从 domain 取 activityTargets（如果有）
+    const activityTargets = this.domain.activityTargets || {};
+    if (activityTargets[activity]) {
+      const targetState = activityTargets[activity];
+      if (centers[targetState]) return centers[targetState];
+    }
+
+    return null;
   }
 
   /**
@@ -532,31 +554,8 @@ function _gaussianRandom() {
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 }
 
-/** 活动名 → 4D 目标位置 */
-function _activityToTarget(activity) {
-  // 直接从 BehaviorLabeler 的状态中心查找
-  const centers = require('./BehaviorLabeler').STATE_CENTERS;
-  if (centers[activity]) return centers[activity];
-
-  // 模糊匹配
-  const fuzzyMap = {
-    '上课': '在上课', '自习': '在自习', '工作': '在工作',
-    '吃饭': '在食堂', '社交': '在聊天', '休息': '在休息',
-    '睡觉': '睡了', '运动': '在路上', '打工': '在打工',
-    '开会': '在开会', '做饭': '在做饭', '洗澡': '在洗澡',
-  };
-  for (const [key, state] of Object.entries(fuzzyMap)) {
-    if (activity.includes(key)) return centers[state];
-  }
-
-  return null;
-}
-
 /**
  * 时间段 → 目标行为位置（平滑插值版）
- *
- * 在时间段边界附近做线性插值，避免硬跳变。
- * 例如 8:50 到 9:10 之间，从 morning 平滑过渡到 active。
  */
 const TIME_SCHEDULE = [
   { hour: 0,  target: 'sleep' },
