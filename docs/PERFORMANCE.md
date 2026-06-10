@@ -3,7 +3,7 @@
 ## v0.2.0 Baseline (Post Phase 14)
 
 **Date:** 2026-06-10
-**Commit:** 8bc1144
+**Commit:** ec202b0
 **Node:** v26.0.0
 **Platform:** darwin
 
