@@ -1,0 +1,68 @@
+{
+  "version": "0.2.0",
+  "date": "2026-06-10",
+  "commit": "8bc1144",
+  "nodeVersion": "v26.0.0",
+  "platform": "darwin",
+  "description": "Post Phase 14 social contagion cache optimization baseline",
+  "benchmark": {
+    "quick": {
+      "100_agents_50_ticks": {
+        "totalMs": 1276,
+        "avgMsPerTick": 25.52,
+        "minTickMs": 22.19,
+        "maxTickMs": 40.94,
+        "p50TickMs": 24.61
+      },
+      "300_agents_20_ticks": {
+        "totalMs": 4050,
+        "avgMsPerTick": 202.48,
+        "minTickMs": 175.79,
+        "maxTickMs": 234.53,
+        "p50TickMs": 201.29
+      }
+    }
+  },
+  "profile": {
+    "contagion_quick": {
+      "fixed_clustered": {
+        "totalMs": 47,
+        "cacheBuildMs": 7.33,
+        "gatherMs": 33.87,
+        "totalEntries": 297000,
+        "avgNeighbors": 99
+      },
+      "runtime_clustered": {
+        "totalMs": 722,
+        "cacheBuildMs": 7.99,
+        "gatherMs": 34.85,
+        "totalEntries": 148500,
+        "avgNeighbors": 50
+      }
+    },
+    "emotion_quick": {
+      "emotionTickMs": 200,
+      "top_steps": {
+        "_socialContagion": { "totalMs": 115, "percentOfEmotionTick": 62 },
+        "_oppositionDamping": { "totalMs": 20, "percentOfEmotionTick": 11 },
+        "_timeDecay": { "totalMs": 16, "percentOfEmotionTick": 9 }
+      }
+    },
+    "agent_quick": {
+      "agentTickMs": 355,
+      "top_steps": {
+        "EmotionVector.tick": { "totalMs": 189, "percentOfAgentTick": 53 },
+        "BehaviorField.tick": { "totalMs": 30, "percentOfAgentTick": 8 },
+        "IntrinsicMotivation.tick": { "totalMs": 22, "percentOfAgentTick": 6 }
+      }
+    }
+  },
+  "semantic": {
+    "perTickSnapshotSemantics": true,
+    "gatherContagionInputsCacheCompat": true,
+    "tests": {
+      "total_files": 18,
+      "total_tests": 350
+    }
+  }
+}
