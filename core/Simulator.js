@@ -13,7 +13,7 @@
  *   5. EVENT_DISPATCH   — 将事件推入 EventLog
  */
 
-const { ANDY_DEFAULTS } = require('../config/defaults');
+const { ANDY_DEFAULTS, EMOTION_DIMENSIONS } = require('../config/defaults');
 const cfg = ANDY_DEFAULTS.tick;
 
 class Simulator {
@@ -77,6 +77,11 @@ class Simulator {
     const agentResults = {};
     const allNewEvents = [];
 
+    // 预计算每 tick 的 blended emotion cache（per-tick snapshot semantics）
+    // 同一个 tick 内所有 agent 看到 tick 开始时的情绪快照
+    // 这是同步仿真语义，避免顺序偏差
+    const emotionBlendCache = this._buildEmotionBlendCache();
+
     for (const [agentId, agent] of this.world.agents) {
       // 获取该 Agent 可感知的事件（上一 tick 的）
       const perceivedEvents = this.world.eventDispatcher.filterEventsForAgent(
@@ -84,8 +89,8 @@ class Simulator {
         this.world.eventDispatcher.eventLog.slice(-10)
       );
 
-      // 获取社交传染输入
-      const contagionInputs = this._gatherContagionInputs(agentId, agent);
+      // 获取社交传染输入（使用预计算的 cache）
+      const contagionInputs = this._gatherContagionInputs(agentId, agent, emotionBlendCache);
 
       // Agent 思考
       const agentResult = agent.tick(env, perceivedEvents, contagionInputs);
@@ -264,16 +269,49 @@ class Simulator {
   // ═══════════════════════════════════════════
 
   /**
+   * 构建每 tick 的 blended emotion cache
+   *
+   * Per-tick snapshot semantics: 同一个 tick 内所有 agent 看到 tick 开始时的情绪快照。
+   * 这是同步仿真语义，避免顺序偏差。
+   *
+   * 复杂度: O(agents * 30)
+   *
+   * @returns {Map<string, Object>} agentId → blended emotion object
+   * @private
+   */
+  _buildEmotionBlendCache() {
+    const cache = new Map();
+    for (const [agentId, agent] of this.world.agents) {
+      const blended = {};
+      for (const dim of EMOTION_DIMENSIONS) {
+        blended[dim] =
+          (agent.emotion.mood[dim] || 0) * 0.6 +
+          (agent.emotion.current[dim] || 0) * 0.4;
+      }
+      cache.set(agentId, blended);
+    }
+    return cache;
+  }
+
+  /**
    * 收集社交传染输入
    * 同区域的 Agent 会互相传递情绪影响
    *
+   * 使用预计算的 emotionBlendCache（per-tick snapshot semantics）。
+   *
    * @private
    */
-  _gatherContagionInputs(agentId, agent) {
+  _gatherContagionInputs(agentId, agent, emotionBlendCache = null) {
+    // 兼容未传 cache 的调用
+    if (!emotionBlendCache) {
+      emotionBlendCache = this._buildEmotionBlendCache();
+    }
+
     const neighbors = this.world.regions.getNeighbors(agentId, 0); // 同区域
     if (neighbors.length === 0) return null;
 
     const inputs = {};
+    let count = 0;
     const myExpressiveness = agent._behavior.expressiveness;
 
     for (const neighborId of neighbors) {
@@ -284,24 +322,19 @@ class Simulator {
       const rel = this.world.socialGraph.getRelationship(agentId, neighborId);
       const weight = rel ? rel.strength : 0.1;
 
-      // 传染贡献（关系越近 + 对方越外向 = 影响越大）
-      // 使用 mood（中期心境）与 current 的加权混合：
-      // 你感受到的是对方的整体情绪状态（mood），不仅是瞬时爆发（current）
-      // 参考 Hatfield (1993): 情绪传染主要基于整体感知而非瞬时表达
-      const blendedEmotion = {};
-      for (const dim of require('../config/defaults').EMOTION_DIMENSIONS) {
-        const moodVal = neighbor.emotion.mood[dim] || 0;
-        const curVal = neighbor.emotion.current[dim] || 0;
-        blendedEmotion[dim] = moodVal * 0.6 + curVal * 0.4;
-      }
+      // 使用预计算的 blended emotion cache
+      const blendedEmotion = emotionBlendCache.get(neighborId);
+      if (!blendedEmotion) continue;
+
       inputs[neighborId] = {
         emotion: blendedEmotion,
         weight,
         expressiveness: neighbor._behavior.expressiveness,
       };
+      count++;
     }
 
-    return Object.keys(inputs).length > 0 ? inputs : null;
+    return count > 0 ? inputs : null;
   }
 
   // ═══════════════════════════════════════════
