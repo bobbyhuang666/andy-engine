@@ -37,9 +37,11 @@ class EmotionRegulation {
   /**
    * @param {Object} personality - Personality 实例
    * @param {Object} [savedState] - 恢复状态
+   * @param {Object} [rng] - RNG 实例（可选）
    */
-  constructor(personality, savedState = null) {
+  constructor(personality, savedState = null, rng = null) {
     this.personality = personality;
+    this._rng = rng;
     const ocean = personality.ocean;
 
     // ─── 策略偏好（基于人格特质）───
@@ -200,7 +202,7 @@ class EmotionRegulation {
 
     // 加入少量随机性（人格并非完全决定策略选择）
     for (const key of Object.keys(utilities)) {
-      utilities[key] *= (0.8 + Math.random() * 0.4);
+      utilities[key] *= (0.8 + (this._rng ? this._rng.next() : Math.random()) * 0.4);
     }
 
     // 选择最高效用的策略

@@ -104,10 +104,12 @@ class BehaviorField {
    * @param {Object} [savedState] - 恢复状态
    * @param {Object} [config] - 覆盖默认参数
    * @param {Object} [domain] - DomainRegistry 实例
+   * @param {Object} [rng] - RNG 实例（可选）
    */
-  constructor(personality, savedState = null, config = {}, domain = null) {
+  constructor(personality, savedState = null, config = {}, domain = null, rng = null) {
     this.cfg = { ...DEFAULTS, ...config };
     this.domain = domain || getDefaultDomain();
+    this._rng = rng;
     this._labeler = BehaviorLabeler.create(this.domain);
     this._stateCenters = this.domain.stateCenters;
 
@@ -433,7 +435,7 @@ class BehaviorField {
 
     for (let d = 0; d < DIMS; d++) {
       // 高斯白噪声
-      const noise = this.sigma * sqrtDt * _gaussianRandom();
+      const noise = this.sigma * sqrtDt * _gaussianRandom(this._rng);
 
       // 速度更新：阻尼 + 势能梯度（取负号：沿势能下降方向）+ 噪声
       this.velocity[d] = this.velocity[d] * dampingFactor
@@ -548,9 +550,10 @@ class BehaviorField {
 // ═══════════════════════════════════════════
 
 /** Box-Muller 高斯随机数 */
-function _gaussianRandom() {
-  const u1 = Math.max(1e-10, Math.random());
-  const u2 = Math.random();
+function _gaussianRandom(rng = null) {
+  const rand = rng ? rng.next.bind(rng) : Math.random;
+  const u1 = Math.max(1e-10, rand());
+  const u2 = rand();
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
 }
 

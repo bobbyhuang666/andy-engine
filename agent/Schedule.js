@@ -10,19 +10,10 @@ class Schedule {
    * @param {Object} config
    * @param {Object[]} config.entries - 日程条目列表
    * @param {Object} [savedState] - 恢复状态
-   *
-   * 每个 entry 格式:
-   * {
-   *   startHour: 8,        // 开始时间（小时）
-   *   endHour: 10,         // 结束时间
-   *   region: '工作区',     // 应在的区域
-   *   activity: '在工作',   // 对应的状态
-   *   days: [1,2,3,4,5],   // 适用的星期几（0=周日，1=周一...）
-   *   probability: 0.9,    // 执行概率（0-1，模拟偶尔缺勤）
-   *   noise: 30,           // 时间扰动范围（分钟）
-   * }
+   * @param {Object} [rng] - RNG 实例（可选）
    */
-  constructor(config = {}, savedState = null) {
+  constructor(config = {}, savedState = null, rng = null) {
+    this._rng = rng;
     this.entries = (config.entries || []).map(e => ({
       startHour: e.startHour ?? 0,
       endHour: e.endHour ?? 0,
@@ -117,7 +108,7 @@ class Schedule {
         const entry = this.entries[i];
         if (!entry.days.includes(tomorrowDay)) continue;
 
-        if (Math.random() > entry.probability) continue;
+        if ((this._rng ? this._rng.next() : Math.random()) > entry.probability) continue;
 
         const noiseHours = this._gaussianNoise(entry.noise) / 60;
         const tomorrowStart = Math.max(0, Math.min(24, entry.startHour + noiseHours));
@@ -148,7 +139,7 @@ class Schedule {
       const entry = this.entries[i];
 
       // 概率检查（模拟偶尔旷工）
-      if (Math.random() > entry.probability) {
+      if ((this._rng ? this._rng.next() : Math.random()) > entry.probability) {
         this._todayVariations[i] = null;
         continue;
       }
@@ -169,9 +160,10 @@ class Schedule {
    * @private
    */
   _gaussianNoise(stddev) {
+    const rand = this._rng ? this._rng.next.bind(this._rng) : Math.random;
     // Clamp u1 away from 0 to avoid log(0) = -Infinity
-    const u1 = Math.max(0.0001, Math.random());
-    const u2 = Math.random();
+    const u1 = Math.max(0.0001, rand());
+    const u2 = rand();
     return stddev * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   }
 
