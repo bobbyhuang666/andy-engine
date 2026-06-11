@@ -106,7 +106,7 @@ describe('AndyEngine 集成测试', () => {
 
   describe('多次 Tick', () => {
     beforeAll(() => {
-      engine.runTicks(30);
+      engine.runTicks(50);
     });
 
     it('相遇后应该创建关系', () => {
@@ -126,8 +126,8 @@ describe('AndyEngine 集成测试', () => {
       expect(results.length).toBe(10);
     });
 
-    it('总 tick 数应该是 41', () => {
-      expect(engine.world.tickCount).toBe(41);
+    it('总 tick 数应该是 61', () => {
+      expect(engine.world.tickCount).toBe(61);
     });
   });
 
@@ -187,7 +187,7 @@ describe('AndyEngine 集成测试', () => {
   describe('统计信息', () => {
     it('tick 数应该正确', () => {
       const stats = engine.getStats();
-      expect(stats.tickCount).toBe(41);
+      expect(stats.tickCount).toBe(61);
     });
 
     it('agent 数应该正确', () => {
@@ -206,7 +206,7 @@ describe('AndyEngine 集成测试', () => {
     it('应该保持 tick 数', () => {
       const json = engine.toJSON();
       const restored = AndyEngine.fromJSON(json);
-      expect(restored.world.tickCount).toBe(41);
+      expect(restored.world.tickCount).toBe(61);
     });
   });
 });
