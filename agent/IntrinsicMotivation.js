@@ -37,12 +37,14 @@ class IntrinsicMotivation {
    * @param {Object} personality - Personality 实例
    * @param {Object} [savedState] - 恢复状态
    * @param {Object} [domain] - DomainRegistry 实例
+   * @param {Object} [rng] - RNG 实例（可选）
    */
-  constructor(personality, savedState = null, domain = null) {
+  constructor(personality, savedState = null, domain = null, rng = null) {
     const cfg = ANDY_DEFAULTS.intrinsicMotivation;
     const behavior = personality.behavior;
 
     this.domain = domain || getDefaultDomain();
+    this._rng = rng;
     this._imConfig = this.domain.intrinsicMotivationConfig;
 
     if (savedState) {
@@ -295,7 +297,7 @@ class IntrinsicMotivation {
 
     // 生成概率被人格调制
     const generationProb = 0.3 * this._explorationDrive;
-    if (Math.random() > generationProb) return;
+    if ((this._rng ? this._rng.next() : Math.random()) > generationProb) return;
 
     // 选择目标类型
     const goalType = this._selectGoalType(position);
@@ -313,7 +315,7 @@ class IntrinsicMotivation {
    * @private
    */
   _selectGoalType(position) {
-    const r = Math.random();
+    const r = this._rng ? this._rng.next() : Math.random();
 
     // 好奇驱动：去没去过/很少去的地方
     if (r < 0.5) return 'explore_new';

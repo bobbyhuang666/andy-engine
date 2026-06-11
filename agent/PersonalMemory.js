@@ -24,9 +24,10 @@ class PersonalMemory {
    * @param {Object[]} [savedMemories] - 恢复的序列化记忆
    * @param {Object} [domain] - DomainRegistry 实例
    */
-  constructor(agentId, seedMemories = [], savedMemories = null, domain = null) {
+  constructor(agentId, seedMemories = [], savedMemories = null, domain = null, rng = null) {
     this.agentId = agentId;
     this.domain = domain || getDefaultDomain();
+    this._rng = rng;
 
     // 从 domain 取语义分类
     this._semanticCategories = this.domain.memoryTemplates.semanticCategories || SEMANTIC_EVENT_CATEGORIES;
@@ -974,8 +975,7 @@ class PersonalMemory {
 
   /** @private */
   _logisticNoise(scale) {
-    // Clamp u away from 0 and 1 to avoid log(0) = -Infinity
-    const u = Math.max(0.001, Math.min(0.999, Math.random()));
+    const u = Math.max(0.001, Math.min(0.999, this._rng ? this._rng.next() : Math.random()));
     return scale * Math.log(u / (1 - u));
   }
 

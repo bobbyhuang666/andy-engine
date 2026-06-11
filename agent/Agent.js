@@ -46,25 +46,26 @@ class Agent {
     this.id = config.id;
     this.name = config.name;
     this._domain = config.domain || null;
+    this._rng = config.rng || null;
 
     if (savedState) {
       this.personality = Personality.fromJSON(savedState.personality);
-      this.emotion = new EmotionVector(this.personality, savedState.emotion);
+      this.emotion = new EmotionVector(this.personality, savedState.emotion, this._rng);
       this.stateMachine = new StateMachine(null, savedState.stateMachine, this._domain);
-      this.memory = new PersonalMemory(this.id, [], savedState.memory, this._domain);
+      this.memory = new PersonalMemory(this.id, [], savedState.memory, this._domain, this._rng);
       if (savedState.appraisalBiases) {
         this.memory.appraisalBiases = savedState.appraisalBiases;
       }
       this.proceduralMemory = new ProceduralMemory(savedState.proceduralMemory);
       this.needs = new NeedsSystem(this.personality, savedState.needs, this._domain);
-      this.emotionRegulation = new EmotionRegulation(this.personality, savedState.emotionRegulation);
-      this.intrinsicMotivation = new IntrinsicMotivation(this.personality, savedState.intrinsicMotivation, this._domain);
-      this.schedule = new Schedule(config.schedule, savedState.schedule);
+      this.emotionRegulation = new EmotionRegulation(this.personality, savedState.emotionRegulation, this._rng);
+      this.intrinsicMotivation = new IntrinsicMotivation(this.personality, savedState.intrinsicMotivation, this._domain, this._rng);
+      this.schedule = new Schedule(config.schedule, savedState.schedule, this._rng);
       this.position = savedState.position;
       this.socialEnergy = savedState.socialEnergy ?? 0.7;
       this.health = savedState.health ?? 1.0;
       this.isOnline = savedState.isOnline ?? true;
-      this.behaviorField = new BehaviorField(this.personality, savedState.behaviorField || null, {}, this._domain);
+      this.behaviorField = new BehaviorField(this.personality, savedState.behaviorField || null, {}, this._domain, this._rng);
       this._wireBehaviorFieldToStateMachine();
     } else {
       const personalityConfig = { ...(config.personality || {}) };
@@ -72,19 +73,19 @@ class Agent {
         personalityConfig.mbti = config.mbti;
       }
       this.personality = new Personality(personalityConfig);
-      this.emotion = new EmotionVector(this.personality);
+      this.emotion = new EmotionVector(this.personality, null, this._rng);
       this.stateMachine = new StateMachine(config.initialState || null, null, this._domain);
-      this.memory = new PersonalMemory(this.id, config.seedMemories || [], null, this._domain);
+      this.memory = new PersonalMemory(this.id, config.seedMemories || [], null, this._domain, this._rng);
       this.proceduralMemory = new ProceduralMemory();
       this.needs = new NeedsSystem(this.personality, null, this._domain);
-      this.emotionRegulation = new EmotionRegulation(this.personality);
-      this.intrinsicMotivation = new IntrinsicMotivation(this.personality, null, this._domain);
-      this.schedule = new Schedule(config.schedule || {});
+      this.emotionRegulation = new EmotionRegulation(this.personality, null, this._rng);
+      this.intrinsicMotivation = new IntrinsicMotivation(this.personality, null, this._domain, this._rng);
+      this.schedule = new Schedule(config.schedule || {}, null, this._rng);
       this.position = config.initialPosition || (this._domain ? this._domain.fallback.defaultRegion : '住处');
       this.socialEnergy = 0.7;
       this.health = 1.0;
       this.isOnline = true;
-      this.behaviorField = new BehaviorField(this.personality, null, {}, this._domain);
+      this.behaviorField = new BehaviorField(this.personality, null, {}, this._domain, this._rng);
       this._wireBehaviorFieldToStateMachine();
     }
 
@@ -94,6 +95,14 @@ class Agent {
     this._reflectionInterval = 12;
     this._recentEventTypes = new Set();
     this._ticksSinceDriftCheck = 0;
+  }
+
+  /**
+   * 获取随机数（路由到 RNG 或回退 Math.random）
+   * @private
+   */
+  _rand() {
+    return this._rng ? this._rng.next() : Math.random();
   }
 
   /**
@@ -332,7 +341,7 @@ class Agent {
     const isQuiet = B[DIM_ACTIVITY] < 0.3 && B[DIM_FOCUS] < 0.3;
     if (isQuiet) {
       // 空闲状态下概率发生心智游移（可配置）
-      if (Math.random() < (ANDY_DEFAULTS.mindWander?.quietProbability || 0.25)) {
+      if (this._rand() < (ANDY_DEFAULTS.mindWander?.quietProbability || 0.25)) {
         const thought = this._mindWander();
         if (thought) {
           result.newEvents.push(thought);
@@ -480,7 +489,7 @@ class Agent {
       // 当健康值低于阈值时，Agent 可能请假不去工作
       if (this.health < 0.4) {
         const sickProb = (0.4 - this.health) * 2 * (1 - this.personality.ocean.conscientiousness * 0.3);
-        if (Math.random() < Math.min(0.8, sickProb)) {
+        if (this._rand() < Math.min(0.8, sickProb)) {
           const altState = this._getSkipAlternative('sick', hour);
           return { moved: true, region: this.position, skipEvent: 'sick', altState };
         }
@@ -502,7 +511,7 @@ class Agent {
 
       if (emotionalDistress > 0.15) {
         const skipProb = emotionalDistress * 0.4 * (1 - this.personality.ocean.conscientiousness * 0.5);
-        if (Math.random() < Math.min(0.5, skipProb)) {
+        if (this._rand() < Math.min(0.5, skipProb)) {
           // 判断角色类型（基于日程活动，而非当前状态）
           // 使用 domain 的 placeTypes.work 判断是否是工作者
           const activityName = activity.activity || '';
@@ -517,7 +526,7 @@ class Agent {
 
       // ─── 3. 社交能量耗尽 → 回避社交活动 ───
       if (this.socialEnergy < 0.2 && this._behavior.socialEnergyDrain > 0.5) {
-        if (Math.random() > 0.3) {
+        if (this._rand() > 0.3) {
           return { moved: false };
         }
       }
@@ -526,7 +535,7 @@ class Agent {
       const socialRegions = this._domain ? (this._domain.placeTypes.social || []) : [];
       if (socialRegions.includes(activity.region)) {
         if (this.socialEnergy < 0.3 && valence < 0) {
-          if (Math.random() > 0.4) {
+          if (this._rand() > 0.4) {
             return { moved: false };
           }
         }
@@ -534,7 +543,7 @@ class Agent {
 
       // ─── 5. 深夜熬夜 → 不执行早间日程 ───
       if (hour < 8 && this.stateMachine.currentState === '熬夜了') {
-        if (Math.random() > 0.2) {
+        if (this._rand() > 0.2) {
           return { moved: false };
         }
       }
@@ -581,7 +590,7 @@ class Agent {
     if (skipBehavior && skipBehavior[skipType]) {
       const states = skipBehavior[skipType].states || [];
       if (states.length > 0) {
-        return states[Math.floor(Math.random() * states.length)];
+        return states[Math.floor(this._rand() * states.length)];
       }
     }
 
@@ -611,7 +620,7 @@ class Agent {
     if (skipBehavior && skipBehavior[skipType]) {
       const regions = skipBehavior[skipType].regions || [];
       if (regions.length > 0) {
-        return regions[Math.floor(Math.random() * regions.length)];
+        return regions[Math.floor(this._rand() * regions.length)];
       }
     }
 
@@ -827,7 +836,7 @@ class Agent {
 
     if (!contents || contents.length === 0) return null;
 
-    const content = contents[Math.floor(Math.random() * contents.length)];
+    const content = contents[Math.floor(this._rand() * contents.length)];
 
     return {
       content,
@@ -1268,14 +1277,14 @@ class Agent {
       ];
       thoughtCandidates.push({
         type: '白日梦',
-        content: daydreamContents[Math.floor(Math.random() * daydreamContents.length)],
+        content: daydreamContents[Math.floor(this._rand() * daydreamContents.length)],
         weight: 0.8,
       });
     }
 
     // 加权随机选择（而非均匀随机）
     const totalWeight = thoughtCandidates.reduce((sum, t) => sum + t.weight, 0);
-    let r = Math.random() * totalWeight;
+    let r = this._rand() * totalWeight;
     let thought = thoughtCandidates[0];
     for (const candidate of thoughtCandidates) {
       r -= candidate.weight;

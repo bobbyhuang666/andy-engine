@@ -22,10 +22,14 @@ class AndyWorld {
    * @param {Date} [config.startTime] - 初始时间
    * @param {Object} [savedState] - 恢复状态
    * @param {Object} [domain] - DomainRegistry 实例
+   * @param {Object} [rng] - RNG 实例（可选）
    */
-  constructor(config = {}, savedState = null, domain = null) {
+  constructor(config = {}, savedState = null, domain = null, rng = null) {
     // ─── Domain ───
     this.domain = domain || getDefaultDomain();
+
+    // ─── RNG ───
+    this.rng = rng; // null 时回退到 Math.random
 
     // ─── 时间系统 ───
     this.time = savedState ? new Date(savedState.time) : (config.startTime || new Date());
@@ -81,7 +85,7 @@ class AndyWorld {
     );
 
     // ─── 事件系统 ───
-    this.eventDispatcher = new EventDispatcher(this.domain);
+    this.eventDispatcher = new EventDispatcher(this.domain, this.rng);
     if (savedState && savedState.events) {
       // 恢复最近的事件
       for (const evt of savedState.events.eventLog || []) {

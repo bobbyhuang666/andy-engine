@@ -24,9 +24,11 @@ class EmotionVector {
   /**
    * @param {Object} personality - Personality 实例，提供情绪基线和行为参数
    * @param {Object} [savedState] - 恢复的序列化状态
+   * @param {Object} [rng] - RNG 实例（可选）
    */
-  constructor(personality, savedState = null) {
+  constructor(personality, savedState = null, rng = null) {
     this.personality = personality;
+    this._rng = rng;
     this.baseline = { ...personality.emotionBaseline };
 
     if (savedState) {
@@ -231,15 +233,16 @@ class EmotionVector {
   _pinkNoiseDrift() {
     const amp = cfg.noiseAmplitude;
     const n = this._pinkNoiseState.length;
+    const rand = this._rng ? this._rng.next.bind(this._rng) : Math.random;
 
     // 白噪声源
-    const white = (Math.random() * 2 - 1) * amp;
+    const white = (rand() * 2 - 1) * amp;
 
     // 更新粉色噪声状态
     let sum = white;
     for (let i = 0; i < n; i++) {
-      if (Math.random() < 0.5) {
-        this._pinkNoiseState[i] = (Math.random() * 2 - 1) * amp;
+      if (rand() < 0.5) {
+        this._pinkNoiseState[i] = (rand() * 2 - 1) * amp;
       }
       sum += this._pinkNoiseState[i];
     }
@@ -247,9 +250,9 @@ class EmotionVector {
 
     // 随机选择几个维度应用噪声
     const dims = EMOTION_DIMENSIONS;
-    const numToDrift = 3 + Math.floor(Math.random() * 4); // 3-6 个维度
+    const numToDrift = 3 + Math.floor(rand() * 4); // 3-6 个维度
     for (let i = 0; i < numToDrift; i++) {
-      const dim = dims[Math.floor(Math.random() * dims.length)];
+      const dim = dims[Math.floor(rand() * dims.length)];
       const current = this.current[dim] || 0;
       const base = this.baseline[dim] || 0;
 

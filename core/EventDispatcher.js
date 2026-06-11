@@ -18,8 +18,9 @@ const cfg = ANDY_DEFAULTS.events;
 const { getDefaultDomain } = require('../domain/DomainRegistry');
 
 class EventDispatcher {
-  constructor(domain = null) {
+  constructor(domain = null, rng = null) {
     this.domain = domain || getDefaultDomain();
+    this._rng = rng;
 
     /** @type {Object[]} 有序事件日志 */
     this.eventLog = [];
@@ -38,6 +39,14 @@ class EventDispatcher {
 
     // 从 domain 取事件模板
     this._regionEvents = this.domain.eventTemplates.regionEvents || {};
+  }
+
+  /**
+   * 获取随机数（路由到 RNG 或回退 Math.random）
+   * @private
+   */
+  _rand() {
+    return this._rng ? this._rng.next() : Math.random();
   }
 
   // ═══════════════════════════════════════════
@@ -79,7 +88,7 @@ class EventDispatcher {
     let rel = socialGraph.getRelationship(agentA, agentB);
     // 首次相遇时概率性创建关系（60% 概率，模拟"不一定每次都会认识"）
     if (!rel) {
-      if (Math.random() > 0.6) return null;
+      if (this._rand() > 0.6) return null;
       rel = socialGraph.getOrCreateRelationship(agentA, agentB);
     }
     const strength = rel.strength;
@@ -105,7 +114,7 @@ class EventDispatcher {
         interactionProb -= (1 - Math.min(agentAInst.socialEnergy, agentBInst.socialEnergy)) * 0.2;
       }
     }
-    if (Math.random() > Math.max(0.05, Math.min(0.95, interactionProb))) {
+    if (this._rand() > Math.max(0.05, Math.min(0.95, interactionProb))) {
       return null;
     }
 
@@ -134,12 +143,12 @@ class EventDispatcher {
 
     if (strength > 0.6) {
       const negChance = 0.08;
-      if (Math.random() < negChance) {
-        content = negativeInteractions[Math.floor(Math.random() * negativeInteractions.length)];
-        valence = -(0.2 + Math.random() * 0.3);
+      if (this._rand() < negChance) {
+        content = negativeInteractions[Math.floor(this._rand() * negativeInteractions.length)];
+        valence = -(0.2 + this._rand() * 0.3);
       } else {
-        content = positiveInteractions[Math.floor(Math.random() * positiveInteractions.length)];
-        valence = 0.5 + Math.random() * 0.3;
+        content = positiveInteractions[Math.floor(this._rand() * positiveInteractions.length)];
+        valence = 0.5 + this._rand() * 0.3;
       }
 
       // 区域加成（从 domain 取社交区域）
@@ -153,20 +162,20 @@ class EventDispatcher {
     } else if (strength > 0.3) {
       // 认识的人：温和社交，偶有摩擦
       const negChance = 0.12;
-      if (Math.random() < negChance) {
-        content = negativeInteractions[Math.floor(Math.random() * negativeInteractions.length)];
-        valence = -(0.1 + Math.random() * 0.2);
+      if (this._rand() < negChance) {
+        content = negativeInteractions[Math.floor(this._rand() * negativeInteractions.length)];
+        valence = -(0.1 + this._rand() * 0.2);
       } else {
-        content = neutralInteractions[Math.floor(Math.random() * neutralInteractions.length)];
-        valence = 0.2 + Math.random() * 0.2;
+        content = neutralInteractions[Math.floor(this._rand() * neutralInteractions.length)];
+        valence = 0.2 + this._rand() * 0.2;
       }
     } else if (strength > 0.1) {
       // 陌生人但有一些接触
       content = '在附近注意到有人，没什么特别的';
-      valence = 0.05 + Math.random() * 0.05;
+      valence = 0.05 + this._rand() * 0.05;
     } else {
       // 完全陌生
-      if (Math.random() > 0.5) return null; // 陌生人互动概率很低
+      if (this._rand() > 0.5) return null; // 陌生人互动概率很低
       content = '在附近注意到有人';
       valence = 0.03;
     }
@@ -176,9 +185,9 @@ class EventDispatcher {
       const agentAInst = agentInstances.get(agentA);
       if (agentAInst) {
         const aValence = agentAInst.emotion.getValence();
-        if (aValence < -0.4 && Math.random() > 0.5) {
+        if (aValence < -0.4 && this._rand() > 0.5) {
           // 一方心情很差时，互动可能不愉快
-          content = negativeInteractions[Math.floor(Math.random() * negativeInteractions.length)];
+          content = negativeInteractions[Math.floor(this._rand() * negativeInteractions.length)];
           valence = Math.abs(valence) * -0.3;
         } else if (aValence > 0.4) {
           // 一方心情很好时，互动更愉快
@@ -190,8 +199,8 @@ class EventDispatcher {
     // ─── 八卦 / 社交信息传播 ───
     // Dunbar (2004): 人类约 65% 的对话时间用于社交信息交换（gossip）
     // 当关系足够强且有 agentInstances 时，Agent 可能分享关于第三方的信息
-    if (strength > 0.2 && agentInstances && Math.random() < 0.35) {
-      const gossiper = Math.random() > 0.5 ? agentA : agentB;
+    if (strength > 0.2 && agentInstances && this._rand() < 0.35) {
+      const gossiper = this._rand() > 0.5 ? agentA : agentB;
       const listener = gossiper === agentA ? agentB : agentA;
       const gossiperInst = agentInstances.get(gossiper);
       const listenerInst = agentInstances.get(listener);
@@ -309,7 +318,7 @@ class EventDispatcher {
    * @returns {Object|null}
    */
   generateRandomEvent(agentId, region, context = {}) {
-    if (Math.random() > cfg.randomEventProbability) return null;
+    if (this._rand() > cfg.randomEventProbability) return null;
 
     const candidates = [];
 
@@ -347,7 +356,7 @@ class EventDispatcher {
     const available = candidates.filter(e => !recent.includes(e.content));
     if (available.length === 0) return null;
 
-    const chosen = available[Math.floor(Math.random() * available.length)];
+    const chosen = available[Math.floor(this._rand() * available.length)];
 
     const updatedRecent = [...recent, chosen.content].slice(-8);
     this._recentContentByAgent.set(agentId, updatedRecent);

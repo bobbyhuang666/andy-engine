@@ -241,7 +241,7 @@ class Simulator {
     }
 
     for (const encounter of spatialResult.encounters) {
-      if (Math.random() > encounter.probability) continue;
+      if ((this.world.rng ? this.world.rng.next() : Math.random()) > encounter.probability) continue;
       const event = this.world.eventDispatcher.generateEncounterEvent(
         encounter.agentA, encounter.agentB,
         encounter.regionA || 'unknown',

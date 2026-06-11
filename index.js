@@ -31,6 +31,7 @@ const { validateConfig, validateAgentConfig } = require('./config/validate');
 const { applyForbiddenTerms } = require('./core/WorldviewConstraints');
 const { DomainRegistry } = require('./domain/DomainRegistry');
 const { validateDomain } = require('./domain/validateDomain');
+const { RNG } = require('./core/RNG');
 
 // ═══════════════════════════════════════════
 // 种子记忆 → 文本
@@ -56,10 +57,21 @@ class AndyEngine {
    * @param {Date}   [config.startTime] - 初始模拟时间（默认当前）
    * @param {string} [config.weather]   - 初始天气（默认 'sunny'）
    * @param {Object} [config.domain]    - 自定义 domain 配置（默认 campus）
+   * @param {string|number} [config.seed] - 可播种 RNG 种子（可选）
+   * @param {Object} [config.rng]       - 预构建的 RNG 实例（可选，优先于 seed）
    * @param {Object} [savedState]       - 从持久化恢复的世界状态
    */
   constructor(config = {}, savedState = null) {
     validateConfig(config);
+
+    // 初始化 RNG
+    if (config.rng) {
+      this.rng = config.rng;
+    } else if (config.seed !== undefined) {
+      this.rng = new RNG(config.seed);
+    } else {
+      this.rng = null; // 回退到 Math.random
+    }
 
     // 初始化 domain
     if (config.domain) {
@@ -75,14 +87,14 @@ class AndyEngine {
     }
 
     this.config = { ...ANDY_DEFAULTS, ...config };
-    this.world = new AndyWorld(config, savedState, this.domain);
+    this.world = new AndyWorld(config, savedState, this.domain, this.rng);
     this.simulator = new Simulator(this.world);
 
     // 恢复已保存的 Agent
     if (savedState && savedState.agents) {
       for (const [agentId, agentData] of Object.entries(savedState.agents)) {
         const agent = new Agent(
-          { id: agentId, name: agentData.name || agentId, schedule: {}, domain: this.domain },
+          { id: agentId, name: agentData.name || agentId, schedule: {}, domain: this.domain, rng: this.rng },
           agentData
         );
         this.world.addAgent(agent);
@@ -162,6 +174,7 @@ class AndyEngine {
       initialPosition: initialPosition || this.domain.fallback.defaultRegion,
       initialState,
       domain: this.domain,
+      rng: this.rng,
     });
 
     this.world.addAgent(agent);
@@ -179,7 +192,7 @@ class AndyEngine {
    */
   addAgent(config) {
     validateAgentConfig(config);
-    const agent = new Agent({ ...config, domain: this.domain });
+    const agent = new Agent({ ...config, domain: this.domain, rng: this.rng });
     this.world.addAgent(agent);
     return agent;
   }
