@@ -32,7 +32,8 @@ class ProceduralMemory {
     this._maxHistory = 50;
 
     // 模拟时间引用（与 PersonalMemory 同理）
-    this._simTime = Date.now();
+    // 使用 0 而非 Date.now()，确保在 setSimTime() 被调用前不会产生错误的时间差计算
+    this._simTime = 0;
 
     if (savedState) {
       for (const [key, pattern] of Object.entries(savedState.patterns || {})) {

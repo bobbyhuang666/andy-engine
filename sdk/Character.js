@@ -65,6 +65,9 @@ class Character {
       this._engine = new AndyEngine({
         startTime: config.startTime || new Date(),
         weather: config.weather || 'sunny',
+        domain: config.domain,
+        seed: config.seed,
+        rng: config.rng,
       });
       this._ownsEngine = true;
     }
@@ -274,6 +277,7 @@ class Character {
       version: 1,
       id: this.id,
       name: this.name,
+      domainRef: this._engine.domain ? this._engine.domain.id : 'campus',
       backstory: this.backstory,
       scenario: this.scenario,
       engineState: this._engine.toJSON(),
@@ -285,10 +289,10 @@ class Character {
   /**
    * 从保存的状态恢复角色
    * @param {Object} state - save() 返回的状态对象
-   * @param {Object} [llmConfig] - LLM 配置
+   * @param {Object} [options] - 配置选项（可以为 llmConfig 或包含 domain/llm 的 options）
    * @returns {Character}
    */
-  static load(state, llmConfig = {}) {
+  static load(state, options = {}) {
     if (!state || typeof state !== 'object') {
       throw new Error('Character.load(): state 必须是 save() 返回的对象');
     }
@@ -296,9 +300,33 @@ class Character {
       throw new Error('Character.load(): state 缺少 engineState，是否用 save() 生成的？');
     }
 
+    let domainConfig;
+    let llmConfig;
+
+    if (typeof options === 'function') {
+      llmConfig = options;
+    } else if (options && typeof options === 'object') {
+      if ('domain' in options || 'llm' in options) {
+        domainConfig = options.domain;
+        llmConfig = options.llm;
+      } else {
+        llmConfig = options;
+      }
+    }
+
+    const domainRef = state.domainRef || 'campus';
+    if (domainRef !== 'campus') {
+      if (!domainConfig) {
+        throw new Error(`非 campus domain "${domainRef}" 必须在 load 时传入对应的 domain 配置`);
+      }
+      if (domainConfig.id !== domainRef) {
+        throw new Error(`domain 不匹配：期望 "${domainRef}"，但传入了 "${domainConfig.id}"`);
+      }
+    }
+
     // 不走构造函数——构造函数会 createCharacter()（覆盖已恢复的 Agent）+ tick()（推进时间）
     // 手动组装实例，保留引擎中已恢复的 Agent 完整状态（情绪/记忆/关系/需求）
-    const engine = AndyEngine.fromJSON(state.engineState);
+    const engine = AndyEngine.fromJSON(state.engineState, { domain: domainConfig });
 
     const character = Object.create(Character.prototype);
     character.id = state.id;

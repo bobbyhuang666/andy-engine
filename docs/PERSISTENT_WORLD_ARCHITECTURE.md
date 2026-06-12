@@ -249,7 +249,7 @@ World Spec ──→ World Compiler ──→ 初始 World State
 - 编译错误处理
 - 编译缓存
 
-**公开暴露策略：** 世界工具链（world/）目前定位为 internal ecosystem tooling（内部生态工具链），暂时不在 package.json 中公开对外 exports 暴露，公开包装将推迟到后续 API 封装阶段。
+**公开暴露策略：** 世界工具链（world/）目前定位为 internal ecosystem tooling（内部生态工具链），严格作为内部私有实现。暂时不在 package.json 中公开对外 exports 暴露，也不在 package.json 的 files 白名单中。Persistent World 的官方 API 尚未公开（Persistent World official API is not public yet），外部生态不得依赖或直接使用此命名空间下的功能。公开包装与稳定契约发布将推迟到后续 API 封装阶段。
 
 ---
 

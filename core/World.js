@@ -185,10 +185,11 @@ class AndyWorld {
     const probs = transitions[season] || transitions.spring;
 
     // 40% 概率保持不变，60% 概率按季节分布变化
-    if (Math.random() < 0.4) return; // 保持
+    const rand0 = this.rng ? this.rng.next() : Math.random();
+    if (rand0 < 0.4) return; // 保持
 
     // 根据概率选择新天气
-    const rand = Math.random();
+    const rand = this.rng ? this.rng.next() : Math.random();
     let cumulative = 0;
     let newWeather = current;
     for (const [weather, prob] of Object.entries(probs)) {
@@ -236,10 +237,11 @@ class AndyWorld {
       if (c) {
         defs.push({ name, ...c });
       } else {
+        const rand = this.rng ? this.rng.next.bind(this.rng) : Math.random;
         defs.push({
           name, shape: 'rect',
-          x: Math.random() * 400 + 50, y: Math.random() * 400 + 50,
-          w: 60 + Math.random() * 40, h: 60 + Math.random() * 40,
+          x: rand() * 400 + 50, y: rand() * 400 + 50,
+          w: 60 + rand() * 40, h: 60 + rand() * 40,
         });
       }
     }

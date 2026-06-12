@@ -115,18 +115,22 @@ function sanitizeText(text) {
 
   let result = text;
 
-  // 替换地点
-  for (const [forbidden, replacement] of Object.entries(PLACE_REPLACEMENTS)) {
+  // 替换地点（按 key 长度降序排列，防止短词先匹配长词的子串）
+  // 例如：'学生宿舍' 应该先匹配 '学生宿舍' 而不是先匹配 '学生' 或 '宿舍'
+  const placeEntries = Object.entries(PLACE_REPLACEMENTS).sort((a, b) => b[0].length - a[0].length);
+  for (const [forbidden, replacement] of placeEntries) {
     result = result.replace(new RegExp(forbidden, 'g'), replacement);
   }
 
-  // 替换身份
-  for (const [forbidden, replacement] of Object.entries(IDENTITY_REPLACEMENTS)) {
+  // 替换身份（按 key 长度降序排列）
+  const identityEntries = Object.entries(IDENTITY_REPLACEMENTS).sort((a, b) => b[0].length - a[0].length);
+  for (const [forbidden, replacement] of identityEntries) {
     result = result.replace(new RegExp(forbidden, 'g'), replacement);
   }
 
-  // 替换活动
-  for (const [forbidden, replacement] of Object.entries(ACTIVITY_REPLACEMENTS)) {
+  // 替换活动（按 key 长度降序排列）
+  const activityEntries = Object.entries(ACTIVITY_REPLACEMENTS).sort((a, b) => b[0].length - a[0].length);
+  for (const [forbidden, replacement] of activityEntries) {
     result = result.replace(new RegExp(forbidden, 'g'), replacement);
   }
 

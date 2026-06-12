@@ -94,7 +94,7 @@ class AndyEngine {
     if (savedState && savedState.agents) {
       for (const [agentId, agentData] of Object.entries(savedState.agents)) {
         const agent = new Agent(
-          { id: agentId, name: agentData.name || agentId, schedule: {}, domain: this.domain, rng: this.rng },
+          { id: agentId, name: agentData.name || agentId, schedule: agentData.schedule || {}, domain: this.domain, rng: this.rng },
           agentData
         );
         this.world.addAgent(agent);
@@ -261,11 +261,11 @@ class AndyEngine {
       try {
         const { EmotionEffectClassifier } = require('./core/EmotionEffectClassifier');
         const rawEffect = EmotionEffectClassifier.classify(userText);
-        if (rawEffect && Object.keys(rawEffect).length > 0) {
+        if (rawEffect && rawEffect.effect && Object.keys(rawEffect.effect).length > 0) {
           const empathyScale = AndyEngine._computeEmpathy(agent, relationship);
           if (empathyScale > 0.05) {
             emotionBackup = { ...agent.emotion.current };
-            agent.emotion.applyEffect(rawEffect, empathyScale);
+            agent.emotion.applyEffect(rawEffect.effect, empathyScale);
           }
         }
       } catch (e) {
@@ -511,6 +511,9 @@ class AndyEngine {
 
   /**
    * 序列化完整状态（用于持久化）
+   * @deprecated
+   * Note: 这是旧版运行期状态快照（legacy runtime snapshot），是一个不透明的状态转储。
+   * 它不代表 Persistent World 官方的公共 Stable World Envelope 契约，也并非公开发布的 Persistence API。
    */
   toJSON() {
     return this.world.toJSON();
@@ -518,6 +521,9 @@ class AndyEngine {
 
   /**
    * 从 JSON 恢复引擎
+   * @deprecated
+   * Note: 从旧版运行期快照（legacy runtime snapshot）恢复引擎。
+   * 这并不是 Persistent World 官方的公共恢复 API，外部生态不应依赖此接口作为跨版本稳定的数据恢复契约。
    * @param {Object} data
    * @param {Object} config
    * @returns {AndyEngine}
