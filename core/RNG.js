@@ -50,7 +50,7 @@ class RNG {
   }
 
   /**
-   * 生成 [min, max] 范围内的随机浮点数
+   * 生成 [min, max) 范围内的随机浮点数
    * @param {number} min
    * @param {number} max
    * @returns {number}

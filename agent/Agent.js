@@ -86,6 +86,18 @@ class Agent {
       this.health = 1.0;
       this.isOnline = true;
       this.behaviorField = new BehaviorField(this.personality, null, {}, this._domain, this._rng);
+
+      const initState = config.initialState;
+      if (initState) {
+        const domain = this._domain || require('../domain/DomainRegistry').getDefaultDomain();
+        const center = domain.stateCenters[initState];
+        if (center) {
+          this.behaviorField.B = [...center];
+          this.behaviorField._lastLabel = initState;
+          this.behaviorField._prevB = [...center];
+        }
+      }
+
       this._wireBehaviorFieldToStateMachine();
     }
 
@@ -246,12 +258,19 @@ class Agent {
       }
     } else if (imResult.drive && imResult.drive.urgency > 0.1) {
       // 自发动机驱动探索：在空闲时前往探索区域
-      const explorationRegions = imResult.drive.targetRegions;
-      if (explorationRegions && explorationRegions.length > 0) {
-        const target = explorationRegions[0]; // 最新奇的区域
-        if (target !== this.position) {
-          result.regionChanged = true;
-          this.position = target;
+      // 夜间（22点到次日6点）或睡觉状态时不应该探索
+      const isNight = env.hour >= 22 || env.hour < 6;
+      const stateDef = this._domain ? this._domain.states[this.stateMachine.currentState] : null;
+      const isSleeping = stateDef ? stateDef.category === 'sleep' : (this.stateMachine.currentState === '睡了' || this.stateMachine.currentState === '睡觉' || this.stateMachine.currentState === '在睡觉');
+
+      if (!isNight && !isSleeping) {
+        const explorationRegions = imResult.drive.targetRegions;
+        if (explorationRegions && explorationRegions.length > 0) {
+          const target = explorationRegions[0]; // 最新奇的区域
+          if (target !== this.position) {
+            result.regionChanged = true;
+            this.position = target;
+          }
         }
       }
     }

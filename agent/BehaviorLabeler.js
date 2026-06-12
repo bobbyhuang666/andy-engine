@@ -12,7 +12,7 @@
  *
  * 投影方法：加权最近邻 + 混合标签
  *   - 主标签：最近的状态中心点
- *   - 次标签：第二近的状态中心点（当距离比 < 1.5 时返回）
+ *   - 次标签：第二近的状态中心点（当距离比 < 0.75 时返回）
  *   - 置信度：主标签的相对距离优势
  */
 
@@ -192,7 +192,8 @@ class BehaviorLabeler {
       desc += `，${modifiers[0]}`;
     }
 
-    return desc;
+    const { applyForbiddenTerms } = require('../core/WorldviewConstraints');
+    return applyForbiddenTerms(desc, domain);
   }
 
   /**
@@ -263,6 +264,40 @@ class BehaviorLabelerDomain {
     if (!rule) return 0;
     if (rule.hours.includes(hour)) return 0;
     return rule.penalty;
+  }
+
+  describe(B, options = {}) {
+    const { primary, secondary, confidence } = this.project(B, options);
+
+    const domain = this.domain;
+
+    // 基础描述
+    let desc = primary;
+
+    // 低置信度时添加修饰
+    if (secondary && confidence < 0.6) {
+      desc = `${primary}，但也${_stateToVerb(secondary, domain)}`;
+    }
+
+    // 根据 B 向量维度添加情绪/状态修饰
+    const modifiers = [];
+
+    if (B[DIM_FOCUS] < 0.25 && _isHighFocusState(primary, domain)) {
+      modifiers.push((domain.narrativeTemplates && domain.narrativeTemplates.distractedText) || '有点心不在焉');
+    }
+    if (B[DIM_SOCIALITY] > 0.6 && !_isSocialState(primary, domain)) {
+      modifiers.push((domain.narrativeTemplates && domain.narrativeTemplates.lonelyText) || '想找人说话');
+    }
+    if (B[DIM_ACTIVITY] < 0.15 && _isActiveState(primary, domain)) {
+      modifiers.push((domain.narrativeTemplates && domain.narrativeTemplates.lazyText) || '不太想动');
+    }
+
+    if (modifiers.length > 0) {
+      desc += `，${modifiers[0]}`;
+    }
+
+    const { applyForbiddenTerms } = require('../core/WorldviewConstraints');
+    return applyForbiddenTerms(desc, domain);
   }
 }
 

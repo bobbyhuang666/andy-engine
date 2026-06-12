@@ -384,6 +384,7 @@ class EventDispatcher {
     const dispatched = [...this.pendingEvents];
     this.pendingEvents = [];
     this._recentEncounterPairs.clear(); // 每 tick 清理去重缓冲
+    this._recentContentByAgent.clear(); // 每 tick 清理事件去重缓冲（防止长时间模拟内存泄漏）
 
     for (const event of dispatched) {
       // 写入事件日志
@@ -464,8 +465,14 @@ class EventDispatcher {
 
     // 找到第一个未过期的事件索引（eventLog 按时间有序）
     let cutoffIdx = 0;
-    while (cutoffIdx < this.eventLog.length && this.eventLog[cutoffIdx].time.getTime() < cutoff) {
-      cutoffIdx++;
+    while (cutoffIdx < this.eventLog.length) {
+      const evtTime = this.eventLog[cutoffIdx].time;
+      const evtTimeMs = evtTime instanceof Date ? evtTime.getTime() : new Date(evtTime).getTime();
+      if (evtTimeMs < cutoff) {
+        cutoffIdx++;
+      } else {
+        break;
+      }
     }
 
     // 硬上限：保留最新的 maxEventLogSize 条

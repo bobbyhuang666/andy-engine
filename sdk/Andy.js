@@ -40,6 +40,9 @@ class Andy {
     this._engine = new AndyEngine({
       startTime: config.startTime || new Date(),
       weather: config.weather || 'sunny',
+      domain: config.domain,
+      seed: config.seed,
+      rng: config.rng,
     });
     this._characters = new Map();
     this._defaultLLM = config.llm || {};
@@ -153,6 +156,7 @@ class Andy {
     }
     return {
       version: 1,
+      domainRef: this._engine.domain ? this._engine.domain.id : 'campus',
       engineState: this._engine.toJSON(),
       characters,
       defaultLLM: this._defaultLLM,
@@ -162,9 +166,10 @@ class Andy {
   /**
    * 从保存的状态恢复
    * @param {Object} state
+   * @param {Object} [options]
    * @returns {Andy}
    */
-  static load(state) {
+  static load(state, options = {}) {
     if (!state || typeof state !== 'object') {
       throw new Error('Andy.load(): state 必须是 save() 返回的对象');
     }
@@ -172,15 +177,26 @@ class Andy {
       throw new Error('Andy.load(): state 缺少 engineState');
     }
 
+    const domainRef = state.domainRef || 'campus';
+    if (domainRef !== 'campus') {
+      if (!options.domain) {
+        throw new Error(`非 campus domain "${domainRef}" 必须在 load 时传入对应的 domain 配置`);
+      }
+      if (options.domain.id !== domainRef) {
+        throw new Error(`domain 不匹配：期望 "${domainRef}"，但传入了 "${options.domain.id}"`);
+      }
+    }
+
     // 手动组装，不走构造函数（避免创建临时引擎再丢弃）
     const world = Object.create(Andy.prototype);
-    world._engine = AndyEngine.fromJSON(state.engineState);
+    world._engine = AndyEngine.fromJSON(state.engineState, { domain: options.domain });
     world._characters = new Map();
-    world._defaultLLM = state.defaultLLM || {};
+    world._defaultLLM = state.defaultLLM || options.llm || {};
 
     // 恢复每个角色（Character.load 不走构造函数，保留 Agent 内在状态）
+    const llm = state.defaultLLM || options.llm || {};
     for (const [id, charState] of Object.entries(state.characters)) {
-      const character = Character.load(charState, state.defaultLLM);
+      const character = Character.load(charState, { llm, domain: options.domain });
       world._characters.set(id, character);
     }
     return world;
