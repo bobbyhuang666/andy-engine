@@ -457,7 +457,7 @@ For commercial licensing inquiries: huangweijiebobby@gmail.com
 
 **一个自己运转的世界。**
 
-Andy 是一个心理学驱动的多智能体社会模拟引擎。每个角色拥有独立的情绪、记忆、人格和社交关系，在共享世界中自主演化——不需要人工干预，不需要大语言模型。世界自己在运转。
+Andy 正在从角色模拟引擎演化为**持久世界引擎**：角色、事实、知识、关系、记忆和事件会持续改变世界的未来——即使没有人看着。每个角色拥有独立的情绪、记忆、人格和社交关系，在共享世界中自主演化。
 
 ---
 
@@ -505,6 +505,36 @@ B = (活跃度, 社交性, 专注度, 表达欲) ∈ [0,1]⁴
 - LLM prompt 更丰富："在图书馆，但专注度只有 0.3，社交性在上升——她可能几分钟后会离开"
 - 行为过渡平滑，不跳变
 - 人格差异从物理层面涌现，不需要硬编码权重表
+
+---
+
+## 当前架构状态
+
+Andy Engine 正在从角色模拟引擎演化为持久世界引擎。
+
+### 稳定
+
+- Domain-agnostic 运行时，支持 campus 默认 preset 和自定义 domain
+- 连续 4D BehaviorField 作为核心行为动力学层
+- 可播种 RNG 基线，支持可复现的核心模拟
+- 性能基准 / Profiling / perf-check 基线
+- 1000+ 测试（单元、集成、domain、兼容性、source-scan）
+
+### 实验性
+
+- 行为候选栈：`CandidateProvider`、`UtilityScorer`、`UtilitySelector`、`ReasonTrace`
+- `EventEffectPipeline` 行为/事件后果管线
+- `WorldPressure` 和 `FutureTendencyTracker`
+- WorldCanon 事实系统：`WorldFactStore`、`CanonEventPipeline`、`KnowledgeStore`、`FactProvider`
+- Grounded 叙事包和 `FactConsistencyChecker`
+
+### 尚未成为生产契约
+
+- Fact schema 和 Knowledge schema 可能还会变化
+- `FactConsistencyChecker` 基于正则表达式，是实验性的
+- `WorldObject` 已建模但尚未完全集成到 `Agent.tick`
+- StoryArc 运行时已暂停
+- npm 包尚未发布
 
 ---
 
