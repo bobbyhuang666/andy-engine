@@ -28,7 +28,7 @@ Plain AI is a **tool**. Andy Engine's AI are **characters** — they have their 
 
 | Plain AI | Andy Engine |
 |---|---|
-| Starts fresh every time | Remembers everything you said |
+| Starts fresh every time | Retains meaningful experiences, naturally forgets trivial ones |
 | Personality via prompts | Personality stable across 100+ turns |
 | Fake emotions | Real emotional evolution and contagion |
 | Only user ↔ AI | AI characters form relationship networks |
@@ -465,7 +465,7 @@ Andy 正在从角色模拟引擎演化为**持久世界引擎**：角色、事�
 
 | 普通 AI | Andy Engine |
 |---|---|
-| 每次对话从零开始 | 记住你说过的每一件事 |
+| 每次对话从零开始 | 记住有意义的经历，也会自然遗忘 |
 | 性格靠提示词维持 | 100+ 轮对话后人格不变 |
 | 情绪是假装的 | 情绪会真实变化、会传染给其他角色 |
 | 只有用户 ↔ AI | AI 之间会形成关系网 |
@@ -620,6 +620,24 @@ console.log(blacksmith.toNarrative());
 // "在铁匠铺，炉火熊熊。有点累了"
 ```
 
+**事实与知识边界（实验性，opt-in）：**
+
+```javascript
+const engine = new AndyEngine({
+  domain: tavernDomain,
+  enableFacts: true, // 开启事实系统
+  seed: 42,          // 可复现模拟
+});
+
+const bobby = engine.createCharacter({ id: 'bobby', name: 'Bobby' });
+engine.tick();
+
+// 获取角色的知识边界（哪些事实是"允许知道的"）
+const grounding = engine.getGroundingPackage('bobby');
+console.log(grounding.allowedFacts);
+// 事实/知识系统是实验性的，通过 enableFacts: true 开启。
+```
+
 ---
 
 ## 领域架构
@@ -650,6 +668,29 @@ const engine = new AndyEngine({ domain: customDomain });
 
 ---
 
+## 事实与知识边界（实验性）
+
+Andy Engine 正在从"角色模拟"扩展到"世界知识管理"：
+
+| 概念 | 说明 |
+|------|------|
+| **事实 (Fact)** | 世界中的一个可验证陈述（如"铁匠铺今天开门了"） |
+| **知识 (Knowledge)** | 角色通过经历积累的事实集合 |
+| **边界 (Grounding)** | 每个角色只能知道它"有资格知道"的事实——不是全知全能 |
+| **规范事件 (Canon Event)** | 事件 → 事实 → 知识的自动管线 |
+| **一致性检查** | 新事实与已有知识矛盾时的检测（实验性，基于正则） |
+
+**为什么需要知识边界？**
+
+LLM 天然是全知的——它知道训练数据里的一切。但一个"活着"的角色不应该知道它没经历过的事。Andy Engine 的 Grounding 系统确保每个角色的叙事只包含它"有资格知道"的事实。
+
+**当前状态：**
+- `WorldFactStore`、`CanonEventPipeline`、`KnowledgeStore`、`FactProvider` 已实现
+- `FactConsistencyChecker` 是实验性的（基于正则表达式）
+- Fact schema 和 Knowledge schema 可能还会变化
+- 通过 `enableFacts: true` 开启
+
+---
 
 ## SDK 使用
 
@@ -678,6 +719,47 @@ const reply = await maya.chat("我今天好累");
 - 多角色模式（`Andy` 类）
 
 详见 `examples/` 目录。
+
+---
+
+## 持久化
+
+```javascript
+const { createStore } = require('./store');
+
+const store = createStore({ dbPath: './data/andy.db' });
+store.saveSnapshot(engine.toJSON());
+
+// 之后恢复
+const data = store.loadLatest();
+const engine2 = AndyEngine.fromJSON(data);
+```
+
+持久化层使用 SQLite（WAL 模式），支持故事存储、世界快照和元数据。详见 `store/` 目录。
+
+---
+
+## Rust Native / 性能
+
+大规模模拟可启用 Rust Native 模块：
+
+```bash
+cd native && npm install && npm run build
+ANDY_USE_NATIVE=1 node your_script.js
+```
+
+Rust SoA f32 引擎在 50K agents 时比 JS 快 **5.92x**，精度误差 < 1e-8。
+
+| 指标 | 值 |
+|------|-----|
+| 20 agents × 10 天 | 25.6 秒（JS） |
+| 50K agents × 20 ticks | 24.9ms/tick（Rust） |
+| 500K agents | 8.94x 加速（Dunbar 层级传染） |
+
+详见 `benchmarks/` 目录。
+
+---
+
 ## 许可证
 
 [GNU Affero General Public License v3.0](LICENSE)
