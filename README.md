@@ -55,19 +55,16 @@ Plain AI is a **tool**. Andy Engine's AI are **characters** — they have their 
 
 ---
 
-## Proven Results
+## Current Verification
 
-| Metric | Result |
+| Area | Status |
 |---|---|
-| A/B: Andy vs Plain LLM | **4.92 vs 2.63** (Andy wins all 8 scenarios) |
-| Personality consistency | OCEAN variance = 0 after 50 turns |
-| Memory retention | 100% for high-importance events at Day 7 |
-| Emotion contagion | r = 0.818 for high-interaction pairs |
-| Behavior field: personality diff | INFP vs ESTP B-distance = 0.239 across 4D space |
-| Behavior field: hunger convergence | 25 ticks from library → cafeteria |
-| Performance (JS) | 20 agents × 10 days = 25.6s |
-| Performance (Rust SoA f32) | 50K agents × 20 ticks = 24.9ms/tick (**5.92x speedup**) |
-| Scale test | 500K agents, 8.94x speedup with Dunbar hierarchical contagion |
+| Unit / integration / domain / source-scan tests | 1000+ tests passing |
+| Custom domain | Tavern preset passes domain-agnostic validation |
+| Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
+| Seeded RNG | Core simulation supports reproducible random baseline |
+| Perf-check | Benchmark / contagion profile regression checks pass |
+| Early subjective evaluation | Internal experiments suggest stronger character continuity and presence; not yet published as a standard benchmark |
 
 ---
 
@@ -616,18 +613,16 @@ Grounded Narrative（有事实边界的叙事）
 
 ---
 
-## 已验证的效果
+## 当前验证
 
-| 指标 | 结果 |
+| 项目 | 状态 |
 |---|---|
-| A/B 对比 Andy vs Plain LLM | 4.92 vs 2.63（Andy 全胜） |
-| 人格一致性 | 50 轮对话后 OCEAN 方差 = 0 |
-| 记忆保留 | 7 天后高重要事件 100% 保留 |
-| 情绪传染 | 高互动角色对 r=0.818 |
-| 行为场人格差异 | INFP vs ESTP B 距离 = 0.239 |
-| 行为场饥饿收敛 | 25 tick 从图书馆到食堂 |
-| 性能 (JS) | 20 个角色 × 10 天模拟 = 25.6 秒 |
-| 性能 (Rust SoA f32) | 50K agents × 20 ticks = 24.9ms/tick（5.92x 加速） |
+| 单元 / 集成 / domain / source-scan 测试 | 1000+ tests passing |
+| custom domain | tavern preset 通过 domain-agnostic 验证 |
+| facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
+| seeded RNG | 核心模拟支持可复现随机基线 |
+| perf-check | benchmark / contagion profile 回归检查通过 |
+| 早期主观评测 | 内部实验显示角色连续性和状态感更强，尚未作为公开 benchmark 发布 |
 
 ---
 
