@@ -17,6 +17,17 @@ const { ANDY_DEFAULTS, SEMANTIC_EVENT_CATEGORIES } = require('../config/defaults
 const cfg = ANDY_DEFAULTS.memory;
 const { getDefaultDomain } = require('../domain/DomainRegistry');
 
+function nextDynamicMemoryId(agentId, memories = []) {
+  const escapedAgentId = String(agentId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`^mem_${escapedAgentId}_(\\d+)$`);
+  let max = -1;
+  for (const memory of memories) {
+    const match = typeof memory.id === 'string' ? memory.id.match(pattern) : null;
+    if (match) max = Math.max(max, Number(match[1]));
+  }
+  return max + 1;
+}
+
 class PersonalMemory {
   /**
    * @param {string} agentId - 所属 Agent ID
@@ -35,6 +46,8 @@ class PersonalMemory {
     this._tickCache = new Map();
     this._tickCacheTick = -1;
     this._simTime = Date.now();
+    const restoredMemories = savedMemories ? (Array.isArray(savedMemories) ? savedMemories : (savedMemories.memories || [])) : [];
+    this._nextMemId = nextDynamicMemoryId(agentId, restoredMemories);
     this.appraisalBiases = [];
 
     if (savedMemories) {
@@ -138,7 +151,7 @@ class PersonalMemory {
    */
   addExperience(event, emotionState, appraisalImportance = null) {
     const memory = {
-      id: `mem_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      id: `mem_${this.agentId}_${this._nextMemId++}`,
       content: event.content || event.description || '',
       category: event.type || 'general',
       emotionTag: this._tagEmotion(emotionState),

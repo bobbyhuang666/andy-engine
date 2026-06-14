@@ -151,12 +151,19 @@ class Character {
 
     // 3. 构建 system prompt
     const worldContext = this._engine.getWorldContext(this.id);
+    const groundingPackage = this._engine.getGroundingPackage
+      ? this._engine.getGroundingPackage(this.id, {
+          time: this._engine.world.time,
+          topic: message,
+        })
+      : null;
     const systemPrompt = NarrativeBuilder.buildSystemPrompt(worldContext, {
       characterName: this.name,
       backstory: this.backstory,
       scenario: this.scenario,
       conversationHistory: this._conversation.getSummary(),
       domain: this._engine.domain,
+      groundingPackage,
     });
 
     // 4. 构建 messages
@@ -176,6 +183,15 @@ class Character {
     if (!reply || reply.trim().length === 0) {
       return "...";
     }
+
+    // 5.5 一致性校验（如果启用事实系统）
+    if (this._engine.checkConsistency) {
+      const consistency = this._engine.checkConsistency(reply, this.id);
+      if (!consistency.valid && consistency.severity === 'reject') {
+        reply = `[${this.name}沉默了一会儿]`;
+      }
+    }
+
     // 6. 记录角色回复
     this._conversation.addAssistantMessage(reply);
 
@@ -210,12 +226,19 @@ class Character {
     this._conversation.addUserMessage(message);
 
     const worldContext = this._engine.getWorldContext(this.id);
+    const groundingPackage = this._engine.getGroundingPackage
+      ? this._engine.getGroundingPackage(this.id, {
+          time: this._engine.world.time,
+          topic: message,
+        })
+      : null;
     const systemPrompt = NarrativeBuilder.buildSystemPrompt(worldContext, {
       characterName: this.name,
       backstory: this.backstory,
       scenario: this.scenario,
       conversationHistory: this._conversation.getSummary(),
       domain: this._engine.domain,
+      groundingPackage,
     });
 
     const messages = [

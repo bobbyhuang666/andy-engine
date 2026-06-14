@@ -119,6 +119,12 @@ check('campus preset', () => {
   if (!campus.states['在上课']) throw new Error('no 在上课');
 });
 
+check('require("andy-engine/facts")', () => {
+  const facts = require('andy-engine/facts');
+  if (!facts.WorldFactStore) throw new Error('no WorldFactStore');
+  if (!facts.FactProvider) throw new Error('no FactProvider');
+});
+
 // Store
 check('createMemoryStore()', () => {
   const { createMemoryStore } = require('andy-engine/store');

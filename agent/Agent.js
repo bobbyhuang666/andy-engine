@@ -31,6 +31,8 @@ const { BehaviorField } = require('./BehaviorField');
 const { DIM_ACTIVITY, DIM_SOCIALITY, DIM_FOCUS, DIM_EXPRESSIVENESS } = require('./BehaviorLabeler');
 const { EMOTION_DIMENSIONS, ANDY_DEFAULTS } = require('../config/defaults');
 const { applyForbiddenTerms } = require('../core/WorldviewConstraints');
+const LocationMeaningInfluence = require('./LocationMeaningInfluence');
+const FutureTendencyTracker = require('./FutureTendencyTracker');
 
 class Agent {
   /**
@@ -47,6 +49,10 @@ class Agent {
     this.name = config.name;
     this._domain = config.domain || null;
     this._rng = config.rng || null;
+    this._actionSelectionConfig = {
+      ...ANDY_DEFAULTS.actionSelection,
+      ...(config.actionSelection || {}),
+    };
 
     if (savedState) {
       this.personality = Personality.fromJSON(savedState.personality);
@@ -67,6 +73,9 @@ class Agent {
       this.isOnline = savedState.isOnline ?? true;
       this.behaviorField = new BehaviorField(this.personality, savedState.behaviorField || null, {}, this._domain, this._rng);
       this._wireBehaviorFieldToStateMachine();
+      this._setupLocationMeaningInfluence(config.factStore);
+      this._setupFutureTendency(config.factStore);
+      this._actionTraceHistory = savedState._actionTraceHistory || [];
     } else {
       const personalityConfig = { ...(config.personality || {}) };
       if (config.mbti && !personalityConfig.mbti) {
@@ -99,6 +108,8 @@ class Agent {
       }
 
       this._wireBehaviorFieldToStateMachine();
+      this._setupLocationMeaningInfluence(config.factStore);
+      this._setupFutureTendency(config.factStore);
     }
 
     this._behavior = this.personality.behavior;
@@ -107,6 +118,12 @@ class Agent {
     this._reflectionInterval = 12;
     this._recentEventTypes = new Set();
     this._ticksSinceDriftCheck = 0;
+
+    // ─── Shadow Action Selection ───
+    if (!savedState) {
+      this._actionTraceHistory = [];
+    }
+    this._candidateProviderManager = null; // lazy init
   }
 
   /**
@@ -132,6 +149,29 @@ class Agent {
       configurable: true,
       enumerable: true,
     });
+  }
+
+  /**
+   * 设置地点意义对行为场的影响
+   * @param {Object} [factStore] - WorldFactStore 实例
+   * @private
+   */
+  _setupLocationMeaningInfluence(factStore) {
+    if (factStore) {
+      const influence = new LocationMeaningInfluence(factStore, this._domain);
+      this.behaviorField.setLocationMeaningInfluence(influence);
+      this.behaviorField.setCurrentRegion(this.position);
+    }
+  }
+
+  /**
+   * 设置未来行为倾向跟踪器
+   * @param {Object} [factStore] - WorldFactStore 实例（预留接口）
+   * @private
+   */
+  _setupFutureTendency(factStore) {
+    this.futureTendency = new FutureTendencyTracker();
+    this.behaviorField.setFutureTendency(this.futureTendency);
   }
 
   // ═══════════════════════════════════════════
@@ -174,6 +214,11 @@ class Agent {
 
     // ─── 1. 感知环境 & 处理事件 ───
     this._perceiveEvents(safeEvents);
+
+    // ─── 1.2 衰减未来行为倾向 ───
+    if (this.futureTendency) {
+      this.futureTendency.decay();
+    }
 
     // ─── 1.5 情绪调节（Gross 过程模型）───
     // 在事件感知后、情绪演化前进行主动调节
@@ -277,6 +322,7 @@ class Agent {
 
     // ─── 4. 连续行为场（BehaviorField，唯一行为决策源）───
     const prevLabel = this.behaviorField.label;
+    this.behaviorField.setCurrentRegion(this.position);
     const behaviorSignals = this.buildBehaviorSignals(env);
     const behaviorResult = this.behaviorField.tick(behaviorSignals);
     result.behaviorField = behaviorResult;
@@ -379,6 +425,12 @@ class Agent {
       this._ticksSinceDriftCheck = 0;
     }
 
+    // ─── 9.5 Action Selection（shadow/event 模式均不改变行为）───
+    const actionSelectionEvent = this._runShadowActionSelection(env);
+    if (actionSelectionEvent) {
+      result.newEvents.push(actionSelectionEvent);
+    }
+
     // ─── 10. 情绪快照 ───
     result.emotionSnapshot = {
       valence: this.emotion.getValence(),
@@ -388,6 +440,187 @@ class Agent {
     };
 
     return result;
+  }
+
+  /**
+   * Shadow action selection — 只记录 reasonTrace，不应用 stateDeltas
+   * @private
+   */
+  _runShadowActionSelection(env) {
+    const actionCfg = this._actionSelectionConfig;
+    if (!actionCfg || !actionCfg.enabled) return;
+    try {
+      // Lazy init
+      if (!this._candidateProviderManager) {
+        const { CandidateProviderManager } = require('./action/providers/CandidateProviderManager');
+        this._candidateProviderManager = new CandidateProviderManager();
+      }
+      const { scoreCandidates } = require('./action/UtilityScorer');
+      const { selectAction } = require('./action/UtilitySelector');
+
+      // 1. Build context (with cloned RNG so shadow pipeline never drains the main tick's RNG)
+      const shadowRng = this._rng ? this._rng.clone() : null;
+      const context = this._buildActionContext(env);
+      if (shadowRng) context.rng = shadowRng;
+      // 2. Generate candidates
+      const candidates = this._candidateProviderManager.generateAll(context);
+      // 3. Score (empty candidates → empty scored list → selectAction returns empty trace)
+      const scored = candidates.length > 0 ? scoreCandidates(candidates, context) : [];
+      // 4. Select
+      const { selected, trace } = selectAction(scored, {
+        temperature: actionCfg.temperature,
+        rng: shadowRng,
+      });
+      // 5. Compute stateDeltas for dryRunEffects/active modes (pure computation)
+      let stateDeltas = null;
+      if ((actionCfg.mode === 'dryRunEffects' || actionCfg.mode === 'active') && selected) {
+        const { applyActionEffect } = require('../core/EventEffectPipeline');
+        const agentSnapshot = this._buildActionContext(env);
+        const pipelineResult = applyActionEffect({
+          agentSnapshot,
+          selectedCandidate: selected,
+          reasonTrace: trace,
+          simTime: env.simTime,
+        });
+        stateDeltas = pipelineResult.stateDeltas;
+        // Attach stateDeltas to trace
+        trace.stateDeltas = stateDeltas;
+      }
+
+      // 6. Active writeback: apply allowed deltas to live state
+      if (actionCfg.mode === 'active' && stateDeltas) {
+        this._applyActionStateDeltas(stateDeltas, env);
+      }
+
+      // 7. Record trace
+      if (actionCfg.recordTraces) {
+        this._actionTraceHistory.push(trace);
+        if (this._actionTraceHistory.length > actionCfg.maxTraceHistory) {
+          this._actionTraceHistory.shift();
+        }
+      }
+
+      // 8. Emit event for event/dryRunEffects/active modes
+      if (actionCfg.mode === 'event' || actionCfg.mode === 'dryRunEffects' || actionCfg.mode === 'active') {
+        return this._buildActionSelectedEvent(trace, env, stateDeltas);
+      }
+    } catch (e) {
+      // Shadow pipeline failures must never break the main tick
+    }
+    return null;
+  }
+
+  /**
+   * 构建 action_selected 审计事件。
+   *
+   * 该事件是 internal scope，不参与 Agent 感知，不携带 effects，
+   * 因此不会改变情绪、记忆、关系或位置。
+   * dryRunEffects 模式下 stateDeltas 附在 event 上，但仍不应用到 live state。
+   * @private
+   */
+  _buildActionSelectedEvent(trace, env, stateDeltas = null) {
+    if (!trace || !trace.selectedAction) return null;
+
+    const selected = trace.selectedCandidate || {};
+    const event = {
+      type: 'action_selected',
+      scope: 'internal',
+      agentId: this.id,
+      participants: [],
+      observers: [],
+      time: env.simTime?.toISOString(),
+      content: `action_selected:${trace.selectedAction}`,
+      action: {
+        type: selected.type || trace.selectedAction,
+        source: selected.source || null,
+        target: selected.target || null,
+        label: selected.label || '',
+      },
+      reasonTrace: JSON.parse(JSON.stringify(trace)),
+      effects: [],
+    };
+    // dryRunEffects: attach computed stateDeltas to event for inspection
+    if (stateDeltas) {
+      event.stateDeltas = stateDeltas;
+    }
+    return event;
+  }
+
+  /**
+   * 应用 action stateDeltas 到 live state（仅 active 模式）
+   *
+   * Phase 36 安全 allowlist：
+   *   - need.energy: bounded increase, clamp [0,1]
+   *   - emotion: via EmotionVector.applyEffect (bounded by maxDeltaPerTick)
+   *   - memory: via PersonalMemory.addExperience (with simTime)
+   *   - 其他 delta 类型: no-op（不应用）
+   *
+   * @param {Object} stateDeltas - from EventEffectPipeline.computeStateDeltas
+   * @param {Object} env - tick env { simTime, hour, ... }
+   * @private
+   */
+  _applyActionStateDeltas(stateDeltas, env) {
+    if (!stateDeltas) return;
+
+    // ─── 1. Need deltas (only energy allowed) ───
+    if (stateDeltas.need && typeof stateDeltas.need.energy === 'number') {
+      const delta = stateDeltas.need.energy;
+      this.needs.needs.energy = Math.max(0, Math.min(1, this.needs.needs.energy + delta));
+    }
+
+    // ─── 2. Emotion deltas (bounded by EmotionVector.applyEffect) ───
+    if (stateDeltas.emotion && Object.keys(stateDeltas.emotion).length > 0) {
+      this.emotion.applyEffect(stateDeltas.emotion);
+    }
+
+    // ─── 3. Memory candidate delta (bounded add) ───
+    if (stateDeltas.memory && stateDeltas.memory.kind === 'candidate') {
+      const memEvent = {
+        content: stateDeltas.memory.content || 'action_memory',
+        type: stateDeltas.memory.type || 'action',
+        participants: [this.id],
+      };
+      this.memory.addExperience(memEvent, this.emotion);
+    }
+
+    // ─── 4. Location delta (Phase 37: move only, domain-validated) ───
+    if (stateDeltas.location && stateDeltas.location.to) {
+      const target = stateDeltas.location.to;
+      // Domain validation: target must be a valid region
+      const valid = this._domain && typeof this._domain.hasRegion === 'function'
+        ? this._domain.hasRegion(target)
+        : false;
+      if (valid && target !== this.position) {
+        this.position = target;
+      }
+      // Invalid or same-position target: no-op (no throw)
+    }
+
+    // ─── 5. Relationship delta (Phase 38: socialize only) ───
+    if (stateDeltas.relationship && stateDeltas.relationship.targetAgentId) {
+      const rel = stateDeltas.relationship;
+      // Guards: graph exists, target is string, not self, both agents in graph
+      if (
+        this._socialGraphRef &&
+        typeof rel.targetAgentId === 'string' &&
+        rel.targetAgentId !== this.id &&
+        typeof this._socialGraphRef.hasAgent === 'function' &&
+        this._socialGraphRef.hasAgent(this.id) &&
+        this._socialGraphRef.hasAgent(rel.targetAgentId)
+      ) {
+        const relationship = this._socialGraphRef.getOrCreateRelationship(this.id, rel.targetAgentId);
+        relationship.recordInteraction(
+          rel.interactionType || 'action_socialize',
+          typeof rel.valence === 'number' ? rel.valence : 0,
+          rel.content || '',
+          env.simTime || null
+        );
+      }
+      // Invalid/no target/self/no graph: no-op (no throw)
+    }
+
+    // NOTE: world/object deltas are NOT applied in Phase 38.
+    // They remain no-ops until explicitly authorized in later phases.
   }
 
   /**
@@ -709,6 +942,50 @@ class Agent {
       health: this.health,
       socialEnergy: this.socialEnergy,
       ocean: this.personality.ocean,
+    };
+  }
+
+  /**
+   * 构建 action selection 上下文（只读快照）
+   * @private
+   */
+  _buildActionContext(env) {
+    return {
+      agent: {
+        id: this.id,
+        position: this.position,
+        state: this.stateMachine.currentState,
+        socialEnergy: this.socialEnergy,
+        health: this.health,
+      },
+      behaviorField: {
+        B: [...this.behaviorField.B],
+        label: this.behaviorField.label,
+        velocity: [...this.behaviorField.velocity],
+      },
+      needs: { ...this.needs.needs },
+      emotion: {
+        current: { ...this.emotion.current },
+        valence: this.emotion.getValence(),
+        arousal: this.emotion.getArousal(),
+      },
+      memories: this.memory.memories.slice(-10),
+      relationships: this._socialGraphRef
+        ? this._socialGraphRef.getRelationships(this.id)
+        : [],
+      goals: [],
+      worldPressure: null,
+      schedule: this.schedule.getCurrentActivity(env.hour, env.dayOfWeek, env.simDate),
+      intrinsic: {
+        curiosity: this.intrinsicMotivation.curiosity,
+      },
+      environment: {
+        hour: env.hour,
+        dayOfWeek: env.dayOfWeek,
+        weather: env.weather,
+      },
+      domain: this._domain,
+      rng: this._rng,
     };
   }
 
@@ -1726,6 +2003,7 @@ class Agent {
       socialEnergy: this.socialEnergy,
       health: this.health,
       isOnline: this.isOnline,
+      _actionTraceHistory: this._actionTraceHistory,
     };
   }
 }

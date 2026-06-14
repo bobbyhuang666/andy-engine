@@ -15,6 +15,7 @@ const SocialGraph = require('../social/SocialGraph');
 const EventDispatcher = require('./EventDispatcher');
 const { ANDY_DEFAULTS } = require('../config/defaults');
 const { getDefaultDomain } = require('../domain/DomainRegistry');
+const { WorldFactStore, FactEmitter, KnowledgeStore, CanonEventPipeline } = require('../facts');
 
 class AndyWorld {
   /**
@@ -31,6 +32,11 @@ class AndyWorld {
     // ─── RNG ───
     this.rng = rng; // null 时回退到 Math.random
 
+    // 从 savedState 恢复 RNG 状态
+    if (savedState && savedState.rngState !== undefined && this.rng) {
+      this.rng.setState(savedState.rngState);
+    }
+
     // ─── 时间系统 ───
     this.time = savedState ? new Date(savedState.time) : (config.startTime || new Date());
     this.tickCount = savedState ? savedState.tickCount : 0;
@@ -42,6 +48,23 @@ class AndyWorld {
       timeOfDay: this._calcTimeOfDay(this.time.getHours()),
       season: this._calcSeason(this.time.getMonth()),
     };
+
+    // 世界事实层（可选启用）
+    this.factStore = config.enableFacts
+      ? (savedState && savedState.factStore ? WorldFactStore.fromJSON(savedState.factStore) : new WorldFactStore())
+      : null;
+    this.knowledgeStore = config.enableFacts
+      ? (savedState && savedState.knowledgeStore
+        ? KnowledgeStore.fromJSON(savedState.knowledgeStore, this.factStore)
+        : new KnowledgeStore(this.factStore))
+      : null;
+    this.factEmitter = config.enableFacts
+      ? new FactEmitter(this.factStore, { knowledgeStore: this.knowledgeStore })
+      : null;
+
+    this.canonEventPipeline = config.enableFacts
+      ? new CanonEventPipeline(this.factStore, this.knowledgeStore, this.factEmitter)
+      : null;
 
     // ─── 区域空间（从 domain 取）───
     this.regions = new RegionGrid(this.domain.regions);
@@ -290,7 +313,7 @@ class AndyWorld {
    * 序列化（用于持久化）
    */
   toJSON() {
-    return {
+    const data = {
       time: this.time.toISOString(),
       tickCount: this.tickCount,
       environment: { ...this.environment },
@@ -300,6 +323,21 @@ class AndyWorld {
       socialGraph: this.socialGraph.toJSON(),
       events: this.eventDispatcher.toJSON(),
     };
+
+    // 包含 RNG 状态（如果有）
+    if (this.rng) {
+      data.rngState = this.rng.getState();
+    }
+
+    if (this.factStore) {
+      data.factStore = this.factStore.toJSON();
+    }
+
+    if (this.knowledgeStore) {
+      data.knowledgeStore = this.knowledgeStore.toJSON();
+    }
+
+    return data;
   }
 }
 

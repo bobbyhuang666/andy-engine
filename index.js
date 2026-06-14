@@ -32,6 +32,7 @@ const { applyForbiddenTerms } = require('./core/WorldviewConstraints');
 const { DomainRegistry } = require('./domain/DomainRegistry');
 const { validateDomain } = require('./domain/validateDomain');
 const { RNG } = require('./core/RNG');
+const { FactProvider, FactConsistencyChecker } = require('./facts');
 
 // ═══════════════════════════════════════════
 // 种子记忆 → 文本
@@ -69,6 +70,10 @@ class AndyEngine {
       this.rng = config.rng;
     } else if (config.seed !== undefined) {
       this.rng = new RNG(config.seed);
+    } else if (savedState && savedState.rngState !== undefined) {
+      // 从 savedState 恢复 RNG（无需 seed）
+      this.rng = new RNG(0);
+      this.rng.setState(savedState.rngState);
     } else {
       this.rng = null; // 回退到 Math.random
     }
@@ -86,15 +91,23 @@ class AndyEngine {
       this.domain = new DomainRegistry();
     }
 
-    this.config = { ...ANDY_DEFAULTS, ...config };
-    this.world = new AndyWorld(config, savedState, this.domain, this.rng);
+    this.config = {
+      ...ANDY_DEFAULTS,
+      ...config,
+      enableFacts: config.enableFacts ?? false,
+      actionSelection: {
+        ...ANDY_DEFAULTS.actionSelection,
+        ...(config.actionSelection || {}),
+      },
+    };
+    this.world = new AndyWorld({ ...config, enableFacts: this.config.enableFacts }, savedState, this.domain, this.rng);
     this.simulator = new Simulator(this.world);
 
     // 恢复已保存的 Agent
     if (savedState && savedState.agents) {
       for (const [agentId, agentData] of Object.entries(savedState.agents)) {
         const agent = new Agent(
-          { id: agentId, name: agentData.name || agentId, schedule: agentData.schedule || {}, domain: this.domain, rng: this.rng },
+          { id: agentId, name: agentData.name || agentId, schedule: agentData.schedule || {}, domain: this.domain, rng: this.rng, actionSelection: this.config.actionSelection, factStore: this.world.factStore || null },
           agentData
         );
         this.world.addAgent(agent);
@@ -175,6 +188,8 @@ class AndyEngine {
       initialState,
       domain: this.domain,
       rng: this.rng,
+      actionSelection: this.config.actionSelection,
+      factStore: this.world.factStore || null,
     });
 
     this.world.addAgent(agent);
@@ -192,7 +207,7 @@ class AndyEngine {
    */
   addAgent(config) {
     validateAgentConfig(config);
-    const agent = new Agent({ ...config, domain: this.domain, rng: this.rng });
+    const agent = new Agent({ ...config, domain: this.domain, rng: this.rng, actionSelection: this.config.actionSelection, factStore: this.world.factStore || null });
     this.world.addAgent(agent);
     return agent;
   }
@@ -421,6 +436,56 @@ class AndyEngine {
       memoryContext: agent.memory.toPromptString(5),
       health: Math.round((agent.health || 1) * 100),
     };
+  }
+
+  // ═══════════════════════════════════════════
+  // 事实系统
+  // ═══════════════════════════════════════════
+
+  /**
+   * 获取角色的 grounding package
+   *
+   * @param {string} agentId
+   * @param {Object} [options]
+   * @param {Date} [options.time] - 当前时间
+   * @param {string} [options.topic] - 当前话题
+   * @param {number} [options.maxFacts] - 最大事实数
+   * @returns {Object|null} groundingPackage，如果未启用事实系统则返回 null
+   */
+  getGroundingPackage(agentId, options = {}) {
+    if (!this.world.factStore) return null;
+
+    const agent = this.world.getAgent(agentId);
+    const provider = new FactProvider(
+      this.world.factStore,
+      this.world.socialGraph,
+      null,  // personalMemories 暂时不传
+      this.world.knowledgeStore
+    );
+
+    return provider.getGroundingPackage(agentId, {
+      time: this.world.time,
+      ...options,
+      currentRegion: options.currentRegion || (agent ? agent.position : null),
+      agent,
+    });
+  }
+
+  /**
+   * 校验 LLM 输出是否与世界事实一致
+   *
+   * @param {string} llmOutput - LLM 生成的文本
+   * @param {string} agentId - 角色 ID
+   * @returns {Object} { valid, violations, severity, suggestion }
+   */
+  checkConsistency(llmOutput, agentId) {
+    if (!this.world.factStore) {
+      return { valid: true, violations: [], severity: 'pass', suggestion: null };
+    }
+
+    const grounding = this.getGroundingPackage(agentId);
+    const checker = new FactConsistencyChecker(this.world.factStore, this.domain);
+    return checker.check(llmOutput, grounding);
   }
 
   // ═══════════════════════════════════════════

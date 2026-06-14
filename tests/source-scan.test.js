@@ -25,6 +25,9 @@ const BANNED_APIS = [
   'safeActivity',
 ];
 
+// deterministic runtime 检查：agent/action/** 中不允许 Math.random( 或 Date.now(
+const DETERMINISTIC_BANNED = ['Math.random(', 'Date.now('];
+
 // 允许出现 campus terms 的路径
 const ALLOWED_PATHS = [
   'presets/campus/',
@@ -100,12 +103,34 @@ function scanFileForBannedAPIs(filePath) {
   return violations;
 }
 
+function scanFileForDeterministicAPIs(filePath) {
+  const content = readFileSync(filePath, 'utf-8');
+  const lines = content.split('\n');
+  const violations = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    // 跳过注释行
+    if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) continue;
+
+    for (const banned of DETERMINISTIC_BANNED) {
+      if (line.includes(banned)) {
+        violations.push({ api: banned, line: i + 1 });
+      }
+    }
+  }
+
+  return violations;
+}
+
 describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
   const runtimeDirs = [
     'core',
     'agent',
     'sdk',
     'spatial',
+    'facts',
   ];
 
   it('runtime 文件中不应有 campus-only 字符串', () => {
@@ -182,5 +207,62 @@ describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
 
       expect.fail(`以下 runtime 文件使用了 campus replacement API:\n${msg}\n\n请改用 applyForbiddenTerms(text, domain)。`);
     }
+  });
+
+  it('agent/action/** 不应使用 Math.random() 或 Date.now()', () => {
+    const violations = [];
+    const rootDir = process.cwd();
+    const actionDir = path.join(rootDir, 'agent', 'action');
+
+    const files = getJsFiles(actionDir);
+    for (const file of files) {
+      const relativePath = path.relative(rootDir, file);
+      const fileViolations = scanFileForDeterministicAPIs(file);
+      if (fileViolations.length > 0) {
+        violations.push({ file: relativePath, violations: fileViolations });
+      }
+    }
+
+    if (violations.length > 0) {
+      const msg = violations.map(({ file, violations }) => {
+        const details = violations.map(v => `${v.api} at line ${v.line}`).join(', ');
+        return `  ${file}: ${details}`;
+      }).join('\n');
+
+      expect.fail(`agent/action/** 包含非确定性 API:\n${msg}\n\n请使用 seeded RNG 或传入 simTime。`);
+    }
+  });
+
+  it('facts/** 不应使用 Date.now() 作为 runtime fallback', () => {
+    const violations = [];
+    const rootDir = process.cwd();
+    const factsDir = path.join(rootDir, 'facts');
+
+    const files = getJsFiles(factsDir);
+    for (const file of files) {
+      const relativePath = path.relative(rootDir, file);
+      const fileViolations = scanFileForDeterministicAPIs(file);
+      if (fileViolations.length > 0) {
+        violations.push({ file: relativePath, violations: fileViolations });
+      }
+    }
+
+    if (violations.length > 0) {
+      const msg = violations.map(({ file, violations }) => {
+        const details = violations.map(v => `${v.api} at line ${v.line}`).join(', ');
+        return `  ${file}: ${details}`;
+      }).join('\n');
+
+      expect.fail(`facts/** 包含非确定性 API:\n${msg}\n\n请使用 simTime 或 fixed epoch fallback。`);
+    }
+  });
+
+  it('agent/action/UtilitySelector.js 不应有 Math.random fallback', () => {
+    const rootDir = process.cwd();
+    const selectorPath = path.join(rootDir, 'agent', 'action', 'UtilitySelector.js');
+    const content = readFileSync(selectorPath, 'utf-8');
+
+    // 不应包含 Math.random 作为 fallback
+    expect(content).not.toMatch(/Math\.random\s*\(\s*\)/);
   });
 });
