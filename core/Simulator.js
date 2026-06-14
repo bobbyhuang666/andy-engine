@@ -14,6 +14,7 @@
  */
 
 const { ANDY_DEFAULTS, EMOTION_DIMENSIONS } = require('../config/defaults');
+const { applyEventConsequences } = require('./EventEffectPipeline');
 const cfg = ANDY_DEFAULTS.tick;
 
 class Simulator {
@@ -63,6 +64,16 @@ class Simulator {
       timeOfDay: this.world.environment.timeOfDay,
       season: this.world.environment.season,
     };
+
+    // ─── Phase 2.5: FACT_SNAPSHOT ───
+    // Emit agent_state facts BEFORE agent.tick() overwrites positions.
+    // This captures the state as it was at tick start (including any
+    // position changes made between ticks by external code or events).
+    if (this.world.factEmitter) {
+      this.world.factEmitter.setSimTime(this.world.time);
+      this.world.factEmitter.emitStaticFacts(this.world.domain || this.world._domain);
+      this.world.factEmitter.emitAgentStateFacts(this.world.agents);
+    }
 
     // ─── Phase 3: AGENT_THINK ───
     const env = {
@@ -134,9 +145,11 @@ class Simulator {
     for (const evt of allNewEvents) {
       if (evt && evt.type) {
         this.world.eventDispatcher.createEvent({
+          ...evt,
           type: evt.type,
-          scope: 'local',
+          scope: evt.scope || 'local',
           participants: evt.participants || [],
+          observers: evt.observers || [],
           content: evt.content || '',
           time: evt.time ? new Date(evt.time) : this.world.time,
           effects: evt.effects || [],
@@ -147,6 +160,53 @@ class Simulator {
     // 分发所有事件
     const dispatched = this.world.eventDispatcher.dispatch();
     result.phase.eventDispatch = { eventCount: dispatched.length };
+
+    // ─── Phase 5.5: CANON_EVENT_PIPELINE + EVENT_CONSEQUENCES ───
+    if (this.world.canonEventPipeline && dispatched.length > 0) {
+      const pipelineResults = this.world.canonEventPipeline.processEvents(
+        dispatched,
+        this.world.agents
+      );
+
+      let memoryUpdateCount = 0;
+      let locationUpdateCount = 0;
+
+      for (const pr of pipelineResults) {
+        if (pr.fact) {
+          const consequences = applyEventConsequences({
+            fact: pr.fact,
+            agents: this.world.agents,
+            factStore: this.world.factStore,
+            domain: this.world.domain || this.world._domain,
+          });
+          memoryUpdateCount += consequences.memoryUpdates.length;
+          locationUpdateCount += consequences.locationMeaningUpdates.length;
+        }
+      }
+
+      result.phase.canonEventPipeline = {
+        processed: pipelineResults.length,
+        knowledgeUpdates: pipelineResults.reduce((sum, r) => sum + r.knowledgeUpdates.length, 0),
+        memoryUpdates: memoryUpdateCount,
+        locationMeaningUpdates: locationUpdateCount,
+      };
+    }
+
+    // ─── Phase 6: FACT_EMISSION ───
+    // Static and agent_state facts are emitted in Phase 2.5 (before agent.tick).
+    // Here we emit remaining fact types that depend on tick results.
+    if (this.world.factEmitter) {
+      const factEmitter = this.world.factEmitter;
+      factEmitter.setSimTime(this.world.time);
+
+      // 观察事实（从交互事件）
+      factEmitter.emitObservationFacts(interactionEvents);
+
+      // 关系事实
+      factEmitter.emitRelationshipFacts(this.world.socialGraph);
+
+      result.phase.factEmission = this.world.factStore.getStats();
+    }
 
     // 执行 tick 回调
     for (const cb of this._tickCallbacks) {

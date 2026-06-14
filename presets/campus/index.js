@@ -617,9 +617,47 @@ const campusDomain = {
   },
 
   // ═══════════════════════════════════════════
+  // 事件后果规则
+  // ═══════════════════════════════════════════
+  eventConsequenceRules: {
+    eventMeaningRules: [
+      { keywords: ['休息', '睡觉', '午休', '睡眠', '放松'], meaningType: 'rest', weight: 0.3 },
+      { keywords: ['工作', '学习', '研究', '专注', '任务'], meaningType: 'work', weight: 0.3 },
+      { keywords: ['聊天', '社交', '聚会', '约会', '闲聊', '交流'], meaningType: 'social', weight: 0.3 },
+      { keywords: ['运动', '跑步', '健身', '锻炼'], meaningType: 'exercise', weight: 0.2 },
+      { keywords: ['吃饭', '午餐', '晚餐', '早餐', '餐饮', '美食'], meaningType: 'dining', weight: 0.2 },
+    ],
+    emotionKeywords: {
+      happy: ['开心', '高兴', '快乐', '愉快', '兴奋', '喜悦'],
+      sad: ['难过', '伤心', '悲伤', '沮丧', '失落'],
+      angry: ['生气', '愤怒', '恼火', '烦躁'],
+      fear: ['害怕', '恐惧', '紧张', '焦虑', '担忧'],
+      surprise: ['惊讶', '意外', '震惊'],
+      disgust: ['厌恶', '恶心', '反感'],
+    },
+    tendencyRules: [
+      { keywords: ['休息', '睡觉', '午休'], delta: [-0.3, -0.2, 0, 0] },
+      { keywords: ['工作', '学习', '研究'], delta: [0.3, 0, 0.4, 0] },
+      { keywords: ['聊天', '社交', '聚会'], delta: [0, 0.4, 0, 0.3] },
+      { keywords: ['运动', '跑步', '健身'], delta: [0.4, 0, 0, 0.2] },
+      { keywords: ['吃饭', '午餐', '晚餐'], delta: [0.1, 0.2, 0, 0] },
+    ],
+  },
+
+  // ═══════════════════════════════════════════
   // 禁止词（用于 sanitize 最后防线）
   // ═══════════════════════════════════════════
   forbiddenTerms: [], // 校园 preset 不需要禁止自己的词
+
+  // ═══════════════════════════════════════════
+  // 地点意义系统
+  // ═══════════════════════════════════════════
+  locationMeaningTypes: {
+    rest:    { B_delta: [-0.3, -0.2, -0.1, -0.2], description: '适合休息' },
+    work:    { B_delta: [0.3, 0, 0.4, 0], description: '适合工作' },
+    social:  { B_delta: [0, 0.4, 0, 0.3], description: '适合社交' },
+    explore: { B_delta: [0.2, 0, 0.3, 0], description: '适合探索' },
+  },
 };
 
 module.exports = campusDomain;

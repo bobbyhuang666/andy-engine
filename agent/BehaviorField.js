@@ -151,6 +151,37 @@ class BehaviorField {
     // 缓存
     this._lastGradient = [0, 0, 0, 0];
     this._lastSignals = null;
+
+    // 地点意义影响（延迟初始化）
+    this._locationMeaningInfluence = null;
+    this._currentRegion = null;
+
+    // 未来行为倾向（延迟初始化）
+    this._futureTendency = null;
+  }
+
+  /**
+   * 设置地点意义影响器
+   * @param {Object} influence - LocationMeaningInfluence 实例
+   */
+  setLocationMeaningInfluence(influence) {
+    this._locationMeaningInfluence = influence;
+  }
+
+  /**
+   * 更新当前区域（由 Agent 在位置变化时调用）
+   * @param {string} region
+   */
+  setCurrentRegion(region) {
+    this._currentRegion = region;
+  }
+
+  /**
+   * 设置未来行为倾向跟踪器
+   * @param {Object} tracker - FutureTendencyTracker 实例
+   */
+  setFutureTendency(tracker) {
+    this._futureTendency = tracker;
   }
 
   // ═══════════════════════════════════════════
@@ -243,6 +274,24 @@ class BehaviorField {
 
     // ── 5. 习惯梯度 ──
     this._addHabitGradient(grad, w.habit * this._weightModifiers.habit);
+
+    // ── 5.5 地点意义梯度 ──
+    if (this._locationMeaningInfluence && this._currentRegion) {
+      const locationGrad = this._locationMeaningInfluence.computeGradient(
+        this._currentRegion, this.B
+      );
+      for (let d = 0; d < DIMS; d++) {
+        grad[d] += locationGrad[d];
+      }
+    }
+
+    // ── 5.6 未来行为倾向梯度 ──
+    if (this._futureTendency && this._currentRegion) {
+      const tendencyGrad = this._futureTendency.getTendencyGradient(this._currentRegion);
+      for (let d = 0; d < DIMS; d++) {
+        grad[d] += tendencyGrad[d];
+      }
+    }
 
     // ── 6. 时间约束 ──
     if (signals.environment?.hour !== undefined) {

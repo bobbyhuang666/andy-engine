@@ -249,3 +249,146 @@ describe('AndyEngine RNG 注入', () => {
     expect(agent.socialEnergy).toBeLessThanOrEqual(1);
   });
 });
+
+// ═══════════════════════════════════════════
+// RNG Trace Helper 测试
+// ═══════════════════════════════════════════
+
+describe('RNG traceDraw', () => {
+  it('记录 before/draw/after 三个状态', () => {
+    const rng = new RNG(42);
+    const result = rng.traceDraw();
+
+    expect(result.rngStateBefore).toBeDefined();
+    expect(result.randomDraw).toBeDefined();
+    expect(result.rngStateAfter).toBeDefined();
+    expect(result.value).toBeDefined();
+  });
+
+  it('rngStateBefore 与调用前 getState() 一致', () => {
+    const rng = new RNG(42);
+    const stateBefore = rng.getState();
+    const result = rng.traceDraw();
+
+    expect(result.rngStateBefore).toBe(stateBefore);
+  });
+
+  it('rngStateAfter 与调用后 getState() 一致', () => {
+    const rng = new RNG(42);
+    rng.traceDraw();
+    const stateAfter = rng.getState();
+    const result = rng.traceDraw();
+
+    // 第二次 traceDraw 的 before 应等于第一次的 after
+    expect(result.rngStateBefore).toBe(stateAfter);
+  });
+
+  it('相同 seed 产生完全相同的 traceDraw 序列', () => {
+    const rng1 = new RNG(42);
+    const rng2 = new RNG(42);
+
+    for (let i = 0; i < 20; i++) {
+      const t1 = rng1.traceDraw();
+      const t2 = rng2.traceDraw();
+
+      expect(t1.value).toBe(t2.value);
+      expect(t1.rngStateBefore).toBe(t2.rngStateBefore);
+      expect(t1.randomDraw).toBe(t2.randomDraw);
+      expect(t1.rngStateAfter).toBe(t2.rngStateAfter);
+    }
+  });
+
+  it('traceDraw 支持 min/max 范围', () => {
+    const rng = new RNG(42);
+    const result = rng.traceDraw(5, 10);
+
+    expect(result.value).toBeGreaterThanOrEqual(5);
+    expect(result.value).toBeLessThan(10);
+  });
+
+  it('traceDraw 不影响 next() 序列连续性', () => {
+    const rng1 = new RNG(42);
+    const rng2 = new RNG(42);
+
+    // rng1: next, next, next
+    const a = rng1.next();
+    const b = rng1.next();
+    const c = rng1.next();
+
+    // rng2: traceDraw, traceDraw, traceDraw (same sequence)
+    const t1 = rng2.traceDraw();
+    const t2 = rng2.traceDraw();
+    const t3 = rng2.traceDraw();
+
+    expect(t1.value).toBe(a);
+    expect(t2.value).toBe(b);
+    expect(t3.value).toBe(c);
+  });
+});
+
+// ═══════════════════════════════════════════
+// RNG Snapshot/Restore 测试
+// ═══════════════════════════════════════════
+
+describe('RNG Snapshot/Restore', () => {
+  it('toJSON 包含 rngState', () => {
+    const engine = new AndyEngine({
+      seed: 'snapshot-test',
+      startTime: new Date('2026-09-01T08:00:00Z'),
+    });
+
+    engine.createCharacter({
+      id: 'maya',
+      name: 'Maya',
+      mbti: 'INFP',
+      schedule: 'student',
+    });
+
+    engine.tick();
+    const json = engine.toJSON();
+
+    expect(json.rngState).toBeDefined();
+    expect(typeof json.rngState).toBe('number');
+  });
+
+  it('fromJSON 恢复 RNG 状态后序列一致', () => {
+    const engine1 = new AndyEngine({
+      seed: 'restore-test',
+      startTime: new Date('2026-09-01T08:00:00Z'),
+    });
+
+    engine1.createCharacter({
+      id: 'maya',
+      name: 'Maya',
+      mbti: 'INFP',
+      schedule: 'student',
+    });
+
+    // 运行几步
+    for (let i = 0; i < 5; i++) engine1.tick();
+
+    // 保存
+    const json = engine1.toJSON();
+    const rngStateAtSave = json.rngState;
+
+    // 恢复
+    const engine2 = AndyEngine.fromJSON(json);
+
+    // 恢复后的 RNG 状态应一致
+    expect(engine2.rng.getState()).toBe(rngStateAtSave);
+
+    // 继续生成序列应一致
+    const rng1Continued = engine1.rng.next();
+    const rng2Continued = engine2.rng.next();
+    expect(rng1Continued).toBe(rng2Continued);
+  });
+
+  it('无 seed 时 toJSON 不包含 rngState', () => {
+    const engine = new AndyEngine({
+      startTime: new Date('2026-09-01T08:00:00Z'),
+    });
+
+    const json = engine.toJSON();
+    expect(json.rngState).toBeUndefined();
+  });
+});

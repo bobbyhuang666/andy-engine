@@ -1,10 +1,12 @@
-# StoryArc Feedback RFC — Phase 25
+# StoryArc Feedback RFC
 
-> **Status: Drafted early; paused until Phase 24.1 review is accepted.**
-> **This RFC is not active implementation guidance yet.**
+> **Status: Early Draft / Paused / Not active implementation guidance.**
+> **Superseded by STORYARC_FEEDBACK_GATE.md for current execution control.**
+> **This RFC is a research document, not an implementation task.**
 > **这不是实现计划，不是代码修改指令。**
 > **这是故事线（StoryArc）反馈机制在 Persistent World 引擎中的边界定义与物理数据格式 RFC。**
 > **注意：本 RFC 中的所有代码片段和数据结构设计均为 illustrative pseudo-code / candidate shape, 不作为最终的 implementation contract。**
+> **本文档中的具体例子（如"harvest festival"、"village mystery"）均为 illustrative domain examples，不代表已批准的实现方案。**
 
 ---
 
@@ -14,7 +16,7 @@
 
 Andy Engine v0.2.0 的 Agent 动力学完全由个体微观系统（需求衰减、情绪演化、日程安排、记忆检索）驱动，外加局部社交交互（相遇、对话）。
 
-目前，引擎缺乏一种全局或区域性的**叙事上下文（StoryArc / Narrative Context）**，即跨越多个时间步长、影响多位 Agent 的宏观情节线（例如"考试周"、"暴雪侵袭"、"悬疑侦探事件"）。
+目前，引擎缺乏一种全局或区域性的**叙事上下文（StoryArc / Narrative Context）**，即跨越多个时间步长、影响多位 Agent 的宏观情节线（例如"harvest festival"、"severe weather event"、"mystery investigation"）。
 
 传统的叙事/游戏引擎倾向于使用强力脚本（Scripted Railroad）直接干预 Agent 的属性值或强制切换行为状态。这严重破坏了 Andy Engine 的三大核心支柱：
 1. **Agent 的决策自主性（Autonomy）**
@@ -101,10 +103,10 @@ StoryArc 可以作为 **GoalSource.WORLD_EVENT** 来源，向指定 Agent 的目
 
 - **工作机制**：当 StoryArc 进入特定阶段或满足触发条件时，向目标 Agent 注入目标。目标包含 `B_star` 吸引子与声明式完成谓词 `completion.predicate`。
 - **不直接修改行为**：目标作为第 8 个梯度源（`∇U_goal`）进入 BehaviorField 参与合力计算。如果 Agent 此时处于极度饥饿（Needs 匮乏），该叙事目标仍会被生理需求梯度抑制。
-- **示例**：在 "期末考试" 阶段，向所有学生 Agent 注入 "复习迎考" 目标：
-  - `B_star` = `[0.15, 0.05, 0.90, 0.05]` (低活跃度、低社交、极高专注、极低表达)
+- **示例**：在 "harvest preparation" 阶段，向相关 Agent 注入 "prepare for harvest" 目标：
+  - `B_star` = `[0.60, 0.30, 0.70, 0.20]` (moderate activity, low social, high focus, low expressiveness)
   - `priority` = 0.75
-  - `completion.predicate` = `{ type: 'ticks_in_region', region: '图书馆', minTicks: 24 }`
+  - `completion.predicate` = `{ type: 'ticks_in_region', region: 'workshop', minTicks: 24 }`
 
 ### 3.3 通道 C：认知评价偏置 (Cognitive Appraisal Bias / Scherer CPM Adjustment)
 
@@ -130,7 +132,7 @@ StoryArc 可以通过**启动效应 (Priming Effect)**，暂时提高特定主�
 - **工作机制**：在 `PersonalMemory.retrieve()` 过程中，当计算某条记忆 $i$ 的激活度 $A_i$ 时，Active StoryArcs 提供一个额外的**启动值项 (Priming Term) $P_{story}$**：
   $$A_i = B_i + S_i + P_{story} + \epsilon$$
   其中，若记忆 $i$ 的 `semanticCategory` 或 `associations` / `keywords` 匹配 StoryArc 当前阶段的 `primeKeywords`，则根据关联权重给予 $P_{story} > 0$ 的加成。
-- **示例**：在 "小镇侦查" 故事线中，活跃阶段的 `primeKeywords` 为 `['secret', 'clue', 'stranger']`。任何包含这些关键词的过去记忆在检索时都会获得 $+1.2$ 的激活度加成，使得 Agent 在心智游移或行为选择时更容易回想起相关的陈旧记忆。
+- **示例**：在 "village mystery" 故事线中，活跃阶段的 `primeKeywords` 为 `['secret', 'clue', 'stranger']`。任何包含这些关键词的过去记忆在检索时都会获得 $+1.2$ 的激活度加成，使得 Agent 在心智游移或行为选择时更容易回想起相关的陈旧记忆。
 
 ---
 
@@ -223,26 +225,26 @@ runtimeSnapshot 负责完整序列化**运行时的动力学变量和控制流**
 > **Future Domain Config candidate fields, not approved by this RFC.**
 > **此处所有配置仅作为 illustrative pseudo-code / candidate shape, 不作为最终的 implementation contract。**
 
-所有的 StoryArc 模版均在 Domain Config 的 `storyArcTemplates` 中进行声明，从而彻底隔离核心引擎与特定的游戏/小镇业务语义。
+所有的 StoryArc 模版均在 Domain Config 的 `storyArcTemplates` 中进行声明，从而彻底隔离核心引擎与特定的世界业务语义。
 
 ```javascript
-// presets/campus/index.js 新增示例
+// Domain Config 新增示例（illustrative, not approved）
 storyArcTemplates: {
-  'midterm_exams': {
-    name: '期末考试周',
+  'harvest_festival': {
+    name: 'Harvest Festival',
     stages: {
       'preparation_stage': {
-        duration: 288, // 1天 (288 ticks)
+        duration: 288, // 1 day (288 ticks)
         eventRules: [
-          { type: 'study_group', probability: 0.1, target: 'library' }
+          { type: 'market_activity', probability: 0.1, target: 'marketplace' }
         ],
         goalInjections: [
           {
-            agentFilter: 'all_students',
+            agentFilter: 'all_workers',
             goal: {
-              category: 'study',
+              category: 'work',
               priority: 0.75,
-              attractor: { B_star: [0.15, 0.05, 0.90, 0.05], region: '图书馆' }
+              attractor: { B_star: [0.60, 0.30, 0.70, 0.20], region: 'workshop' }
             }
           }
         ],
@@ -252,10 +254,10 @@ storyArcTemplates: {
             coping_potential_scale: 0.8
           }
         },
-        primeKeywords: ['考试', '复习', '书本', '成绩']
+        primeKeywords: ['harvest', 'prepare', 'stock', 'trade']
       },
-      'exam_stage': {
-        // ... 下一阶段
+      'festival_stage': {
+        // ... next stage
       }
     }
   }

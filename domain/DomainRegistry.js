@@ -139,6 +139,23 @@ class DomainRegistry {
   get needRegionConfig() { return this.domain.needRegionConfig || {}; }
 
   // ═══════════════════════════════════════════
+  // 地点意义系统
+  // ═══════════════════════════════════════════
+
+  get locationMeaningTypes() {
+    return this.domain.locationMeaningTypes || {
+      rest:    { B_delta: [-0.3, -0.2, -0.1, -0.2], description: '适合休息' },
+      work:    { B_delta: [0.3, 0, 0.4, 0], description: '适合工作' },
+      social:  { B_delta: [0, 0.4, 0, 0.3], description: '适合社交' },
+      explore: { B_delta: [0.2, 0, 0.3, 0], description: '适合探索' },
+    };
+  }
+
+  get eventConsequenceRules() {
+    return this.domain.eventConsequenceRules || require('../config/defaults').ANDY_DEFAULTS.eventConsequenceRules;
+  }
+
+  // ═══════════════════════════════════════════
   // 事件系统
   // ═══════════════════════════════════════════
 

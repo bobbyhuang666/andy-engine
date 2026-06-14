@@ -72,6 +72,14 @@ class EventDispatcher {
       semanticCategory: this._classifySemanticCategory(params.type, params.content),
     };
 
+    // Phase 34: action_selected audit metadata.
+    // These fields are copied only when present and do not affect dispatch semantics.
+    if (params.agentId !== undefined) event.agentId = params.agentId;
+    if (params.action !== undefined) event.action = params.action;
+    if (params.reasonTrace !== undefined) event.reasonTrace = params.reasonTrace;
+    if (params.stateDeltas !== undefined) event.stateDeltas = params.stateDeltas;
+    if (params.metadata !== undefined) event.metadata = params.metadata;
+
     this.pendingEvents.push(event);
     return event;
   }

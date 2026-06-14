@@ -45,6 +45,15 @@ class SocialGraph {
   }
 
   /**
+   * 检查社交图谱是否包含某个 Agent
+   * @param {string} agentId
+   * @returns {boolean}
+   */
+  hasAgent(agentId) {
+    return this._adjacency.has(agentId);
+  }
+
+  /**
    * 获取或创建两个 Agent 之间的关系
    * @param {string} agentA
    * @param {string} agentB

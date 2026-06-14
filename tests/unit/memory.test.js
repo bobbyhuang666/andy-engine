@@ -87,6 +87,78 @@ describe('PersonalMemory 模块', () => {
     });
   });
 
+  describe('确定性记忆 ID', () => {
+    it('记忆 ID 不应使用 Date.now() 或 Math.random()', () => {
+      mem.addExperience({ id: 'evt_1', type: 'test', content: 'test event' }, mockEmotion);
+      const memId = mem.memories[mem.memories.length - 1].id;
+      // 确定性格式: mem_{agentId}_{counter}
+      expect(memId).toMatch(/^mem_test_agent_\d+$/);
+    });
+
+    it('相同 event sequence 应产生相同 memory id', () => {
+      const mem1 = new PersonalMemory('agent_a', []);
+      const mem2 = new PersonalMemory('agent_a', []);
+
+      mem1.addExperience({ id: 'evt_1', type: 'test', content: 'event 1' }, mockEmotion);
+      mem1.addExperience({ id: 'evt_2', type: 'test', content: 'event 2' }, mockEmotion);
+
+      mem2.addExperience({ id: 'evt_1', type: 'test', content: 'event 1' }, mockEmotion);
+      mem2.addExperience({ id: 'evt_2', type: 'test', content: 'event 2' }, mockEmotion);
+
+      expect(mem1.memories[0].id).toBe(mem2.memories[0].id);
+      expect(mem1.memories[1].id).toBe(mem2.memories[1].id);
+    });
+
+    it('save/restore 后继续 addExperience 不产生重复 id', () => {
+      mem.addExperience({ id: 'evt_1', type: 'test', content: 'event 1' }, mockEmotion);
+      const saved = mem.toJSON();
+
+      const restored = new PersonalMemory('test_agent', [], saved);
+      restored.addExperience({ id: 'evt_2', type: 'test', content: 'event 2' }, mockEmotion);
+
+      const ids = restored.memories.map(m => m.id);
+      const uniqueIds = new Set(ids);
+      expect(uniqueIds.size).toBe(ids.length);
+    });
+
+    it('restore 稀疏动态 ID 后从最大编号继续', () => {
+      const restored = new PersonalMemory('agent_sparse', [], [
+        {
+          id: 'mem_agent_sparse_9',
+          content: 'old dynamic memory',
+          category: 'test',
+          timestamp: new Date('2026-01-01T00:00:00Z').toISOString(),
+          lastAccessed: new Date('2026-01-01T00:00:00Z').toISOString(),
+          presentations: [],
+        },
+      ]);
+
+      const next = restored.addExperience({ id: 'evt_next', type: 'test', content: 'next event' }, mockEmotion);
+      expect(next.id).toBe('mem_agent_sparse_10');
+    });
+
+    it('seed memories 不影响后续 id 计数', () => {
+      const memWithSeeds = new PersonalMemory('agent_b', [
+        { content: 'seed 1' },
+        { content: 'seed 2' },
+        { content: 'seed 3' },
+      ]);
+
+      memWithSeeds.addExperience({ id: 'evt_1', type: 'test', content: 'new event' }, mockEmotion);
+      const lastMem = memWithSeeds.memories[memWithSeeds.memories.length - 1];
+      // seed memories 使用 seed_${i} 格式，动态记忆从 0 开始
+      expect(lastMem.id).toBe('mem_agent_b_0');
+    });
+
+    it('setSimTime 前 addExperience 仍生成合法时间戳', () => {
+      const memWithoutSimTime = new PersonalMemory('agent_time', []);
+      const created = memWithoutSimTime.addExperience({ id: 'evt_1', type: 'test', content: 'event' }, mockEmotion);
+
+      expect(created.timestamp).toBeInstanceOf(Date);
+      expect(Number.isNaN(created.timestamp.getTime())).toBe(false);
+    });
+  });
+
   describe('序列化', () => {
     it('应该是数组', () => {
       const json = mem.toJSON();

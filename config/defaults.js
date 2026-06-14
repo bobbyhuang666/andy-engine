@@ -268,6 +268,45 @@ const ANDY_DEFAULTS = {
       '办公室':     { shape: 'rect', x: 350, y: 400, w: 60, h: 40 },
     },
   },
+
+  // ═══════════════════════════════════════════
+  // Action Selection (shadow mode)
+  // ═══════════════════════════════════════════
+  actionSelection: {
+    enabled: false,
+    mode: 'shadow',
+    temperature: 0.35,
+    recordTraces: true,
+    maxTraceHistory: 100,
+  },
+
+  // ═══════════════════════════════════════════
+  // 事件后果规则（domain-configurable）
+  // ═══════════════════════════════════════════
+  eventConsequenceRules: {
+    eventMeaningRules: [
+      { keywords: ['休息', '睡觉', '午休', '睡眠', '放松'], meaningType: 'rest', weight: 0.3 },
+      { keywords: ['工作', '学习', '研究', '专注', '任务'], meaningType: 'work', weight: 0.3 },
+      { keywords: ['聊天', '社交', '聚会', '约会', '闲聊', '交流'], meaningType: 'social', weight: 0.3 },
+      { keywords: ['运动', '跑步', '健身', '锻炼'], meaningType: 'exercise', weight: 0.2 },
+      { keywords: ['吃饭', '午餐', '晚餐', '早餐', '餐饮', '美食'], meaningType: 'dining', weight: 0.2 },
+    ],
+    emotionKeywords: {
+      happy: ['开心', '高兴', '快乐', '愉快', '兴奋', '喜悦'],
+      sad: ['难过', '伤心', '悲伤', '沮丧', '失落'],
+      angry: ['生气', '愤怒', '恼火', '烦躁'],
+      fear: ['害怕', '恐惧', '紧张', '焦虑', '担忧'],
+      surprise: ['惊讶', '意外', '震惊'],
+      disgust: ['厌恶', '恶心', '反感'],
+    },
+    tendencyRules: [
+      { keywords: ['休息', '睡觉', '午休'], delta: [-0.3, -0.2, 0, 0] },
+      { keywords: ['工作', '学习', '研究'], delta: [0.3, 0, 0.4, 0] },
+      { keywords: ['聊天', '社交', '聚会'], delta: [0, 0.4, 0, 0.3] },
+      { keywords: ['运动', '跑步', '健身'], delta: [0.4, 0, 0, 0.2] },
+      { keywords: ['吃饭', '午餐', '晚餐'], delta: [0.1, 0.2, 0, 0] },
+    ],
+  },
 };
 
 // ═══════════════════════════════════════════

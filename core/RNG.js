@@ -87,6 +87,26 @@ class RNG {
   }
 
   /**
+   * 可追踪的随机抽取（记录 before/draw/after）
+   *
+   * @param {number} [min=0] - 最小值（包含）
+   * @param {number} [max=1] - 最大值（不包含）
+   * @returns {{ value: number, rngStateBefore: number, randomDraw: number, rngStateAfter: number }}
+   */
+  traceDraw(min = 0, max = 1) {
+    const stateBefore = this._state;
+    const draw = this.next();
+    const value = min + draw * (max - min);
+    const stateAfter = this._state;
+    return {
+      value,
+      rngStateBefore: stateBefore,
+      randomDraw: draw,
+      rngStateAfter: stateAfter,
+    };
+  }
+
+  /**
    * 将 seed 转为 32 位整数哈希
    * @param {string|number} seed
    * @returns {number}

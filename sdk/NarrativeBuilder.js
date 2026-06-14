@@ -12,6 +12,7 @@
 
 const { applyForbiddenTerms } = require('../core/WorldviewConstraints');
 const { getDefaultDomain } = require('../domain/DomainRegistry');
+const { FactFormatter } = require('../facts');
 
 class NarrativeBuilder {
   static buildSystemPrompt(worldContext, options = {}) {
@@ -61,6 +62,10 @@ class NarrativeBuilder {
 
     if (scenario) {
       sections.push(`# 场景\n${scenario}`);
+    }
+
+    if (options.groundingPackage) {
+      sections.push(NarrativeBuilder._buildGroundingSection(options.groundingPackage));
     }
 
     sections.push(NarrativeBuilder._buildGuidelines(characterName, worldContext, usedDomain));
@@ -193,6 +198,46 @@ class NarrativeBuilder {
 
     if (lines.length === 0) return '';
     return `# 你记得的事\n${lines.map(l => `- ${l}`).join('\n')}`;
+  }
+
+  // ═══════════════════════════════════════════
+  // 事实约束（grounding package）
+  // ═══════════════════════════════════════════
+  static _buildGroundingSection(groundingPackage) {
+    const sections = [];
+
+    sections.push(`# 事实约束
+你必须基于以下事实进行表达，不能编造新事实。
+- 你只能引用"你知道的事实"中的内容
+- 你可以基于"可推断的事实"进行合理推测
+- 你不能提及"你不知道的事实"中的任何内容
+- 你的表达方式（语气、措辞、情绪强度）可以自由发挥`);
+
+    if (groundingPackage.allowedFacts && groundingPackage.allowedFacts.length > 0) {
+      const factLines = groundingPackage.allowedFacts
+        .slice(0, 20)
+        .map(f => `- ${FactFormatter.toNaturalLanguage(f)}`);
+      sections.push(`# 你知道的事实
+${factLines.join('\n')}`);
+    }
+
+    if (groundingPackage.inferredFacts && groundingPackage.inferredFacts.length > 0) {
+      const inferLines = groundingPackage.inferredFacts
+        .slice(0, 10)
+        .map(f => `- ${FactFormatter.toNaturalLanguage(f)}（推断）`);
+      sections.push(`# 可推断的事实
+${inferLines.join('\n')}`);
+    }
+
+    if (groundingPackage.locationMeaning) {
+      sections.push(`# 当前地点\n${groundingPackage.locationMeaning}`);
+    }
+
+    if (groundingPackage.behaviorTendency) {
+      sections.push(`# 你的倾向\n${groundingPackage.behaviorTendency}`);
+    }
+
+    return sections.join('\n\n');
   }
 
   // ═══════════════════════════════════════════

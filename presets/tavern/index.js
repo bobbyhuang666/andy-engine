@@ -365,12 +365,50 @@ const tavernDomain = {
   },
 
   // ═══════════════════════════════════════════
+  // 事件后果规则
+  // ═══════════════════════════════════════════
+  eventConsequenceRules: {
+    eventMeaningRules: [
+      { keywords: ['休息', '睡觉', '午休', '睡眠', '放松'], meaningType: 'rest', weight: 0.4 },
+      { keywords: ['工作', '锻造', '修理', '专注', '任务'], meaningType: 'work', weight: 0.3 },
+      { keywords: ['聊天', '社交', '聚会', '喝酒', '闲聊', '交流', '吟游'], meaningType: 'social', weight: 0.4 },
+      { keywords: ['狩猎', '冒险', '探索', '巡林'], meaningType: 'explore', weight: 0.3 },
+      { keywords: ['吃饭', '午餐', '晚餐', '烤肉', '美食'], meaningType: 'dining', weight: 0.2 },
+    ],
+    emotionKeywords: {
+      happy: ['开心', '高兴', '快乐', '愉快', '兴奋', '喜悦'],
+      sad: ['难过', '伤心', '悲伤', '沮丧', '失落'],
+      angry: ['生气', '愤怒', '恼火', '烦躁'],
+      fear: ['害怕', '恐惧', '紧张', '焦虑', '担忧'],
+      surprise: ['惊讶', '意外', '震惊'],
+      disgust: ['厌恶', '恶心', '反感'],
+    },
+    tendencyRules: [
+      { keywords: ['休息', '睡觉', '午休'], delta: [-0.3, -0.2, 0, 0] },
+      { keywords: ['锻造', '修理', '工作'], delta: [0.4, 0, 0.5, 0] },
+      { keywords: ['聊天', '喝酒', '社交'], delta: [0, 0.5, 0, 0.4] },
+      { keywords: ['狩猎', '冒险', '探索'], delta: [0.4, 0, 0.3, 0] },
+      { keywords: ['吃饭', '烤肉'], delta: [0.1, 0.2, 0, 0] },
+    ],
+  },
+
+  // ═══════════════════════════════════════════
   // 禁止词（校园词）
   // ═══════════════════════════════════════════
   forbiddenTerms: [
     '教室', '图书馆', '宿舍', '食堂', '操场', '校园广场',
     '学生', '老师', '上课', '自习', '翘课', '考试', '作业',
   ],
+
+  // ═══════════════════════════════════════════
+  // 地点意义系统
+  // ═══════════════════════════════════════════
+  locationMeaningTypes: {
+    rest:    { B_delta: [-0.3, -0.2, -0.1, -0.2], description: '适合休息' },
+    work:    { B_delta: [0.5, 0, 0.6, 0], description: '适合工作' },
+    social:  { B_delta: [0, 0.5, 0, 0.4], description: '适合社交' },
+    explore: { B_delta: [0.3, 0, 0.3, 0], description: '适合探索' },
+  },
 };
 
 module.exports = tavernDomain;
