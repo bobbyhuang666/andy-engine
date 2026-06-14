@@ -538,6 +538,72 @@ Andy Engine 正在从角色模拟引擎演化为持久世界引擎。
 
 ---
 
+## 架构总览
+
+```
+AndyEngine
+├── core/                     核心运行时
+│   ├── World.js              世界状态：时间、环境、角色集合
+│   ├── Simulator.js          多角色 tick 调度与事件推进
+│   ├── EventDispatcher.js    事件分发系统
+│   ├── EventEffectPipeline.js 事件后果管线：状态、记忆、地点意义、未来倾向
+│   ├── WorldPressure.js      世界压力计算
+│   ├── RNG.js                可播种随机源
+│   └── AndyBridge.js         外部 LLM 桥接层
+│
+├── agent/                    角色心理与行为系统
+│   ├── Agent.js              角色主循环
+│   ├── BehaviorField.js      4D 连续行为场（朗之万动力学）
+│   ├── EmotionVector.js      30 维情绪系统
+│   ├── NeedsSystem.js        Maslow 需求系统
+│   ├── PersonalMemory.js     ACT-R 记忆系统
+│   ├── Personality.js        MBTI / OCEAN 人格映射
+│   ├── Appraisal.js          认知评价系统
+│   ├── ProceduralMemory.js   习惯系统
+│   ├── FutureTendencyTracker.js 未来行为倾向
+│   ├── LocationMeaningInfluence.js 地点意义影响
+│   └── action/               行为候选、Utility 评分、ReasonTrace（实验性）
+│
+├── facts/                    WorldCanon / 知识边界系统（实验性）
+│   ├── WorldFactStore.js     世界事实存储
+│   ├── CanonEventPipeline.js event → fact → knowledge
+│   ├── KnowledgeStore.js     每个角色知道什么
+│   ├── FactProvider.js       grounding package，过滤可见事实
+│   ├── FactConsistencyChecker.js LLM 输出一致性检查
+│   └── FactSchema.js         事实类型与校验
+│
+├── social/                   社交图谱与关系
+├── spatial/                  空间系统（连续坐标 + 空间哈希）
+├── domain/                   domain config 契约（DomainRegistry + 校验）
+├── presets/                  campus / tavern 世界预设
+├── world/                    持久世界工具链（Stable Envelope + 校验 + 迁移）
+├── store/                    SQLite 持久化
+├── sdk/                      高层 SDK（Character / Andy / LLMAdapter）
+└── config/defaults.js        全局默认参数
+```
+
+**当前运行主线：**
+
+```
+WorldCanon（世界事实）
+    ↓
+Observation / Knowledge（观察与知识积累）
+    ↓
+State & Pressure（状态与世界压力）
+    ↓
+Action Candidate / Utility Selection（行为候选与效用选择）
+    ↓
+CanonEvent（规范事件）
+    ↓
+EventEffectPipeline（事件后果管线）
+    ↓
+Memory / Relationship / Location / Future Tendency（记忆/关系/地点/未来倾向）
+    ↓
+Grounded Narrative（有事实边界的叙事）
+```
+
+---
+
 ## 适合谁
 
 - **AI 陪伴** — 让 AI 伴侣真正"活"起来——有记忆、有情绪、会成长
