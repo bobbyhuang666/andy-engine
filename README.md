@@ -51,7 +51,7 @@ Plain AI is a **tool**. Andy Engine's AI are **characters** — they have their 
 | Health & illness system | Dynamic health + sick leave | None | None | None |
 | Negative behaviors | Skip class, procrastinate, call in sick | Deterministic | Deterministic | Deterministic |
 
-**This is not another Agent framework. This is a Character Engine.**
+**This is not another Agent framework. Andy Engine is evolving into a persistent world engine: characters, facts, knowledge, relationships, memories, and events continue to shape the world even when no one is watching.**
 
 ---
 
@@ -79,7 +79,10 @@ AndyEngine
 │   ├── World.js              World state (time, environment, agent collection)
 │   ├── Simulator.js          Hybrid Tick+Event scheduler (5-step pipeline)
 │   ├── EventDispatcher.js    Event system (5 sources + causal chains + semantic classification)
+│   ├── EventEffectPipeline.js Action/event consequences pipeline
+│   ├── WorldPressure.js      World pressure computation (pure function)
 │   ├── StoryGenerator.js     Narrative generation for LLM prompt injection
+│   ├── RNG.js                Seedable PRNG (Mulberry32, deterministic replay)
 │   └── AndyBridge.js         Bridge to external LLM
 │
 ├── agent/
@@ -95,7 +98,24 @@ AndyEngine
 │   ├── EmotionRegulation.js  Gross process model (3 strategies)
 │   ├── IntrinsicMotivation.js Curiosity + self-generated goals
 │   ├── ProceduralMemory.js   Habit formation + disruption
-│   └── Schedule.js           Schedule system (presets + Gaussian noise)
+│   ├── Schedule.js           Schedule system (presets + Gaussian noise)
+│   ├── FutureTendencyTracker.js  Future behavioral tendency tracking
+│   ├── LocationMeaningInfluence.js Location meaning influence
+│   └── action/               Action selection stack (experimental)
+│       ├── ActionCandidate.js    Pure JSON candidate representation
+│       ├── GoalSystem.js        Serializable goal management
+│       ├── UtilityScorer.js     12-dimension scoring
+│       ├── UtilitySelector.js   Utility-based selection
+│       ├── WorldObject.js       World object interaction
+│       └── providers/           7 candidate providers
+│
+├── facts/                    World canon facts system (experimental)
+│   ├── FactSchema.js         Fact type definitions & validation
+│   ├── KnowledgeStore.js     Knowledge storage
+│   ├── WorldFactStore.js     World fact store
+│   ├── CanonEventPipeline.js Event → fact pipeline
+│   ├── FactProvider.js       Fact grounding boundaries
+│   └── FactConsistencyChecker.js Consistency validation (regex-based)
 │
 ├── social/
 │   ├── SocialGraph.js        Global social graph (Dunbar layers + triadic closure)
@@ -113,6 +133,12 @@ AndyEngine
 │   ├── DomainRegistry.js     Domain parsing and management
 │   └── validateDomain.js     Domain config validation
 │
+├── world/                    Persistent world tooling
+│   ├── WorldStateAdapter.js  Stable Envelope adapter
+│   ├── validator.js          World Spec/State schema validation
+│   ├── compiler.js           World Spec → engine config
+│   └── migration.js          Schema version migration
+│
 ├── presets/                  World presets
 │   ├── campus/               Campus world (default)
 │   └── tavern/               Medieval tavern world (example)
@@ -120,6 +146,36 @@ AndyEngine
 ├── config/defaults.js        All tunable parameters
 └── sdk/                      High-level SDK
 ```
+
+---
+
+## Current Architecture Status
+
+Andy Engine is evolving from a character simulation engine into a persistent world engine.
+
+### Stable
+
+- Domain-agnostic runtime with campus default preset and custom domain support
+- Continuous 4D BehaviorField as the core behavior dynamics layer
+- Seeded RNG baseline for reproducible core simulations
+- Performance benchmark / profiling / perf-check baseline
+- 1000+ tests across unit, integration, domain, compatibility, and source-scan suites
+
+### Experimental
+
+- Action candidate stack: `CandidateProvider`, `UtilityScorer`, `UtilitySelector`, `ReasonTrace`
+- `EventEffectPipeline` for action/event consequences
+- `WorldPressure` and `FutureTendencyTracker`
+- WorldCanon facts system: `WorldFactStore`, `CanonEventPipeline`, `KnowledgeStore`, `FactProvider`
+- Grounded narrative package and `FactConsistencyChecker`
+
+### Not Production Contract Yet
+
+- Fact schema and Knowledge schema may still change
+- `FactConsistencyChecker` is regex-based and experimental
+- `WorldObject` is modeled but not fully integrated into `Agent.tick`
+- StoryArc runtime is paused
+- npm package has not been published
 
 ---
 
@@ -233,6 +289,23 @@ const blacksmith = engine.createCharacter({
 engine.tick();
 console.log(blacksmith.toNarrative());
 // "在铁匠铺，炉火熊熊。有点累了"
+```
+
+**Facts & Grounding (experimental, opt-in):**
+
+```javascript
+const engine = new AndyEngine({
+  domain: tavernDomain,
+  enableFacts: true,
+  seed: 42, // reproducible simulation
+});
+
+const bobby = engine.createCharacter({ id: 'bobby', name: 'Bobby' });
+engine.tick();
+
+const grounding = engine.getGroundingPackage('bobby');
+console.log(grounding.allowedFacts);
+// Facts/Grounding are experimental and opt-in via enableFacts: true.
 ```
 
 ---
