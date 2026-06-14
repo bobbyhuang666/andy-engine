@@ -1,57 +1,60 @@
 # Andy Engine
 
-**A world that runs itself.**
+**Persistent life-world runtime for AI characters.**
 
 > **[中文](#andy-engine-中文)**
 
-Andy is a psychology-driven multi-agent social simulation engine. Each character has independent emotions, memories, personality, and social relationships, autonomously evolving in a shared world — no manual intervention, no large language models. The world moves on its own.
+Andy Engine maintains a shared **WorldCanon**: what happened, who saw it, and what changed.
+
+Each character only knows part of that world, instead of having omniscient memory.
+
+Actions become canonical events that affect memory, relationships, location meaning, and future behavior.
+
+LLMs only express what a character knows; they do not create world facts.
+
+> Status: WIP research prototype. Psychological simulation is stable; WorldCanon / Knowledge / Grounded Narrative are experimental.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
-[![Rust Native](https://img.shields.io/badge/Rust-Native-orange.svg)](native/)
 
 ---
 
-### Plain AI vs Andy Engine
+## The core problem
 
-```
-         Plain AI                    Andy Engine
+Most AI characters can say "I went to the backyard yesterday" even if no world system recorded it.
 
-         User                        User
-           ↕                           ↕
-          AI                        AI A ↔ AI B
-                                     ↕      ↕
-                                   AI C ↔ AI D
-```
+Andy takes the opposite approach:
 
-Plain AI is a **tool**. Andy Engine's AI are **characters** — they have their own emotions, memories, and social relationships. They interact with each other autonomously.
-
-| Plain AI | Andy Engine |
-|---|---|
-| Starts fresh every time | Retains meaningful experiences, naturally forgets trivial ones |
-| Personality via prompts | Personality stable across 100+ turns |
-| Fake emotions | Real emotional evolution and contagion |
-| Only user ↔ AI | AI characters form relationship networks |
+1. Bobby moves from the tavern hall to the backyard at 21:30.
+2. The engine records this as a **CanonEvent**.
+3. Bobby knows the full event.
+4. Mira only saw Bobby leave the hall.
+5. Leo knows nothing.
+6. The LLM can only express each character's own knowledge.
 
 ---
 
-### Why Andy over other frameworks?
+## How it works
 
-| Feature | Andy | Generative Agents | CAMEL | ChatDev |
-|---|---|---|---|---|
-| 30-dimensional emotion | Cowen & Keltner (2017) | Valence only | None | None |
-| Continuous behavior field | 4D Langevin dynamics + personality modulation | Discrete states | Discrete states | Discrete states |
-| ACT-R memory model | 5-pathway retrieval + mood-congruent recall | Importance-based | Flat | Flat |
-| Big Five personality | OCEAN + 16 MBTI mapping | None | None | Role-based |
-| Maslow needs system | 5 drives + personality modulation | None | None | None |
-| Social graph dynamics | Dunbar layers + triadic closure + gossip | Static links | Chat only | Team only |
-| Emotion regulation | Gross process model (3 strategies) | None | None | None |
-| Procedural memory | Habit formation + disruption | None | None | None |
-| Intrinsic motivation | Curiosity + self-generated goals | None | None | None |
-| Health & illness system | Dynamic health + sick leave | None | None | None |
-| Negative behaviors | Skip class, procrastinate, call in sick | Deterministic | Deterministic | Deterministic |
+```
+WorldCanon
+  → Observation / Knowledge
+  → Agent State & World Pressure
+  → Action Candidates / Utility Selection
+  → CanonEvent
+  → EventEffectPipeline
+  → Memory / Relationship / LocationMeaning / FutureTendency
+  → Grounded Narrative
+```
 
-**This is not another Agent framework. Andy Engine is evolving into a persistent world engine: characters, facts, knowledge, relationships, memories, and events continue to shape the world even when no one is watching.**
+Characters are driven by:
+- **30-dimensional emotion** (Cowen & Keltner 2017) with 10-step evolution pipeline
+- **Continuous 4D behavior field** (Langevin dynamics + personality modulation)
+- **ACT-R memory** with mood-congruent recall and forgetting
+- **Maslow needs** with continuous gradient
+- **Dunbar social graph** with triadic closure and gossip
+
+The LLM is a rendering layer, not the source of truth.
 
 ---
 
@@ -452,33 +455,56 @@ For commercial licensing inquiries: huangweijiebobby@gmail.com
 
 # Andy Engine 中文
 
-**一个自己运转的世界。**
+**AI 角色的持久世界运行时。**
 
-Andy 正在从角色模拟引擎演化为**持久世界引擎**：角色、事实、知识、关系、记忆和事件会持续改变世界的未来——即使没有人看着。每个角色拥有独立的情绪、记忆、人格和社交关系，在共享世界中自主演化。
+Andy Engine 维护一个共享的 **WorldCanon**：发生了什么、谁看到了、什么改变了。
 
----
+每个角色只知道世界的一部分，而不是拥有全知记忆。
 
-## 普通 AI vs Andy Engine
+行为会变成规范事件，影响记忆、关系、地点意义和未来行为。
 
-| 普通 AI | Andy Engine |
-|---|---|
-| 每次对话从零开始 | 记住有意义的经历，也会自然遗忘 |
-| 性格靠提示词维持 | 100+ 轮对话后人格不变 |
-| 情绪是假装的 | 情绪会真实变化、会传染给其他角色 |
-| 只有用户 ↔ AI | AI 之间会形成关系网 |
+LLM 只能表达角色知道的事，不能创造世界事实。
+
+> 状态：WIP 研究原型。心理模拟已稳定；WorldCanon / 知识边界 / Grounded 叙事实验性。
 
 ---
 
-## 核心能力
+## 核心问题
 
-| 能力 | 它意味着什么 |
-|---|---|
-| **连续行为场** | 角色在 4D 行为空间中平滑移动，不跳变 |
-| **长期记忆** | AI 会记住你，也会遗忘 |
-| **人格稳定** | 聊 100 轮也不会性格突变 |
-| **情绪动态** | 情绪会变化、会衰减、会传染 |
-| **社交网络** | AI 之间自动建立关系 |
-| **多角色社会** | 多个 AI 共同生活、互相影响 |
+大多数 AI 角色可以说"我昨天去了后院"，即使没有任何世界系统记录过这件事。
+
+Andy 的做法相反：
+
+1. Bobby 从酒馆大厅走到后院，待了 25 分钟。
+2. 引擎将此记录为 **CanonEvent**。
+3. Bobby 知道完整事件。
+4. Mira 只看到 Bobby 离开了大厅。
+5. Leo 什么都不知道。
+6. LLM 只能表达每个角色自己的知识。
+
+---
+
+## 运行主线
+
+```
+WorldCanon（世界事实）
+  → 观察 / 知识积累
+  → 角色状态 & 世界压力
+  → 行为候选 / 效用选择
+  → CanonEvent
+  → EventEffectPipeline
+  → 记忆 / 关系 / 地点意义 / 未来倾向
+  → 有事实边界的叙事
+```
+
+角色由以下系统驱动：
+- **30 维情绪**（Cowen & Keltner 2017）+ 10 步演化管线
+- **连续 4D 行为场**（朗之万动力学 + 人格调制）
+- **ACT-R 记忆**（情绪一致性回忆 + 自然遗忘）
+- **Maslow 需求**（连续梯度）
+- **Dunbar 社交图谱**（三元闭合 + 八卦传播）
+
+LLM 是渲染层，不是事实来源。
 
 ---
 
