@@ -5,14 +5,14 @@
  * 其他 domain 由调用方提供，不依赖此 preset。
  *
  * 内容来源：
- *   - config/defaults.js: spatial.regions, adjacency, regionCoords
+ *   - spatial regions/adjacency/regionCoords: campus preset owns these (migrated from legacy defaults)
  *   - agent/StateMachine.js: STATES
  *   - agent/BehaviorLabeler.js: STATE_CENTERS, LABEL_TIME_PENALTIES
  *   - agent/NeedsSystem.js: NEED_SATISFACTION, NEED_DRIVE_STATES
  *   - core/EventDispatcher.js: regionEvents, generic events
  *   - agent/Appraisal.js: needKeywords, socialStates, outdoorPositions
  *   - agent/IntrinsicMotivation.js: domainRegionMap, explorationStates
- *   - agent/Schedule.js: createStudentSchedule, createWorkerSchedule
+ *   - campus schedules module (presets/campus/schedules.js) owns legacy schedule configs
  */
 
 const campusDomain = {

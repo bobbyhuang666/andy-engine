@@ -335,7 +335,7 @@ class IntrinsicMotivation {
     this._lastGoalId++;
     const id = this._lastGoalId;
     const now = simTime ? simTime.getTime() : Date.now();
-    const validRegions = new Set(ANDY_DEFAULTS.spatial.regions);
+    const validRegions = new Set(this.domain.regions);
 
     switch (goalType) {
       case 'explore_new': {

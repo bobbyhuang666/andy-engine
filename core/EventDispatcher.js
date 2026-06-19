@@ -39,6 +39,9 @@ class EventDispatcher {
 
     // 从 domain 取事件模板
     this._regionEvents = this.domain.eventTemplates.regionEvents || {};
+
+    // 语义分类：优先用 domain 的 semanticCategories，回退到 neutral defaults
+    this._semanticCategories = this.domain?.memoryTemplates?.semanticCategories || SEMANTIC_EVENT_CATEGORIES;
   }
 
   /**
@@ -504,16 +507,16 @@ class EventDispatcher {
    * @private
    */
   _classifySemanticCategory(type, content) {
-    const cats = SEMANTIC_EVENT_CATEGORIES;
+    const cats = this._semanticCategories;
 
     // 1. 基于事件类型的直接映射
-    if (type && cats.typeMap[type]) {
+    if (type && cats.typeMap && cats.typeMap[type]) {
       return cats.typeMap[type];
     }
 
     // 2. 基于内容关键词的分类
     const text = (content || '').toLowerCase();
-    if (text) {
+    if (text && cats.keywordMap) {
       for (const [category, keywords] of Object.entries(cats.keywordMap)) {
         for (const kw of keywords) {
           if (text.includes(kw)) return category;
