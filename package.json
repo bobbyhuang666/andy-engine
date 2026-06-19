@@ -30,6 +30,7 @@
     "index.js",
     "agent/",
     "core/",
+    "effects/",
     "social/",
     "spatial/",
     "store/",
