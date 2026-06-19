@@ -1,8 +1,8 @@
 # Andy Engine Architecture Snapshot
 
-> Date: 2026-06-14
-> Branch: codex/phase-26-31-action-foundation-wip
-> Baseline: HEAD 5d1a640 (v0.2.1) + WIP changes
+> Date: 2026-06-19
+> Branch: main
+> Baseline: HEAD f056e89 (v0.2.1) + current cleanup working tree
 
 ---
 
@@ -14,7 +14,7 @@ Modules that are production-ready, tested, and committed.
 
 | File | Lines | Key Responsibility |
 |------|------:|-------------------|
-| `agent/Agent.js` | 2011 | Main agent loop `tick()`, coordinates all 16 subsystem steps |
+| `agent/Agent.js` | 2057 | Main agent loop `tick()`, coordinates all 16 subsystem steps |
 | `agent/BehaviorField.js` | 662 | 4D continuous behavior field, underdamped Langevin dynamics |
 | `agent/BehaviorLabeler.js` | 362 | Semantic label projection (50 state centroids → Chinese labels) |
 | `agent/StateMachine.js` | 68 | State metadata (42 states, read-only) + lightweight history tracker |
@@ -25,10 +25,10 @@ Modules that are production-ready, tested, and committed.
 | `agent/EmotionRegulation.js` | 432 | Gross emotion regulation (3 strategies: reappraisal, distraction, suppression) |
 | `agent/IntrinsicMotivation.js` | 796 | Curiosity drive + self-generated goals (SDT + Oudeyer learning progress) |
 | `agent/NeedsSystem.js` | 341 | Maslow hierarchy (5 drives), continuous gradient for BehaviorField |
-| `agent/Schedule.js` | 333 | Schedule system with Gaussian noise perturbation |
+| `agent/Schedule.js` | 256 | Schedule system with Gaussian noise perturbation |
 | `agent/ProceduralMemory.js` | 277 | Habit formation/breaking via behavior sequence pattern detection |
 
-**Test coverage**: `tests/behavior-field.test.js` (61 tests), `tests/unit/emotion.test.js` (17), `tests/unit/personality.test.js` (14), `tests/unit/memory.test.js` (14), `tests/unit/social.test.js` (11), `tests/unit/statemachine.test.js` (5)
+**Test coverage**: `tests/behavior-field.test.js` (61 tests), `tests/unit/emotion.test.js` (17), `tests/unit/personality.test.js` (14), `tests/unit/memory.test.js` (14), `tests/unit/social.test.js` (11), `tests/unit/statemachine.test.js` (5), `tests/unit/action-candidate.test.js` (13), `tests/unit/utility-scorer.test.js` (11), `tests/unit/utility-selector.test.js` (8), `tests/unit/goalsystem.test.js` (36), `tests/unit/worldobject.test.js` (44), `tests/unit/candidate-providers.test.js` (29), `tests/unit/shadow-action-selection.test.js` (16), `tests/unit/action-event-emission.test.js` (5), `tests/unit/event-effect-pipeline.test.js` (14), `tests/unit/effect-pipeline-dry-run.test.js` (12), `tests/unit/world-pressure.test.js` (16)
 
 ### 1.2 Core Infrastructure
 
@@ -36,8 +36,8 @@ Modules that are production-ready, tested, and committed.
 |------|------:|-------------------|
 | `core/Simulator.js` | 460 | Multi-agent scheduler (5-step pipeline: time → environment → think → interact → dispatch) |
 | `core/World.js` | 344 | World state (time, environment, agent collection, SocialGraph, EventLog) |
-| `core/EventDispatcher.js` | 540 | Event system (5 sources: environment, state, schedule, random, causal) |
-| `core/WorldviewConstraints.js` | 250 | Forbidden term filtering (campus vocabulary → safe copy) |
+| `core/EventDispatcher.js` | 543 | Event system (5 sources: environment, state, schedule, random, causal) |
+| `core/WorldviewConstraints.js` | 250 | Legacy compatibility wrapper for worldview constraints and legacy sanitize helpers |
 | `core/RNG.js` | 130 | Seedable PRNG (Mulberry32), deterministic, cloneable |
 | `core/EmotionEffectClassifier.js` | 245 | Classifies events into emotion effect categories |
 | `core/EmotionSignalBuffer.js` | 134 | Buffers emotion signals for batch processing |
@@ -57,7 +57,7 @@ Modules that are production-ready, tested, and committed.
 | `presets/campus/` | — | Campus domain preset |
 | `presets/tavern/` | — | Tavern domain preset |
 
-**Test coverage**: `tests/domain.test.js` (13), `tests/domain-contract.test.js` (34), `tests/domain-deep.test.js` (14), `tests/compatibility.test.js` (15) — 76 domain tests total
+**Test coverage**: `tests/domain.test.js` (13), `tests/domain-contract.test.js` (34), `tests/domain-deep.test.js` (18), `tests/compatibility.test.js` (15) — 80 domain tests total
 
 ### 1.4 Social Graph
 
@@ -117,9 +117,9 @@ Modules that are production-ready, tested, and committed.
 
 ---
 
-## 2. Experimental Components
+## 2. Experimental / Opt-In Components
 
-Modules that exist in WIP but are NOT committed to main. All untracked files on branch `codex/phase-26-31-action-foundation-wip`.
+Modules that exist in the current repository behind feature flags or opt-in config gates. The listed runtime modules are tracked; current cleanup documentation may still be uncommitted in the working tree.
 
 ### 2.1 Facts System
 
@@ -143,21 +143,21 @@ Modules that exist in WIP but are NOT committed to main. All untracked files on 
 
 | File | Lines | Key Responsibility | Gate |
 |------|------:|-------------------|------|
-| `agent/action/ActionCandidate.js` | 71 | Pure JSON candidate model (9 action types, 10 sources, deterministic ID) | WIP untracked |
-| `agent/action/UtilityScorer.js` | 471 | Read-only candidate scorer (13 dimensions: need, emotion, behavior, memory, relationship, habit, goal, location, world, time, constraint, tendency, total) | WIP untracked |
-| `agent/action/UtilitySelector.js` | 160 | Temperature-based weighted selection with seeded RNG, produces ReasonTrace | WIP untracked |
-| `agent/action/GoalSystem.js` | 231 | Serializable goal system (5 sources, 4 statuses, pure pressure source) | WIP untracked |
-| `agent/action/WorldObject.js` | 314 | Abstract entity data model (5 lifecycle states, affordance system) | WIP untracked |
-| `agent/action/providers/CandidateProviderManager.js` | 59 | Aggregates providers, deterministic ordering, dedup by candidate.id | WIP untracked |
-| `agent/action/providers/ContinueCandidateProvider.js` | 23 | Continue current action candidate | WIP untracked |
-| `agent/action/providers/NeedCandidateProvider.js` | 41 | Need-driven candidates | WIP untracked |
-| `agent/action/providers/ScheduleCandidateProvider.js` | 33 | Schedule-driven candidates | WIP untracked |
-| `agent/action/providers/BehaviorFieldCandidateProvider.js` | 41 | BehaviorField-driven candidates | WIP untracked |
-| `agent/action/providers/ExploreCandidateProvider.js` | 24 | Exploration candidates | WIP untracked |
-| `agent/action/providers/SocializeCandidateProvider.js` | 27 | Social interaction candidates | WIP untracked |
-| `agent/action/providers/CandidateProvider.js` | 23 | Base provider interface | WIP untracked |
+| `agent/action/ActionCandidate.js` | 71 | Pure JSON candidate model (9 action types, 10 sources, deterministic ID) | `actionSelection.enabled: true` |
+| `agent/action/UtilityScorer.js` | 471 | Read-only candidate scorer (13 dimensions: need, emotion, behavior, memory, relationship, habit, goal, location, world, time, constraint, tendency, total) | `actionSelection.enabled: true` |
+| `agent/action/UtilitySelector.js` | 160 | Temperature-based weighted selection with seeded RNG, produces ReasonTrace | `actionSelection.enabled: true` |
+| `agent/action/GoalSystem.js` | 231 | Serializable goal system (5 sources, 4 statuses, pure pressure source) | `actionSelection.enabled: true` |
+| `agent/action/WorldObject.js` | 314 | Abstract entity data model (5 lifecycle states, affordance system) | `actionSelection.enabled: true` |
+| `agent/action/providers/CandidateProviderManager.js` | 59 | Aggregates providers, deterministic ordering, dedup by candidate.id | `actionSelection.enabled: true` |
+| `agent/action/providers/ContinueCandidateProvider.js` | 23 | Continue current action candidate | `actionSelection.enabled: true` |
+| `agent/action/providers/NeedCandidateProvider.js` | 41 | Need-driven candidates | `actionSelection.enabled: true` |
+| `agent/action/providers/ScheduleCandidateProvider.js` | 33 | Schedule-driven candidates | `actionSelection.enabled: true` |
+| `agent/action/providers/BehaviorFieldCandidateProvider.js` | 41 | BehaviorField-driven candidates | `actionSelection.enabled: true` |
+| `agent/action/providers/ExploreCandidateProvider.js` | 24 | Exploration candidates | `actionSelection.enabled: true` |
+| `agent/action/providers/SocializeCandidateProvider.js` | 27 | Social interaction candidates | `actionSelection.enabled: true` |
+| `agent/action/providers/CandidateProvider.js` | 23 | Base provider interface | `actionSelection.enabled: true` |
 
-**Gate**: WIP untracked files. Phase 26-31 roadmap. TODO comments indicate future providers: MemoryCandidateProvider (Phase 28+), HabitCandidateProvider (Phase 29+), WorldPressureCandidateProvider (Phase 26.8+).
+**Gate**: `actionSelection.enabled` flag (default `false`) in `AndyEngine` constructor. Modes: `shadow` (trace only), `event` (emit action_selected event), `dryRunEffects` (compute stateDeltas without mutation), `active` (apply allowed deltas). Integrated into `Agent.tick()` via `_runShadowActionSelection()` at step 9.5.
 
 **Test coverage**: `tests/unit/action-candidate.test.js` (13), `tests/unit/utility-scorer.test.js` (11), `tests/unit/utility-selector.test.js` (8), `tests/unit/goalsystem.test.js` (36), `tests/unit/worldobject.test.js` (44), `tests/unit/candidate-providers.test.js` (29), `tests/unit/shadow-action-selection.test.js` (16), `tests/unit/action-event-emission.test.js` (5)
 
@@ -165,10 +165,11 @@ Modules that exist in WIP but are NOT committed to main. All untracked files on 
 
 | File | Lines | Key Responsibility | Gate |
 |------|------:|-------------------|------|
-| `core/EventEffectPipeline.js` | 276 | Pure module: event → memory/location/tendency deltas (agent consequences) | WIP untracked |
-| `core/WorldPressure.js` | 111 | Read-only world pressure computation (time, location, crowding, event) | WIP untracked |
+| `effects/EventEffectPipeline.js` | 276 | Pure module: event → memory/location/tendency deltas (agent consequences) | `actionSelection.mode: 'dryRunEffects' \| 'active'` |
+| `core/EventEffectPipeline.js` | — | Compatibility wrapper (delegates to `effects/EventEffectPipeline.js`) | — |
+| `core/WorldPressure.js` | 111 | Read-only world pressure computation (time, location, crowding, event) | `actionSelection.enabled: true` |
 
-**Gate**: WIP untracked. Used by Simulator.js (imported but pipeline only active with action selection).
+**Gate**: EventEffectPipeline is wired into `Agent._runShadowActionSelection()` — active when mode is `dryRunEffects` or `active`. WorldPressure is a pure read-only module available to action selection context but not directly imported by Agent.js.
 
 **Test coverage**: `tests/unit/event-effect-pipeline.test.js` (14), `tests/unit/effect-pipeline-dry-run.test.js` (12), `tests/unit/world-pressure.test.js` (16)
 
@@ -222,7 +223,7 @@ Documents that define future directions but are NOT implemented.
 
 ### 4.2 EventEffectPipeline: event → memory/location/tendency (agent consequences)
 
-- **Location**: `core/EventEffectPipeline.js` (276 lines)
+- **Location**: `effects/EventEffectPipeline.js` (276 lines) — dependency leaf. `core/EventEffectPipeline.js` is a compatibility wrapper.
 - **Input**: `{ agentSnapshot, selectedCandidate, reasonTrace, simTime }`
 - **Output**: `{ event, stateDeltas, updatedReasonTrace }`
 - **Boundary**: Responsible for *what it means to the agent* (consequences). Pure module — does NOT modify live Agent/World. Produces delta shapes: need/emotion/memory/relationship/location/world.
@@ -324,7 +325,7 @@ FactConsistencyChecker.check(llmOutput, grounding)
 
 ## 6. Key Constraints
 
-1. **Domain-agnostic core**: No campus/tavern terms in core modules. Domain vocabulary lives in `presets/` and `domain/`. `WorldviewConstraints` enforces forbidden term filtering.
+1. **Domain-agnostic core**: No campus/tavern terms in core modules. Domain vocabulary lives in `presets/` and `domain/`. `domain/ForbiddenTerms.js` owns domain forbidden-term filtering; `core/WorldviewConstraints.js` remains a legacy compatibility wrapper.
 
 2. **No `Math.random()` / `Date.now()` in deterministic runtime paths**: All randomness via injected `RNG` instance (Mulberry32). All time from `simTime` context. Enforced by source-scan test (`tests/source-scan.test.js`).
 
@@ -346,7 +347,7 @@ FactConsistencyChecker.check(llmOutput, grounding)
 
 | Category | Test Files | Tests | Notes |
 |----------|-----------|------:|-------|
-| **Total** | 60 | 1022 | All passing (vitest, 3.56s) |
+| **Total** | 62 | 1070 | All passing (vitest, 3.47s) |
 | Behavior field | 1 | 61 | Largest single test file |
 | SDK | 2 | 58 | sdk.test.js (54) + sdk-custom-domain.test.js (4) |
 | Schema validator | 1 | 45 | World Spec + World State validation |
@@ -358,6 +359,7 @@ FactConsistencyChecker.check(llmOutput, grounding)
 | World tooling | 3 | 89 | world-state-adapter (16), world-tooling (28), schema-validator (45) |
 | Source scan | 1 | 5 | Enforces no Math.random/Date.now in runtime |
 | Package boundary | 1 | 21 | Public API surface validation |
+| Architecture | 1 | — | Boundary check enforcement |
 | Smoke pack | script | 14 | Fresh-install smoke test (`scripts/smoke-pack.sh`) |
 | RNG injection | 1 | 27 | Deterministic RNG propagation |
 

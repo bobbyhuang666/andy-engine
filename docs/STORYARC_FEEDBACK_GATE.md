@@ -33,7 +33,8 @@ StoryArc introduces systemic risk that requires explicit human approval:
 All of the following must be satisfied before StoryArc runtime is authorized:
 
 ### P1: EventEffectPipeline Stability
-- `core/EventEffectPipeline.js` is stable and tested
+- `effects/EventEffectPipeline.js` is stable and tested
+- `core/EventEffectPipeline.js` remains a compatibility wrapper
 - Pipeline writes `stateDeltas` into ReasonTrace
 - Pipeline handles at least: emotion delta, need delta, memory add, relationship interaction
 
