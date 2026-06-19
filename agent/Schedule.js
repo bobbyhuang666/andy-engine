@@ -168,126 +168,50 @@ class Schedule {
   }
 
   // ═══════════════════════════════════════════
-  // 静态工厂方法
+  // 静态工厂方法 (deprecated compatibility wrappers)
   // ═══════════════════════════════════════════
-  // Campus Legacy Presets（仅供 campus domain 使用）
-  // 自定义 domain 应使用 domain.roleArchetypes
+  // Data lives in presets/campus/schedules.js.
+  // These wrappers lazily load that module and return Schedule instances.
+  // Custom domains should use domain.roleArchetypes instead.
   // ═══════════════════════════════════════════
 
+  static _campusSchedules() {
+    if (!Schedule._campusSchedulesCache) {
+      Schedule._campusSchedulesCache = require('../presets/campus/schedules');
+    }
+    return Schedule._campusSchedulesCache;
+  }
+
   /**
-   * 创建日程模板（campus legacy preset）
-   * @deprecated 自定义 domain 应使用 domain.roleArchetypes
-   * @param {Object} options
-   * @returns {Schedule}
+   * @deprecated Use domain.roleArchetypes or presets/campus/schedules directly
    */
   static createStudentSchedule(options = {}) {
-    const {
-      morningClass = 8,
-      afternoonClass = 14,
-      workDays = [1, 3, 5],   // 周一三五打工
-      workStart = 17,
-      workEnd = 21,
-    } = options;
-
-    return new Schedule({
-      entries: [
-        // 早晨洗漱
-        { startHour: 7, endHour: 7.5, region: '住处', activity: '在洗漱',
-          days: [1, 2, 3, 4, 5], probability: 0.95, noise: 15 },
-        // 早餐
-        { startHour: 7.5, endHour: 8, region: '餐厅', activity: '在餐厅',
-          days: [1, 2, 3, 4, 5], probability: 0.6, noise: 20 },
-        // 上午工作
-        { startHour: morningClass, endHour: morningClass + 2, region: '工作区', activity: '在工作',
-          days: [1, 2, 3, 4, 5], probability: 0.85, noise: 10 },
-        // 上午第二轮工作
-        { startHour: morningClass + 2.5, endHour: morningClass + 4.5, region: '工作区', activity: '在工作',
-          days: [1, 2, 3, 4, 5], probability: 0.8, noise: 10 },
-        // 午饭
-        { startHour: 12, endHour: 13, region: '餐厅', activity: '在餐厅',
-          days: [0, 1, 2, 3, 4, 5, 6], probability: 0.9, noise: 30 },
-        // 午休/休息
-        { startHour: 13, endHour: 14, region: '住处', activity: '先躺一会',
-          days: [1, 2, 3, 4, 5], probability: 0.5, noise: 20 },
-        // 下午工作
-        { startHour: afternoonClass, endHour: afternoonClass + 2, region: '工作区', activity: '在工作',
-          days: [1, 2, 3, 4], probability: 0.75, noise: 15 },
-        // 阅览室专注
-        { startHour: afternoonClass + 2, endHour: 17, region: '阅览室', activity: '在专注做事',
-          days: [1, 2, 3, 4, 5], probability: 0.5, noise: 30 },
-        // 打工
-        { startHour: workStart, endHour: workEnd, region: '打工处', activity: '在打工',
-          days: workDays, probability: 0.9, noise: 15 },
-        // 晚饭
-        { startHour: 18, endHour: 19, region: '餐厅', activity: '在餐厅',
-          days: [0, 2, 4, 6], probability: 0.7, noise: 30 }, // 非打工日
-      ],
-    });
+    const config = Schedule._campusSchedules().createStudentScheduleConfig(options);
+    return new Schedule(config);
   }
 
   /**
-   * 创建上班族日程模板（campus legacy preset）
-   * @deprecated 自定义 domain 应使用 domain.roleArchetypes
+   * @deprecated Use domain.roleArchetypes or presets/campus/schedules directly
    */
   static createWorkerSchedule(options = {}) {
-    const { workStart = 9, workEnd = 18 } = options;
-
-    return new Schedule({
-      entries: [
-        { startHour: 7, endHour: 7.5, region: '家', activity: '在洗漱',
-          days: [1, 2, 3, 4, 5], probability: 0.95, noise: 15 },
-        { startHour: 8, endHour: 8.5, region: '路上', activity: '在路上',
-          days: [1, 2, 3, 4, 5], probability: 0.9, noise: 20 },
-        { startHour: workStart, endHour: 12, region: '工作地', activity: '在工作',
-          days: [1, 2, 3, 4, 5], probability: 0.95, noise: 10 },
-        { startHour: 12, endHour: 13, region: '餐厅', activity: '在餐厅',
-          days: [1, 2, 3, 4, 5], probability: 0.8, noise: 20 },
-        { startHour: 13, endHour: workEnd, region: '工作地', activity: '在工作',
-          days: [1, 2, 3, 4, 5], probability: 0.95, noise: 10 },
-        { startHour: 19, endHour: 20, region: '家', activity: '在做饭',
-          days: [0, 1, 2, 3, 4, 5, 6], probability: 0.6, noise: 30 },
-      ],
-    });
+    const config = Schedule._campusSchedules().createWorkerScheduleConfig(options);
+    return new Schedule(config);
   }
 
   /**
-   * 创建自由职业者日程模板
+   * @deprecated Use domain.roleArchetypes or presets/campus/schedules directly
    */
   static createFreelancerSchedule(options = {}) {
-    return new Schedule({
-      entries: [
-        { startHour: 9, endHour: 10, region: '家', activity: '在洗漱',
-          days: [0, 1, 2, 3, 4, 5, 6], probability: 0.7, noise: 60 },
-        { startHour: 10, endHour: 12, region: '家', activity: '在工作',
-          days: [1, 2, 3, 4, 5], probability: 0.7, noise: 60 },
-        { startHour: 12, endHour: 13, region: '餐厅', activity: '在餐厅',
-          days: [0, 1, 2, 3, 4, 5, 6], probability: 0.8, noise: 30 },
-        { startHour: 14, endHour: 18, region: '咖啡店', activity: '在工作',
-          days: [1, 2, 3, 4, 5], probability: 0.6, noise: 60 },
-        { startHour: 19, endHour: 20, region: '家', activity: '在做饭',
-          days: [0, 1, 2, 3, 4, 5, 6], probability: 0.5, noise: 30 },
-      ],
-    });
+    const config = Schedule._campusSchedules().createFreelancerScheduleConfig(options);
+    return new Schedule(config);
   }
 
   /**
-   * 创建退休/居家日程模板
+   * @deprecated Use domain.roleArchetypes or presets/campus/schedules directly
    */
   static createHomeSchedule(options = {}) {
-    return new Schedule({
-      entries: [
-        { startHour: 6, endHour: 7, region: '家', activity: '在洗漱',
-          days: [0, 1, 2, 3, 4, 5, 6], probability: 0.8, noise: 30 },
-        { startHour: 7, endHour: 8, region: '家', activity: '在做饭',
-          days: [0, 1, 2, 3, 4, 5, 6], probability: 0.7, noise: 30 },
-        { startHour: 9, endHour: 11, region: '公园', activity: '在散步',
-          days: [0, 1, 2, 3, 4, 5, 6], probability: 0.5, noise: 60 },
-        { startHour: 12, endHour: 13, region: '家', activity: '在吃饭',
-          days: [0, 1, 2, 3, 4, 5, 6], probability: 0.8, noise: 20 },
-        { startHour: 14, endHour: 16, region: '家', activity: '在看剧',
-          days: [0, 1, 2, 3, 4, 5, 6], probability: 0.6, noise: 60 },
-      ],
-    });
+    const config = Schedule._campusSchedules().createHomeScheduleConfig(options);
+    return new Schedule(config);
   }
 
   /**
@@ -298,7 +222,6 @@ class Schedule {
    * @returns {Schedule}
    */
   static resolvePreset(preset, options = {}) {
-    // 已经是配置对象，直接构造
     if (typeof preset === 'object' && preset !== null) {
       return new Schedule(preset);
     }

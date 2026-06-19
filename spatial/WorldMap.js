@@ -75,7 +75,7 @@ class WorldMap {
   }
 
   /**
-   * 从 ANDY_DEFAULTS.spatial.adjacency 自动设置区域邻接
+   * 设置区域邻接关系
    * @param {Object} adjacencyMap - { "区域A": ["区域B", "区域C"], ... }
    */
   setAdjacency(adjacencyMap) {
