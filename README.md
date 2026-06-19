@@ -839,9 +839,9 @@ Rust SoA f32 引擎在 50K agents 时比 JS 快 **5.92x**，精度误差 < 1e-8�
 
 | 指标 | 值 |
 |------|-----|
-| 20 agents × 10 天 | 25.6 秒（JS） |
 | 50K agents × 20 ticks | 24.9ms/tick（Rust） |
-| 500K agents | 8.94x 加速（Dunbar 层级传染） |
+
+此外，Dunbar 层级传染优化（JS 侧）在 500K agents 时达到 **8.94x** 加速，详见 `experiments/RESULTS.md`。
 
 详见 `benchmarks/` 目录。
 

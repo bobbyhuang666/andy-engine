@@ -19,7 +19,9 @@ Persistent-world internal tooling
 Seeded RNG baseline
 Performance baseline
 Memory / Goal / WorldObject / StoryArc RFCs
-Action-selection WIP branch: shadow reasonTrace foundation
+Action-selection integrated (shadow/event/dryRunEffects/active modes)
+EventEffectPipeline wired into action selection
+Facts system opt-in (enableFacts flag)
 ```
 
 Current stable expectations:
@@ -31,25 +33,34 @@ Current stable expectations:
 - `StateMachine` is metadata/history only.
 - `world/` tooling is internal ecosystem tooling, not a public stable API.
 - `runtimeSnapshot` is opaque and must not leak private runtime structure into Stable World Envelope.
+- Action selection is opt-in via `actionSelection` config (default: disabled).
+- EventEffectPipeline is wired into action selection for dryRun/active modes.
 - StoryArc runtime is not approved.
 
-Current WIP branch status:
+Current opt-in subsystem status:
 
 ```text
-Branch: codex/phase-26-31-action-foundation-wip
-Shadow action-selection exists and is test-backed.
+All action-selection, EventEffectPipeline, WorldPressure, and facts modules are tracked on main.
+Shadow action-selection exists in Agent.tick() at step 9.5 and is test-backed.
 ReasonTrace history exists in runtimeSnapshot.
 CandidateProvider / UtilityScorer / UtilitySelector / GoalSystem / WorldObject pure modules exist.
-EventEffectPipeline and WorldPressure pure modules exist.
+EventEffectPipeline is wired into Agent._runShadowActionSelection() for dryRun/active modes.
+WorldPressure is a pure read-only module available to action context.
+Facts system is opt-in via enableFacts flag (default false).
 ```
 
 Current accepted limitation:
 
 ```text
-The action-selection stack is not yet an active behavior loop.
-Shadow mode records traces but does not emit action_selected events.
-EventEffectPipeline exists but is not wired into Agent.tick().
-No selected action writes back into needs / emotion / memory / relationship / world state.
+Action selection is integrated into Agent.tick() at step 9.5 with four modes:
+  shadow       — records reasonTrace only, no event emission
+  event        — emits action_selected event to EventDispatcher
+  dryRunEffects — computes stateDeltas via EventEffectPipeline without mutation
+  active       — applies allowed stateDeltas to live agent state
+Default mode is shadow (no behavior change unless explicitly enabled).
+EventEffectPipeline is wired into Agent._runShadowActionSelection().
+WorldPressure is a pure read-only module available to action context but not directly imported by Agent.
+Active writeback is gated and only applies allowlisted deltas (needs, emotion, memory).
 WorldObject exists as a pure model but is not a perception/candidate/effect source.
 StoryArc remains paused.
 ```
@@ -372,6 +383,351 @@ selected action
 Behavior selection remains necessary, but it is now a subordinate implementation
 layer inside the larger world-fact loop.
 
+### 2.7 Modular Boundary Framework
+
+The next architectural direction is **decoupling**, not feature accumulation.
+
+Andy Engine must not grow into a single package that mixes:
+
+```text
+core simulation
+  + adventure/RPG mechanics
+  + player inventory
+  + quest systems
+  + fantasy/cultivation semantics
+  + status boards
+  + presentation UX
+```
+
+Those are valid upper-layer uses of Andy Engine, but they are not all engine
+core.
+
+The future framework is organized around one clean core and four extension
+surfaces:
+
+```text
+Andy Engine Ecosystem
+
+1. andy-core
+   Persistent world runtime and simulation authority.
+
+2. andy-psychology-runtime
+   Agent psychological state and behavior tendency systems.
+
+3. andy-world-canon
+   Facts, knowledge, observation, grounding, and consistency boundaries.
+
+4. andy-domain-packs
+   Domain configs, world presets, and world-specific vocabulary/rules.
+
+5. andy-extensions
+   Adventure, Bobby, Andy Town, RPG, fantasy/cultivation, and other upper layers.
+```
+
+This does not require an immediate monorepo/package split. It is first a
+conceptual and review boundary. Directory moves should happen only after the
+runtime seams are stable.
+
+#### 2.7.1 Current Framework
+
+Current Andy Engine can be understood as these blocks:
+
+```text
+Andy Engine Current Framework
+
+1. Simulation Core
+   - World
+   - Simulator
+   - EventDispatcher
+   - RNG
+   - DomainRegistry
+
+2. Agent Psychology
+   - BehaviorField
+   - EmotionVector
+   - NeedsSystem
+   - PersonalMemory
+   - Appraisal
+   - Personality
+   - IntrinsicMotivation
+   - EmotionRegulation
+   - ProceduralMemory
+   - Schedule
+
+3. Action / Pressure Layer
+   - CandidateProvider
+   - UtilityScorer
+   - UtilitySelector
+   - ReasonTrace
+   - GoalSystem
+   - WorldPressure
+   - FutureTendencyTracker
+   - LocationMeaningInfluence
+
+4. WorldCanon / Knowledge
+   - WorldFactStore
+   - FactSchema
+   - CanonEventPipeline
+   - KnowledgeStore
+   - FactProvider
+   - FactConsistencyChecker
+   - FactFormatter
+
+5. Domain / World Data
+   - presets/campus
+   - presets/tavern
+   - domain/validateDomain
+   - world/WorldStateAdapter
+   - world/validator
+   - world/compiler
+   - world/migration
+
+6. Presentation / SDK / Storage
+   - sdk/Character
+   - sdk/NarrativeBuilder
+   - sdk/Andy
+   - store/SQLiteStore
+   - examples
+   - demo
+```
+
+Current runtime direction:
+
+```text
+World / Simulator tick
+  -> Agent psychological state updates
+  -> BehaviorField evolves 4D behavior vector
+  -> Action candidates / utility scoring / reasonTrace
+  -> EventDispatcher
+  -> CanonEventPipeline
+  -> WorldFactStore + KnowledgeStore
+  -> EventEffectPipeline
+  -> Memory / LocationMeaning / FutureTendency
+  -> FactProvider grounding
+  -> NarrativeBuilder / LLM expression
+```
+
+#### 2.7.2 Future Framework
+
+Future Andy Engine should separate engine core, extension layers, domain packs,
+presentation apps, and tooling.
+
+```text
+Future Andy Framework
+
+andy-core/
+  - time
+  - tick scheduling
+  - world state
+  - event dispatch
+  - seedable RNG
+  - domain config loading
+  - runtime serialization hooks
+
+andy-psychology-runtime/
+  - needs
+  - emotion
+  - memory
+  - relationship
+  - habit
+  - appraisal
+  - personality
+  - intrinsic motivation
+  - BehaviorField
+  - future tendency
+
+andy-world-canon/
+  - facts
+  - events
+  - knowledge
+  - observation
+  - inference
+  - forbidden facts
+  - grounding package
+  - consistency check
+
+andy-action-intention/
+  - ActionCandidate
+  - CandidateProvider
+  - UtilityScorer
+  - UtilitySelector
+  - ReasonTrace
+  - SelectedActionToCanonEvent
+
+andy-effects/
+  - EventEffectPipeline (dependency leaf at effects/)
+  - state deltas
+  - memory deltas
+  - relationship deltas
+  - location meaning deltas
+  - future tendency deltas
+
+andy-domain-packs/
+  - campus
+  - tavern
+  - future fantasy/cultivation/Oak Town packs
+
+andy-extensions/
+  - adventure/RPG layer
+  - player projection
+  - item/inventory systems
+  - quest/commitment systems
+  - rule/lock systems
+  - status board / GM view
+
+presentation-apps/
+  - Bobby
+  - Andy Town
+  - Character Lab
+  - Adventure UI
+```
+
+The intended dependency direction is one-way:
+
+```text
+Presentation Apps
+  -> Extensions
+  -> Domain Packs
+  -> Action / Effects / WorldCanon
+  -> Core Runtime + Psychology
+```
+
+Lower layers must not import upper-layer concepts.
+
+#### 2.7.3 Core Boundary Rules
+
+Andy core must not know:
+
+- player
+- quest
+- inventory
+- cultivation
+- fantasy race
+- romance
+- companion UX
+- status board
+- UI map
+- Bobby
+- Andy Town
+
+Andy core may know:
+
+- external actor
+- controlled agent
+- world object
+- affordance
+- commitment fact
+- deadline pressure
+- rule fact
+- domain-defined attribute
+- domain-defined pressure source
+
+The difference matters:
+
+```text
+"quest" is an adventure-layer interpretation.
+"commitment/deadline/obligation fact" can be core.
+
+"inventory" is an RPG-layer interpretation.
+"world object ownership / affordance / visibility" can be core.
+
+"cultivation realm" is a domain-layer interpretation.
+"domain-defined agent attribute" can be core.
+```
+
+#### 2.7.4 Extension Boundary Rules
+
+Adventure/RPG systems are allowed as extensions, not core.
+
+Extension candidates include:
+
+- PlayerAgent
+- ItemSystem
+- QuestSystem
+- WorldRuleSystem
+- AdventureAdapter
+- StatusBoard
+- FantasyExtension
+- cultivation/fantasy domain packs
+
+These should depend on Andy Engine seams:
+
+- CanonEventPipeline
+- KnowledgeStore
+- FactProvider
+- EventEffectPipeline
+- Domain config
+- WorldObject / affordance APIs, once approved
+
+They must not directly mutate:
+
+- private agent psychological fields
+- relationship internals
+- memory internals
+- BehaviorField labels
+- world canon facts outside CanonEventPipeline / approved fact APIs
+
+#### 2.7.5 Presentation Boundary Rules
+
+Presentation apps consume engine output. They do not own world truth.
+
+Allowed presentation inputs:
+
+- grounding package
+- world state snapshot
+- event log
+- reasonTrace
+- narrative context
+- public domain metadata
+
+Forbidden presentation behavior:
+
+- direct mutation of agent emotion/needs/memory/relationships
+- inventing world facts through LLM prose
+- treating UI/map state as engine truth
+- bypassing EventDispatcher / CanonEventPipeline for canon-bearing changes
+
+#### 2.7.6 Tooling Boundary Rules
+
+World compiler, migration, domain builder, scenario runner, and benchmark runner
+are tooling. They may create or transform structured data, but they are not the
+runtime core.
+
+Tooling outputs must be:
+
+- structured
+- validated
+- versioned
+- replayable when deterministic mode is declared
+
+Tooling must not become hidden runtime logic.
+
+#### 2.7.7 Near-Term Modular Boundary Phase
+
+Before adding new Adventure/RPG/Fantasy systems, run a boundary split phase:
+
+```text
+Phase: Modular Boundary Split
+```
+
+Deliverables:
+
+- `docs/MODULAR_BOUNDARY_PLAN.md`
+- `docs/ARCHITECTURE_BOUNDARIES.md`
+- `docs/KNOWN_BOUNDARY_VIOLATIONS.md`
+- `scripts/check-boundaries.js`
+- `tests/architecture/*`
+
+Purpose:
+
+- freeze current core boundaries
+- document tolerated legacy debt
+- prevent upper-layer concepts from re-entering core
+- make future extensions possible without contaminating the engine
+
+Do not use this phase to move files aggressively. Use it to establish review
+rules first.
+
 ---
 
 ## 3. Long-Term Target
@@ -669,23 +1025,24 @@ Current WIP status:
 
 | Subphase | Status | Notes |
 |---|---|---|
-| 26.1 RNG Trace Hardening | Implemented in WIP | RNG state snapshot/restore and `traceDraw()` exist. |
-| 26.2 ActionCandidate | Implemented in WIP | Plain JSON candidate representation exists. |
-| 26.3 UtilityScorer | Implemented in WIP | Read-only scoring exists, including memory/goal dimensions. |
-| 26.4 UtilitySelector | Implemented in WIP | Seeded weighted selection and ReasonTrace exist. |
-| 26.5 Shadow Mode Integration | Implemented in WIP | `Agent.tick()` can record shadow traces without behavior mutation. |
-| 26.6 Shadow Config Hardening | Implemented in WIP | Action selection config is instance-level, not global. |
-| 26.7 Action Event Emission | Not complete | Shadow traces do not enter `EventDispatcher.eventLog`. |
-| 26.8 EventEffectPipeline Module | Partially implemented in WIP | Pure module exists; no runtime application path yet. |
-| 26.9 WorldPressure Module | Partially implemented in WIP | Pure module exists; not reliably fed into candidate scores from live world context. |
+| 26.1 RNG Trace Hardening | Implemented | RNG state snapshot/restore and `traceDraw()` exist. |
+| 26.2 ActionCandidate | Implemented | Plain JSON candidate representation exists. |
+| 26.3 UtilityScorer | Implemented | Read-only scoring exists, including memory/goal dimensions. |
+| 26.4 UtilitySelector | Implemented | Seeded weighted selection and ReasonTrace exist. |
+| 26.5 Shadow Mode Integration | Implemented | `Agent.tick()` step 9.5 records shadow traces without behavior mutation. |
+| 26.6 Shadow Config Hardening | Implemented | Action selection config is instance-level, not global. |
+| 26.7 Action Event Emission | Implemented | `event`/`dryRunEffects`/`active` modes emit `action_selected` events to EventDispatcher. |
+| 26.8 EventEffectPipeline Module | Implemented | Pure module at `effects/EventEffectPipeline.js` (dependency leaf), wired into Agent._runShadowActionSelection() for dryRun/active modes. `core/EventEffectPipeline.js` is a compatibility wrapper. |
+| 26.9 WorldPressure Module | Implemented | Pure read-only module exists; available to action context but not directly imported by Agent. |
 
 Important distinction:
 
 ```text
-Implemented module != accepted runtime behavior.
+Implemented module + integrated in Agent.tick ≠ full behavior closed-loop writeback.
+Shadow mode (default) remains behavior-invariant.
+Event/dryRun/active modes are opt-in via actionSelection config.
+Active writeback is limited to allowlisted deltas; full closed-loop writeback for all action types remains future work.
 ```
-
-The WIP branch has good foundation code, but the behavior loop is not closed until events and deltas are written back under a controlled active mode.
 
 ### 26.1 RNG Trace Hardening
 
@@ -851,7 +1208,7 @@ Tests:
 
 ### 26.8 EventEffectPipeline Minimal
 
-Create `core/EventEffectPipeline.js`.
+Create `effects/EventEffectPipeline.js` (dependency leaf). `core/EventEffectPipeline.js` is a compatibility wrapper that delegates to `effects/`.
 
 Initial supported effects:
 
