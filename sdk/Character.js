@@ -376,23 +376,23 @@ class Character {
   _recordConversation(userMsg, agentReply) {
     try {
       const agent = this._engine.world.getAgent(this.id);
-      if (!agent || !agent.memory) return;
+      if (!agent || typeof agent.recordExternalExperience !== 'function') return;
 
       // 用户说的话
-      agent.memory.addExperience({
+      agent.recordExternalExperience({
         content: `对方说："${userMsg.substring(0, 150)}"`,
         category: 'social',
         emotionTag: 'neutral',
         importance: 0.6,
-      }, agent.emotion);
+      });
 
       // 自己的回复
-      agent.memory.addExperience({
+      agent.recordExternalExperience({
         content: `我说了："${agentReply.substring(0, 150)}"`,
         category: 'social',
         emotionTag: 'neutral',
         importance: 0.5,
-      }, agent.emotion);
+      });
     } catch (e) {
       // 记忆失败不影响对话
     }

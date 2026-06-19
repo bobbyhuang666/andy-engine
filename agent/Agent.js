@@ -1652,6 +1652,52 @@ class Agent {
   }
 
   /**
+   * 外部经验注入公共接口
+   *
+   * SDK / 上层模块通过此方法向 Agent 注入经验记忆，
+   * 而不直接访问 agent.memory.addExperience。
+   *
+   * @param {Object} event - 经验事件 { content, type?, category?, emotionTag?, importance?, participants? }
+   * @param {Object} [options] - 可选参数 { importance? }
+   * @returns {Object|null} 创建的记忆，或输入非法时安全返回 null
+   */
+  recordExternalExperience(event, options = {}) {
+    try {
+      if (!event || typeof event !== 'object') return null;
+      if (!event.content || typeof event.content !== 'string') return null;
+
+      const normalized = { ...event };
+      normalized.content = event.content;
+      normalized.type = event.type || event.category || 'social';
+      normalized.category = event.category || event.type || 'social';
+      normalized.emotionTag = event.emotionTag || 'neutral';
+      normalized.importance = typeof event.importance === 'number' ? event.importance : 0.5;
+      normalized.participants = event.participants || [this.id];
+      normalized._region = this.position;
+      normalized._currentState = this.stateMachine.currentState;
+
+      const importance = typeof options.importance === 'number'
+        ? options.importance
+        : normalized.importance;
+
+      const memory = this.memory.addExperience(normalized, this.emotion, importance);
+      if (memory) {
+        const _reserved = new Set([
+          'content', 'type', 'category', 'emotionTag', 'importance',
+          'participants', '_region', '_currentState', 'timestamp', 'id',
+          'activation', 'accessCount', 'lastAccessed', 'createdAt',
+        ]);
+        for (const key of Object.keys(event)) {
+          if (!_reserved.has(key) && !(key in memory)) memory[key] = event[key];
+        }
+      }
+      return memory;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  /**
    * 设置社交图谱引用（由 World 调用）
    * 用于 Appraisal 系统中的代理性评估
    * @param {Object} socialGraph
