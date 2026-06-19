@@ -14,6 +14,7 @@
 import { describe, it, expect } from 'vitest';
 import AndyEngine from '../index.js';
 import tavernDomain from '../presets/tavern/index.js';
+import EventDispatcher from '../core/EventDispatcher.js';
 
 // 校园词列表
 const CAMPUS_WORDS = [
@@ -289,6 +290,33 @@ describe('Domain-Agnostic 深度测试', () => {
       // 检查 narrative
       const narrativeViolations = containsCampusWords(ctx.narrative || '');
       expect(narrativeViolations).toEqual([]);
+    });
+  });
+
+  describe('EventDispatcher semantic classification is domain-aware', () => {
+    it('campus domain: content 含 campus keyword 应分类到 campus category', async () => {
+      const campusDomain = (await import('../presets/campus/index.js')).default;
+      const ed = new EventDispatcher(campusDomain);
+      const evt = ed.createEvent({ type: 'random', content: '突然想起明天还有作业没写' });
+      expect(evt.semanticCategory).toBe('生活杂事');
+    });
+
+    it('tavern domain: content 含 campus-only keyword 不应分类成 campus category', () => {
+      const ed = new EventDispatcher(tavernDomain);
+      const evt = ed.createEvent({ type: 'random', content: '老师讲了个有趣的例子' });
+      expect(evt.semanticCategory).toBe('日常琐事');
+    });
+
+    it('tavern domain: content 含 tavern keyword 应分类到 tavern category', () => {
+      const ed = new EventDispatcher(tavernDomain);
+      const evt = ed.createEvent({ type: 'random', content: '喝了一杯麦酒' });
+      expect(evt.semanticCategory).toBe('酒馆');
+    });
+
+    it('minimal domain missing semanticCategories: 不崩，走 neutral fallback', () => {
+      const ed = new EventDispatcher({ eventTemplates: {}, placeTypes: {} });
+      const evt = ed.createEvent({ type: 'social', content: '聊了几句' });
+      expect(evt.semanticCategory).toBe('社交互动'); // typeMap fallback from defaults
     });
   });
 

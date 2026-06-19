@@ -36,8 +36,6 @@ const ALLOWED_PATHS = [
   'README.md',
   'AGENTS.md',
   'core/WorldviewConstraints.js', // transitional
-  'config/defaults.js', // campus legacy spatial config
-  'agent/Schedule.js', // campus legacy schedule presets
 ];
 
 // 允许使用 banned API 的路径
@@ -254,6 +252,35 @@ describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
       }).join('\n');
 
       expect.fail(`facts/** 包含非确定性 API:\n${msg}\n\n请使用 simTime 或 fixed epoch fallback。`);
+    }
+  });
+
+  it('config/defaults.js 是 core runtime defaults，不允许 campus-only terms', () => {
+    const rootDir = process.cwd();
+    const defaultsPath = path.join(rootDir, 'config', 'defaults.js');
+    const violations = scanFileForCampusTerms(defaultsPath);
+
+    if (violations.length > 0) {
+      const terms = violations.map(v => `${v.term}(${v.count})`).join(', ');
+      expect.fail(
+        `config/defaults.js 包含 campus-only 字符串: ${terms}\n` +
+        'config/defaults.js 是 core runtime defaults，不允许 campus-specific 术语。请使用中性描述。'
+      );
+    }
+  });
+
+  it('config/defaults.js 的 spatial 只能包含 generic continuous params，不允许 campus-specific keys', () => {
+    const { ANDY_DEFAULTS } = require('../config/defaults.js');
+    const spatial = ANDY_DEFAULTS.spatial;
+
+    const FORBIDDEN_KEYS = ['regions', 'adjacency', 'regionCoords'];
+    const found = FORBIDDEN_KEYS.filter(key => key in spatial);
+
+    if (found.length > 0) {
+      expect.fail(
+        `config/defaults.js spatial 包含 campus-specific keys: ${found.join(', ')}。\n` +
+        '这些 key 已迁移到 presets/campus，不应出现在全局 defaults 中。'
+      );
     }
   });
 

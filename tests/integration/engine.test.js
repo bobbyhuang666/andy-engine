@@ -17,6 +17,7 @@ describe('AndyEngine 集成测试', () => {
     engine = new AndyEngine({
       startTime: new Date('2024-01-15T08:00:00'),
       weather: 'sunny',
+      seed: 42,
     });
 
     const agentConfigs = [

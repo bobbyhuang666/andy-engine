@@ -457,6 +457,115 @@ describe('优化验证', () => {
   });
 });
 
+describe('D1: SDK 通过 Agent public seam 注入记忆', () => {
+  it('Character.chat 后 Agent memory 增加对话记忆', async () => {
+    const character = new Character({
+      name: 'Maya',
+      personality: 'INFP',
+      backstory: ['图书馆管理员'],
+      llm: async () => '好的，我知道了。',
+    });
+
+    const agent = character._engine.getAgent(character.id);
+    const before = agent.memory.memories.length;
+
+    await character.chat('今天天气真好');
+
+    const after = agent.memory.memories.length;
+    expect(after).toBeGreaterThan(before);
+
+    const memories = agent.memory.memories;
+    const userMemory = memories.find(m => m.content && m.content.includes('对方说') && m.content.includes('天气'));
+    expect(userMemory).toBeDefined();
+    const agentMemory = memories.find(m => m.content && m.content.includes('我说了'));
+    expect(agentMemory).toBeDefined();
+  });
+
+  it('Agent.recordExternalExperience 对非法输入安全返回 null', () => {
+    const character = new Character({
+      name: 'Maya',
+      personality: 'INFP',
+      llm: async () => 'ok',
+    });
+    const agent = character._engine.getAgent(character.id);
+
+    expect(agent.recordExternalExperience(null)).toBeNull();
+    expect(agent.recordExternalExperience(undefined)).toBeNull();
+    expect(agent.recordExternalExperience('string')).toBeNull();
+    expect(agent.recordExternalExperience({})).toBeNull();
+    expect(agent.recordExternalExperience({ content: '' })).toBeNull();
+    expect(agent.recordExternalExperience({ content: 123 })).toBeNull();
+  });
+
+  it('Agent.recordExternalExperience 合法输入返回记忆对象', () => {
+    const character = new Character({
+      name: 'Maya',
+      personality: 'INFP',
+      llm: async () => 'ok',
+    });
+    const agent = character._engine.getAgent(character.id);
+
+    const result = agent.recordExternalExperience({
+      content: '测试经验',
+      category: 'social',
+      importance: 0.7,
+    });
+    expect(result).toBeDefined();
+    expect(result.content).toBe('测试经验');
+    expect(result.category).toBe('social');
+  });
+
+  it('Agent.recordExternalExperience 保留额外字段', () => {
+    const character = new Character({
+      name: 'Maya',
+      personality: 'INFP',
+      llm: async () => 'ok',
+    });
+    const agent = character._engine.getAgent(character.id);
+
+    const result = agent.recordExternalExperience({
+      content: 'x',
+      source: 'sdk',
+      metadata: { turn: 1 },
+    });
+    expect(result).toBeDefined();
+    expect(result.source).toBe('sdk');
+    expect(result.metadata).toEqual({ turn: 1 });
+  });
+
+  it('Agent.recordExternalExperience 不写入外部传入的内部生成字段', () => {
+    const character = new Character({
+      name: 'Maya',
+      personality: 'INFP',
+      llm: async () => 'ok',
+    });
+    const agent = character._engine.getAgent(character.id);
+
+    const result = agent.recordExternalExperience({
+      content: '边界测试',
+      _region: 'fake_region',
+      _currentState: 'fake_state',
+      timestamp: 0,
+      id: 'fake_id',
+      activation: 999,
+      accessCount: 999,
+      lastAccessed: 0,
+      createdAt: 0,
+      source: 'sdk',
+    });
+    expect(result).toBeDefined();
+    expect(result._region).not.toBe('fake_region');
+    expect(result._currentState).not.toBe('fake_state');
+    expect(result.timestamp).not.toBe(0);
+    expect(result.id).not.toBe('fake_id');
+    expect(result.activation).not.toBe(999);
+    expect(result.accessCount).not.toBe(999);
+    expect(result.lastAccessed).not.toBe(0);
+    expect(result.createdAt).not.toBe(0);
+    expect(result.source).toBe('sdk');
+  });
+});
+
 describe('SDK 硬化验证', () => {
   describe('LLMAdapter 输入校验', () => {
     it('无效 provider 构造时抛错', () => {

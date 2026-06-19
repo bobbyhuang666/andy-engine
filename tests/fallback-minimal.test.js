@@ -205,4 +205,12 @@ describe('Fallback 测试：极简 domain 不泄漏 campus terms', () => {
 
     expect(violations).toEqual([]);
   });
+
+  it('极简 domain semantic classification 不崩，走 neutral fallback', () => {
+    const EventDispatcher = require('../core/EventDispatcher.js');
+    const ed = new EventDispatcher(minimalDomain);
+    const evt = ed.createEvent({ type: 'random', content: '看到一只猫' });
+    expect(typeof evt.semanticCategory).toBe('string');
+    expect(evt.semanticCategory.length).toBeGreaterThan(0);
+  });
 });
