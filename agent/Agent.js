@@ -30,7 +30,7 @@ const IntrinsicMotivation = require('./IntrinsicMotivation');
 const { BehaviorField } = require('./BehaviorField');
 const { DIM_ACTIVITY, DIM_SOCIALITY, DIM_FOCUS, DIM_EXPRESSIVENESS } = require('./BehaviorLabeler');
 const { EMOTION_DIMENSIONS, ANDY_DEFAULTS } = require('../config/defaults');
-const { applyForbiddenTerms } = require('../core/WorldviewConstraints');
+const { applyForbiddenTerms } = require('../domain/ForbiddenTerms');
 const LocationMeaningInfluence = require('./LocationMeaningInfluence');
 const FutureTendencyTracker = require('./FutureTendencyTracker');
 
@@ -474,7 +474,7 @@ class Agent {
       // 5. Compute stateDeltas for dryRunEffects/active modes (pure computation)
       let stateDeltas = null;
       if ((actionCfg.mode === 'dryRunEffects' || actionCfg.mode === 'active') && selected) {
-        const { applyActionEffect } = require('../core/EventEffectPipeline');
+        const { applyActionEffect } = require('../effects/EventEffectPipeline');
         const agentSnapshot = this._buildActionContext(env);
         const pipelineResult = applyActionEffect({
           agentSnapshot,

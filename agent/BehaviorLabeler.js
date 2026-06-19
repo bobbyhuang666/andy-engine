@@ -192,7 +192,7 @@ class BehaviorLabeler {
       desc += `，${modifiers[0]}`;
     }
 
-    const { applyForbiddenTerms } = require('../core/WorldviewConstraints');
+    const { applyForbiddenTerms } = require('../domain/ForbiddenTerms');
     return applyForbiddenTerms(desc, domain);
   }
 
@@ -296,7 +296,7 @@ class BehaviorLabelerDomain {
       desc += `，${modifiers[0]}`;
     }
 
-    const { applyForbiddenTerms } = require('../core/WorldviewConstraints');
+    const { applyForbiddenTerms } = require('../domain/ForbiddenTerms');
     return applyForbiddenTerms(desc, domain);
   }
 }

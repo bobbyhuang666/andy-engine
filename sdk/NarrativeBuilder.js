@@ -10,7 +10,7 @@
  *   6. 自然语言 — 不暴露任何引擎内部数值
  */
 
-const { applyForbiddenTerms } = require('../core/WorldviewConstraints');
+const { applyForbiddenTerms } = require('../domain/ForbiddenTerms');
 const { getDefaultDomain } = require('../domain/DomainRegistry');
 const { FactFormatter } = require('../facts');
 

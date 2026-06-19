@@ -14,7 +14,7 @@
  */
 
 const { ANDY_DEFAULTS, EMOTION_DIMENSIONS } = require('../config/defaults');
-const { applyEventConsequences } = require('./EventEffectPipeline');
+const { applyEventConsequences } = require('../effects/EventEffectPipeline');
 const cfg = ANDY_DEFAULTS.tick;
 
 class Simulator {
