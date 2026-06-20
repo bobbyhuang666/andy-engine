@@ -5,7 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { selectAction } from '../../agent/action/UtilitySelector.js';
 import { createCandidate } from '../../agent/action/ActionCandidate.js';
-import { RNG } from '../../core/RNG.js';
+import { RNG } from '../../src/shared/rng.js';
 
 describe('UtilitySelector', () => {
   const scoredCandidates = [

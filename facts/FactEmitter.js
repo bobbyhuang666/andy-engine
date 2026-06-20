@@ -1,8 +1,11 @@
 /**
- * FactEmitter - 事实生成器
+ * FactEmitter - 事实生成器（过渡性模块）
  *
  * 从引擎各子系统提取事实，写入 WorldFactStore。
  * 是纯函数，不修改引擎状态。
+ *
+ * TODO: 此模块暂留 facts/ 目录。未来应迁移到 src/canon/ 或消失
+ * （其职责可被 CanonEventPipeline 吸收）。
  */
 
 const {

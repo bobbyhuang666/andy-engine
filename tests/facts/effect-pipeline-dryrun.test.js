@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-const { applyActionEffect, computeStateDeltas } = require('../../core/EventEffectPipeline');
+const { applyActionEffect, computeStateDeltas } = require('../../effects/EventEffectPipeline');
 const AndyEngine = require('../../index.js');
 
 const TEST_START = new Date('2026-09-01T08:00:00Z');

@@ -1,14 +1,8 @@
 /**
- * domain/index.js — Domain 公共 API
+ * domain/ — Backward Compatibility Layer
  *
- * @module andy-engine/domain
+ * Re-exports from src/domain/ for backward compatibility.
+ * New code should import from 'andy-engine/domain' or directly from src/domain/.
  */
 
-const { DomainRegistry, getDefaultDomain } = require('./DomainRegistry');
-const { validateDomain } = require('./validateDomain');
-
-module.exports = {
-  DomainRegistry,
-  getDefaultDomain,
-  validateDomain,
-};
+module.exports = require('../src/domain');

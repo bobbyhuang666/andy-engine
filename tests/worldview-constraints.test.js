@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 const AndyEngine = require('../index');
-const { sanitizeText, checkViolations, safeRegion, safeActivity, applyForbiddenTerms } = require('../core/WorldviewConstraints');
+const { applyForbiddenTerms } = require('../src/domain/ForbiddenTerms');
 const { NarrativeBuilder } = require('../sdk');
 const tavern = require('../presets/tavern');
 
@@ -24,30 +24,6 @@ function containsCampusWords(text) {
 }
 
 describe('WorldviewConstraints & Pollution Prevention', () => {
-  describe('Sanitizer Utility', () => {
-    it('should correctly sanitize campus terms to town equivalents', () => {
-      const testCases = [
-        { input: '在教室上课', expected: '在工作区工作' },
-        { input: '在图书馆自习', expected: '在阅览室专注做事' },
-        { input: '在宿舍躺着', expected: '在住处躺着' },
-        { input: '在食堂吃饭', expected: '在餐厅吃饭' },
-        { input: '在操场跑步', expected: '在运动场跑步' },
-        { input: '学生在上课', expected: '年轻人在工作' },
-        { input: '老师在讲课', expected: '前辈在讲课' },
-      ];
-
-      for (const { input, expected } of testCases) {
-        expect(sanitizeText(input)).toBe(expected);
-      }
-    });
-
-    it('should detect violations correctly', () => {
-      const violationTest = checkViolations('在教室上课，学生在听老师讲课');
-      expect(violationTest.hasViolation).toBe(true);
-      expect(violationTest.violations.length).toBeGreaterThan(0);
-    });
-  });
-
   describe('Agent.toNarrative() with custom domain', () => {
     it('should generate clean narrative containing no unallowlisted campus words in tavern domain', () => {
       const engine = new AndyEngine({ domain: tavern });

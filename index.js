@@ -28,10 +28,10 @@ const Agent = require('./agent/Agent');
 const Schedule = require('./agent/Schedule');
 const { ANDY_DEFAULTS } = require('./config/defaults');
 const { validateConfig, validateAgentConfig } = require('./config/validate');
-const { applyForbiddenTerms } = require('./core/WorldviewConstraints');
+const { applyForbiddenTerms } = require('./src/domain/ForbiddenTerms');
 const { DomainRegistry } = require('./domain/DomainRegistry');
 const { validateDomain } = require('./domain/validateDomain');
-const { RNG } = require('./core/RNG');
+const { RNG } = require('./src/shared/rng');
 const { FactProvider, FactConsistencyChecker } = require('./facts');
 
 // ═══════════════════════════════════════════

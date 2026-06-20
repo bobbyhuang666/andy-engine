@@ -68,12 +68,14 @@ The following are not violations but accepted architectural patterns.
 **Resolved**: 2026-06-19.
 **Verification**: `agent/Agent.js` now imports `applyActionEffect` from `effects/EventEffectPipeline.js` (dependency leaf). `core/Simulator.js` also imports `effects/EventEffectPipeline.js` directly. The `core/EventEffectPipeline.js` wrapper delegates to `effects/EventEffectPipeline.js` for backward compatibility.
 **Boundary check**: `npm run check:boundaries` confirms `agent/` has no direct `core/EventEffectPipeline` imports.
+**Phase 12**: `core/EventEffectPipeline.js` wrapper retired (deleted). Zero external imports at retirement.
 
 ### V2: Agent imports from core/WorldviewConstraints
 
 **Resolved**: 2026-06-19.
 **Verification**: `agent/Agent.js` and `agent/BehaviorLabeler.js` now import `applyForbiddenTerms` from `domain/ForbiddenTerms.js` (dependency leaf). The `core/WorldviewConstraints.js` wrapper delegates to `domain/ForbiddenTerms.js` for backward compatibility.
 **Boundary check**: `npm run check:boundaries` confirms `agent/` has no direct `core/WorldviewConstraints` imports.
+**Phase 12**: `core/WorldviewConstraints.js` wrapper retired (deleted). Only `index.js` imported it; updated to `src/domain/ForbiddenTerms.js`.
 
 ### V3: SDK/Character.js directly accesses agent.memory.addExperience
 
@@ -134,3 +136,38 @@ See `RNG_AUDIT.md` §4 for the complete replay scope boundary list.
 - New violations must be documented here before merge.
 - Violations without a resolution plan are blocking for new feature work in the same area.
 - Resolved violations should be moved to a "Resolved" section with the commit hash.
+
+---
+
+## 8. Phase 12: Wrapper Retirement (2026-06-20)
+
+### Retired Wrappers
+
+| Wrapper | Canonical Location | External Imports at Retirement | Status |
+|---------|-------------------|-------------------------------|--------|
+| `core/EventEffectPipeline.js` | `effects/EventEffectPipeline.js` | 0 | **Retired** |
+| `core/RNG.js` | `src/shared/rng.js` | 1 (`index.js`) | **Retired** |
+| `core/WorldviewConstraints.js` | `src/domain/ForbiddenTerms.js` | 1 (`index.js`) + 1 test | **Retired** |
+
+### Active Wrappers (Retained — Public API Surface)
+
+These wrappers are part of `package.json` exports and must be retained until a major-version strategy is defined:
+
+| Wrapper Directory | Canonical Location | Reason Retained |
+|-------------------|-------------------|-----------------|
+| `domain/` | `src/domain/` | `package.json` exports: `./domain`, `./domain/validate`, `./domain/registry` |
+| `config/` | `src/config/` | `package.json` exports: `./config/defaults`; 34+ internal imports |
+| `sdk/` | `src/sdk/` | `package.json` exports: `./sdk`; tests + examples import from `sdk/` |
+| `store/` | `src/store/` + local impl | `package.json` exports: `./store`; contains actual implementations |
+| `facts/` | `src/canon/`, `src/knowledge/`, `src/narrative/` | `package.json` exports: `./facts`; `index.js` imports from `facts/` |
+| `social/` | `src/social/` | `core/World.js` + tests import from `social/` |
+| `spatial/` | `src/spatial/` | Tests import from `spatial/` |
+| `agent/action/` | `src/action/` | Tests import from `agent/action/`; legacy `createCandidate` shim |
+
+### Retired Wrapper Details
+
+**`core/EventEffectPipeline.js`** — Pure 2-line re-export. No external code imported it. `agent/Agent.js` already uses `effects/EventEffectPipeline.js` directly.
+
+**`core/RNG.js`** — Pure 2-line re-export. Only `index.js` imported it. Updated `index.js` to use `src/shared/rng.js`.
+
+**`core/WorldviewConstraints.js`** — 242-line file with campus-specific sanitization logic (sanitizeText, checkViolations, safeRegion, safeActivity) + re-export of `applyForbiddenTerms`. The campus-specific functions were only used in tests. `index.js` only used `applyForbiddenTerms`, now imported from `src/domain/ForbiddenTerms.js`. Campus sanitization tests removed (they tested the wrapper's own logic, not the canonical ForbiddenTerms).

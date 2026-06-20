@@ -258,6 +258,29 @@ describe('Architecture: effects/ must not import upper layers', () => {
   }
 });
 
+describe('Architecture: src/effects/ must not import upper layers', () => {
+  const FORBIDDEN = ['core/', 'agent/', 'sdk/', 'facts/'];
+
+  for (const forbidden of FORBIDDEN) {
+    it(`src/effects/ must not import ${forbidden}`, () => {
+      const violations = [];
+      const files = getJsFiles(path.join(ROOT, 'src', 'effects'));
+      for (const file of files) {
+        const relFile = rel(file);
+        const content = readFileSync(file, 'utf-8');
+        const deps = extractDeps(content);
+        for (const dep of deps) {
+          const resolved = resolveImport(file, dep);
+          if (resolved && resolved.startsWith(forbidden.replace('/', ''))) {
+            violations.push(`${relFile} -> ${dep}`);
+          }
+        }
+      }
+      expect(violations).toEqual([]);
+    });
+  }
+});
+
 describe('Architecture: no extension concepts in core/agent/facts', () => {
   const EXTENSION_CONCEPTS = [
     'PlayerAgent', 'QuestSystem', 'ItemSystem',
@@ -352,7 +375,7 @@ describe('Architecture: SDK must not directly mutate agent memory', () => {
 });
 
 describe('Architecture: only core/World.js may import facts/', () => {
-  it('core/World.js is the only core file that imports facts/', () => {
+  it('core/World.js delegates to src/runtime/AndyWorld.js (no direct facts import)', () => {
     const factsImporters = [];
     const files = getJsFiles(path.join(ROOT, 'core'));
     for (const file of files) {
@@ -366,14 +389,15 @@ describe('Architecture: only core/World.js may import facts/', () => {
         }
       }
     }
-    expect(factsImporters).toEqual(['core/World.js']);
+    // Phase 9: core/World.js is now a thin wrapper, facts/ import moved to src/runtime/
+    expect(factsImporters).toEqual([]);
   });
 
-  it('require("../facts") resolves to facts/ directory', () => {
+  it('core/World.js re-exports from src/runtime/AndyWorld.js', () => {
     const worldPath = path.join(ROOT, 'core', 'World.js');
     const content = readFileSync(worldPath, 'utf-8');
-    const hasFactsRequire = /require\s*\(\s*['"]\.\.\/facts['"]\s*\)/.test(content);
-    expect(hasFactsRequire).toBe(true);
+    const hasRuntimeRequire = /require\s*\(\s*['"]\.\.\/src\/runtime\/AndyWorld['"]\s*\)/.test(content);
+    expect(hasRuntimeRequire).toBe(true);
   });
 });
 
@@ -406,5 +430,206 @@ describe('Architecture: no-seed fallback is documented as intentional', () => {
     const content = readFileSync(violationsPath, 'utf-8');
     expect(content).toMatch(/Math\.random.*fallback/i);
     expect(content).toMatch(/intentional/i);
+  });
+});
+
+describe('Architecture: agent/action/ must not import effects/', () => {
+  it('agent/action/ files do not import effects/ modules', () => {
+    const violations = [];
+    const files = getJsFiles(path.join(ROOT, 'agent', 'action'));
+    for (const file of files) {
+      const relFile = rel(file);
+      const content = readFileSync(file, 'utf-8');
+      const deps = extractDeps(content);
+      for (const dep of deps) {
+        const resolved = resolveImport(file, dep);
+        if (resolved && resolved.includes('effects/')) {
+          violations.push(`${relFile} -> ${dep}`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});
+
+describe('Architecture: src/action/ must not import upper layers', () => {
+  const FORBIDDEN = ['sdk/', 'facts/', 'agent/Agent', 'effects/', 'core/'];
+
+  for (const forbidden of FORBIDDEN) {
+    it(`src/action/ must not import ${forbidden}`, () => {
+      const violations = [];
+      const files = getJsFiles(path.join(ROOT, 'src', 'action'));
+      for (const file of files) {
+        const relFile = rel(file);
+        const content = readFileSync(file, 'utf-8');
+        const deps = extractDeps(content);
+        for (const dep of deps) {
+          const resolved = resolveImport(file, dep);
+          if (resolved && resolved.startsWith(forbidden.replace('/', ''))) {
+            violations.push(`${relFile} -> ${dep}`);
+          }
+        }
+      }
+      expect(violations).toEqual([]);
+    });
+  }
+});
+
+describe('Architecture: src/action/ has no Math.random() or Date.now()', () => {
+  it('src/action/ deterministic paths are clean', () => {
+    const violations = [];
+    const files = getJsFiles(path.join(ROOT, 'src', 'action'));
+    for (const file of files) {
+      const relFile = rel(file);
+      const content = readFileSync(file, 'utf-8');
+      const lines = content.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) continue;
+        for (const banned of ['Math.random(', 'Date.now(']) {
+          if (lines[i].includes(banned)) {
+            violations.push(`${relFile}:${i + 1}: ${banned}`);
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});
+
+describe('Architecture: SDK must not directly mutate relationship/facts/knowledge', () => {
+  const SDK_BANNED = ['.relationship.', '.facts.', '.knowledge.'];
+  const WRITE_PATTERNS = [' += ', ' -= ', ' = ', '.add', '.remove', '.delete', '.update', '.clear', '.push', '.put'];
+
+  it('sdk/ files do not directly write to relationship/facts/knowledge', () => {
+    const violations = [];
+    const files = getJsFiles(path.join(ROOT, 'sdk'));
+    for (const file of files) {
+      const relFile = rel(file);
+      const content = readFileSync(file, 'utf-8');
+      const lines = content.split('\n');
+      for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) continue;
+        for (const banned of SDK_BANNED) {
+          for (const pattern of WRITE_PATTERNS) {
+            if (lines[i].includes(banned) && lines[i].includes(pattern)) {
+              violations.push(`${relFile}:${i + 1}: ${banned}${pattern.trim()}`);
+            }
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});
+
+describe('Architecture: module map exists', () => {
+  it('docs/MODULE_MAP.md exists', () => {
+    expect(existsSync(path.join(ROOT, 'docs', 'MODULE_MAP.md'))).toBe(true);
+  });
+});
+
+describe('Architecture: canon/ must not import narrative/ or knowledge/', () => {
+  it('src/canon/ must not import src/narrative/', () => {
+    const violations = [];
+    const files = getJsFiles(path.join(ROOT, 'src', 'canon'));
+    for (const file of files) {
+      const relFile = rel(file);
+      const content = readFileSync(file, 'utf-8');
+      const deps = extractDeps(content);
+      for (const dep of deps) {
+        const resolved = resolveImport(file, dep);
+        if (resolved && (resolved.includes('src/narrative') || resolved.includes('narrative/'))) {
+          violations.push(`${relFile} -> ${dep}`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it('src/canon/ must not import src/knowledge/', () => {
+    const violations = [];
+    const files = getJsFiles(path.join(ROOT, 'src', 'canon'));
+    for (const file of files) {
+      const relFile = rel(file);
+      const content = readFileSync(file, 'utf-8');
+      const deps = extractDeps(content);
+      for (const dep of deps) {
+        const resolved = resolveImport(file, dep);
+        if (resolved && (resolved.includes('src/knowledge') || resolved.includes('knowledge/'))) {
+          violations.push(`${relFile} -> ${dep}`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});
+
+describe('Architecture: knowledge/ must not import narrative/', () => {
+  it('src/knowledge/ must not import src/narrative/', () => {
+    const violations = [];
+    const files = getJsFiles(path.join(ROOT, 'src', 'knowledge'));
+    for (const file of files) {
+      const relFile = rel(file);
+      const content = readFileSync(file, 'utf-8');
+      const deps = extractDeps(content);
+      for (const dep of deps) {
+        const resolved = resolveImport(file, dep);
+        if (resolved && (resolved.includes('src/narrative') || resolved.includes('narrative/'))) {
+          violations.push(`${relFile} -> ${dep}`);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});
+
+describe('Architecture: narrative/ must not import canon write APIs', () => {
+  it('src/narrative/ files do not import WorldFactStore or CanonEventPipeline', () => {
+    const violations = [];
+    const canonWriteAPIs = ['WorldFactStore', 'CanonEventPipeline'];
+    const files = getJsFiles(path.join(ROOT, 'src', 'narrative'));
+    for (const file of files) {
+      const relFile = rel(file);
+      const content = readFileSync(file, 'utf-8');
+      const deps = extractDeps(content);
+      for (const dep of deps) {
+        if (!dep.startsWith('.')) continue;
+        const resolved = resolveImport(file, dep);
+        if (resolved) {
+          for (const api of canonWriteAPIs) {
+            if (resolved.includes(api)) {
+              violations.push(`${relFile} -> ${dep}`);
+            }
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});
+
+describe('Architecture: facts/ compatibility wrapper re-exports from src/', () => {
+  it('facts/index.js imports from src/canon, src/knowledge, src/narrative', () => {
+    const factsIndexPath = path.join(ROOT, 'facts', 'index.js');
+    const content = readFileSync(factsIndexPath, 'utf-8');
+    expect(content).toMatch(/require\(['"]\.\.\/src\/canon/);
+    expect(content).toMatch(/require\(['"]\.\.\/src\/knowledge/);
+    expect(content).toMatch(/require\(['"]\.\.\/src\/narrative/);
+  });
+
+  it('old facts/ imports still resolve all symbols', () => {
+    const symbols = [
+      'WorldFactStore', 'FactEmitter', 'FactFormatter',
+      'FactProvider', 'FactConsistencyChecker', 'KnowledgeStore',
+      'CanonEventPipeline', 'FactType', 'FACT_TYPES',
+      'validateFact', 'createEventFact',
+    ];
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const facts = require('../../facts/index.js');
+    for (const sym of symbols) {
+      expect(facts[sym]).toBeDefined();
+    }
   });
 });

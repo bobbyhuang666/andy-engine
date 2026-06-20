@@ -1,23 +1,10 @@
 /**
- * ContinueCandidateProvider — 生成 continue 候选
+ * ContinueCandidateProvider — Compatibility wrapper
  *
- * 当前行为持续候选，来自 behaviorField 当前标签。
+ * All implementation migrated to src/action/providers/ContinueCandidateProvider.js
+ * This file re-exports for backward compatibility.
  */
 
-const { CandidateProvider } = require('./CandidateProvider');
-const { createCandidate } = require('../ActionCandidate');
-
-class ContinueCandidateProvider extends CandidateProvider {
-  constructor() { super('ContinueCandidateProvider'); }
-
-  generate(context) {
-    if (!context.behaviorField || !context.behaviorField.label) return [];
-    return [createCandidate({
-      type: 'continue',
-      source: 'behaviorField',
-      label: `继续${context.behaviorField.label}`,
-    })];
-  }
-}
+const { ContinueCandidateProvider } = require('../../../src/action/providers/ContinueCandidateProvider');
 
 module.exports = { ContinueCandidateProvider };

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { applyActionEffect, computeStateDeltas } from '../../core/EventEffectPipeline.js';
+import { applyActionEffect, computeStateDeltas } from '../../effects/EventEffectPipeline.js';
 
 describe('EventEffectPipeline', () => {
   const mockAgentSnapshot = {
