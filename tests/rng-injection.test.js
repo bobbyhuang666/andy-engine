@@ -1,15 +1,15 @@
 /**
  * RNG 注入测试
  *
- * 验证 core/RNG.js 的数值确定性与 AndyEngine/AndyWorld 的注入机制。
+ * 验证 src/shared/rng.js 的数值确定性与 AndyEngine/AndyWorld 的注入机制。
  */
 
 import { describe, it, expect } from 'vitest';
-import { RNG } from '../core/RNG.js';
+import { RNG } from '../src/shared/rng.js';
 import AndyEngine from '../index.js';
 
 // ═══════════════════════════════════════════
-// core/RNG.js 确定性测试
+// src/shared/rng.js 确定性测试
 // ═══════════════════════════════════════════
 
 describe('RNG 数值确定性', () => {

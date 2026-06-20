@@ -1,8 +1,14 @@
 /**
- * facts/ - 世界事实系统
+ * facts/ — Compatibility wrapper
  *
- * Phase W1: Fact Schema + WorldFactStore Foundation
- * Phase W8: WorldCanon - 失效/覆盖、地点意义、规则
+ * 所有实现已迁移到 src/canon/, src/knowledge/, src/narrative/
+ * 此文件保留向后兼容性，不要在此添加新功能。
+ *
+ * 迁移映射：
+ *   - WorldFactStore, FactSchema, CanonEventPipeline → src/canon/
+ *   - KnowledgeStore → src/knowledge/
+ *   - FactProvider, FactConsistencyChecker, FactFormatter → src/narrative/
+ *   - FactEmitter → 暂留 facts/（过渡性模块）
  */
 
 const {
@@ -24,15 +30,15 @@ const {
   createRuleFact,
   createLocationMeaningFact,
   createInvalidatedFact,
-} = require('./FactSchema');
+} = require('../src/canon');
 
-const WorldFactStore = require('./WorldFactStore');
+const WorldFactStore = require('../src/canon/WorldFactStore');
 const FactEmitter = require('./FactEmitter');
-const FactFormatter = require('./FactFormatter');
-const FactProvider = require('./FactProvider');
-const FactConsistencyChecker = require('./FactConsistencyChecker');
-const KnowledgeStore = require('./KnowledgeStore');
-const CanonEventPipeline = require('./CanonEventPipeline');
+const FactFormatter = require('../src/narrative/FactFormatter');
+const FactProvider = require('../src/narrative/FactProvider');
+const FactConsistencyChecker = require('../src/narrative/FactConsistencyChecker');
+const KnowledgeStore = require('../src/knowledge/KnowledgeStore');
+const CanonEventPipeline = require('../src/canon/CanonEventPipeline');
 
 module.exports = {
   FactType,

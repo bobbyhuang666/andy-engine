@@ -35,12 +35,10 @@ const ALLOWED_PATHS = [
   'docs/',
   'README.md',
   'AGENTS.md',
-  'core/WorldviewConstraints.js', // transitional
 ];
 
 // 允许使用 banned API 的路径
 const BANNED_API_ALLOWED_PATHS = [
-  'core/WorldviewConstraints.js', // 定义处
   'tests/',
   'presets/',
 ];

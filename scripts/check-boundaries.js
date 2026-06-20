@@ -19,17 +19,24 @@ const ROOT = path.resolve(__dirname, '..');
 
 const LAYERS = {
   'core': { dir: 'core', mustNotImport: ['agent/', 'sdk/', 'facts/'] },
+  'src/runtime': { dir: 'src/runtime', mustNotImport: ['sdk/', 'agent/Agent.js'] },
   'agent': { dir: 'agent', mustNotImport: ['sdk/', 'facts/'], allowSubdir: true },
   'agent/action': { dir: 'agent/action', mustNotImport: ['sdk/', 'facts/', 'agent/Agent.js'] },
+  'src/action': { dir: 'src/action', mustNotImport: ['sdk/', 'facts/', 'agent/Agent.js', 'effects/', 'core/'] },
   'facts': { dir: 'facts', mustNotImport: ['agent/', 'sdk/', 'core/'] },
-  'domain': { dir: 'domain', mustNotImport: ['agent/', 'sdk/', 'facts/', 'core/'] },
+  'src/canon': { dir: 'src/canon', mustNotImport: ['agent/', 'sdk/', 'core/', 'src/narrative/', 'src/knowledge/'] },
+  'src/knowledge': { dir: 'src/knowledge', mustNotImport: ['agent/', 'sdk/', 'core/', 'src/narrative/', 'src/canon/'] },
+  'src/narrative': { dir: 'src/narrative', mustNotImport: ['agent/', 'sdk/', 'core/', 'src/canon/WorldFactStore', 'src/canon/CanonEventPipeline'] },
+  'domain': { dir: 'domain', mustNotImport: ['agent/', 'sdk/', 'facts/', 'core/', 'narrative/'] },
   'effects': { dir: 'effects', mustNotImport: ['core/', 'agent/', 'sdk/', 'facts/'] },
+  'src/effects': { dir: 'src/effects', mustNotImport: ['core/', 'agent/', 'sdk/', 'facts/'] },
 };
 
 // Allowed exceptions (file -> target)
 const ALLOWED_IMPORTS = [
   { from: 'core/World.js', to: 'social/' },
   { from: 'core/World.js', to: 'facts' },
+  { from: 'core/World.js', to: 'src/runtime' },
   { from: 'sdk/NarrativeBuilder.js', to: 'facts/' },
   { from: 'sdk/NarrativeBuilder.js', to: 'domain/' },
 ];
@@ -150,7 +157,7 @@ function checkLayerImports() {
 
 function checkExtensionConcepts() {
   const violations = [];
-  const coreDirs = ['core', 'agent', 'facts', 'config', 'domain'];
+  const coreDirs = ['core', 'agent', 'facts', 'config', 'domain', 'src/canon', 'src/knowledge', 'src/narrative', 'src/runtime'];
 
   for (const dir of coreDirs) {
     const fullDir = path.join(ROOT, dir);
@@ -179,7 +186,7 @@ function checkExtensionConcepts() {
 
 function checkDeterministicPaths() {
   const violations = [];
-  const dirs = ['agent/action', 'facts'];
+  const dirs = ['agent/action', 'facts', 'src/canon', 'src/knowledge', 'src/action'];
 
   for (const dir of dirs) {
     const fullDir = path.join(ROOT, dir);
@@ -304,6 +311,154 @@ function checkSdkMemoryMutation() {
   return violations;
 }
 
+// --- Action → Effects Committer Boundary Check ---
+
+function checkActionEffectsBoundary() {
+  const violations = [];
+  const actionDir = path.join(ROOT, 'agent', 'action');
+  const files = getJsFiles(actionDir);
+
+  for (const file of files) {
+    const relFile = getRelativePath(file);
+    const content = readFileSync(file, 'utf-8');
+    const deps = getDependencys(content);
+
+    for (const dep of deps) {
+      if (!dep.startsWith('.') && !dep.startsWith('/')) continue;
+
+      const resolved = path.resolve(path.dirname(file), dep);
+      const relResolved = getRelativePath(resolved);
+
+      if (relResolved.startsWith('effects/') || relResolved === 'effects') {
+        violations.push({
+          file: relFile,
+          imports: dep,
+          reason: 'action layer must not import effects/committer modules',
+        });
+      }
+    }
+  }
+
+  return violations;
+}
+
+// --- Canon/Knowledge/Narrative Boundary Check ---
+
+function checkCanonKnowledgeNarrativeBoundary() {
+  const violations = [];
+
+  // canon must not import narrative
+  const canonDir = path.join(ROOT, 'src', 'canon');
+  const canonFiles = getJsFiles(canonDir);
+  for (const file of canonFiles) {
+    const relFile = getRelativePath(file);
+    const content = readFileSync(file, 'utf-8');
+    const deps = getDependencys(content);
+    for (const dep of deps) {
+      if (!dep.startsWith('.') && !dep.startsWith('/')) continue;
+      const resolved = path.resolve(path.dirname(file), dep);
+      const relResolved = getRelativePath(resolved);
+      if (relResolved.startsWith('src/narrative/') || relResolved === 'src/narrative') {
+        violations.push({
+          file: relFile,
+          imports: dep,
+          reason: 'canon must not import narrative',
+        });
+      }
+    }
+  }
+
+  // knowledge must not import narrative
+  const knowledgeDir = path.join(ROOT, 'src', 'knowledge');
+  const knowledgeFiles = getJsFiles(knowledgeDir);
+  for (const file of knowledgeFiles) {
+    const relFile = getRelativePath(file);
+    const content = readFileSync(file, 'utf-8');
+    const deps = getDependencys(content);
+    for (const dep of deps) {
+      if (!dep.startsWith('.') && !dep.startsWith('/')) continue;
+      const resolved = path.resolve(path.dirname(file), dep);
+      const relResolved = getRelativePath(resolved);
+      if (relResolved.startsWith('src/narrative/') || relResolved === 'src/narrative') {
+        violations.push({
+          file: relFile,
+          imports: dep,
+          reason: 'knowledge must not import narrative',
+        });
+      }
+    }
+  }
+
+  // narrative must not import canon write APIs (WorldFactStore, CanonEventPipeline)
+  const narrativeDir = path.join(ROOT, 'src', 'narrative');
+  const narrativeFiles = getJsFiles(narrativeDir);
+  const canonWriteAPIs = ['WorldFactStore', 'CanonEventPipeline'];
+  for (const file of narrativeFiles) {
+    const relFile = getRelativePath(file);
+    const content = readFileSync(file, 'utf-8');
+    const deps = getDependencys(content);
+    for (const dep of deps) {
+      if (!dep.startsWith('.') && !dep.startsWith('/')) continue;
+      const resolved = path.resolve(path.dirname(file), dep);
+      const relResolved = getRelativePath(resolved);
+      for (const api of canonWriteAPIs) {
+        if (relResolved.includes(api)) {
+          violations.push({
+            file: relFile,
+            imports: dep,
+            reason: `narrative must not import canon write API: ${api}`,
+          });
+        }
+      }
+    }
+  }
+
+  return violations;
+}
+
+// --- SDK Direct Data Mutation Check ---
+
+const SDK_DATA_MUTATION_PATTERNS = [
+  '.relationship.',
+  '.facts.',
+  '.knowledge.',
+];
+
+function checkSdkDataMutation() {
+  const violations = [];
+  const sdkDir = path.join(ROOT, 'sdk');
+  const files = getJsFiles(sdkDir);
+
+  const writeVerbs = ['set', 'add', 'remove', 'delete', 'update', 'clear', 'push', 'put'];
+
+  for (const file of files) {
+    const relFile = getRelativePath(file);
+    const content = readFileSync(file, 'utf-8');
+    const lines = content.split('\n');
+
+    for (let i = 0; i < lines.length; i++) {
+      const trimmed = lines[i].trim();
+      if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) continue;
+
+      for (const pattern of SDK_DATA_MUTATION_PATTERNS) {
+        if (!lines[i].includes(pattern)) continue;
+        // Check if followed by a write verb (e.g. .relationship.set, .facts.add)
+        for (const verb of writeVerbs) {
+          if (lines[i].includes(pattern + verb)) {
+            violations.push({
+              file: relFile,
+              pattern: pattern + verb,
+              line: i + 1,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return violations;
+}
+
 // --- Main ---
 
 function main() {
@@ -381,6 +536,42 @@ function main() {
     totalViolations += sdkMemViolations.length;
   } else {
     console.log('✓ SDK memory mutation: clean (uses Agent public seam)');
+  }
+
+  // 7. Action → effects boundary
+  const actionFxViolations = checkActionEffectsBoundary();
+  if (actionFxViolations.length > 0) {
+    console.log('❌ Action → effects boundary violations:');
+    for (const v of actionFxViolations) {
+      console.log(`  ${v.file}: imports ${v.imports} — ${v.reason}`);
+    }
+    totalViolations += actionFxViolations.length;
+  } else {
+    console.log('✓ Action → effects boundary: clean');
+  }
+
+  // 8. SDK direct data mutation (relationship/facts/knowledge)
+  const sdkDataViolations = checkSdkDataMutation();
+  if (sdkDataViolations.length > 0) {
+    console.log('❌ SDK direct data mutation violations:');
+    for (const v of sdkDataViolations) {
+      console.log(`  ${v.file}:${v.line}: ${v.pattern}`);
+    }
+    totalViolations += sdkDataViolations.length;
+  } else {
+    console.log('✓ SDK data mutation: clean (relationship/facts/knowledge)');
+  }
+
+  // 9. Canon/knowledge/narrative boundary
+  const cknViolations = checkCanonKnowledgeNarrativeBoundary();
+  if (cknViolations.length > 0) {
+    console.log('❌ Canon/knowledge/narrative boundary violations:');
+    for (const v of cknViolations) {
+      console.log(`  ${v.file}: ${v.reason}`);
+    }
+    totalViolations += cknViolations.length;
+  } else {
+    console.log('✓ Canon/knowledge/narrative boundary: clean');
   }
 
   console.log('');

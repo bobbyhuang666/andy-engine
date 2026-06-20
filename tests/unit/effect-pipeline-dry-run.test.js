@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 const AndyEngine = require('../../index.js');
-const { applyActionEffect } = require('../../core/EventEffectPipeline.js');
+const { applyActionEffect } = require('../../effects/EventEffectPipeline.js');
 
 const TEST_START = new Date('2026-09-01T08:00:00Z');
 

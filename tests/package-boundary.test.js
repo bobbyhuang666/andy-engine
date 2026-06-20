@@ -17,8 +17,8 @@ describe('Package Boundary', () => {
       expect(pkg.version).toBe('0.2.1');
     });
 
-    it('types points to sdk/types.d.ts', () => {
-      expect(pkg.types).toBe('sdk/types.d.ts');
+    it('types points to src/sdk/types.d.ts', () => {
+      expect(pkg.types).toBe('src/sdk/types.d.ts');
     });
 
     it('main points to index.js', () => {
@@ -167,6 +167,202 @@ describe('Package Boundary', () => {
         } catch (e) {
           expect.fail(`${file}: ${e.message}`);
         }
+      }
+    });
+  });
+
+  // ═══════════════════════════════════════════
+  // Phase 3: Public/Private Contract Split
+  // ═══════════════════════════════════════════
+
+  describe('internal modules not exported', () => {
+    const exportKeys = Object.keys(pkg.exports);
+
+    it('core/ modules are not in package exports', () => {
+      const coreModules = [
+        'core/Simulator', 'core/World', 'core/EventDispatcher',
+        'core/RNG', 'core/WorldPressure', 'core/EmotionEffectClassifier',
+        'core/EmotionSignalBuffer', 'core/AndyBridge', 'core/AndyTownAdapter',
+        'core/StoryGenerator',
+      ];
+      for (const mod of coreModules) {
+        const hasExport = exportKeys.some(k => k.includes(mod));
+        expect(hasExport, `${mod} should not be in exports`).toBe(false);
+      }
+    });
+
+    it('agent/ modules are not in package exports', () => {
+      const agentModules = [
+        'agent/Agent', 'agent/BehaviorField', 'agent/BehaviorLabeler',
+        'agent/StateMachine', 'agent/EmotionVector', 'agent/NeedsSystem',
+        'agent/PersonalMemory', 'agent/Personality', 'agent/Appraisal',
+        'agent/EmotionRegulation', 'agent/IntrinsicMotivation',
+        'agent/ProceduralMemory', 'agent/Schedule', 'agent/FutureTendencyTracker',
+        'agent/LocationMeaningInfluence',
+      ];
+      for (const mod of agentModules) {
+        const hasExport = exportKeys.some(k => k.includes(mod));
+        expect(hasExport, `${mod} should not be in exports`).toBe(false);
+      }
+    });
+
+    it('effects/ modules are not in package exports', () => {
+      const hasEffectExport = exportKeys.some(k => k.includes('effects/'));
+      expect(hasEffectExport).toBe(false);
+    });
+
+    it('social/ modules are not in package exports', () => {
+      const hasSocialExport = exportKeys.some(k => k.includes('social/'));
+      expect(hasSocialExport).toBe(false);
+    });
+
+    it('spatial/ modules are not in package exports', () => {
+      const hasSpatialExport = exportKeys.some(k => k.includes('spatial/'));
+      expect(hasSpatialExport).toBe(false);
+    });
+  });
+
+  describe('compatibility wrappers retired', () => {
+    it('core/EventEffectPipeline.js wrapper has been removed', () => {
+      const wrapperPath = path.join(process.cwd(), 'core/EventEffectPipeline.js');
+      expect(existsSync(wrapperPath)).toBe(false);
+    });
+
+    it('core/RNG.js wrapper has been removed', () => {
+      const wrapperPath = path.join(process.cwd(), 'core/RNG.js');
+      expect(existsSync(wrapperPath)).toBe(false);
+    });
+
+    it('core/WorldviewConstraints.js wrapper has been removed', () => {
+      const wrapperPath = path.join(process.cwd(), 'core/WorldviewConstraints.js');
+      expect(existsSync(wrapperPath)).toBe(false);
+    });
+
+    it('effects/EventEffectPipeline.js is the canonical implementation', () => {
+      const canonicalPath = path.join(process.cwd(), 'effects/EventEffectPipeline.js');
+      expect(existsSync(canonicalPath)).toBe(true);
+      const content = readFileSync(canonicalPath, 'utf-8');
+      const lineCount = content.split('\n').filter(l => l.trim().length > 0).length;
+      expect(lineCount).toBeGreaterThan(10);
+    });
+
+    it('src/shared/rng.js is the canonical RNG implementation', () => {
+      const canonicalPath = path.join(process.cwd(), 'src', 'shared', 'rng.js');
+      expect(existsSync(canonicalPath)).toBe(true);
+    });
+
+    it('src/domain/ForbiddenTerms.js is the canonical ForbiddenTerms implementation', () => {
+      const canonicalPath = path.join(process.cwd(), 'src', 'domain', 'ForbiddenTerms.js');
+      expect(existsSync(canonicalPath)).toBe(true);
+    });
+  });
+
+  describe('SDK boundary', () => {
+    const sdkDir = path.join(process.cwd(), 'sdk');
+    const sdkFiles = readdirSync(sdkDir).filter(f => f.endsWith('.js') && f !== 'types.d.ts');
+
+    function getImports(filePath) {
+      const content = readFileSync(filePath, 'utf-8');
+      const requires = content.match(/require\(['"]([^'"]+)['"]\)/g) || [];
+      return requires.map(r => {
+        const match = r.match(/require\(['"]([^'"]+)['"]\)/);
+        return match ? match[1] : '';
+      });
+    }
+
+    // After Phase 11 migration, old sdk/ files are thin re-export wrappers.
+    // Only check the canonical src/sdk/ files for boundary violations.
+    const srcSdkDir = path.join(process.cwd(), 'src', 'sdk');
+    const srcSdkFiles = existsSync(srcSdkDir)
+      ? readdirSync(srcSdkDir).filter(f => f.endsWith('.js') && f !== 'types.d.ts' && f !== 'index.js' && f !== 'AndyEngine.js')
+      : [];
+
+    function getSrcSdkImports(file) {
+      const filePath = path.join(srcSdkDir, file);
+      return getImports(filePath);
+    }
+
+    it('src/sdk/ does not import core/ directly', () => {
+      for (const file of srcSdkFiles) {
+        const imports = getSrcSdkImports(file);
+        const coreImports = imports.filter(i => i.includes('/core/') && !i.includes('/src/'));
+        expect(
+          coreImports,
+          `${file} should not import core/ modules, found: ${coreImports.join(', ')}`
+        ).toEqual([]);
+      }
+    });
+
+    it('src/sdk/ does not import agent/ directly', () => {
+      for (const file of srcSdkFiles) {
+        const imports = getSrcSdkImports(file);
+        const agentImports = imports.filter(i => i.includes('/agent/'));
+        expect(
+          agentImports,
+          `${file} should not import agent/ modules, found: ${agentImports.join(', ')}`
+        ).toEqual([]);
+      }
+    });
+
+    it('src/sdk/ does not import effects/ directly', () => {
+      for (const file of srcSdkFiles) {
+        const imports = getSrcSdkImports(file);
+        const effectImports = imports.filter(i => i.includes('/effects/'));
+        expect(
+          effectImports,
+          `${file} should not import effects/ modules, found: ${effectImports.join(', ')}`
+        ).toEqual([]);
+      }
+    });
+
+    it('src/sdk/ does not import social/ directly', () => {
+      for (const file of srcSdkFiles) {
+        const imports = getSrcSdkImports(file);
+        const socialImports = imports.filter(i => i.includes('/social/') && !i.includes('/src/social/'));
+        expect(
+          socialImports,
+          `${file} should not import social/ modules, found: ${socialImports.join(', ')}`
+        ).toEqual([]);
+      }
+    });
+
+    it('src/sdk/ does not import spatial/ directly', () => {
+      for (const file of srcSdkFiles) {
+        const imports = getSrcSdkImports(file);
+        const spatialImports = imports.filter(i => i.includes('/spatial/') && !i.includes('/src/spatial/'));
+        expect(
+          spatialImports,
+          `${file} should not import spatial/ modules, found: ${spatialImports.join(', ')}`
+        ).toEqual([]);
+      }
+    });
+
+    it('src/sdk/ NarrativeBuilder allowed imports are domain/ and facts/', () => {
+      const nbPath = path.join(srcSdkDir, 'NarrativeBuilder.js');
+      if (!existsSync(nbPath)) return;
+      const imports = getImports(nbPath);
+      const internalImports = imports.filter(i => i.startsWith('../'));
+      const disallowed = internalImports.filter(
+        i => !i.startsWith('../domain/') && !i.startsWith('../../facts')
+      );
+      expect(
+        disallowed,
+        `NarrativeBuilder has disallowed imports: ${disallowed.join(', ')}`
+      ).toEqual([]);
+    });
+
+    it('src/sdk/ Character and Andy only import index.js (AndyEngine) as engine seam', () => {
+      const engineSeamFiles = ['Character.js', 'Andy.js'];
+      for (const file of engineSeamFiles) {
+        const filePath = path.join(srcSdkDir, file);
+        if (!existsSync(filePath)) continue;
+        const imports = getImports(filePath);
+        const internalImports = imports.filter(i => i.startsWith('../../'));
+        const disallowed = internalImports.filter(i => i !== '../../index.js' && i !== '../../index');
+        expect(
+          disallowed,
+          `${file} should only import ../../index.js as engine seam, found: ${disallowed.join(', ')}`
+        ).toEqual([]);
       }
     });
   });

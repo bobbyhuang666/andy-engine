@@ -14,7 +14,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { WorldFactStore, KnowledgeStore, FactEmitter, CanonEventPipeline } from '../../facts/index.js';
 import { FactScope } from '../../facts/FactSchema.js';
-import { applyEventConsequences } from '../../core/EventEffectPipeline.js';
+import { applyEventConsequences } from '../../effects/EventEffectPipeline.js';
 
 // ═══════════════════════════════════════════
 // 辅助工厂
