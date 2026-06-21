@@ -59,7 +59,7 @@ function runFixedDensityProfile(agentCount, tickCount, clusterMode) {
   if (global.gc) global.gc();
 
   const engine = createEngine(agentCount, clusterMode);
-  const SimulatorProto = Object.getPrototypeOf(engine.simulator);
+  const WorldProto = Object.getPrototypeOf(engine.world);
 
   const agents = Array.from(engine.world.agents.values());
   const startTime = process.hrtime.bigint();
@@ -71,7 +71,7 @@ function runFixedDensityProfile(agentCount, tickCount, clusterMode) {
   for (let t = 0; t < tickCount; t++) {
     // 测量 cache build
     const cacheStart = process.hrtime.bigint();
-    const cache = SimulatorProto._buildEmotionBlendCache.call(engine.simulator);
+    const cache = WorldProto._buildEmotionBlendCache.call(engine.world);
     const cacheEnd = process.hrtime.bigint();
     cacheStats.totalMs += Number(cacheEnd - cacheStart) / 1e6;
     cacheStats.calls++;
@@ -79,7 +79,7 @@ function runFixedDensityProfile(agentCount, tickCount, clusterMode) {
     // 测量 gather（使用真实 cache）
     for (const agent of agents) {
       const gatherStart = process.hrtime.bigint();
-      const result = SimulatorProto._gatherContagionInputs.call(engine.simulator, agent.id, agent, cache);
+      const result = WorldProto._gatherContagionInputs.call(engine.world, agent.id, agent, cache);
       const gatherEnd = process.hrtime.bigint();
       gatherStats.totalMs += Number(gatherEnd - gatherStart) / 1e6;
       gatherStats.calls++;
@@ -131,14 +131,14 @@ function runRuntimeProfile(agentCount, tickCount, clusterMode) {
   if (global.gc) global.gc();
 
   const engine = createEngine(agentCount, clusterMode);
-  const SimulatorProto = Object.getPrototypeOf(engine.simulator);
+  const WorldProto = Object.getPrototypeOf(engine.world);
 
   // Wrap methods
   const stats = {};
-  const originalBuild = SimulatorProto._buildEmotionBlendCache;
-  const originalGather = SimulatorProto._gatherContagionInputs;
+  const originalBuild = WorldProto._buildEmotionBlendCache;
+  const originalGather = WorldProto._gatherContagionInputs;
 
-  SimulatorProto._buildEmotionBlendCache = function () {
+  WorldProto._buildEmotionBlendCache = function () {
     const start = process.hrtime.bigint();
     const result = originalBuild.call(this);
     const end = process.hrtime.bigint();
@@ -151,7 +151,7 @@ function runRuntimeProfile(agentCount, tickCount, clusterMode) {
   const neighborStats = { total: 0, max: 0, count: 0 };
   const gatherEntryStats = { totalEntries: 0, relationshipLookups: 0 };
 
-  SimulatorProto._gatherContagionInputs = function (agentId, agent, cache) {
+  WorldProto._gatherContagionInputs = function (agentId, agent, cache) {
     const start = process.hrtime.bigint();
     const result = originalGather.call(this, agentId, agent, cache);
     const end = process.hrtime.bigint();
@@ -178,8 +178,8 @@ function runRuntimeProfile(agentCount, tickCount, clusterMode) {
   const endTime = process.hrtime.bigint();
 
   // Restore
-  SimulatorProto._buildEmotionBlendCache = originalBuild;
-  SimulatorProto._gatherContagionInputs = originalGather;
+  WorldProto._buildEmotionBlendCache = originalBuild;
+  WorldProto._gatherContagionInputs = originalGather;
 
   const totalMs = Number(endTime - startTime) / 1e6;
   const avgNeighbors = neighborStats.count > 0 ? Math.round(neighborStats.total / neighborStats.count * 100) / 100 : 0;

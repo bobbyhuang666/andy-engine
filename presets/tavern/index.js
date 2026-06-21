@@ -395,6 +395,17 @@ const tavernDomain = {
   // ═══════════════════════════════════════════
   // 禁止词（校园词）
   // ═══════════════════════════════════════════
+  actionCandidateMappings: {
+    memorySemanticCategoryActionMap: {
+      '休息': { type: 'rest', source: 'memory' },
+      '社交': { type: 'socialize', source: 'memory' },
+      '工作': { type: 'work', source: 'memory' },
+      '探索': { type: 'explore', source: 'memory' },
+      '进食': { type: 'consume', source: 'memory' },
+      '睡觉': { type: 'rest', source: 'memory' },
+    },
+  },
+
   forbiddenTerms: [
     '教室', '图书馆', '宿舍', '食堂', '操场', '校园广场',
     '学生', '老师', '上课', '自习', '翘课', '考试', '作业',

@@ -22,7 +22,7 @@ class CanonEventPipeline {
   /**
    * @param {import('./WorldFactStore')} factStore
    * @param {import('../knowledge/KnowledgeStore')} knowledgeStore
-   * @param {import('../../facts/FactEmitter')} factEmitter
+   * @param {import('./FactEmitter')} factEmitter
    */
   constructor(factStore, knowledgeStore, factEmitter) {
     this.factStore = factStore;

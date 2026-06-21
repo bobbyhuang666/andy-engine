@@ -56,10 +56,6 @@ function resolveImport(fromFile, dep) {
 
 // --- Allowed exceptions ---
 const ALLOWED = [
-  { from: 'core/World.js', to: 'social/' },
-  { from: 'core/World.js', to: 'facts' },
-  { from: 'sdk/NarrativeBuilder.js', to: 'facts/' },
-  { from: 'sdk/NarrativeBuilder.js', to: 'domain/' },
 ];
 
 function isAllowed(relFrom, resolvedRel) {
@@ -374,30 +370,30 @@ describe('Architecture: SDK must not directly mutate agent memory', () => {
   });
 });
 
-describe('Architecture: only core/World.js may import facts/', () => {
-  it('core/World.js delegates to src/runtime/AndyWorld.js (no direct facts import)', () => {
+describe('Architecture: no core/ file may import facts/', () => {
+  it('no core/ file imports facts/', () => {
     const factsImporters = [];
-    const files = getJsFiles(path.join(ROOT, 'core'));
-    for (const file of files) {
-      const relFile = rel(file);
-      const content = readFileSync(file, 'utf-8');
-      const deps = extractDeps(content);
-      for (const dep of deps) {
-        const resolved = resolveImport(file, dep);
-        if (resolved && (resolved === 'facts' || resolved.startsWith('facts/'))) {
-          factsImporters.push(relFile);
+    const coreDir = path.join(ROOT, 'core');
+    if (existsSync(coreDir)) {
+      const files = getJsFiles(coreDir);
+      for (const file of files) {
+        const relFile = rel(file);
+        const content = readFileSync(file, 'utf-8');
+        const deps = extractDeps(content);
+        for (const dep of deps) {
+          const resolved = resolveImport(file, dep);
+          if (resolved && (resolved === 'facts' || resolved.startsWith('facts/'))) {
+            factsImporters.push(relFile);
+          }
         }
       }
     }
-    // Phase 9: core/World.js is now a thin wrapper, facts/ import moved to src/runtime/
     expect(factsImporters).toEqual([]);
   });
 
-  it('core/World.js re-exports from src/runtime/AndyWorld.js', () => {
-    const worldPath = path.join(ROOT, 'core', 'World.js');
-    const content = readFileSync(worldPath, 'utf-8');
-    const hasRuntimeRequire = /require\s*\(\s*['"]\.\.\/src\/runtime\/AndyWorld['"]\s*\)/.test(content);
-    expect(hasRuntimeRequire).toBe(true);
+  it('src/runtime/AndyWorld.js is the canonical implementation', () => {
+    const worldPath = path.join(ROOT, 'src', 'runtime', 'AndyWorld.js');
+    expect(existsSync(worldPath)).toBe(true);
   });
 });
 
@@ -631,5 +627,58 @@ describe('Architecture: facts/ compatibility wrapper re-exports from src/', () =
     for (const sym of symbols) {
       expect(facts[sym]).toBeDefined();
     }
+  });
+});
+
+describe('Stage 20: src/ must not import old top-level public facades', () => {
+  const OLD_WRAPPERS = [
+    'facts', 'agent', 'core', 'sdk', 'store', 'social', 'spatial', 'domain', 'config', 'effects', 'world',
+  ];
+
+  it('src/ files do not import old top-level wrappers (except via src/ paths)', () => {
+    const violations = [];
+    const srcDir = path.join(ROOT, 'src');
+    const files = getJsFiles(srcDir);
+
+    for (const file of files) {
+      const relFile = rel(file);
+      const content = readFileSync(file, 'utf-8');
+      const deps = extractDeps(content);
+
+      for (const dep of deps) {
+        if (!dep.startsWith('.')) continue;
+        const resolved = resolveImport(file, dep);
+        if (!resolved) continue;
+
+        for (const wrapper of OLD_WRAPPERS) {
+          if (resolved === wrapper || resolved.startsWith(wrapper + '/')) {
+            if (!resolved.startsWith('src/')) {
+              violations.push(`${relFile} -> ${dep} (resolves to ${resolved})`);
+            }
+          }
+        }
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});
+
+describe('Stage 20: index.js uses canonical imports', () => {
+  it('index.js does not import ./core/ or ./facts/ or other old top-level wrappers', () => {
+    const indexPath = path.join(ROOT, 'index.js');
+    const content = readFileSync(indexPath, 'utf-8');
+    const deps = extractDeps(content);
+
+    const FORBIDDEN = ['./core/', './facts/', './sdk/', './store/', './social/', './spatial/', './domain/', './effects/', './world/'];
+    const violations = [];
+
+    for (const dep of deps) {
+      for (const forbidden of FORBIDDEN) {
+        if (dep.startsWith(forbidden) || dep === forbidden.replace(/\/$/, '')) {
+          violations.push(dep);
+        }
+      }
+    }
+    expect(violations).toEqual([]);
   });
 });

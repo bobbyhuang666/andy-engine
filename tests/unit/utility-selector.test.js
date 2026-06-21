@@ -3,8 +3,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { selectAction } from '../../agent/action/UtilitySelector.js';
-import { createCandidate } from '../../agent/action/ActionCandidate.js';
+import { selectAction } from '../../src/action/UtilitySelector.js';
+import { ActionCandidate } from '../../src/action/ActionCandidate.js';
+
+function createCandidate(opts) {
+  return new ActionCandidate(opts).toJSON();
+}
 import { RNG } from '../../src/shared/rng.js';
 
 describe('UtilitySelector', () => {

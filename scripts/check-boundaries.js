@@ -37,7 +37,6 @@ const ALLOWED_IMPORTS = [
   { from: 'core/World.js', to: 'social/' },
   { from: 'core/World.js', to: 'facts' },
   { from: 'core/World.js', to: 'src/runtime' },
-  { from: 'sdk/NarrativeBuilder.js', to: 'facts/' },
   { from: 'sdk/NarrativeBuilder.js', to: 'domain/' },
 ];
 
@@ -392,7 +391,7 @@ function checkCanonKnowledgeNarrativeBoundary() {
   // narrative must not import canon write APIs (WorldFactStore, CanonEventPipeline)
   const narrativeDir = path.join(ROOT, 'src', 'narrative');
   const narrativeFiles = getJsFiles(narrativeDir);
-  const canonWriteAPIs = ['WorldFactStore', 'CanonEventPipeline'];
+  const canonWriteAPIs = ['WorldFactStore', 'CanonEventPipeline', 'FactEmitter'];
   for (const file of narrativeFiles) {
     const relFile = getRelativePath(file);
     const content = readFileSync(file, 'utf-8');
@@ -449,6 +448,306 @@ function checkSdkDataMutation() {
               file: relFile,
               pattern: pattern + verb,
               line: i + 1,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return violations;
+}
+
+// --- Old top-level implementation growth check ---
+
+const OLD_TOP_LEVEL_DIRS = [
+  'agent', 'core', 'effects', 'facts', 'social', 'spatial', 'domain', 'config', 'store', 'sdk', 'world',
+];
+
+function countCodeLines(content) {
+  const lines = content.split('\n');
+  let count = 0;
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed === '') continue;
+    if (trimmed.startsWith('//')) continue;
+    if (trimmed.startsWith('/*')) continue;
+    if (trimmed.startsWith('*')) continue;
+    count++;
+  }
+  return count;
+}
+
+function isPureReExport(content) {
+  const trimmed = content.trim();
+  // Match patterns like: module.exports = require('../src/...');
+  // Also match: const { X } = require('../src/...'); module.exports = { X };
+  return /^(\s*\/\/[^\n]*\n\s*)*module\.exports\s*=\s*require\(/.test(trimmed) ||
+    /^(\s*\/\/[^\n]*\n\s*)*const\s+\{[^}]+\}\s*=\s*require\([^)]+\);\s*\n\s*module\.exports\s*=/.test(trimmed) ||
+    /^(\s*\/\/[^\n]*\n\s*)*const\s+\w+\s*=\s*require\([^)]+\);\s*\n\s*module\.exports\s*=\s*\w+;/.test(trimmed);
+}
+
+function checkOldTopLevelImplementationGrowth() {
+  const violations = [];
+  const auditPath = path.join(ROOT, 'docs', 'PUBLIC_FACADE_AUDIT.md');
+  let auditContent = '';
+  try {
+    auditContent = readFileSync(auditPath, 'utf-8');
+  } catch (e) {
+    // Audit file doesn't exist yet
+  }
+
+  for (const dir of OLD_TOP_LEVEL_DIRS) {
+    const fullDir = path.join(ROOT, dir);
+    const files = getJsFiles(fullDir);
+
+    for (const file of files) {
+      const relFile = getRelativePath(file);
+      const content = readFileSync(file, 'utf-8');
+      const codeLines = countCodeLines(content);
+
+      if (codeLines > 15 && !isPureReExport(content)) {
+        // This file has real implementation logic — must be in audit
+        if (auditContent && !auditContent.includes(`| \`${relFile}\``)) {
+          violations.push({
+            file: relFile,
+            codeLines,
+            reason: `has ${codeLines} lines of code but NOT classified in docs/PUBLIC_FACADE_AUDIT.md`,
+          });
+        }
+      }
+    }
+  }
+
+  return violations;
+}
+
+function checkAuditCoverage() {
+  const violations = [];
+  const auditPath = path.join(ROOT, 'docs', 'PUBLIC_FACADE_AUDIT.md');
+
+  let auditContent;
+  try {
+    auditContent = readFileSync(auditPath, 'utf-8');
+  } catch (e) {
+    violations.push({ file: 'docs/PUBLIC_FACADE_AUDIT.md', reason: 'audit document does not exist' });
+    return violations;
+  }
+
+  // Extract all classified paths from the audit table
+  const classifiedPaths = new Set();
+  const rowRegex = /\|\s*`([^`]+)`\s*\|/g;
+  let match;
+  while ((match = rowRegex.exec(auditContent)) !== null) {
+    classifiedPaths.add(match[1]);
+  }
+
+  // Scan all old top-level .js files
+  for (const dir of OLD_TOP_LEVEL_DIRS) {
+    const fullDir = path.join(ROOT, dir);
+    const files = getJsFiles(fullDir);
+
+    for (const file of files) {
+      const relFile = getRelativePath(file);
+      if (!classifiedPaths.has(relFile)) {
+        violations.push({
+          file: relFile,
+          reason: 'old top-level .js file not found in docs/PUBLIC_FACADE_AUDIT.md',
+        });
+      }
+    }
+  }
+
+  // Also check root test scripts
+  const rootTestScripts = ['test.js', 'test_pipeline.js', 'test_soa.js', 'test_soa_contagion.js', 'test_soa_debug.js', 'test_store.js'];
+  for (const script of rootTestScripts) {
+    const fullPath = path.join(ROOT, script);
+    if (require('fs').existsSync(fullPath)) {
+      if (!classifiedPaths.has(script)) {
+        violations.push({
+          file: script,
+          reason: 'root test script not found in docs/PUBLIC_FACADE_AUDIT.md',
+        });
+      }
+    }
+  }
+
+  return violations;
+}
+
+// --- src/ must not import old top-level compatibility wrappers ---
+
+const OLD_TOP_LEVEL_WRAPPERS = [
+  'facts', 'agent', 'core', 'sdk', 'store', 'social', 'spatial', 'domain', 'config', 'effects', 'world',
+];
+
+function checkSrcReverseImports() {
+  const violations = [];
+  const srcDir = path.join(ROOT, 'src');
+  const files = getJsFiles(srcDir);
+
+  for (const file of files) {
+    const relFile = getRelativePath(file);
+    const content = readFileSync(file, 'utf-8');
+    const deps = getDependencys(content);
+
+    for (const dep of deps) {
+      if (!dep.startsWith('.')) continue;
+
+      const resolved = path.resolve(path.dirname(file), dep);
+      const relResolved = getRelativePath(resolved);
+
+      for (const wrapper of OLD_TOP_LEVEL_WRAPPERS) {
+        // Check if resolved path escapes src/ and hits a top-level wrapper dir
+        if (relResolved === wrapper || relResolved.startsWith(wrapper + '/')) {
+          // Make sure it's not resolving to src/<wrapper>/ (which is fine)
+          if (!relResolved.startsWith('src/')) {
+            violations.push({
+              file: relFile,
+              imports: dep,
+              reason: `src/ must not import old top-level wrapper: ${wrapper}/`,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return violations;
+}
+
+// --- index.js must not import old top-level wrappers (except agent/Agent which has no src/ canonical) ---
+
+const INDEX_ALLOWED_OLD_IMPORTS = [
+  'agent/Agent',  // Agent class definition only exists here; index.js is public facade
+];
+
+function checkIndexJsImports() {
+  const violations = [];
+  const indexFile = path.join(ROOT, 'index.js');
+
+  if (!require('fs').existsSync(indexFile)) return violations;
+
+  const content = readFileSync(indexFile, 'utf-8');
+  const deps = getDependencys(content);
+
+  for (const dep of deps) {
+    if (!dep.startsWith('.')) continue;
+
+    const resolved = path.resolve(ROOT, dep);
+    const relResolved = getRelativePath(resolved);
+
+    for (const wrapper of OLD_TOP_LEVEL_WRAPPERS) {
+      if (relResolved === wrapper || relResolved.startsWith(wrapper + '/')) {
+        // Skip canonical src/ paths (./src/... resolves to src/...)
+        if (relResolved.startsWith('src/')) continue;
+
+        // Check if it's an allowed exception
+        const isAllowed = INDEX_ALLOWED_OLD_IMPORTS.some(allowed => {
+          const allowedPath = allowed.endsWith('/') ? allowed.slice(0, -1) : allowed;
+          return relResolved === allowedPath || relResolved.startsWith(allowedPath + '/');
+        });
+        if (isAllowed) continue;
+
+        violations.push({
+          file: 'index.js',
+          imports: dep,
+          reason: `index.js must not import old top-level wrapper: ${wrapper}/ — use src/ canonical path`,
+        });
+      }
+    }
+  }
+
+  return violations;
+}
+
+// --- Adapter cross-import check ---
+// Old top-level adapters in different directories may NOT import each other
+// EXCEPT through documented public facades.
+
+const ADAPTER_CROSS_IMPORT_RULES = [
+  { dir: 'agent/action', mustNotImport: ['core/', 'effects/', 'facts/', 'sdk/', 'store/', 'world/'] },
+  { dir: 'core', mustNotImport: ['agent/', 'sdk/', 'facts/'] },
+  { dir: 'effects', mustNotImport: ['core/', 'agent/', 'sdk/', 'facts/'] },
+  { dir: 'world', mustNotImport: ['core/', 'agent/', 'sdk/', 'facts/'] },
+];
+
+// Adapters MAY import from src/, config/, domain/ (public facades)
+const ADAPTER_ALLOWED_IMPORTS = ['src/', 'config/', 'domain/'];
+
+function checkAdapterCrossImports() {
+  const violations = [];
+
+  for (const rule of ADAPTER_CROSS_IMPORT_RULES) {
+    const dir = path.join(ROOT, rule.dir);
+    const files = getJsFiles(dir);
+
+    for (const file of files) {
+      const relFile = getRelativePath(file);
+      const content = readFileSync(file, 'utf-8');
+      const deps = getDependencys(content);
+
+      for (const dep of deps) {
+        if (!dep.startsWith('.')) continue;
+
+        const resolved = path.resolve(path.dirname(file), dep);
+        const relResolved = getRelativePath(resolved);
+
+        // Skip if resolved path is within the same adapter directory
+        if (relResolved.startsWith(rule.dir + '/') || relResolved === rule.dir) continue;
+
+        // Skip if resolved path is in allowed directories (src/, config/, domain/)
+        const isAllowed = ADAPTER_ALLOWED_IMPORTS.some(allowed => relResolved.startsWith(allowed));
+        if (isAllowed) continue;
+
+        // Check if resolved path hits a forbidden adapter directory
+        for (const forbidden of rule.mustNotImport) {
+          const forbiddenDir = forbidden.endsWith('/') ? forbidden.slice(0, -1) : forbidden;
+          if (relResolved === forbiddenDir || relResolved.startsWith(forbiddenDir + '/')) {
+            violations.push({
+              file: relFile,
+              imports: dep,
+              reason: `adapter [${rule.dir}] must not import from [${forbidden}] — use src/ canonical path instead`,
+            });
+          }
+        }
+      }
+    }
+  }
+
+  return violations;
+}
+
+// --- FactEmitter Event Fallback Boundary Check ---
+// emitEventFacts and propagateEventKnowledge are legacy fallbacks.
+// Only tests/ and src/canon/FactEmitter.js itself may reference them.
+
+const FACT_EMITTER_EVENT_FALLBACK = ['emitEventFacts', 'propagateEventKnowledge'];
+
+function checkFactEmitterEventFallback() {
+  const violations = [];
+  const restrictedDirs = ['src/runtime', 'src/agent', 'src/sdk', 'agent', 'sdk'];
+
+  for (const dir of restrictedDirs) {
+    const fullDir = path.join(ROOT, dir);
+    const files = getJsFiles(fullDir);
+
+    for (const file of files) {
+      const relFile = getRelativePath(file);
+      const content = readFileSync(file, 'utf-8');
+      const lines = content.split('\n');
+
+      for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) continue;
+
+        for (const method of FACT_EMITTER_EVENT_FALLBACK) {
+          if (lines[i].includes(method)) {
+            violations.push({
+              file: relFile,
+              method,
+              line: i + 1,
+              reason: `${dir}/ must not call FactEmitter.${method} — use CanonEventPipeline instead`,
             });
           }
         }
@@ -572,6 +871,78 @@ function main() {
     totalViolations += cknViolations.length;
   } else {
     console.log('✓ Canon/knowledge/narrative boundary: clean');
+  }
+
+  // 10. src/ must not import old top-level compatibility wrappers
+  const srcReverseViolations = checkSrcReverseImports();
+  if (srcReverseViolations.length > 0) {
+    console.log('❌ src/ reverse import violations (src/ → old top-level wrappers):');
+    for (const v of srcReverseViolations) {
+      console.log(`  ${v.file}: imports ${v.imports} — ${v.reason}`);
+    }
+    totalViolations += srcReverseViolations.length;
+  } else {
+    console.log('✓ src/ reverse imports: clean (no src/ → old top-level wrappers)');
+  }
+
+  // 10b. index.js must not import old top-level wrappers
+  const indexJsViolations = checkIndexJsImports();
+  if (indexJsViolations.length > 0) {
+    console.log('❌ index.js import violations (imports old top-level wrappers):');
+    for (const v of indexJsViolations) {
+      console.log(`  ${v.file}: imports ${v.imports} — ${v.reason}`);
+    }
+    totalViolations += indexJsViolations.length;
+  } else {
+    console.log('✓ index.js imports: clean (no old top-level wrappers)');
+  }
+
+  // 11. Old top-level implementation growth check
+  const growthViolations = checkOldTopLevelImplementationGrowth();
+  if (growthViolations.length > 0) {
+    console.log('❌ Old top-level implementation growth violations:');
+    for (const v of growthViolations) {
+      console.log(`  ${v.file}: ${v.reason}`);
+    }
+    totalViolations += growthViolations.length;
+  } else {
+    console.log('✓ Old top-level implementation growth: clean (all non-trivial files classified)');
+  }
+
+  // 12. Audit document coverage check
+  const auditViolations = checkAuditCoverage();
+  if (auditViolations.length > 0) {
+    console.log('❌ PUBLIC_FACADE_AUDIT.md coverage violations:');
+    for (const v of auditViolations) {
+      console.log(`  ${v.file}: ${v.reason}`);
+    }
+    totalViolations += auditViolations.length;
+  } else {
+    console.log('✓ Audit coverage: all old top-level files classified in PUBLIC_FACADE_AUDIT.md');
+  }
+
+  // 13. Adapter cross-import check
+  const adapterCrossViolations = checkAdapterCrossImports();
+  if (adapterCrossViolations.length > 0) {
+    console.log('❌ Adapter cross-import violations (old adapters importing each other):');
+    for (const v of adapterCrossViolations) {
+      console.log(`  ${v.file}: imports ${v.imports} — ${v.reason}`);
+    }
+    totalViolations += adapterCrossViolations.length;
+  } else {
+    console.log('✓ Adapter cross-imports: clean (old adapters do not import each other)');
+  }
+
+  // 14. FactEmitter event fallback boundary
+  const factEmitterFallbackViolations = checkFactEmitterEventFallback();
+  if (factEmitterFallbackViolations.length > 0) {
+    console.log('❌ FactEmitter event fallback violations (must use CanonEventPipeline):');
+    for (const v of factEmitterFallbackViolations) {
+      console.log(`  ${v.file}:${v.line}: calls ${v.method} — ${v.reason}`);
+    }
+    totalViolations += factEmitterFallbackViolations.length;
+  } else {
+    console.log('✓ FactEmitter event fallback: locked down (runtime/agent/sdk use CanonEventPipeline)');
   }
 
   console.log('');

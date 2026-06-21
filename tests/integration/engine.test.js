@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import AndyEngine from '../../index.js';
-import Schedule from '../../agent/Schedule.js';
+import Schedule from '../../src/agent/schedule/Schedule.js';
 
 describe('AndyEngine 集成测试', () => {
   let engine;

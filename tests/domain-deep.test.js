@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'vitest';
 import AndyEngine from '../index.js';
 import tavernDomain from '../presets/tavern/index.js';
-import EventDispatcher from '../core/EventDispatcher.js';
+import EventDispatcher from '../src/runtime/EventDispatcher.js';
 
 // 校园词列表
 const CAMPUS_WORDS = [

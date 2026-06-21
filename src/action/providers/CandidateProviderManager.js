@@ -14,6 +14,9 @@ const { ScheduleCandidateProvider } = require('./ScheduleCandidateProvider');
 const { BehaviorFieldCandidateProvider } = require('./BehaviorFieldCandidateProvider');
 const { ExploreCandidateProvider } = require('./ExploreCandidateProvider');
 const { SocializeCandidateProvider } = require('./SocializeCandidateProvider');
+const { MemoryCandidateProvider } = require('./MemoryCandidateProvider');
+const { HabitCandidateProvider } = require('./HabitCandidateProvider');
+const { WorldPressureCandidateProvider } = require('./WorldPressureCandidateProvider');
 
 class CandidateProviderManager {
   constructor() {
@@ -24,6 +27,9 @@ class CandidateProviderManager {
       new BehaviorFieldCandidateProvider(),
       new ExploreCandidateProvider(),
       new SocializeCandidateProvider(),
+      new MemoryCandidateProvider(),
+      new HabitCandidateProvider(),
+      new WorldPressureCandidateProvider(),
     ];
   }
 

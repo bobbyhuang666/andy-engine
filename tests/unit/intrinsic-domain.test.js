@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import Personality from '../../agent/Personality.js';
-import IntrinsicMotivation from '../../agent/IntrinsicMotivation.js';
-import { DomainRegistry } from '../../domain/DomainRegistry.js';
+import Personality from '../../src/agent/psychology/Personality.js';
+import IntrinsicMotivation from '../../src/agent/psychology/IntrinsicMotivation.js';
+import { DomainRegistry } from '../../src/domain/DomainRegistry.js';
 import tavernDomain from '../../presets/tavern/index.js';
 
 describe('IntrinsicMotivation domain boundaries', () => {

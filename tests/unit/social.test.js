@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import SocialGraph from '../../social/SocialGraph.js';
+import SocialGraph from '../../src/social/SocialGraph.js';
 
 describe('SocialGraph 模块', () => {
   let graph;

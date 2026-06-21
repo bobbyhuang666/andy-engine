@@ -1,5 +1,10 @@
 # Andy Engine Temporary Modular Decoupling Plan
 
+> **Historical document.**
+> This temporary plan has been superseded by the completed Clean Architecture Pass.
+> Current source of truth: `docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md`,
+> `docs/PUBLIC_FACADE_AUDIT.md`, and `docs/LEGACY_REMOVAL_REPORT.md`.
+>
 > Status: temporary planning document.
 > Date: 2026-06-19.
 > Scope: Andy Engine only.

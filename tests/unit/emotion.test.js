@@ -6,8 +6,8 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import Personality from '../../agent/Personality.js';
-import EmotionVector from '../../agent/EmotionVector.js';
+import Personality from '../../src/agent/psychology/Personality.js';
+import EmotionVector from '../../src/agent/psychology/EmotionVector.js';
 
 describe('EmotionVector 模块', () => {
   let personality;

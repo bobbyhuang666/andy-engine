@@ -1,768 +1,618 @@
-# Andy Engine Clean Architecture Pass v0.1
+# Andy Engine Clean Architecture Retirement Plan v0.2
 
-> 中文名：Andy 引擎清洁架构整理 v0.1
+> **Historical execution plan.**
+> The retirement plan has been executed through Stage 25.1. Current source of truth:
+> `docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md`, `docs/PUBLIC_FACADE_AUDIT.md`,
+> and `docs/LEGACY_REMOVAL_REPORT.md`.
 >
-> 目标：把 Andy Engine 从一个能跑的研究原型，整理成边界清楚、模块干净、债务可控并最终无旧债的 engine codebase。
+> 中文名：Andy 引擎旧架构退休与新架构替换计划 v0.2
 >
-> 原则：不靠口头约定维持架构，不靠 AI 记忆维持边界；所有模块责任、依赖方向、迁移顺序、测试门禁和债务处理都必须写进代码库，并由脚本和测试持续守住。
+> 目标：把 Andy Engine 的旧顶层架构逐步退休，最终以 `src/` 分层架构作为唯一 canonical implementation。旧目录要么删除，要么只保留明确的 public compatibility wrapper，并有清晰的删除条件。
+>
+> 当前状态：`src/` 分层已存在，旧顶层目录仍大量存在作为 wrapper、legacy public path 或历史实现承载。本计划定义从当前双轨结构走向纯净新架构的执行顺序。
 
 ---
 
 ## 1. One-Sentence Goal
 
-Andy Engine Clean Architecture Pass v0.1 的一句话目标：
+> Andy Engine Clean Architecture Retirement Pass 的目标，是将现有双轨结构收敛为以 `src/` 为唯一实现来源的 clean engine codebase：旧架构不再承载真实实现，旧路径不再产生新债，最终无 active legacy debt。
 
-> 不改变 Andy Engine 的核心能力语义，通过阶段化整理、边界固化、目录迁移、状态写回收敛和 API 收敛，把项目变成一个可长期演化的 Persistent World Engine codebase。
+这不是重写 Andy Engine，也不是加新功能。
 
-这个 pass 不是一次重写，也不是一次功能扩张。它是一条从现有结构到目标结构的完整工程路线。
+这是一次有顺序的架构替换：
 
-最终验收不是“看起来更整洁”，而是：
-
-- 旧债全部清零，或转化为明确的兼容层并有删除门禁。
-- 新债被自动禁止。
-- 模块边界由文档、脚本、测试共同约束。
-- 核心循环可独立验证。
-- 高风险文件停止膨胀，并被拆成可测试的 seam。
-- 对外 API 收敛到少数稳定入口。
-- 上层应用、demo、Bobby、Andy Town、RPG/Adventure 扩展不再污染 engine core。
+```text
+legacy top-level implementation
+  -> compatibility wrappers
+  -> public API contract review
+  -> controlled removal or intentional stable wrapper
+  -> src-only canonical implementation
+```
 
 ---
 
-## 2. Clean Architecture Definition
+## 2. Final Target
 
-本项目里的“干净”不是抽象审美，而是以下可验证条件。
-
-### 2.1 Debt Visibility
-
-每一项债务必须满足：
-
-- 有唯一编号。
-- 有当前位置。
-- 有风险说明。
-- 有计划阶段。
-- 有允许清理方式。
-- 有禁止清理方式。
-- 有验证命令。
-- 有停止条件。
-
-没有登记的债务视为架构 bug。
-
-### 2.2 Debt Closure
-
-最终目标不是“债务可见就算完成”，而是：
-
-- legacy compatibility wrapper 只允许短期存在。
-- 每个 wrapper 必须有删除条件。
-- 每个 accepted exception 必须被迁移阶段覆盖。
-- `KNOWN_BOUNDARY_VIOLATIONS.md` 最终只保留历史记录，不保留 active violation。
-
-### 2.3 Boundary Enforcement
-
-每条关键边界必须同时有三层保护：
-
-1. 文档说明：人能读懂。
-2. source scan / boundary script：机器能检查。
-3. regression test：行为不会回退。
-
-如果某条规则无法自动检查，文档必须说明原因，并列为人工审查项。
-
-### 2.4 Runtime Semantics Preservation
-
-清洁架构整理必须保持 Andy 的核心语义：
-
-- BehaviorField 仍是连续心理场核心。
-- Action selection 只能在合理候选中选择，不能绕过心理场。
-- CanonEvent 是世界事实入口。
-- EffectPipeline 负责后果和 delta。
-- LLM 只做 grounded expression，不拥有事实权。
-- Domain preset 仍是世界规则来源。
-
----
-
-## 3. Target Architecture
-
-目标目录结构如下。该结构是 Clean Architecture Pass 的终点，不是示意图。
+最终代码库应满足：
 
 ```text
 andy-engine/
-|
-|- src/
-|  |
-|  |- runtime/                    # 引擎运行时编排层
-|  |  |- AndyWorld.js             # 对内主 runtime
-|  |  |- Simulator.js
-|  |  |- WorldClock.js
-|  |  |- RuntimeContext.js
-|  |  `- RuntimeConfig.js
-|  |
-|  |- canon/                      # 世界事实权：世界里什么是真的
-|  |  |- WorldCanon.js
-|  |  |- WorldFactStore.js
-|  |  |- FactSchema.js
-|  |  |- CanonEvent.js
-|  |  |- CanonEventPipeline.js
-|  |  `- FactQuery.js
-|  |
-|  |- knowledge/                  # 角色局部知识：谁知道什么
-|  |  |- KnowledgeStore.js
-|  |  |- ObservationBuilder.js
-|  |  |- KnowledgeProjection.js
-|  |  `- VisibilityPolicy.js
-|  |
-|  |- agent/                      # 角色状态，不做世界事实权
-|  |  |- AgentState.js
-|  |  |- AgentProfile.js
-|  |  |- AgentRuntime.js
-|  |  |- psychology/
-|  |  |  |- Personality.js
-|  |  |  |- EmotionVector.js
-|  |  |  |- EmotionRegulation.js
-|  |  |  |- NeedsSystem.js
-|  |  |  `- BehaviorField.js
-|  |  |- memory/
-|  |  |  |- PersonalMemory.js
-|  |  |  `- ProceduralMemory.js
-|  |  `- schedule/
-|  |     `- Schedule.js
-|  |
-|  |- pressure/                   # 状态 -> 行为压力
-|  |  |- WorldPressure.js
-|  |  |- NeedPressure.js
-|  |  |- MemoryPressure.js
-|  |  |- RelationshipPressure.js
-|  |  `- LocationPressure.js
-|  |
-|  |- action/                     # 行为候选与选择，不直接改世界
-|  |  |- CandidateProvider.js
-|  |  |- UtilityScorer.js
-|  |  |- UtilitySelector.js
-|  |  |- ReasonTrace.js
-|  |  `- SelectedAction.js
-|  |
-|  |- effects/                    # 事件后果：事件改变什么
-|  |  |- EventEffectPipeline.js
-|  |  |- EffectResult.js
-|  |  |- StateDelta.js
-|  |  |- MemoryEffectHandler.js
-|  |  |- LocationMeaningEffectHandler.js
-|  |  |- FutureTendencyEffectHandler.js
-|  |  |- RelationshipEffectHandler.js
-|  |  `- EffectCommitter.js
-|  |
-|  |- narrative/                  # 受限表达 / LLM grounding
-|  |  |- GroundingPackageBuilder.js
-|  |  |- FactProvider.js
-|  |  |- FactConsistencyChecker.js
-|  |  |- ClaimValidator.js
-|  |  `- NarrativeAdapter.js
-|  |
-|  |- spatial/                    # 地点 / 空间 / 地点意义
-|  |  |- LocationGraph.js
-|  |  |- LocationMeaningStore.js
-|  |  |- SpatialIndex.js
-|  |  `- RouteQuery.js
-|  |
-|  |- social/                     # 关系 / 社交图
-|  |  |- RelationshipStore.js
-|  |  |- SocialGraph.js
-|  |  `- SocialSignal.js
-|  |
-|  |- domain/                     # 世界规则 / preset / domain compiler
-|  |  |- DomainConfig.js
-|  |  |- WorldRules.js
-|  |  |- PresetCompiler.js
-|  |  `- DomainRegistry.js
-|  |
-|  |- store/                      # persistence / serialization
-|  |  |- SnapshotStore.js
-|  |  |- SaveLoad.js
-|  |  `- Serialization.js
-|  |
-|  |- sdk/                        # 对外 API
-|  |  |- AndyEngine.js
-|  |  |- Character.js
-|  |  |- AdventureAdapter.js
-|  |  `- index.js
-|  |
-|  `- shared/                     # 跨层共享协议，不含业务逻辑
-|     |- ids.js
-|     |- time.js
-|     |- errors.js
-|     |- rng.js
-|     `- schemas/
-|        |- CanonEvent.schema.js
-|        |- WorldFact.schema.js
-|        |- KnowledgeFact.schema.js
-|        |- StateDelta.schema.js
-|        `- GroundingPackage.schema.js
-|
-|- presets/
-|  |- campus/
-|  `- tavern/
-|
-|- examples/
-|  |- core-loop-tavern-slice.js
-|  `- basic-world.js
-|
-|- tests/
-|  |- architecture/
-|  |- unit/
-|  |- integration/
-|  |- core-loop/
-|  `- regression/
-|
-|- docs/
-|  |- MODULE_MAP.md
-|  |- ARCHITECTURE_BOUNDARIES.md
-|  |- CLEAN_ARCHITECTURE_PLAN.md
-|  |- KNOWN_BOUNDARY_VIOLATIONS.md
-|  `- CORE_LOOP_SLICE_REPORT.md
-|
-|- scripts/
+|- src/                 # 唯一 canonical implementation
+|- presets/             # domain preset data, intentionally outside src
+|- examples/            # public examples
+|- tests/               # architecture/unit/integration/core-loop/regression
+|- docs/                # architecture contracts and audit reports
+|- scripts/             # checks and release tooling
 |- benchmarks/
 |- native/
-`- experiments/
+|- experiments/
+|- index.js             # root public entry wrapper, if kept by package API
+`- package.json
+```
+
+最终 `src/` 结构：
+
+```text
+src/
+|- runtime/             # AndyWorld, clock, runtime config/context
+|- canon/               # World facts and canon events
+|- knowledge/           # who knows what
+|- agent/               # agent runtime, psychology, memory, schedule
+|- pressure/            # read-only behavior pressure sources
+|- action/              # candidates, scoring, selection, reason trace
+|- effects/             # effect results, deltas, committers
+|- narrative/           # grounding and claim validation
+|- spatial/             # location graph/index
+|- social/              # relationship graph
+|- domain/              # domain contracts and validation
+|- store/               # persistence and serialization
+|- sdk/                 # public API implementation
+`- shared/              # ids, time, errors, rng, schemas
 ```
 
 ---
 
-## 4. Dependency Direction
+## 3. Non-Negotiable Rules
 
-目录形状不如依赖方向重要。Clean Architecture Pass 的核心依赖方向是：
+### 3.1 No Capability Regression
+
+Retirement work must not remove current capabilities unless explicitly marked as breaking-change work.
+
+Must preserve:
+
+- `new AndyEngine()`
+- `new AndyEngine({ domain })`
+- `createCharacter()`
+- `addAgent()`
+- SDK Character flow
+- facts public export until intentionally retired
+- domain public export
+- store public export
+- default campus preset
+- tavern custom domain
+- seeded RNG baseline
+- action selection modes
+- grounded narrative checks
+
+### 3.2 No New Feature Expansion
+
+This plan does not authorize:
+
+- StoryArc runtime
+- Adventure / RPG mechanics
+- PlayerAgent
+- QuestSystem
+- ItemSystem
+- Fantasy/Cultivation domain
+- Bobby product behavior
+- Andy Town UI/map behavior
+- plugin system
+- ECS rewrite
+- Rust rewrite
+- TypeScript migration
+- npm publish
+
+### 3.3 Wrapper Discipline
+
+A wrapper is allowed only when it satisfies all conditions:
+
+- It contains no business logic.
+- It re-exports canonical `src/` implementation.
+- It is listed in `MODULE_MAP.md` or `API_BOUNDARY.md`.
+- It has a retirement policy: keep as public stable path, deprecate, or delete.
+
+### 3.4 Dependency Direction
+
+Final dependency direction:
 
 ```text
 domain / presets / config
-      |
-      v
-runtime
-      |
-      v
-canon
-      |
-      v
-knowledge
-      |
-      v
-agent state / pressure
-      |
-      v
-action selection
-      |
-      v
-canon event
-      |
-      v
-effects
-      |
-      v
-narrative / grounding
-      |
-      v
-sdk / examples / apps
+  -> runtime
+  -> canon
+  -> knowledge
+  -> agent state / pressure
+  -> action
+  -> canon event
+  -> effects
+  -> narrative / grounding
+  -> sdk / examples / apps
 ```
-
-更严格地说：
-
-- `domain` 定义规则，不拥有运行状态。
-- `runtime` 编排世界，不拥有业务语义。
-- `canon` 决定世界事实，不做表达。
-- `knowledge` 决定谁知道什么，不改变事实本身。
-- `agent` 维护角色内部状态，不写世界事实。
-- `pressure` 把状态转换成行为压力，不选择动作。
-- `action` 选择意图，不直接提交后果。
-- `effects` 把事件转成 delta，并由 committer 统一写回。
-- `narrative` 只表达 grounded facts，不新增事实。
-- `sdk` 只调用稳定 public API，不访问内部状态对象。
-
----
-
-## 5. Current-to-Target Mapping
-
-| Current Path | Target Path | Target Layer | Notes |
-|---|---|---|---|
-| `index.js` | `src/sdk/AndyEngine.js` + root compatibility export | sdk/runtime | root export remains compatibility wrapper until final API switch |
-| `core/World.js` | `src/runtime/AndyWorld.js` | runtime | should own subsystems via narrow interfaces |
-| `core/Simulator.js` | `src/runtime/Simulator.js` | runtime | scheduling only, not semantics |
-| `core/RNG.js` | `src/shared/rng.js` | shared | deterministic random source |
-| `core/EventDispatcher.js` | `src/runtime/EventDispatcher.js` or split into canon/effects | runtime/canon | dispatch and semantic conversion must split |
-| `facts/WorldFactStore.js` | `src/canon/WorldFactStore.js` | canon | fact storage authority |
-| `facts/FactSchema.js` | `src/canon/FactSchema.js` | canon | later replaced by shared schema + canon validators |
-| `facts/CanonEventPipeline.js` | `src/canon/CanonEventPipeline.js` | canon | dispatched event -> fact |
-| `facts/KnowledgeStore.js` | `src/knowledge/KnowledgeStore.js` | knowledge | agent-specific knowledge |
-| `facts/FactProvider.js` | `src/narrative/GroundingPackageBuilder.js` | narrative | grounding construction |
-| `facts/FactConsistencyChecker.js` | `src/narrative/FactConsistencyChecker.js` | narrative | claim validation |
-| `effects/EventEffectPipeline.js` | `src/effects/EventEffectPipeline.js` | effects | canonical implementation |
-| `core/EventEffectPipeline.js` | deleted or legacy re-export | compatibility | delete after public import migration |
-| `core/WorldPressure.js` | `src/pressure/WorldPressure.js` | pressure | read-only pressure source |
-| `agent/action/*` | `src/action/*` | action | candidate/score/select/reason trace |
-| `agent/Agent.js` | `src/agent/AgentRuntime.js` + handlers | agent | split without changing tick order |
-| `agent/BehaviorField.js` | `src/agent/psychology/BehaviorField.js` | agent/psychology | behavior field stays core psychological primitive |
-| `agent/EmotionVector.js` | `src/agent/psychology/EmotionVector.js` | agent/psychology | emotion pipeline |
-| `agent/NeedsSystem.js` | `src/agent/psychology/NeedsSystem.js` | agent/psychology | needs state and recovery |
-| `agent/PersonalMemory.js` | `src/agent/memory/PersonalMemory.js` | agent/memory | memory as internal agent state |
-| `agent/ProceduralMemory.js` | `src/agent/memory/ProceduralMemory.js` | agent/memory | habit memory |
-| `agent/Schedule.js` | `src/agent/schedule/Schedule.js` | agent/schedule | no campus data |
-| `social/*` | `src/social/*` | social | relationship subsystem |
-| `spatial/*` | `src/spatial/*` | spatial | location graph/index |
-| `domain/*` | `src/domain/*` | domain | domain contracts and validation |
-| `presets/*` | `presets/*` | presets | remains outside src as data package |
-| `store/*` | `src/store/*` | store | persistence |
-| `sdk/*` | `src/sdk/*` | sdk | public API surface |
-
----
-
-## 6. Architecture Rules
-
-### 6.1 Fact Authority
-
-Only canon-layer modules may create, update, invalidate, or query canonical world facts.
-
-Allowed final writers:
-
-- `src/canon/WorldCanon.js`
-- `src/canon/WorldFactStore.js`
-- `src/canon/CanonEventPipeline.js`
-
-`FactEmitter` is a transitional tool and must either become a canon helper or disappear.
-
-### 6.2 Knowledge Boundary
-
-Knowledge is not memory.
-
-- `knowledge` answers: who knows what?
-- `memory` answers: how does this agent remember and get influenced by it?
-
-No event automatically becomes universal knowledge.
-
-### 6.3 Action Boundary
-
-`action` may produce:
-
-- `ActionCandidate`
-- `ScoreBreakdown`
-- `SelectedAction`
-- `ReasonTrace`
-
-`action` must not:
-
-- mutate memory
-- mutate relationship
-- mutate emotion
-- mutate needs
-- create facts
-- write event log directly
-
-### 6.4 Effect Boundary
-
-`effects` may compute:
-
-- `StateDelta`
-- `MemoryDelta`
-- `RelationshipDelta`
-- `LocationMeaningDelta`
-- `FutureTendencyDelta`
-- `EffectResult`
-
-Only `EffectCommitter` may apply allowed deltas to live state.
-
-### 6.5 Narrative Boundary
-
-`narrative` may:
-
-- build grounding packages
-- validate claims
-- project facts into expression context
-- call LLM adapters through controlled inputs
-
-`narrative` must not:
-
-- create canon facts
-- mutate knowledge
-- mutate memory
-- invent location/relationship/event claims
-
-### 6.6 SDK Boundary
-
-`sdk` must call public seams only.
 
 Forbidden:
 
-- `agent.memory.addExperience`
-- `relationship.strength +=`
-- direct fact store mutation
-- direct knowledge store mutation
-- direct `Agent` private field mutation
-
-### 6.7 Domain Boundary
-
-Domain config owns world-specific vocabulary and rules.
-
-Forbidden in core layers:
-
-- campus-only terms
-- tavern-only terms
-- Oak Town terms
-- RPG/fantasy/cultivation terms
-- Bobby/Andy Town UI terms
+- `src/action` directly mutating agent/world state
+- `src/narrative` writing canon facts
+- `src/sdk` mutating internals
+- `src/domain` importing runtime/agent/facts/narrative
+- extension/product terms entering engine core
+- old top-level directories gaining new implementation logic
 
 ---
 
-## 7. Pass Phases
+## 4. Current Dual-Track Reality
 
-The pass is divided into ordered phases. Each phase has a clear entry condition, allowed work, forbidden work, deliverables, tests, and exit gate.
+The current codebase is already partially migrated:
 
-### Phase 1: Baseline Freeze and Inventory
-
-**Goal**: freeze the current verified baseline and make the current state inspectable.
-
-**Entry condition**:
-
-- working tree clean
-- latest commits pushed or explicitly marked local-only
-- `npm run release:check` passes
-
-**Allowed work**:
-
-- create architecture inventory
-- record current module locations
-- record known wrappers and accepted exceptions
-- verify package contents
-- verify public exports
-
-**Forbidden work**:
-
-- moving files
-- changing runtime semantics
-- adding public API
-- implementing new systems
-
-**Deliverables**:
-
-- `docs/MODULE_MAP.md`
-- updated `docs/ARCHITECTURE_SNAPSHOT.md`
-- current package export table
-- current dependency graph summary
-
-**Tests / checks**:
-
-```bash
-npm run release:check
-npm run smoke:pack
-git diff --check
+```text
+src/                     canonical target exists
+agent/action/            legacy wrapper / compatibility path
+facts/                   mixed public compatibility + legacy path
+core/                    runtime compatibility wrappers and remaining public helpers
+config/domain/social/... legacy public wrappers
+sdk/                     public wrappers
+store/                   public wrappers + legacy store modules
 ```
 
-**Exit gate**:
-
-- every existing file has a logical target layer
-- every known wrapper is listed
-- every active exception has a planned removal phase
+This plan retires those legacy paths in a safe order.
 
 ---
 
-### Phase 2: Boundary Scanner Hardening
+## 5. Phase Order
 
-**Goal**: make architecture rules executable.
+The retirement order is deliberately not the same as directory order.
 
-**Entry condition**:
+Recommended sequence:
 
-- Phase 1 module map accepted
+```text
+Phase 1  Action Layer Retirement
+Phase 2  Facts Split Retirement
+Phase 3  Effects and Pressure Retirement
+Phase 4  Runtime/Core Retirement
+Phase 5  Domain and Config Retirement
+Phase 6  Spatial, Social, and Store Retirement
+Phase 7  Agent Psychology/Memory/Schedule Migration
+Phase 8  Agent Runtime Containment
+Phase 9  SDK Retirement
+Phase 10 Public API Contract Finalization
+Phase 11 Legacy Directory Removal
+Phase 12 Final No-Old-Debt Audit
+```
 
-**Allowed work**:
+Rationale:
 
-- extend `scripts/check-boundaries.js`
-- extend `tests/architecture/`
-- add source-scan allowlists only with explicit comments
-- add checks for resolved debt regression
+- retire low-risk internal wrappers first
+- then stabilize canon/knowledge/narrative authority
+- then stabilize effects/writeback
+- then retire runtime/core
+- only then touch high-risk agent and SDK surfaces
 
-**Forbidden work**:
+---
 
-- making scanner so strict that current accepted exceptions fail without a planned phase
-- weakening existing checks to pass
-- adding runtime behavior to satisfy scanner
+## 6. Phase 1: Action Layer Retirement
 
-**Required checks**:
+### Goal
 
-- `action` cannot import `effects` committer or state mutation modules
-- `narrative` cannot import canon write APIs
-- `facts` / `canon` cannot import narrative
-- `sdk` cannot direct-write memory, relationship, facts, knowledge
-- `domain` cannot import runtime/agent/facts/narrative
-- extension terms cannot appear in core layers
-- new deterministic paths cannot use `Math.random()` / `Date.now()`
+Retire `agent/action/` as an implementation location. `src/action/` becomes the only action implementation.
 
-**Deliverables**:
+### Current Paths
 
-- stronger `scripts/check-boundaries.js`
-- architecture regression tests for every enforced rule
-- updated `docs/ARCHITECTURE_BOUNDARIES.md`
+```text
+agent/action/*
+src/action/*
+```
 
-**Tests / checks**:
+### Target
+
+```text
+src/action/*          canonical
+agent/action/*        wrapper or removed
+```
+
+### Allowed Work
+
+- Ensure all implementation lives in `src/action`.
+- Convert `agent/action/*` files to minimal re-export wrappers.
+- Update internal imports to use `src/action`.
+- Keep old import paths only if package/public compatibility requires them.
+- Add architecture tests proving action does not import effects committer or mutate state.
+
+### Forbidden Work
+
+- Do not change candidate scoring semantics.
+- Do not change UtilitySelector randomness semantics.
+- Do not add new action types.
+- Do not connect WorldObject to action if not already connected.
+- Do not let action write memory/facts/relationship.
+
+### Required Tests
 
 ```bash
-npm run check:boundaries
 npm test
-git diff --check
+npm run check:boundaries
+npx vitest run tests/action-layer.test.js tests/unit/utility-selector.test.js
 ```
 
-**Exit gate**:
+### Exit Gate
 
-- every resolved violation has an automated regression guard
-- every accepted exception is either enforced by allowlist or listed in docs
+- `agent/action/*` contains no business logic.
+- `src/action/*` is canonical.
+- action layer boundary checks pass.
+- same-seed action selection tests pass.
 
 ---
 
-### Phase 3: Stable Public/Private Contract Split
+## 7. Phase 2: Facts Split Retirement
 
-**Goal**: separate public API from internal implementation before moving directories.
+### Goal
 
-**Entry condition**:
+Retire `facts/` as a mixed implementation directory by splitting it into canon, knowledge, and narrative responsibilities.
 
-- Phase 2 boundary scanner passes
+### Current Paths
 
-**Allowed work**:
+```text
+facts/WorldFactStore.js       -> src/canon/WorldFactStore.js
+facts/FactSchema.js           -> src/canon/FactSchema.js
+facts/CanonEventPipeline.js   -> src/canon/CanonEventPipeline.js
+facts/KnowledgeStore.js       -> src/knowledge/KnowledgeStore.js
+facts/FactProvider.js         -> src/narrative/FactProvider.js
+facts/FactConsistencyChecker.js -> src/narrative/FactConsistencyChecker.js
+facts/FactFormatter.js        -> src/narrative/FactFormatter.js
+facts/index.js                -> compatibility export
+```
 
-- define public API table
-- define internal-only module table
-- add compatibility wrapper policy
-- add export tests
-- document package boundary
+### Target
 
-**Forbidden work**:
+```text
+src/canon/*        world truth authority
+src/knowledge/*    who knows what
+src/narrative/*    grounding and claim validation
+facts/*            wrapper only, or stable public compatibility export
+```
 
-- exporting experimental internals as stable API
-- removing existing public imports without deprecation path
-- changing package name or npm publish policy
+### Allowed Work
 
-**Deliverables**:
+- Update runtime imports to `src/canon` and `src/knowledge`.
+- Update narrative imports to `src/narrative`.
+- Keep `facts/index.js` as public compatibility facade if needed.
+- Document each `facts` export as stable, experimental, deprecated, or internal.
+- Expand boundary script to prevent canon/knowledge/narrative cross-layer regressions.
 
-- `docs/API_BOUNDARY.md`
-- updated `tests/package-boundary.test.js`
-- public export smoke tests
-- internal module list
+### Forbidden Work
 
-**Tests / checks**:
+- Do not change fact schema behavior.
+- Do not alter knowledge propagation semantics.
+- Do not let narrative write facts.
+- Do not let canon import narrative.
+- Do not remove `andy-engine/facts` until public API contract is finalized.
+
+### Required Tests
 
 ```bash
+npm test
+npm run check:boundaries
+npx vitest run tests/facts/*.test.js tests/integration/fact-system-slice.test.js
+```
+
+### Exit Gate
+
+- `facts/` contains no canonical implementation except documented public facade.
+- `src/canon` is the only world fact authority.
+- `src/knowledge` owns local knowledge.
+- `src/narrative` owns grounding/claim validation.
+- `CanonEventPipeline` is the only dispatched-event -> fact main path.
+
+---
+
+## 8. Phase 3: Effects and Pressure Retirement
+
+### Goal
+
+Retire root `effects/` and `core/WorldPressure.js` as implementation locations.
+
+### Current Paths
+
+```text
+effects/EventEffectPipeline.js      -> src/effects/EventEffectPipeline.js
+core/WorldPressure.js               -> src/pressure/WorldPressure.js
+```
+
+### Target
+
+```text
+src/effects/*       canonical effect/delta/committer layer
+src/pressure/*      canonical read-only pressure layer
+effects/*           wrapper only or removed
+core/WorldPressure  wrapper only or removed
+```
+
+### Allowed Work
+
+- Move all effect implementation to `src/effects`.
+- Move all pressure implementation to `src/pressure`.
+- Convert old paths to wrappers.
+- Add effect result and delta contract tests.
+- Add pressure purity tests.
+
+### Forbidden Work
+
+- Do not change writeback semantics.
+- Do not let pressure mutate state.
+- Do not let effects invent canon facts.
+- Do not let action call committer directly.
+
+### Required Tests
+
+```bash
+npm test
+npm run check:boundaries
+npx vitest run tests/unit/effect-delta-contract.test.js tests/unit/pressure-layer.test.js
+```
+
+### Exit Gate
+
+- `src/effects` owns effect computation and committer contracts.
+- `src/pressure` contains pure read-only calculators.
+- no active implementation remains in root `effects/` or `core/WorldPressure.js`.
+
+---
+
+## 9. Phase 4: Runtime/Core Retirement
+
+### Goal
+
+Retire `core/` as runtime implementation owner. `src/runtime` becomes canonical.
+
+### Current Paths
+
+```text
+core/World.js        -> src/runtime/AndyWorld.js
+core/Simulator.js    -> src/runtime/AndyWorld.step / runtime orchestration
+core/RNG.js          -> src/shared/rng.js
+core/EventDispatcher.js -> runtime/canon/effects split or runtime module
+core/AndyBridge.js   -> sdk/narrative boundary review
+core/StoryGenerator.js -> narrative boundary review
+```
+
+### Target
+
+```text
+src/runtime/*      canonical runtime orchestration
+src/shared/rng.js  canonical RNG
+core/*             wrappers only, or deleted if not public
+```
+
+### Allowed Work
+
+- Route root `core/World.js` and `core/Simulator.js` to `src/runtime`.
+- Move RNG to `src/shared/rng.js`.
+- Split remaining `core` helpers into target layers or wrappers.
+- Add runtime tests for `AndyWorld.step()`.
+- Preserve `new AndyEngine()` behavior.
+
+### Forbidden Work
+
+- Do not change tick order.
+- Do not change default weather/event semantics without regression tests.
+- Do not mix SDK expression code into runtime.
+- Do not delete old core paths before package compatibility tests pass.
+
+### Required Tests
+
+```bash
+npm test
+npm run test:compat
+npm run check:boundaries
+npx vitest run tests/runtime/runtime.test.js tests/integration/engine.test.js
+```
+
+### Exit Gate
+
+- `src/runtime/AndyWorld.js` is canonical runtime.
+- `core/World.js` and `core/Simulator.js` are wrappers or intentionally removed.
+- no core module owns canon/effects/narrative implementation.
+
+---
+
+## 10. Phase 5: Domain and Config Retirement
+
+### Goal
+
+Retire root `domain/` and `config/` as implementation owners while preserving public domain API.
+
+### Current Paths
+
+```text
+domain/*        -> src/domain/*
+config/*        -> src/config/*
+```
+
+### Target
+
+```text
+src/domain/*    canonical domain contracts
+src/config/*    canonical defaults/validation
+domain/*        public compatibility wrapper
+config/*        public compatibility wrapper
+```
+
+### Allowed Work
+
+- Move implementation to `src/domain` and `src/config`.
+- Keep public exports stable.
+- Update internal imports to `src/domain` and `src/config`.
+- Ensure presets still work.
+- Ensure package export docs match implementation.
+
+### Forbidden Work
+
+- Do not change domain schema behavior.
+- Do not weaken `validateDomain`.
+- Do not hardcode campus/tavern/Oak Town in src core layers.
+- Do not remove `andy-engine/domain` or `andy-engine/config/defaults` without API decision.
+
+### Required Tests
+
+```bash
+npm run test:domain
 npm run test:compat
 npm run smoke:pack
-npm run release:check
+npm run check:boundaries
 ```
 
-**Exit gate**:
+### Exit Gate
 
-- every published file is intentionally public or intentionally bundled as internal dependency
-- every compatibility wrapper has owner and removal condition
+- all canonical implementation is in `src/domain` / `src/config`.
+- root paths are wrappers or documented public stable paths.
+- domain tests pass unchanged.
 
 ---
 
-### Phase 4: Canon / Knowledge / Narrative Split
+## 11. Phase 6: Spatial, Social, and Store Retirement
 
-**Goal**: split current `facts/` into logical canon, knowledge, and narrative responsibilities without changing behavior.
+### Goal
 
-**Entry condition**:
+Retire root `spatial/`, `social/`, and `store/` as implementation owners.
 
-- public/private contract recorded
-- boundary scanner ready for canon/knowledge/narrative rules
+### Current Paths
 
-**Allowed work**:
+```text
+spatial/*    -> src/spatial/*
+social/*     -> src/social/*
+store/*      -> src/store/* plus legacy store compatibility
+```
 
-- introduce `src/canon/`, `src/knowledge/`, `src/narrative/` or transitional directories
-- move `WorldFactStore`, `FactSchema`, `CanonEventPipeline` to canon
-- move `KnowledgeStore` to knowledge
-- move `FactProvider`, `FactConsistencyChecker`, `FactFormatter` to narrative
-- leave compatibility re-exports from old `facts/`
+### Target
 
-**Forbidden work**:
+```text
+src/spatial/*   canonical spatial implementation
+src/social/*    canonical social graph implementation
+src/store/*     canonical serialization/persistence boundary
+root paths      wrappers or documented public compatibility
+```
 
-- changing fact schema semantics
-- changing knowledge propagation semantics
-- changing LLM prompt behavior
-- deleting old `facts/` import paths before compatibility tests pass
+### Allowed Work
 
-**Deliverables**:
+- Convert root spatial/social files to wrappers.
+- Convert root store public exports to wrappers where possible.
+- Preserve `createStore()` and `createMemoryStore()` behavior.
+- Add serialization boundary tests.
 
-- canon module directory
-- knowledge module directory
-- narrative module directory
-- compatibility exports
-- migration notes
+### Forbidden Work
 
-**Tests / checks**:
+- Do not change SQLite behavior without store migration tests.
+- Do not make store import runtime internals.
+- Do not make social/spatial import sdk/narrative.
+- Do not delete public store API.
+
+### Required Tests
 
 ```bash
 npm test
-npm run check:boundaries
+npm run test:compat
 npm run smoke:pack
+npx vitest run tests/spatial.test.js tests/unit/social.test.js tests/store-serialization.test.js
 ```
 
-**Exit gate**:
+### Exit Gate
 
-- no canon module imports narrative
-- no narrative module writes canon facts
-- old facts imports still work or fail only where documented
+- canonical implementation lives under `src/spatial`, `src/social`, `src/store`.
+- root paths are wrappers/public facades.
+- persistence and serialization tests pass.
 
 ---
 
-### Phase 5: Effect Result and Delta Contract
+## 12. Phase 7: Agent Psychology / Memory / Schedule Migration
 
-**Goal**: make all world-facing consequences delta-first.
+### Goal
 
-**Entry condition**:
+Move canonical psychology, memory, and schedule implementation into `src/agent/*`.
 
-- canon/knowledge/narrative split complete
+### Current Paths
 
-**Allowed work**:
+```text
+agent/BehaviorField.js       -> src/agent/psychology/BehaviorField.js
+agent/EmotionVector.js       -> src/agent/psychology/EmotionVector.js
+agent/EmotionRegulation.js   -> src/agent/psychology/EmotionRegulation.js
+agent/NeedsSystem.js         -> src/agent/psychology/NeedsSystem.js
+agent/Personality.js         -> src/agent/psychology/Personality.js
+agent/PersonalMemory.js      -> src/agent/memory/PersonalMemory.js
+agent/ProceduralMemory.js    -> src/agent/memory/ProceduralMemory.js
+agent/Schedule.js            -> src/agent/schedule/Schedule.js
+```
 
-- introduce `EffectResult`
-- introduce `StateDelta`
-- introduce `MemoryDelta`
-- introduce `RelationshipDelta`
-- introduce `LocationMeaningDelta`
-- introduce `EffectCommitter`
-- route new consequence logic through committer
+### Target
 
-**Forbidden work**:
+```text
+src/agent/psychology/*    canonical psychology implementation
+src/agent/memory/*        canonical memory implementation
+src/agent/schedule/*      canonical schedule implementation
+agent/*                   wrappers or Agent facade only
+```
 
-- direct state writes from action/narrative/sdk
-- changing old behavior without regression tests
-- applying deltas without reason trace
+### Allowed Work
 
-**Deliverables**:
+- Move one subsystem at a time.
+- Keep old import path wrappers.
+- Preserve numerical behavior.
+- Add before/after regression tests where needed.
 
-- `src/effects/EffectResult.js`
-- `src/effects/StateDelta.js`
-- `src/effects/EffectCommitter.js`
-- effect contract tests
-- reasonTrace delta snapshots
+### Forbidden Work
 
-**Tests / checks**:
+- Do not alter BehaviorField dynamics.
+- Do not alter EmotionVector decay/noise semantics.
+- Do not alter ACT-R retrieval behavior.
+- Do not alter schedule jitter semantics.
+- Do not combine with Agent.js handler refactor.
+
+### Required Tests
 
 ```bash
 npm test
 npm run check:boundaries
-npm run test:domain
+npx vitest run tests/behavior-field.test.js tests/unit/emotion.test.js tests/unit/memory.test.js tests/unit/personality.test.js
 ```
 
-**Exit gate**:
+### Exit Gate
 
-- every new world-facing consequence returns an effect result
-- every committed delta is traceable to event/reasonTrace
-- direct mutation sites are either removed or listed with deletion phase
+- psychology/memory/schedule implementations are canonical in `src/agent`.
+- root agent subsystem files are wrappers only.
+- numerical tests and seeded replay tests pass.
 
 ---
 
-### Phase 6: Pressure Layer Extraction
+## 13. Phase 8: Agent Runtime Containment
 
-**Goal**: make behavior tendency sources explicit and composable.
+### Goal
 
-**Entry condition**:
+Contain `agent/Agent.js` as a legacy facade and move orchestration into `src/agent/AgentRuntime.js` and handlers.
 
-- effect result contract exists
+### Current Paths
 
-**Allowed work**:
-
-- move `WorldPressure` to pressure layer
-- introduce pressure interfaces
-- extract need/memory/relationship/location pressure calculators
-- connect pressure outputs to UtilityScorer and BehaviorField through stable context
-
-**Forbidden work**:
-
-- letting pressure modules mutate state
-- letting pressure modules select actions
-- hardcoding domain terms in pressure modules
-
-**Deliverables**:
-
-- `src/pressure/WorldPressure.js`
-- `src/pressure/NeedPressure.js`
-- `src/pressure/MemoryPressure.js`
-- `src/pressure/RelationshipPressure.js`
-- `src/pressure/LocationPressure.js`
-- pressure unit tests
-
-**Tests / checks**:
-
-```bash
-npm test
-npm run check:boundaries
+```text
+agent/Agent.js
+src/agent/AgentRuntime.js
+src/agent/handlers/*
 ```
 
-**Exit gate**:
+### Target
 
-- pressure modules are pure/read-only
-- UtilityScorer receives pressure context without reaching into world internals
-
----
-
-### Phase 7: Action Layer Hardening
-
-**Goal**: make action selection a clean layer between pressure and effects.
-
-**Entry condition**:
-
-- pressure layer extracted
-
-**Allowed work**:
-
-- formalize `ActionCandidate`
-- formalize `SelectedAction`
-- formalize `ReasonTrace`
-- split candidate providers by source
-- enforce scorer/selector purity
-
-**Forbidden work**:
-
-- action layer writing memory/facts/relationship
-- action layer calling LLM
-- action layer owning domain semantics
-
-**Deliverables**:
-
-- action layer contracts
-- golden reasonTrace tests
-- candidate provider coverage
-- deterministic selection tests
-
-**Tests / checks**:
-
-```bash
-npm test
-npm run check:boundaries
-npm run benchmark:quick
+```text
+src/agent/AgentRuntime.js       canonical runtime for agent
+src/agent/handlers/*            handler seams
+agent/Agent.js                  legacy facade only
 ```
 
-**Exit gate**:
-
-- same seed + same world state produces same selected action trace
-- selected action explains alternatives and score breakdown
-
----
-
-### Phase 8: Agent Runtime Decomposition
-
-**Goal**: stop `Agent.js` from being the place where every subsystem accumulates.
-
-**Entry condition**:
-
-- action/effects/pressure boundaries stable
-- regression tests cover core agent loop
-
-**Allowed work**:
-
-- extract handlers one at a time
-- preserve tick order exactly
-- keep compatibility methods during migration
-- add handler-level unit tests
-
-**Forbidden work**:
-
-- reordering `Agent.tick()`
-- changing BehaviorField dynamics
-- changing emotion/needs/memory semantics
-- combining this with new features
-
-**Handler order**:
+### Handler Migration Order
 
 1. `SocialHandler`
 2. `MindWanderHandler`
@@ -773,61 +623,167 @@ npm run benchmark:quick
 7. `NeedsEmotionCoupler`
 8. `ActionSelectionHandler`
 
-**Deliverables**:
+### Allowed Work
 
-- `src/agent/AgentRuntime.js`
-- `src/agent/handlers/*`
-- handler unit tests
-- before/after agent loop regression tests
+- Extract one handler per commit.
+- Preserve `Agent.tick()` order exactly.
+- Add handler-level unit tests.
+- Keep public Agent API compatible.
 
-**Tests / checks**:
+### Forbidden Work
+
+- Do not reorder tick steps.
+- Do not change psychological semantics.
+- Do not move multiple handlers in one risky commit.
+- Do not introduce a generic framework or over-abstracted pipeline.
+
+### Required Tests
 
 ```bash
 npm test
 npm run check:boundaries
 npm run perf:check
+npx vitest run tests/unit/handlers/*.test.js tests/integration/agent.test.js
 ```
 
-**Exit gate**:
+### Exit Gate
 
-- `Agent.js` or replacement coordinator is orchestration-only
-- each handler has test coverage
-- no handler imports sdk/narrative/canon write APIs
+- root `Agent.js` is facade/coordinator only.
+- handler tests cover extracted behavior.
+- no handler imports sdk/narrative/canon write APIs directly.
 
 ---
 
-### Phase 9: Runtime Orchestration Split
+## 14. Phase 9: SDK Retirement
 
-**Goal**: make runtime orchestration explicit and prepare `AndyWorld`.
+### Goal
 
-**Entry condition**:
+Move SDK implementation to `src/sdk` and leave root `sdk/` as public wrapper only.
 
-- Agent runtime decomposed
+### Current Paths
 
-**Allowed work**:
+```text
+sdk/*      -> src/sdk/*
+```
 
-- introduce `AndyWorld`
-- introduce `RuntimeContext`
-- introduce `WorldClock`
-- introduce `RuntimeConfig`
-- move world orchestration out of root `index.js`
-- keep root API compatibility wrappers
+### Target
 
-**Forbidden work**:
+```text
+src/sdk/*  canonical SDK implementation
+sdk/*      public compatibility wrappers
+```
 
-- changing existing `new AndyEngine()` behavior
-- removing old API before compatibility tests
-- mixing SDK presentation logic into runtime
+### Allowed Work
 
-**Deliverables**:
+- Move SDK implementation to `src/sdk`.
+- Keep `andy-engine/sdk` stable.
+- Keep `types` aligned with `src/sdk/types.d.ts` or public wrapper policy.
+- Ensure SDK does not mutate internals.
 
-- `src/runtime/AndyWorld.js`
-- `src/runtime/RuntimeContext.js`
-- `src/runtime/WorldClock.js`
-- root compatibility API
-- runtime tests
+### Forbidden Work
 
-**Tests / checks**:
+- Do not add product/Bobby behavior.
+- Do not add UI or chat app logic.
+- Do not expose internal src modules as stable unless documented.
+- Do not remove current SDK public API without version policy.
+
+### Required Tests
+
+```bash
+npm run test:compat
+npm run smoke:pack
+npx vitest run tests/sdk.test.js tests/sdk-custom-domain.test.js tests/package-boundary.test.js
+```
+
+### Exit Gate
+
+- SDK root directory is wrapper-only.
+- `src/sdk` is canonical.
+- public SDK exports pass fresh-install smoke tests.
+
+---
+
+## 15. Phase 10: Public API Contract Finalization
+
+### Goal
+
+Decide which legacy paths remain public and which are deprecated/deleted.
+
+### Required Decisions
+
+| Path | Decision Needed |
+|---|---|
+| `andy-engine` | stable root public API |
+| `andy-engine/sdk` | stable SDK facade |
+| `andy-engine/domain` | stable public API |
+| `andy-engine/facts` | stable, experimental, or deprecated |
+| `andy-engine/store` | stable public API |
+| `andy-engine/runtime` | stable or experimental |
+| `andy-engine/src/*` | internal, experimental, or public |
+| root folders like `agent/`, `core/`, `spatial/` | package-internal or deleted |
+
+### Allowed Work
+
+- Update `docs/API_BOUNDARY.md`.
+- Update `package.json.exports`.
+- Update package boundary tests.
+- Mark deprecated paths clearly.
+
+### Forbidden Work
+
+- Do not publish accidental internals as stable.
+- Do not delete established public paths without migration policy.
+- Do not let docs and package exports drift.
+
+### Required Tests
+
+```bash
+npm run test:compat
+npm run smoke:pack
+npm run release:check
+```
+
+### Exit Gate
+
+- every exported path has documented stability.
+- every bundled internal path has a reason.
+- package tarball matches API boundary doc.
+
+---
+
+## 16. Phase 11: Legacy Directory Removal
+
+### Goal
+
+Remove old top-level directories that are no longer public or necessary.
+
+### Candidate Deletions
+
+```text
+agent/action/       after action public compatibility decision
+facts/              after facts API decision
+core/               after runtime/core public compatibility decision
+config/             if config exports point to src/config
+spatial/            if no public compatibility needed
+social/             if no public compatibility needed
+store/              if store exports point to src/store and legacy store is migrated
+sdk/                only if package exports no longer require root sdk dir
+```
+
+### Allowed Work
+
+- Delete one legacy directory at a time.
+- Keep root `index.js` if public API requires it.
+- Keep explicit wrappers where package exports require stable paths.
+- Update tests and package files in the same commit.
+
+### Forbidden Work
+
+- Do not delete multiple public surfaces in one commit.
+- Do not delete wrappers without smoke test.
+- Do not mix deletion with behavior changes.
+
+### Required Tests
 
 ```bash
 npm test
@@ -836,196 +792,44 @@ npm run smoke:pack
 npm run release:check
 ```
 
-**Exit gate**:
+### Exit Gate
 
-- `AndyWorld.step()` can drive the core loop
-- old `AndyEngine` API delegates to runtime without behavior drift
+- no unused legacy implementation directories remain.
+- remaining old paths are intentional public wrappers.
+- `KNOWN_BOUNDARY_VIOLATIONS.md` has no active legacy directory debt.
 
 ---
 
-### Phase 10: Store and Serialization Boundary
+## 17. Phase 12: Final No-Old-Debt Audit
 
-**Goal**: isolate persistence from runtime internals.
+### Goal
 
-**Entry condition**:
+Prove that Andy Engine has completed Clean Architecture Retirement Pass v0.2.
 
-- runtime layer stable
+### Audit Checklist
 
-**Allowed work**:
+- no active boundary violation
+- no undocumented legacy implementation
+- no old top-level implementation owning canonical logic
+- no direct SDK/internal mutation
+- no action direct state write
+- no narrative fact write
+- no domain-specific vocabulary in core runtime layers
+- no unplanned package export
+- no doc/package/test drift
+- no untracked generated artifact
+- performance baseline acceptable
 
-- move store modules to target store layer
-- define serialization contract
-- ensure runtimeSnapshot remains opaque
-- enforce migration pipeline outside runtime
+### Deliverables
 
-**Forbidden work**:
-
-- leaking private agent state into stable envelope
-- adding DB logic into runtime
-- making migration implicit inside tick
-
-**Deliverables**:
-
-- `src/store/Serialization.js`
-- `src/store/SaveLoad.js`
-- updated world state tests
-- persistence boundary tests
-
-**Tests / checks**:
-
-```bash
-npm test
-npm run smoke:pack
-npm run check:boundaries
+```text
+docs/CLEAN_ARCHITECTURE_AUDIT.md
+updated docs/KNOWN_BOUNDARY_VIOLATIONS.md
+updated docs/MODULE_MAP.md
+updated docs/API_BOUNDARY.md
 ```
 
-**Exit gate**:
-
-- save/load works through public serialization seams
-- runtime consumes only current schema
-- migration remains explicit external pipeline
-
----
-
-### Phase 11: Directory Migration to `src/`
-
-**Goal**: physically migrate from legacy root directories into final `src/` layout.
-
-**Entry condition**:
-
-- all logical boundaries stable
-- package exports documented
-- compatibility wrappers prepared
-
-**Allowed work**:
-
-- move one layer at a time
-- keep old path re-exports
-- update package files
-- update source scans
-- update docs
-
-**Forbidden work**:
-
-- moving multiple high-risk layers in one commit
-- changing semantics while moving files
-- deleting compatibility wrappers without version plan
-
-**Migration order**:
-
-1. `shared`
-2. `domain`
-3. `canon`
-4. `knowledge`
-5. `narrative`
-6. `effects`
-7. `pressure`
-8. `action`
-9. `agent`
-10. `spatial`
-11. `social`
-12. `store`
-13. `runtime`
-14. `sdk`
-
-**Tests / checks**:
-
-```bash
-npm test
-npm run check:boundaries
-npm run test:compat
-npm run smoke:pack
-npm run release:check
-```
-
-**Exit gate**:
-
-- final directory tree exists
-- old import paths either re-export or are removed in a versioned breaking-change phase
-- package tarball contains intended final layout
-
----
-
-### Phase 12: Compatibility Wrapper Retirement
-
-**Goal**: remove transitional wrappers and finish old debt closure.
-
-**Entry condition**:
-
-- `src/` migration complete
-- compatibility period defined
-- downstream examples migrated
-
-**Allowed work**:
-
-- remove old root wrappers
-- remove old `facts/`, `agent/action`, `effects/` root paths if replaced
-- remove deprecated schedule static factories or mark as public legacy
-- remove core wrappers
-
-**Forbidden work**:
-
-- removing public API without major-version policy
-- keeping wrapper forever without owner
-
-**Deliverables**:
-
-- wrapper removal PRs
-- package export migration notes
-- changelog
-- final `KNOWN_BOUNDARY_VIOLATIONS.md` cleanup
-
-**Tests / checks**:
-
-```bash
-npm test
-npm run test:compat
-npm run smoke:pack
-npm run release:check
-```
-
-**Exit gate**:
-
-- no unplanned wrapper remains
-- no active known boundary violation remains
-- all compatibility exceptions have been closed or promoted to public API intentionally
-
----
-
-### Phase 13: Final No-Old-Debt Audit
-
-**Goal**: prove that the codebase has reached clean architecture v0.1.
-
-**Entry condition**:
-
-- compatibility wrappers retired or intentionally public
-- all previous phase exit gates passed
-
-**Audit dimensions**:
-
-- dependency direction
-- fact authority
-- knowledge boundary
-- action purity
-- effect delta writeback
-- narrative grounding
-- SDK public seam only
-- domain agnosticism
-- deterministic source scope
-- package boundary
-- performance regression
-- docs truth
-- source scan
-
-**Deliverables**:
-
-- `docs/CLEAN_ARCHITECTURE_AUDIT.md`
-- updated `docs/KNOWN_BOUNDARY_VIOLATIONS.md` with no active violations
-- final `docs/MODULE_MAP.md`
-- final `docs/ARCHITECTURE_BOUNDARIES.md`
-- release readiness report
-
-**Tests / checks**:
+### Required Tests
 
 ```bash
 npm test
@@ -1038,137 +842,64 @@ npm run release:check
 git diff --check
 ```
 
-**Exit gate**:
+### Exit Gate
 
-- no active boundary violation
-- no undocumented old debt
-- no known high-risk direct mutation outside allowed committer/seam
-- no package/doc mismatch
-- core loop runnable and documented
-- final audit accepted
+Clean Architecture Retirement Pass v0.2 is complete only when:
 
----
-
-## 8. Required Test Architecture
-
-Clean Architecture Pass also reorganizes test intent.
-
-```text
-tests/
-|- architecture/       # import direction, source-scan, public/private boundaries
-|- unit/               # pure module behavior
-|- integration/        # subsystem integration
-|- core-loop/          # canonical closed-loop slices
-`- regression/         # old behavior and compatibility guarantees
-```
-
-### 8.1 Architecture Tests
-
-Must guard:
-
-- import direction
-- forbidden extension terms
-- deterministic runtime paths
-- SDK direct mutation
-- narrative write access
-- action direct write access
-- canon authority
-- package boundary
-
-### 8.2 Core Loop Tests
-
-Must prove:
-
-```text
-state/pressure
-  -> action candidate
-  -> selected action
-  -> canon event
-  -> effect result
-  -> committed delta
-  -> memory/relationship/location/future tendency
-  -> grounded narrative
-```
-
-### 8.3 Regression Tests
-
-Must preserve:
-
-- `new AndyEngine()`
-- default campus preset
-- custom tavern domain
-- SDK Character
-- package exports
-- smoke pack install
-- serialization
-- seeded baseline
+- old architecture no longer owns canonical implementation
+- `src/` is the canonical implementation tree
+- remaining legacy paths are intentional public wrappers
+- all known active debts are closed
+- final audit document is accepted
 
 ---
 
-## 9. Commit and Review Policy
+## 18. Commit Strategy
 
-Every phase must be committed as small reviewable units.
+Use small commits per phase.
 
-Recommended commit classes:
+Commit types:
 
 ```text
-docs:
-test:
-refactor:
-feat:
-chore:
+refactor: retire action legacy wrappers
+refactor: split facts into canon knowledge narrative
+refactor: retire effects and pressure legacy paths
+refactor: route core runtime through src/runtime
+refactor: move domain and config implementation to src
+refactor: retire spatial social store legacy implementations
+refactor: migrate agent psychology memory schedule to src
+refactor: contain Agent runtime behind handlers
+refactor: move SDK implementation to src
+chore: finalize public API boundary
+chore: remove retired legacy directories
+docs: add clean architecture audit
 ```
 
 Rules:
 
-- directory moves cannot be mixed with behavior changes
-- compatibility wrapper changes cannot be mixed with wrapper deletion
-- tests must land with the boundary they protect
-- docs must reflect the same commit or immediately follow
-- no phase is complete until `release:check` passes
+- directory move commits must not include behavior changes
+- behavior-preserving wrapper commits must include migration tests
+- package export commits must include smoke pack validation
+- deletion commits must include package-boundary tests
+- every phase ends with `release:check`
 
 ---
 
-## 10. Forbidden Expansions During This Pass
+## 19. Working Agreement for Execution AI
 
-The following are not part of Clean Architecture Pass v0.1:
+When an execution AI works from this plan, it must:
 
-- StoryArc runtime implementation
-- Adventure system
-- PlayerAgent system
-- QuestSystem
-- ItemSystem
-- Fantasy/Cultivation domain implementation
-- Andy Town UI/map work
-- Bobby product behavior
-- plugin marketplace system
-- ECS rewrite
-- Rust rewrite
-- TypeScript full migration
-- npm publish
+1. State the phase it is executing.
+2. List allowed files before editing.
+3. Refuse to add product features.
+4. Preserve public compatibility unless the phase explicitly authorizes removal.
+5. Run required tests.
+6. Report changed files, tests, remaining debt, and whether the phase exit gate passed.
 
-These may become upper-layer or later-version work only after the engine boundaries are clean.
+If a phase requires changing public API, it must stop and ask for explicit approval.
 
 ---
 
-## 11. Final Success Criteria
+## 20. Final Phrase
 
-Clean Architecture Pass v0.1 is complete only when all are true:
-
-- target dependency direction is enforced by scripts/tests
-- target module map exists and matches code
-- `src/` target layout is either complete or every legacy path is a documented compatibility wrapper with deletion phase
-- no active old debt remains in `KNOWN_BOUNDARY_VIOLATIONS.md`
-- direct world-facing mutations are routed through public seams or effect committers
-- action selection is pure until selected action/effects boundary
-- narrative cannot write facts
-- SDK cannot mutate internals
-- package exports match docs
-- `release:check` passes
-- `smoke:pack` passes
-- `perf:check` passes or has documented accepted variance
-- final audit document exists
-
-Final phrase:
-
-> Andy Engine is a persistent-world runtime with explicit canon, knowledge, pressure, action, effect, narrative, and SDK boundaries. The codebase no longer relies on memory, convention, or hidden assumptions to stay clean.
+> Andy Engine becomes clean when `src/` owns all canonical implementation, legacy top-level paths are either gone or intentional public wrappers, and every world-facing consequence flows through explicit canon, knowledge, action, effects, narrative, and SDK boundaries.

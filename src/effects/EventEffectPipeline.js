@@ -154,7 +154,7 @@ function applyEventConsequences({ fact, agents, factStore, domain }) {
 
   const rules = domain
     ? domain.eventConsequenceRules
-    : require('../../config/defaults').ANDY_DEFAULTS.eventConsequenceRules;
+    : require('../config/defaults').ANDY_DEFAULTS.eventConsequenceRules;
 
   const deltas = [];
 

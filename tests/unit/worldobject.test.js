@@ -11,7 +11,7 @@ import {
   toJSON,
   fromJSON,
   WorldObjectManager,
-} from '../../agent/action/WorldObject.js';
+} from '../../src/action/WorldObject.js';
 
 describe('WorldObject', () => {
   describe('createWorldObject', () => {

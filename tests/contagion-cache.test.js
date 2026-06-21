@@ -38,7 +38,7 @@ describe('Contagion Cache Semantics', () => {
     agentA.emotion.mood.joy = 0.3;
 
     // 构建 cache
-    const cache = engine.simulator._buildEmotionBlendCache();
+    const cache = engine.world._buildEmotionBlendCache();
 
     // cache 中 A 的 blended emotion 应该是 mood*0.6 + current*0.4
     const blendedA = cache.get('a');
@@ -80,10 +80,10 @@ describe('Contagion Cache Semantics', () => {
     agentA.emotion.mood.joy = 0.6;
 
     // 构建 cache
-    const cache = engine.simulator._buildEmotionBlendCache();
+    const cache = engine.world._buildEmotionBlendCache();
 
     // 获取 B 的 contagion inputs（B 应该看到 A 的情绪）
-    const inputs = engine.simulator._gatherContagionInputs('b', agentB, cache);
+    const inputs = engine.world._gatherContagionInputs('b', agentB, cache);
 
     expect(inputs).toBeDefined();
     expect(inputs['a']).toBeDefined();
@@ -118,7 +118,7 @@ describe('Contagion Cache Semantics', () => {
 
     // 传入空 cache
     const emptyCache = new Map();
-    const inputs = engine.simulator._gatherContagionInputs('b', agentB, emptyCache);
+    const inputs = engine.world._gatherContagionInputs('b', agentB, emptyCache);
 
     // 应该返回 null（没有有效输入）
     expect(inputs).toBeNull();
@@ -182,7 +182,7 @@ describe('Contagion Cache Semantics', () => {
     const agentB = engine.getAgent('b');
 
     // 不传 cache，应该自动构建
-    const inputs = engine.simulator._gatherContagionInputs('b', agentB);
+    const inputs = engine.world._gatherContagionInputs('b', agentB);
     expect(inputs).toBeDefined();
   });
 });

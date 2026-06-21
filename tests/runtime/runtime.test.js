@@ -14,7 +14,7 @@ import WorldClock from '../../src/runtime/WorldClock.js';
 import RuntimeConfig from '../../src/runtime/RuntimeConfig.js';
 import RuntimeContext from '../../src/runtime/RuntimeContext.js';
 import AndyWorld from '../../src/runtime/AndyWorld.js';
-import { ANDY_DEFAULTS } from '../../config/defaults.js';
+import { ANDY_DEFAULTS } from '../../src/config/defaults.js';
 
 // ─── WorldClock ───
 
@@ -338,8 +338,8 @@ describe('AndyWorld (runtime)', () => {
 // ─── 向后兼容性 ───
 
 describe('向后兼容性', () => {
-  it('core/World.js 导出 AndyWorld', async () => {
-    const CoreAndyWorld = await import('../../core/World.js');
+  it('AndyWorld 导出正常', async () => {
+    const CoreAndyWorld = await import('../../src/runtime/AndyWorld.js');
     expect(CoreAndyWorld.default).toBeDefined();
     // 应该是同一个类
     const world = new CoreAndyWorld.default({ startTime: new Date('2024-06-15T10:00:00') });
@@ -347,46 +347,38 @@ describe('向后兼容性', () => {
     expect(world.step).toBeDefined();
   });
 
-  it('core/Simulator.js 委托给 world.step()', async () => {
-    const CoreAndyWorld = (await import('../../core/World.js')).default;
-    const Simulator = (await import('../../core/Simulator.js')).default;
+  it('AndyWorld.step() returns tick result', async () => {
+    const CoreAndyWorld = (await import('../../src/runtime/AndyWorld.js')).default;
     const world = new CoreAndyWorld({
       startTime: new Date('2024-06-15T10:00:00'),
       seed: 42,
     });
-    const sim = new Simulator(world);
-    const result = sim.tick();
+    const result = world.step();
     expect(result.tickNumber).toBe(1);
     expect(world.clock.tickCount).toBe(1);
   });
 
-  it('Simulator.getStats() 代理到 world', async () => {
-    const CoreAndyWorld = (await import('../../core/World.js')).default;
-    const Simulator = (await import('../../core/Simulator.js')).default;
+  it('AndyWorld.getStats() returns stats', async () => {
+    const CoreAndyWorld = (await import('../../src/runtime/AndyWorld.js')).default;
     const world = new CoreAndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
-    const sim = new Simulator(world);
-    sim.tick();
-    const stats = sim.getStats();
+    world.step();
+    const stats = world.getStats();
     expect(stats.tickCount).toBe(1);
   });
 
-  it('Simulator.scheduleEvent 代理到 world', async () => {
-    const CoreAndyWorld = (await import('../../core/World.js')).default;
-    const Simulator = (await import('../../core/Simulator.js')).default;
+  it('AndyWorld.scheduleEvent works', async () => {
+    const CoreAndyWorld = (await import('../../src/runtime/AndyWorld.js')).default;
     const world = new CoreAndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
-    const sim = new Simulator(world);
-    sim.scheduleEvent({ type: 'test' }, 60000);
+    world.scheduleEvent({ type: 'test' }, 60000);
     expect(world._scheduledEvents.length).toBe(1);
   });
 
-  it('Simulator.onTick 代理到 world', async () => {
-    const CoreAndyWorld = (await import('../../core/World.js')).default;
-    const Simulator = (await import('../../core/Simulator.js')).default;
+  it('AndyWorld.onTick works', async () => {
+    const CoreAndyWorld = (await import('../../src/runtime/AndyWorld.js')).default;
     const world = new CoreAndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
-    const sim = new Simulator(world);
     let called = false;
-    sim.onTick(() => { called = true; });
-    sim.tick();
+    world.onTick(() => { called = true; });
+    world.step();
     expect(called).toBe(true);
   });
 
@@ -397,10 +389,9 @@ describe('向后兼容性', () => {
       seed: 42,
     });
     expect(engine.world).toBeDefined();
-    expect(engine.simulator).toBeDefined();
     expect(engine.world.clock).toBeDefined();
     expect(engine.world.step).toBeDefined();
-    // tick 通过 Simulator 委托
+    // tick 直接委托给 world.step()
     const result = engine.tick();
     expect(result.tickNumber).toBe(1);
   });

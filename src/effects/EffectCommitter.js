@@ -52,6 +52,8 @@ class EffectCommitter {
         return this._applyMemoryDelta(delta);
       case 'relationship':
         return this._applyRelationshipDelta(delta);
+      case 'position':
+        return this._applyPositionDelta(delta);
       case 'locationMeaning':
         return this._applyLocationMeaningDelta(delta);
       case 'futureTendency':
@@ -126,6 +128,22 @@ class EffectCommitter {
         delta.content || '',
         this.world?.time || null
       );
+    }
+  }
+
+  /**
+   * @private
+   */
+  _applyPositionDelta(delta) {
+    const agent = this.agents?.get?.(delta.agentId);
+    if (!agent) return;
+    if (typeof delta.to !== 'string' || !delta.to) return;
+
+    const domain = agent._domain;
+    if (domain && typeof domain.hasRegion === 'function' && !domain.hasRegion(delta.to)) return;
+
+    if (delta.to !== agent.position) {
+      agent.position = delta.to;
     }
   }
 

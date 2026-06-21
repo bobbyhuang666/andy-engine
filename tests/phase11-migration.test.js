@@ -145,40 +145,24 @@ describe('Phase 11: Directory Migration', () => {
       expect(mod.validateDomain).toBeDefined();
     });
 
-    it('require("domain/DomainRegistry") re-exports', async () => {
-      const mod = await import('../domain/DomainRegistry.js');
-      expect(mod.DomainRegistry).toBeDefined();
-      expect(mod.getDefaultDomain).toBeDefined();
+    it('domain/ForbiddenTerms wrapper removed', () => {
+      expect(existsSync(path.join(ROOT, 'domain', 'ForbiddenTerms.js'))).toBe(false);
     });
 
-    it('require("domain/validateDomain") re-exports', async () => {
-      const mod = await import('../domain/validateDomain.js');
-      expect(mod.validateDomain).toBeDefined();
+    it('spatial/SpatialEngine wrapper removed', () => {
+      expect(existsSync(path.join(ROOT, 'spatial', 'SpatialEngine.js'))).toBe(false);
     });
 
-    it('require("domain/ForbiddenTerms") re-exports', async () => {
-      const mod = await import('../domain/ForbiddenTerms.js');
-      expect(mod.applyForbiddenTerms).toBeDefined();
+    it('spatial/SpatialHash wrapper removed', () => {
+      expect(existsSync(path.join(ROOT, 'spatial', 'SpatialHash.js'))).toBe(false);
     });
 
-    it('require("spatial/SpatialEngine") re-exports', async () => {
-      const mod = await import('../spatial/SpatialEngine.js');
-      expect(mod).toBeDefined();
+    it('social/SocialGraph wrapper removed', () => {
+      expect(existsSync(path.join(ROOT, 'social', 'SocialGraph.js'))).toBe(false);
     });
 
-    it('require("spatial/SpatialHash") re-exports', async () => {
-      const mod = await import('../spatial/SpatialHash.js');
-      expect(mod).toBeDefined();
-    });
-
-    it('require("social/SocialGraph") re-exports', async () => {
-      const mod = await import('../social/SocialGraph.js');
-      expect(mod).toBeDefined();
-    });
-
-    it('require("social/Relationship") re-exports', async () => {
-      const mod = await import('../social/Relationship.js');
-      expect(mod).toBeDefined();
+    it('social/Relationship wrapper removed', () => {
+      expect(existsSync(path.join(ROOT, 'social', 'Relationship.js'))).toBe(false);
     });
 
     it('require("sdk") re-exports from src/sdk', async () => {
@@ -187,14 +171,8 @@ describe('Phase 11: Directory Migration', () => {
       expect(mod.Andy).toBeDefined();
     });
 
-    it('require("config/defaults") re-exports', async () => {
-      const mod = await import('../config/defaults.js');
-      expect(mod.ANDY_DEFAULTS).toBeDefined();
-    });
-
-    it('require("config/validate") re-exports', async () => {
-      const mod = await import('../config/validate.js');
-      expect(mod.validateConfig).toBeDefined();
+    it('config/validate wrapper removed', () => {
+      expect(existsSync(path.join(ROOT, 'config', 'validate.js'))).toBe(false);
     });
 
     it('require("src/shared/rng") exports RNG', async () => {
@@ -206,22 +184,10 @@ describe('Phase 11: Directory Migration', () => {
   // ─── Cross-layer consistency ───
 
   describe('old and new paths export same module', () => {
-    it('domain/DomainRegistry === src/domain/DomainRegistry', () => {
-      const old = require('../domain/DomainRegistry.js');
-      const newMod = require('../src/domain/DomainRegistry.js');
-      expect(old.DomainRegistry).toBe(newMod.DomainRegistry);
-    });
-
-    it('social/SocialGraph === src/social/SocialGraph', () => {
-      const old = require('../social/SocialGraph.js');
+    it('social/SocialGraph wrapper removed — src/social/SocialGraph is canonical', () => {
       const newMod = require('../src/social/SocialGraph.js');
-      expect(old).toBe(newMod);
-    });
-
-    it('config/defaults === src/config/defaults', async () => {
-      const old = await import('../config/defaults.js');
-      const newMod = await import('../src/config/defaults.js');
-      expect(old.ANDY_DEFAULTS).toStrictEqual(newMod.ANDY_DEFAULTS);
+      expect(newMod).toBeDefined();
+      expect(existsSync(path.join(ROOT, 'social', 'SocialGraph.js'))).toBe(false);
     });
 
     it('core/RNG wrapper retired — src/shared/rng is canonical', async () => {

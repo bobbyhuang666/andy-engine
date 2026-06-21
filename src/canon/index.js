@@ -27,6 +27,7 @@ const {
 
 const WorldFactStore = require('./WorldFactStore');
 const CanonEventPipeline = require('./CanonEventPipeline');
+const FactEmitter = require('./FactEmitter');
 
 module.exports = {
   FactType,
@@ -49,4 +50,5 @@ module.exports = {
   createInvalidatedFact,
   WorldFactStore,
   CanonEventPipeline,
+  FactEmitter,
 };

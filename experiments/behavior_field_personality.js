@@ -9,8 +9,8 @@
  */
 
 const AndyEngine = require('../index');
-const { BehaviorField } = require('../agent/BehaviorField');
-const { STATE_CENTERS, STATE_NAMES, DIMS } = require('../agent/BehaviorLabeler');
+const { BehaviorField } = require('../src/agent/psychology/BehaviorField');
+const { STATE_CENTERS, STATE_NAMES, DIMS } = require('../src/agent/psychology/BehaviorLabeler');
 
 // ═══════════════════════════════════════════
 // 实验配置

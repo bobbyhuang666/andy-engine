@@ -8,7 +8,14 @@
 
 import { describe, it, expect } from 'vitest';
 const AndyEngine = require('../../index.js');
-const { applyActionEffect } = require('../../effects/EventEffectPipeline.js');
+const { applyActionEffect: _applyActionEffect } = require('../../src/effects/EventEffectPipeline.js');
+
+function applyActionEffect(params) {
+  const effectResult = _applyActionEffect(params);
+  const legacy = effectResult.toLegacyFormat();
+  legacy.updatedReasonTrace = params.reasonTrace ? { ...params.reasonTrace, stateDeltas: legacy.stateDeltas } : { stateDeltas: legacy.stateDeltas };
+  return legacy;
+}
 
 const TEST_START = new Date('2026-09-01T08:00:00Z');
 

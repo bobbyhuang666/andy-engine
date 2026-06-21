@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import FactProvider from '../../facts/FactProvider.js';
-import WorldFactStore from '../../facts/WorldFactStore.js';
-import KnowledgeStore from '../../facts/KnowledgeStore.js';
-import NarrativeBuilder from '../../sdk/NarrativeBuilder.js';
-import FutureTendencyTracker from '../../agent/FutureTendencyTracker.js';
+import FactProvider from '../../src/narrative/FactProvider.js';
+import WorldFactStore from '../../src/canon/WorldFactStore.js';
+import KnowledgeStore from '../../src/knowledge/KnowledgeStore.js';
+import NarrativeBuilder from '../../src/sdk/NarrativeBuilder.js';
+import FutureTendencyTracker from '../../src/agent/psychology/FutureTendencyTracker.js';
 import AndyEngine from '../../index.js';
 
 describe('GroundedNarrative', () => {

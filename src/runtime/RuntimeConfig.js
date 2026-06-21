@@ -5,7 +5,7 @@
  * 不包含 Agent 内部参数（那些留在 defaults.js）。
  */
 
-const { ANDY_DEFAULTS } = require('../../config/defaults');
+const { ANDY_DEFAULTS } = require('../config/defaults');
 
 class RuntimeConfig {
   /**

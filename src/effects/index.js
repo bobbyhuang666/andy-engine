@@ -5,7 +5,7 @@
  *   - EffectResult: typed pipeline output container
  *   - StateDelta: base class
  *   - NeedDelta, EmotionDelta, MemoryDelta, RelationshipDelta,
- *     LocationMeaningDelta, FutureTendencyDelta: concrete delta types
+ *     LocationMeaningDelta, FutureTendencyDelta, PositionDelta: concrete delta types
  *   - EffectCommitter: unified delta applier
  *   - applyActionEffect, computeDeltas, applyEventConsequences: pure pipeline functions
  */
@@ -17,6 +17,7 @@ const { MemoryDelta } = require('./MemoryDelta');
 const { RelationshipDelta } = require('./RelationshipDelta');
 const { LocationMeaningDelta } = require('./LocationMeaningDelta');
 const { FutureTendencyDelta } = require('./FutureTendencyDelta');
+const { PositionDelta } = require('./PositionDelta');
 const { EffectResult } = require('./EffectResult');
 const { EffectCommitter } = require('./EffectCommitter');
 const {
@@ -35,6 +36,7 @@ module.exports = {
   RelationshipDelta,
   LocationMeaningDelta,
   FutureTendencyDelta,
+  PositionDelta,
   EffectResult,
   // Committer
   EffectCommitter,

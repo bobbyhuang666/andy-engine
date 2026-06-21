@@ -9,9 +9,13 @@ import {
   getActiveGoals,
   toJSON,
   fromJSON,
-} from '../../agent/action/GoalSystem.js';
-import { scoreCandidate } from '../../agent/action/UtilityScorer.js';
-import { createCandidate } from '../../agent/action/ActionCandidate.js';
+} from '../../src/action/GoalSystem.js';
+import { scoreCandidate } from '../../src/action/UtilityScorer.js';
+import { ActionCandidate } from '../../src/action/ActionCandidate.js';
+
+function createCandidate(opts) {
+  return new ActionCandidate(opts).toJSON();
+}
 
 describe('GoalSystem', () => {
   describe('createGoal', () => {

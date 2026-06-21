@@ -10,8 +10,8 @@
 import { describe, it, expect } from 'vitest';
 import AndyEngine from '../index.js';
 import tavernDomain from '../presets/tavern/index.js';
-import { DomainRegistry } from '../domain/DomainRegistry.js';
-import { validateDomain } from '../domain/validateDomain.js';
+import { DomainRegistry } from '../src/domain/DomainRegistry.js';
+import { validateDomain } from '../src/domain/validateDomain.js';
 
 // 校园词列表
 const CAMPUS_WORDS = [

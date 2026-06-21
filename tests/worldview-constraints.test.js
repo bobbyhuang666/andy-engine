@@ -61,7 +61,7 @@ describe('WorldviewConstraints & Pollution Prevention', () => {
         domain: engine => {}, // placeholder
       });
       // Test direct application on the registry wrapper
-      const { DomainRegistry } = require('../domain/DomainRegistry');
+      const { DomainRegistry } = require('../src/domain/DomainRegistry');
       const registry = new DomainRegistry(tavern);
       
       const customPrompt = NarrativeBuilder.buildSystemPrompt(ctx, {

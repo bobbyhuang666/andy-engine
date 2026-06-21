@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { validateWorldSpec, validateWorldState, CURRENT_SCHEMA_VERSION } from '../world/validator.js';
+import { validateWorldSpec, validateWorldState, CURRENT_SCHEMA_VERSION } from '../src/store/world/validator.js';
 
 // ═══════════════════════════════════════════
 // validateWorldSpec

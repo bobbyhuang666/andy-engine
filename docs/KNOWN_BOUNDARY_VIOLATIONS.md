@@ -1,6 +1,14 @@
 # Known Boundary Violations
 
-> Status: active tracking document.
+> **Historical tracking document.**
+> The Clean Architecture Pass has retired the documented legacy wrappers. Current
+> boundary status is governed by `scripts/check-boundaries.js`,
+> `docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md`, and `docs/LEGACY_REMOVAL_REPORT.md`.
+> Some examples below intentionally reference pre-retirement paths such as
+> `core/World.js` and `config/defaults.js`; treat those sections as migration
+> history unless they are explicitly listed under "Current Violations".
+>
+> Status: historical tracking document; current violation count is zero.
 > Date: 2026-06-19.
 > Purpose: document tolerated legacy boundary debt so new violations are not introduced.
 

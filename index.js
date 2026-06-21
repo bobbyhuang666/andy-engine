@@ -22,17 +22,17 @@
  *   // → "你最近心情不太好，昨晚失眠了。听到对方跟老板吵架，你有些担心……"
  */
 
-const AndyWorld = require('./core/World');
-const Simulator = require('./core/Simulator');
+const AndyWorld = require('./src/runtime/AndyWorld');
 const Agent = require('./agent/Agent');
-const Schedule = require('./agent/Schedule');
-const { ANDY_DEFAULTS } = require('./config/defaults');
-const { validateConfig, validateAgentConfig } = require('./config/validate');
+const Schedule = require('./src/agent/schedule/Schedule');
+const { ANDY_DEFAULTS } = require('./src/config/defaults');
+const { validateConfig, validateAgentConfig } = require('./src/config/validate');
 const { applyForbiddenTerms } = require('./src/domain/ForbiddenTerms');
-const { DomainRegistry } = require('./domain/DomainRegistry');
-const { validateDomain } = require('./domain/validateDomain');
+const { DomainRegistry } = require('./src/domain/DomainRegistry');
+const { validateDomain } = require('./src/domain/validateDomain');
 const { RNG } = require('./src/shared/rng');
-const { FactProvider, FactConsistencyChecker } = require('./facts');
+const FactProvider = require('./src/narrative/FactProvider');
+const FactConsistencyChecker = require('./src/narrative/FactConsistencyChecker');
 
 // ═══════════════════════════════════════════
 // 种子记忆 → 文本
@@ -101,7 +101,6 @@ class AndyEngine {
       },
     };
     this.world = new AndyWorld({ ...config, enableFacts: this.config.enableFacts }, savedState, this.domain, this.rng);
-    this.simulator = new Simulator(this.world);
 
     // 恢复已保存的 Agent
     if (savedState && savedState.agents) {
@@ -274,7 +273,7 @@ class AndyEngine {
     let emotionBackup = null;
     if (userText) {
       try {
-        const { EmotionEffectClassifier } = require('./core/EmotionEffectClassifier');
+        const { EmotionEffectClassifier } = require('./src/sdk/EmotionEffectClassifier');
         const rawEffect = EmotionEffectClassifier.classify(userText);
         if (rawEffect && rawEffect.effect && Object.keys(rawEffect.effect).length > 0) {
           const empathyScale = AndyEngine._computeEmpathy(agent, relationship);
@@ -497,7 +496,7 @@ class AndyEngine {
    * @returns {Object} tick 结果
    */
   tick() {
-    return this.simulator.tick();
+    return this.world.step();
   }
 
   /**
@@ -545,7 +544,7 @@ class AndyEngine {
    */
   getStats() {
     return {
-      ...this.simulator.getStats(),
+      ...this.world.getStats(),
       worldTime: this.world.time.toISOString(),
       environment: { ...this.world.environment },
     };
@@ -556,7 +555,7 @@ class AndyEngine {
    * @param {Function} callback
    */
   onTick(callback) {
-    this.simulator.onTick(callback);
+    this.world.onTick(callback);
   }
 
   /**

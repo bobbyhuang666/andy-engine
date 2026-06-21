@@ -1,5 +1,16 @@
 # Andy Engine Legacy Debt Cleanup Plan
 
+> **Historical document.**
+> This was the temporary cleanup queue used before the Clean Architecture Pass finished.
+> Current source of truth is:
+> - `docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md`
+> - `docs/PUBLIC_FACADE_AUDIT.md`
+> - `docs/LEGACY_REMOVAL_REPORT.md`
+>
+> As of Stage 25.1, existing deprecated wrappers are `0`, temporary adapters are `0`,
+> and `src/` owns all canonical implementations. Do not use stale file paths below as
+> current implementation guidance.
+
 > Status: planning document.
 > Date: 2026-06-19.
 > Scope: Andy Engine only.

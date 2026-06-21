@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import Agent from '../../agent/Agent.js';
-import Schedule from '../../agent/Schedule.js';
+import Schedule from '../../src/agent/schedule/Schedule.js';
 
 describe('Agent 完整创建', () => {
   let agent;
