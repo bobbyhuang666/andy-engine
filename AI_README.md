@@ -9,8 +9,7 @@ This file is a short orientation note for AI coding agents. For the full working
 1. `README.md` — public project framing and current architecture tree
 2. `AGENTS.md` — active engineering rules and boundaries
 3. `docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md` — current clean architecture status
-4. `docs/SEMANTIC_CLOSURE_AUDIT.md` — current semantic closure status
-5. `docs/PUBLIC_API_CONTRACT.md` — public entry points and compatibility policy
+4. `docs/PUBLIC_API_CONTRACT.md` — public entry points and compatibility policy
 
 ## Canonical implementation paths
 

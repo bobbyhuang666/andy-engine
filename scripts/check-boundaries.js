@@ -489,7 +489,7 @@ function isPureReExport(content) {
 
 function checkOldTopLevelImplementationGrowth() {
   const violations = [];
-  const auditPath = path.join(ROOT, 'docs', 'PUBLIC_FACADE_AUDIT.md');
+  const auditPath = path.join(ROOT, 'docs', 'LEGACY_REMOVAL_REPORT.md');
   let auditContent = '';
   try {
     auditContent = readFileSync(auditPath, 'utf-8');
@@ -512,7 +512,7 @@ function checkOldTopLevelImplementationGrowth() {
           violations.push({
             file: relFile,
             codeLines,
-            reason: `has ${codeLines} lines of code but NOT classified in docs/PUBLIC_FACADE_AUDIT.md`,
+            reason: `has ${codeLines} lines of code but NOT classified in docs/LEGACY_REMOVAL_REPORT.md`,
           });
         }
       }
@@ -524,13 +524,13 @@ function checkOldTopLevelImplementationGrowth() {
 
 function checkAuditCoverage() {
   const violations = [];
-  const auditPath = path.join(ROOT, 'docs', 'PUBLIC_FACADE_AUDIT.md');
+  const auditPath = path.join(ROOT, 'docs', 'LEGACY_REMOVAL_REPORT.md');
 
   let auditContent;
   try {
     auditContent = readFileSync(auditPath, 'utf-8');
   } catch (e) {
-    violations.push({ file: 'docs/PUBLIC_FACADE_AUDIT.md', reason: 'audit document does not exist' });
+    violations.push({ file: 'docs/LEGACY_REMOVAL_REPORT.md', reason: 'audit document does not exist' });
     return violations;
   }
 
@@ -552,7 +552,7 @@ function checkAuditCoverage() {
       if (!classifiedPaths.has(relFile)) {
         violations.push({
           file: relFile,
-          reason: 'old top-level .js file not found in docs/PUBLIC_FACADE_AUDIT.md',
+          reason: 'old top-level .js file not found in docs/LEGACY_REMOVAL_REPORT.md',
         });
       }
     }
@@ -566,7 +566,7 @@ function checkAuditCoverage() {
       if (!classifiedPaths.has(script)) {
         violations.push({
           file: script,
-          reason: 'root test script not found in docs/PUBLIC_FACADE_AUDIT.md',
+          reason: 'root test script not found in docs/LEGACY_REMOVAL_REPORT.md',
         });
       }
     }
@@ -912,13 +912,13 @@ function main() {
   // 12. Audit document coverage check
   const auditViolations = checkAuditCoverage();
   if (auditViolations.length > 0) {
-    console.log('❌ PUBLIC_FACADE_AUDIT.md coverage violations:');
+    console.log('❌ LEGACY_REMOVAL_REPORT.md coverage violations:');
     for (const v of auditViolations) {
       console.log(`  ${v.file}: ${v.reason}`);
     }
     totalViolations += auditViolations.length;
   } else {
-    console.log('✓ Audit coverage: all old top-level files classified in PUBLIC_FACADE_AUDIT.md');
+    console.log('✓ Audit coverage: all old top-level files classified in LEGACY_REMOVAL_REPORT.md');
   }
 
   // 13. Adapter cross-import check

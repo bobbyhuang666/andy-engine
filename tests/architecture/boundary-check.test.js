@@ -2,7 +2,7 @@
  * Architecture Boundary Regression Tests
  *
  * Narrow tests that enforce the boundary rules documented in
- * docs/ARCHITECTURE_BOUNDARIES.md.
+ * docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md and related active docs.
  *
  * These tests prevent upper-layer concepts from entering core,
  * ensure deterministic paths remain deterministic, and verify
@@ -398,12 +398,12 @@ describe('Architecture: no core/ file may import facts/', () => {
 });
 
 describe('Architecture: boundary docs and script exist', () => {
-  it('docs/ARCHITECTURE_BOUNDARIES.md exists', () => {
-    expect(existsSync(path.join(ROOT, 'docs', 'ARCHITECTURE_BOUNDARIES.md'))).toBe(true);
+  it('docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md exists', () => {
+    expect(existsSync(path.join(ROOT, 'docs', 'CLEAN_ARCHITECTURE_FINAL_AUDIT.md'))).toBe(true);
   });
 
-  it('docs/KNOWN_BOUNDARY_VIOLATIONS.md exists', () => {
-    expect(existsSync(path.join(ROOT, 'docs', 'KNOWN_BOUNDARY_VIOLATIONS.md'))).toBe(true);
+  it('docs/LEGACY_REMOVAL_REPORT.md exists', () => {
+    expect(existsSync(path.join(ROOT, 'docs', 'LEGACY_REMOVAL_REPORT.md'))).toBe(true);
   });
 
   it('scripts/check-boundaries.js exists', () => {
@@ -412,20 +412,13 @@ describe('Architecture: boundary docs and script exist', () => {
 });
 
 describe('Architecture: no-seed fallback is documented as intentional', () => {
-  it('RNG_AUDIT.md documents non-seeded fallback as intentional backward compatibility', () => {
-    const auditPath = path.join(ROOT, 'docs', 'RNG_AUDIT.md');
-    if (!existsSync(auditPath)) return;
-    const content = readFileSync(auditPath, 'utf-8');
-    expect(content).toMatch(/intentional/i);
-    expect(content).toMatch(/backward.compat/i);
-  });
-
-  it('KNOWN_BOUNDARY_VIOLATIONS.md documents Math.random fallback as accepted exception', () => {
-    const violationsPath = path.join(ROOT, 'docs', 'KNOWN_BOUNDARY_VIOLATIONS.md');
-    if (!existsSync(violationsPath)) return;
+  it('RNG_STRICTNESS_RFC.md documents Math.random fallback as current alpha boundary', () => {
+    const violationsPath = path.join(ROOT, 'docs', 'RNG_STRICTNESS_RFC.md');
     const content = readFileSync(violationsPath, 'utf-8');
-    expect(content).toMatch(/Math\.random.*fallback/i);
-    expect(content).toMatch(/intentional/i);
+    expect(content).toMatch(/Math\.random/i);
+    expect(content).toMatch(/fallback/i);
+    expect(content).toMatch(/backward.compat/i);
+    expect(content).toMatch(/v2 Stable Target/i);
   });
 });
 
@@ -521,8 +514,8 @@ describe('Architecture: SDK must not directly mutate relationship/facts/knowledg
 });
 
 describe('Architecture: module map exists', () => {
-  it('docs/MODULE_MAP.md exists', () => {
-    expect(existsSync(path.join(ROOT, 'docs', 'MODULE_MAP.md'))).toBe(true);
+  it('docs/PUBLIC_API_CONTRACT.md exists', () => {
+    expect(existsSync(path.join(ROOT, 'docs', 'PUBLIC_API_CONTRACT.md'))).toBe(true);
   });
 });
 

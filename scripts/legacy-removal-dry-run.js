@@ -20,7 +20,7 @@ const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
 
-// ─── Classification from PUBLIC_FACADE_AUDIT.md ───
+// ─── Classification from docs/LEGACY_REMOVAL_REPORT.md ───
 
 // Public-approved adapters: documented in PUBLIC_API_CONTRACT.md, part of public API surface
 const PUBLIC_APPROVED_ADAPTERS = new Set([

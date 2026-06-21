@@ -1,6 +1,6 @@
 # AGENTS.md — Andy Engine AI Agent 工作指南
 
-> 本文件是当前代码库的**活文档**。如果你要在 Andy Engine 上工作，先读这里，再读 `README.md`、`docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md`、`docs/SEMANTIC_CLOSURE_AUDIT.md` 和 `docs/PUBLIC_API_CONTRACT.md`。
+> 本文件是当前代码库的**活文档**。如果你要在 Andy Engine 上工作，先读这里，再读 `README.md`、`docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md` 和 `docs/PUBLIC_API_CONTRACT.md`。
 
 ---
 
@@ -278,25 +278,15 @@ npm run perf:check
 ```text
 README.md
 docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md
-docs/SEMANTIC_CLOSURE_AUDIT.md
 docs/PUBLIC_API_CONTRACT.md
 docs/LEGACY_REMOVAL_REPORT.md
 docs/DOMAIN.md
 docs/WORLD_SCHEMA.md
 ```
 
-以下属于历史规划/迁移记录，不能当作当前目录事实：
-
-```text
-docs/MODULE_MAP.md
-docs/CLEAN_ARCHITECTURE_PLAN.md
-docs/CLEAN_ARCHITECTURE_STAGE_5_16_PLAN.md
-docs/CLEAN_ARCHITECTURE_NO_DEBT_COMPLETION_PLAN.md
-docs/TEMP_MODULAR_DECOUPLING_PLAN.md
-docs/TEMP_LEGACY_DEBT_CLEANUP_PLAN.md
-docs/ARCHITECTURE_SNAPSHOT.md
-docs/KNOWN_BOUNDARY_VIOLATIONS.md
-```
+历史规划、阶段执行记录、临时路线图不再保存在 GitHub 仓库中。
+它们只保留在本地备份包里。当前工程判断以 README、AI_README、
+AGENTS.md 和 docs 根目录中的活文档为准。
 
 ---
 

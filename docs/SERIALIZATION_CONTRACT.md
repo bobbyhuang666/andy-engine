@@ -10,10 +10,34 @@
 
 ## Overview
 
-Andy Engine has two serialization layers:
+Andy Engine has three distinct serialization layers:
 
-1. **Stable World Envelope** — the public, cross-version-safe persistence contract (owned by `src/store/Serialization.js`)
-2. **Runtime Snapshot** — the opaque internal state dump (owned by `src/runtime/AndyWorld.js`)
+### A. Legacy Agent Snapshot (toJSON/fromJSON)
+
+- **What**: Agent-level state capture via `Agent.toJSON()` / `AndyEngine.toJSON()` / `AndyEngine.fromJSON()`
+- **Status**: Legacy compatibility snapshot, retained for public compatibility
+- **NOT deprecated** — these methods remain functional and are part of the public API
+- **Recommended path**: For new code, prefer `engine.snapshot()` + `WorldStateAdapter` (see Layer C)
+
+### B. Runtime Snapshot (engine.snapshot())
+
+- **What**: Full engine state capture via `AndyWorld.snapshot()`
+- **Status**: Internal runtime snapshot — human-readable diagnostic view
+- **Use case**: Quick state inspection, debugging
+
+### C. Stable World Envelope (toWorldState/fromWorldState)
+
+- **What**: Schema-validated world state via `WorldStateAdapter`
+- **Status**: Recommended persistence path
+- **Uses**: `WorldStateAdapter`, validator, migration pipeline
+- **Contract**: Cross-version-safe, validated, with explicit migration support
+
+---
+
+**Layer relationship**:
+- Layer A (toJSON) produces the opaque runtime snapshot payload
+- Layer B (snapshot) produces a human-readable diagnostic view
+- Layer C (WorldEnvelope) wraps Layer A's output in a validated, versioned envelope
 
 These layers must never leak into each other. The envelope is the contract. The snapshot is the implementation detail.
 

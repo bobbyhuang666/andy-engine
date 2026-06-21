@@ -24,33 +24,19 @@
 
 const AndyWorld = require('./src/runtime/AndyWorld');
 const Agent = require('./agent/Agent');
-const Schedule = require('./src/agent/schedule/Schedule');
 const { ANDY_DEFAULTS } = require('./src/config/defaults');
 const { validateConfig, validateAgentConfig } = require('./src/config/validate');
-const { applyForbiddenTerms } = require('./src/domain/ForbiddenTerms');
 const { DomainRegistry } = require('./src/domain/DomainRegistry');
 const { validateDomain } = require('./src/domain/validateDomain');
 const { RNG } = require('./src/shared/rng');
 const FactProvider = require('./src/narrative/FactProvider');
 const FactConsistencyChecker = require('./src/narrative/FactConsistencyChecker');
-
-// ═══════════════════════════════════════════
-// 种子记忆 → 文本
-// ═══════════════════════════════════════════
-
-/**
- * 将简写背景文本转为种子记忆对象
- * @private
- */
-function backgroundToMemories(background) {
-  if (!background || !Array.isArray(background)) return [];
-  return background.map((text, i) => ({
-    content: text,
-    category: 'background',
-    importance: Math.max(0.5, 1.0 - i * 0.05),
-    emotionTag: 'neutral',
-  }));
-}
+const Schedule = require('./src/agent/schedule/Schedule');
+const {
+  backgroundToMemories,
+  buildNarrative,
+  buildWorldContext,
+} = require('./src/sdk/AndyEngineHelpers');
 
 class AndyEngine {
   /**
@@ -266,72 +252,7 @@ class AndyEngine {
   getNarrative(agentId, options = {}) {
     const agent = this.world.getAgent(agentId);
     if (!agent) return '';
-
-    const { userText, relationship = 0 } = options;
-
-    // 如果有用户消息，做一次关系感知的共情反应
-    let emotionBackup = null;
-    if (userText) {
-      try {
-        const { EmotionEffectClassifier } = require('./src/sdk/EmotionEffectClassifier');
-        const rawEffect = EmotionEffectClassifier.classify(userText);
-        if (rawEffect && rawEffect.effect && Object.keys(rawEffect.effect).length > 0) {
-          const empathyScale = AndyEngine._computeEmpathy(agent, relationship);
-          if (empathyScale > 0.05) {
-            emotionBackup = { ...agent.emotion.current };
-            agent.emotion.applyEffect(rawEffect.effect, empathyScale);
-          }
-        }
-      } catch (e) {
-        // 分类失败不影响叙事生成
-      }
-    }
-
-    let narrative = '';
-    try {
-      narrative = agent.toNarrative();
-    } catch (e) {
-      narrative = '';
-    }
-
-    // 还原情绪（共情是临时的）
-    if (emotionBackup) {
-      Object.assign(agent.emotion.current, emotionBackup);
-    }
-
-    return narrative;
-  }
-
-  /**
-   * 计算共情系数
-   *
-   * 角色对用户情绪的反应强度 = 关系 × 人格 × 状态
-   *
-   * - 关系（0-100 → 0-1）：陌生人几乎不受影响，亲密的人明显共情
-   * - 人格（宜人性）：高宜人性更容易共情
-   * - 状态（社交能量/情绪/精力）：自顾不暇时共情能力下降
-   *
-   * @param {Agent} agent
-   * @param {number} relationship - 关系强度 0-100
-   * @returns {number} 共情系数 0-1
-   * @private
-   */
-  static _computeEmpathy(agent, relationship) {
-    // 关系因子：sigmoid 曲线，中间段变化最快
-    const relationshipFactor = 1 / (1 + Math.exp(-(relationship - 25) / 15));
-
-    // 人格因子：宜人性直接影响共情
-    const personalityFactor = agent.personality
-      ? agent.personality.ocean.agreeableness
-      : 0.5;
-
-    // 状态因子：自顾不暇时没精力共情
-    let stateFactor = 1.0;
-    if (agent.socialEnergy < 0.3) stateFactor *= 0.5;
-    if (agent.emotion && agent.emotion.getValence() < -0.15) stateFactor *= 0.6;
-    if (agent.needs && agent.needs.needs.energy < 0.3) stateFactor *= 0.7;
-
-    return Math.min(1, relationshipFactor * personalityFactor * stateFactor);
+    return buildNarrative(agent, options);
   }
 
   // ═══════════════════════════════════════════
@@ -354,87 +275,7 @@ class AndyEngine {
   getWorldContext(agentId) {
     const agent = this.world.getAgent(agentId);
     if (!agent) return null;
-
-    // 最近可感知事件
-    const recentEvents = this.world.eventDispatcher.eventLog.slice(-20);
-    const perceivedEvents = this.world.eventDispatcher.filterEventsForAgent(
-      agentId, recentEvents
-    );
-    const eventTexts = perceivedEvents
-      .filter(e => e.content)
-      .map(e => `- ${applyForbiddenTerms(e.content, this.domain)}`)
-      .join('\n');
-
-    // 附近的人（含关系摘要）
-    const neighbors = this.world.regions.getNeighbors(agentId, 0);
-    const nearbyPeople = neighbors
-      .map(id => {
-        const a = this.world.getAgent(id);
-        if (!a) return null;
-        const rel = this.world.socialGraph.getRelationship(agentId, id);
-        if (rel && rel.strength > 0.05) {
-          const typeNames = { closeFriend: '亲密朋友', friend: '朋友', acquaintance: '认识的人', stranger: '陌生人' };
-          const typeName = typeNames[rel.type] || '认识的人';
-          const historyNote = rel.history.length > 0
-            ? `，最近互动：${rel.history[rel.history.length - 1].content || rel.type}`
-            : '';
-          const conflictNote = rel.impression.negative > rel.impression.positive * 0.5
-            ? '，有些摩擦' : '';
-          return `${a.name}（${typeName}，关系强度${rel.strength.toFixed(2)}${conflictNote}${historyNote}）`;
-        }
-        return `${a.name}（陌生人）`;
-      })
-      .filter(Boolean)
-      .join('\n');
-
-    // 最近事件的评价摘要
-    let lastAppraisal = '';
-    const recentMemories = agent.memory.memories;
-    if (recentMemories && recentMemories.length > 0) {
-      for (let i = recentMemories.length - 1; i >= Math.max(0, recentMemories.length - 10); i--) {
-        const mem = recentMemories[i];
-        if (mem && mem.appraisal) {
-          const ad = mem.appraisal;
-          const parts = [];
-          if (ad.valence !== undefined) {
-            parts.push(ad.valence > 0.2 ? '令人愉快' : ad.valence < -0.2 ? '令人不快' : '中性');
-          }
-          if (ad.goalRelevance !== undefined && ad.goalRelevance > 0.4) {
-            parts.push('高度相关');
-          }
-          if (ad.agency !== undefined) {
-            if (ad.agency === 'other') parts.push('别人造成的');
-            else if (ad.agency === 'self') parts.push('自己造成的');
-            else if (ad.agency === 'chance') parts.push('偶然的');
-            else parts.push('环境因素');
-          }
-          if (parts.length > 0) {
-            lastAppraisal = `对最近的事(${applyForbiddenTerms((mem.content || '未知').substring(0, 15), this.domain)})的感受：${parts.join('，')}`;
-          }
-          break;
-        }
-      }
-    }
-
-    return {
-      time: this.world.time.toISOString(),
-      hour: this.world.time.getHours(),
-      dayOfWeek: this.world.time.getDay(),
-      weather: this.world.environment.weather,
-      timeOfDay: this.world.environment.timeOfDay,
-      season: this.world.environment.season,
-      currentRegion: agent.position,
-      personalityAnchor: agent.personality ? agent.personality.toPromptString() : '',
-      agentStatus: agent.getStatus(),
-      recentEvents: eventTexts || '没有特别的事情发生',
-      lastAppraisal,
-      nearbyPeople: nearbyPeople || '附近没有人',
-      emotionState: agent.emotion.toPromptString(),
-      needsState: agent.needs ? agent.needs.toPromptString() : '',
-      emotionRegulation: agent.emotionRegulation ? agent.emotionRegulation.toPromptString() : '',
-      memoryContext: agent.memory.toPromptString(5),
-      health: Math.round((agent.health || 1) * 100),
-    };
+    return buildWorldContext(this, agent, agentId);
   }
 
   // ═══════════════════════════════════════════
@@ -574,20 +415,18 @@ class AndyEngine {
   }
 
   /**
-   * 序列化完整状态（用于持久化）
-   * @deprecated
-   * Note: 这是旧版运行期状态快照（legacy runtime snapshot），是一个不透明的状态转储。
-   * 它不代表 Persistent World 官方的公共 Stable World Envelope 契约，也并非公开发布的 Persistence API。
+   * Legacy compatibility snapshot.
+   * Retained for public compatibility.
+   * Recommended persistence path: engine.snapshot() + WorldStateAdapter
    */
   toJSON() {
     return this.world.toJSON();
   }
 
   /**
-   * 从 JSON 恢复引擎
-   * @deprecated
-   * Note: 从旧版运行期快照（legacy runtime snapshot）恢复引擎。
-   * 这并不是 Persistent World 官方的公共恢复 API，外部生态不应依赖此接口作为跨版本稳定的数据恢复契约。
+   * Legacy compatibility restore.
+   * Retained for public compatibility.
+   * Recommended persistence path: WorldStateAdapter.fromWorldState()
    * @param {Object} data
    * @param {Object} config
    * @returns {AndyEngine}

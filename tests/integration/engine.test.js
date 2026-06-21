@@ -210,4 +210,67 @@ describe('AndyEngine 集成测试', () => {
       expect(restored.world.tickCount).toBe(61);
     });
   });
+
+  describe('公共 API 形状验证（Slim Pass 回归）', () => {
+    it('getNarrative 应返回字符串', () => {
+      const result = engine.getNarrative('bobby');
+      expect(typeof result).toBe('string');
+    });
+
+    it('getNarrative 带选项应返回字符串', () => {
+      const result = engine.getNarrative('bobby', { userText: '你好', relationship: 50 });
+      expect(typeof result).toBe('string');
+    });
+
+    it('getNarrative 不存在的角色应返回空字符串', () => {
+      const result = engine.getNarrative('nonexistent');
+      expect(result).toBe('');
+    });
+
+    it('getWorldContext 应返回完整上下文对象', () => {
+      const ctx = engine.getWorldContext('bobby');
+      expect(ctx).toBeDefined();
+      expect(typeof ctx.time).toBe('string');
+      expect(typeof ctx.hour).toBe('number');
+      expect(typeof ctx.dayOfWeek).toBe('number');
+      expect(typeof ctx.weather).toBe('string');
+      expect(typeof ctx.timeOfDay).toBe('string');
+      expect(typeof ctx.season).toBe('string');
+      expect(typeof ctx.currentRegion).toBe('string');
+      expect(typeof ctx.personalityAnchor).toBe('string');
+      expect(typeof ctx.agentStatus).toBe('object');
+      expect(typeof ctx.recentEvents).toBe('string');
+      expect(typeof ctx.lastAppraisal).toBe('string');
+      expect(typeof ctx.nearbyPeople).toBe('string');
+      expect(typeof ctx.emotionState).toBe('string');
+      expect(typeof ctx.needsState).toBe('string');
+      expect(typeof ctx.emotionRegulation).toBe('string');
+      expect(typeof ctx.memoryContext).toBe('string');
+      expect(typeof ctx.health).toBe('number');
+    });
+
+    it('getWorldContext 不存在的角色应返回 null', () => {
+      const ctx = engine.getWorldContext('nonexistent');
+      expect(ctx).toBeNull();
+    });
+
+    it('snapshot 应返回包含 agents 和 environment', () => {
+      const snap = engine.snapshot();
+      expect(snap).toBeDefined();
+      expect(snap.agents).toBeDefined();
+      expect(snap.environment).toBeDefined();
+    });
+
+    it('toJSON/fromJSON 应保持相同形状', () => {
+      const json = engine.toJSON();
+      expect(json).toBeDefined();
+      expect(json.agents).toBeDefined();
+      expect(json.tickCount).toBeDefined();
+
+      const restored = AndyEngine.fromJSON(json);
+      const restoredJson = restored.toJSON();
+      expect(restoredJson.agents).toBeDefined();
+      expect(restoredJson.tickCount).toBe(json.tickCount);
+    });
+  });
 });
