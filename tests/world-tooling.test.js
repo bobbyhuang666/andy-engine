@@ -5,10 +5,10 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { compile } from '../world/compiler.js';
-import { migrateWorldState } from '../world/migration.js';
-import { validateWorldState, CURRENT_SCHEMA_VERSION } from '../world/validator.js';
-import { fromWorldState } from '../world/WorldStateAdapter.js';
+import { compile } from '../src/store/world/compiler.js';
+import { migrateWorldState } from '../src/store/world/migration.js';
+import { validateWorldState, CURRENT_SCHEMA_VERSION } from '../src/store/world/validator.js';
+import { fromWorldState } from '../src/store/world/WorldStateAdapter.js';
 
 // ═══════════════════════════════════════════
 // World Compiler

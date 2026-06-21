@@ -18,6 +18,8 @@ const { scoreCandidate, scoreCandidates } = require('./UtilityScorer');
 const { selectAction } = require('./UtilitySelector');
 const { CandidateProvider } = require('./providers/CandidateProvider');
 const { CandidateProviderManager } = require('./providers/CandidateProviderManager');
+const GoalSystem = require('./GoalSystem');
+const WorldObject = require('./WorldObject');
 
 module.exports = {
   ActionCandidate,
@@ -31,4 +33,6 @@ module.exports = {
   selectAction,
   CandidateProvider,
   CandidateProviderManager,
+  GoalSystem,
+  WorldObject,
 };

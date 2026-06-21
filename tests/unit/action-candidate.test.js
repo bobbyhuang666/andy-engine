@@ -7,8 +7,12 @@ import {
   ACTION_TYPES,
   CANDIDATE_SOURCES,
   makeCandidateId,
-  createCandidate,
-} from '../../agent/action/ActionCandidate.js';
+  ActionCandidate,
+} from '../../src/action/ActionCandidate.js';
+
+function createCandidate(opts) {
+  return new ActionCandidate(opts).toJSON();
+}
 
 describe('ActionCandidate', () => {
   describe('makeCandidateId', () => {

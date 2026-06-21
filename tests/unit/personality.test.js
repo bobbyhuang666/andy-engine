@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import Personality from '../../agent/Personality.js';
+import Personality from '../../src/agent/psychology/Personality.js';
 
 describe('Personality 模块', () => {
   describe('MBTI 映射', () => {

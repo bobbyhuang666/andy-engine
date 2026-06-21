@@ -1,5 +1,9 @@
 # Andy Engine Module Map
 
+> **Historical module map.**
+> This file records the pre-retirement mapping used during migration. Current
+> canonical implementation lives under `src/`; see `docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md`.
+>
 > 自动生成于 2026-06-20
 > 目的：记录每个模块的当前位置和目标架构层级，为 Clean Architecture Pass Phase 1 提供基线清单。
 > 参考：`docs/ARCHITECTURE_SNAPSHOT.md`、`docs/CLEAN_ARCHITECTURE_PLAN.md` §5 Current-to-Target Mapping

@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync, statSync } from 'fs';
+import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import path from 'path';
 
 // campus-only 字符串列表
@@ -25,7 +25,7 @@ const BANNED_APIS = [
   'safeActivity',
 ];
 
-// deterministic runtime 检查：agent/action/** 中不允许 Math.random( 或 Date.now(
+// deterministic runtime 检查：src/action/** 中不允许 Math.random( 或 Date.now(
 const DETERMINISTIC_BANNED = ['Math.random(', 'Date.now('];
 
 // 允许出现 campus terms 的路径
@@ -49,7 +49,7 @@ function isAllowed(filePath, allowedPaths) {
 }
 
 function getJsFiles(dir, fileList = []) {
-  const files = readdirSync(dir);
+  const files = existsSync(dir) ? readdirSync(dir) : [];
 
   for (const file of files) {
     const filePath = path.join(dir, file);
@@ -205,7 +205,7 @@ describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
     }
   });
 
-  it('agent/action/** 不应使用 Math.random() 或 Date.now()', () => {
+  it('src/action/** 不应使用 Math.random() 或 Date.now()', () => {
     const violations = [];
     const rootDir = process.cwd();
     const actionDir = path.join(rootDir, 'agent', 'action');
@@ -225,7 +225,7 @@ describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
         return `  ${file}: ${details}`;
       }).join('\n');
 
-      expect.fail(`agent/action/** 包含非确定性 API:\n${msg}\n\n请使用 seeded RNG 或传入 simTime。`);
+      expect.fail(`src/action/** 包含非确定性 API:\n${msg}\n\n请使用 seeded RNG 或传入 simTime。`);
     }
   });
 
@@ -253,22 +253,22 @@ describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
     }
   });
 
-  it('config/defaults.js 是 core runtime defaults，不允许 campus-only terms', () => {
+  it('src/config/defaults.js 是 core runtime defaults，不允许 campus-only terms', () => {
     const rootDir = process.cwd();
-    const defaultsPath = path.join(rootDir, 'config', 'defaults.js');
+    const defaultsPath = path.join(rootDir, 'src', 'config', 'defaults.js');
     const violations = scanFileForCampusTerms(defaultsPath);
 
     if (violations.length > 0) {
       const terms = violations.map(v => `${v.term}(${v.count})`).join(', ');
       expect.fail(
-        `config/defaults.js 包含 campus-only 字符串: ${terms}\n` +
-        'config/defaults.js 是 core runtime defaults，不允许 campus-specific 术语。请使用中性描述。'
+        `src/config/defaults.js 包含 campus-only 字符串: ${terms}\n` +
+        'src/config/defaults.js 是 core runtime defaults，不允许 campus-specific 术语。请使用中性描述。'
       );
     }
   });
 
-  it('config/defaults.js 的 spatial 只能包含 generic continuous params，不允许 campus-specific keys', () => {
-    const { ANDY_DEFAULTS } = require('../config/defaults.js');
+  it('src/config/defaults.js 的 spatial 只能包含 generic continuous params，不允许 campus-specific keys', () => {
+    const { ANDY_DEFAULTS } = require('../src/config/defaults.js');
     const spatial = ANDY_DEFAULTS.spatial;
 
     const FORBIDDEN_KEYS = ['regions', 'adjacency', 'regionCoords'];
@@ -276,15 +276,15 @@ describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
 
     if (found.length > 0) {
       expect.fail(
-        `config/defaults.js spatial 包含 campus-specific keys: ${found.join(', ')}。\n` +
+        `src/config/defaults.js spatial 包含 campus-specific keys: ${found.join(', ')}。\n` +
         '这些 key 已迁移到 presets/campus，不应出现在全局 defaults 中。'
       );
     }
   });
 
-  it('agent/action/UtilitySelector.js 不应有 Math.random fallback', () => {
+  it('src/action/UtilitySelector.js 不应有 Math.random fallback', () => {
     const rootDir = process.cwd();
-    const selectorPath = path.join(rootDir, 'agent', 'action', 'UtilitySelector.js');
+    const selectorPath = path.join(rootDir, 'src', 'action', 'UtilitySelector.js');
     const content = readFileSync(selectorPath, 'utf-8');
 
     // 不应包含 Math.random 作为 fallback

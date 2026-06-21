@@ -8,7 +8,7 @@
  *   - WorldFactStore, FactSchema, CanonEventPipeline → src/canon/
  *   - KnowledgeStore → src/knowledge/
  *   - FactProvider, FactConsistencyChecker, FactFormatter → src/narrative/
- *   - FactEmitter → 暂留 facts/（过渡性模块）
+ *   - FactEmitter → src/canon/
  */
 
 const {
@@ -33,7 +33,7 @@ const {
 } = require('../src/canon');
 
 const WorldFactStore = require('../src/canon/WorldFactStore');
-const FactEmitter = require('./FactEmitter');
+const FactEmitter = require('../src/canon/FactEmitter');
 const FactFormatter = require('../src/narrative/FactFormatter');
 const FactProvider = require('../src/narrative/FactProvider');
 const FactConsistencyChecker = require('../src/narrative/FactConsistencyChecker');

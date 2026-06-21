@@ -3,13 +3,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ContinueCandidateProvider } from '../../agent/action/providers/ContinueCandidateProvider.js';
-import { NeedCandidateProvider } from '../../agent/action/providers/NeedCandidateProvider.js';
-import { ScheduleCandidateProvider } from '../../agent/action/providers/ScheduleCandidateProvider.js';
-import { BehaviorFieldCandidateProvider } from '../../agent/action/providers/BehaviorFieldCandidateProvider.js';
-import { ExploreCandidateProvider } from '../../agent/action/providers/ExploreCandidateProvider.js';
-import { SocializeCandidateProvider } from '../../agent/action/providers/SocializeCandidateProvider.js';
-import { CandidateProviderManager } from '../../agent/action/providers/CandidateProviderManager.js';
+import { ContinueCandidateProvider } from '../../src/action/providers/ContinueCandidateProvider.js';
+import { NeedCandidateProvider } from '../../src/action/providers/NeedCandidateProvider.js';
+import { ScheduleCandidateProvider } from '../../src/action/providers/ScheduleCandidateProvider.js';
+import { BehaviorFieldCandidateProvider } from '../../src/action/providers/BehaviorFieldCandidateProvider.js';
+import { ExploreCandidateProvider } from '../../src/action/providers/ExploreCandidateProvider.js';
+import { SocializeCandidateProvider } from '../../src/action/providers/SocializeCandidateProvider.js';
+import { CandidateProviderManager } from '../../src/action/providers/CandidateProviderManager.js';
 
 // 合成 context（无 campus terms）
 function makeContext(overrides = {}) {

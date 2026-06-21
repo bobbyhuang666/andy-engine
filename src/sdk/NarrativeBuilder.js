@@ -12,7 +12,7 @@
 
 const { applyForbiddenTerms } = require('../domain/ForbiddenTerms');
 const { getDefaultDomain } = require('../domain/DomainRegistry');
-const { FactFormatter } = require('../../facts');
+const FactFormatter = require('../narrative/FactFormatter');
 
 class NarrativeBuilder {
   static buildSystemPrompt(worldContext, options = {}) {

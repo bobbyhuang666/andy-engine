@@ -1,5 +1,670 @@
 /**
- * Psychology re-export: BehaviorField
- * 从 agent/BehaviorField.js 重新导出，供 src/agent/ 内部使用。
+ * BehaviorField — 连续行为场（核心模块）
+ *
+ * 将离散的 42-状态 StateMachine 替换为 4 维连续行为空间中的动力学系统。
+ *
+ * 行为空间 B ∈ [0,1]^4：
+ *   B[0] = activity       0=休息/睡觉  1=工作/运动
+ *   B[1] = sociality      0=独处/发呆  1=聊天/社交
+ *   B[2] = focus          0=漫无目的   1=高度专注
+ *   B[3] = expressiveness  0=封闭退缩  1=外向表达
+ *
+ * 动力学方程（欠阻尼朗之万动力学）：
+ *   v(t+dt) = v(t)·(1 - γ·dt) - ∇U(B(t))·dt + σ·√dt·ξ
+ *   B(t+dt) = B(t) + v(t+dt)·dt
+ *
+ * 势能函数：
+ *   U(B) = Σ_k w_k(t) · ||B - B*_k||²
+ *   其中 k ∈ {needs, emotion, schedule, intrinsic, habit}
+ *
+ * 人格调制：
+ *   γ（摩擦）: 高神经质 → 高摩擦（行为惯性大，难改变）
+ *   σ（噪声）: 高外向性 → 高噪声（行为更不可预测）
+ *   各驱力权重: 由人格特质调制
+ *
+ * 参考：
+ *   - Langevin dynamics: Lemieux et al. (2022) "Sampling from a log-concave distribution"
+ *   - Behavioral dynamics: Warren (2006) "The dynamics of perception and action"
+ *   - Potential fields: Khatib (1986) "Real-time obstacle avoidance for manipulators"
  */
-module.exports = require('../../../agent/BehaviorField');
+
+const {
+  BehaviorLabeler, DIM_ACTIVITY, DIM_SOCIALITY, DIM_FOCUS, DIM_EXPRESSIVENESS,
+  DIMS, dist, getTimePenalty,
+} = require('./BehaviorLabeler');
+const { getDefaultDomain } = require('../../domain/DomainRegistry');
+
+// ═══════════════════════════════════════════
+// 默认动力学参数
+// ═══════════════════════════════════════════
+const DEFAULTS = {
+  // 摩擦系数 γ：控制行为惯性
+  // 高 γ → 球快速停下来（行为惯性小，容易改变方向）
+  // 低 γ → 球保持动量（行为惯性大，"忍着饿继续聊天"）
+  gamma: 2.5,
+
+  // 噪声幅度 σ：控制行为随机性
+  sigma: 0.15,
+
+  // 时间步长 dt（模拟中的一个 tick ≈ 5 分钟）
+  dt: 0.1,
+
+  // 边界反射系数（碰撞边界时速度衰减）
+  boundaryReflection: 0.3,
+
+  // 边界软势能强度（靠近边界时的排斥力）
+  boundaryStrength: 2.0,
+
+  // 驱力权重基线
+  // 设计原则：各梯度源的典型输出量级应在同一数量级（~0.3-0.8），
+  // 使任何单一来源都不至于完全压倒其他来源
+  weights: {
+    needs: 3.0,       // 紧急需求权重最高（确保饥饿时能压过其他梯度源）
+    emotion: 2.0,     // 情绪驱力（maxDrive ~0.3, × 0.25偏移 = ~0.15，需要更高权重补偿）
+    schedule: 1.8,    // 日程（距离 ~0.5, 直接乘权重，输出 ~0.9 — 最强驱力）
+    intrinsic: 1.5,   // 好奇心（curiosity-0.3 ~0.3, × 0.3 = ~0.09，需要更高权重补偿）
+    habit: 0.5,       // 习惯（弱弹性力，防止行为过于随机）
+  },
+};
+
+// ═══════════════════════════════════════════
+// 每种驱力在 4D 空间中的"最优位置"
+// 当某种驱力激活时，它把 B 向这些方向拉
+// ═══════════════════════════════════════════
+
+/** 需求满足的最优行为位置 */
+const NEED_TARGETS = {
+  hunger:      [0.35, 0.55, 0.08, 0.45],  // 吃饭：中活跃, 中高社交(餐厅有人), 极低专注, 中表达
+  energy:      [0.08, 0.04, 0.02, 0.03],  // 休息：全面降低
+  social:      [0.35, 0.85, 0.25, 0.80],  // 社交：高社交, 高表达
+  comfort:     [0.15, 0.15, 0.20, 0.12],  // 舒适：低活跃, 安静
+  stimulation: [0.45, 0.35, 0.40, 0.40],  // 刺激：中活跃, 寻求兴趣
+};
+
+/** 情绪驱力映射：approach/avoid/agentic → 4D 目标偏移 */
+const EMOTION_TARGETS = {
+  approach: [0.20, 0.30, 0.05, 0.25],  // 趋近：增加社交和表达
+  avoid:    [-0.15, -0.25, 0.10, -0.20], // 回避：退缩, 减少社交
+  agentic:  [0.15, -0.10, -0.15, 0.20], // 代理（愤怒）：增加活跃和表达, 降低专注
+};
+
+/** 时间段的默认行为倾向（作为势能吸引子） */
+const TIME_TARGETS = {
+  sleep:      [0.02, 0.00, 0.02, 0.00],   // 23-6: 睡觉
+  morning:    [0.45, 0.20, 0.30, 0.25],   // 6-9: 起床准备
+  active:     [0.60, 0.25, 0.65, 0.25],   // 9-12, 14-17: 工作
+  midday:     [0.35, 0.50, 0.20, 0.45],   // 12-14: 午饭/社交
+  evening:    [0.30, 0.30, 0.25, 0.30],   // 17-21: 傍晚活动
+  lateNight:  [0.10, 0.08, 0.12, 0.08],   // 21-23: 深夜放松
+};
+
+class BehaviorField {
+  /**
+   * @param {Object} personality - Personality 实例
+   * @param {Object} [savedState] - 恢复状态
+   * @param {Object} [config] - 覆盖默认参数
+   * @param {Object} [domain] - DomainRegistry 实例
+   * @param {Object} [rng] - RNG 实例（可选）
+   */
+  constructor(personality, savedState = null, config = {}, domain = null, rng = null) {
+    this.cfg = { ...DEFAULTS, ...config };
+    this.domain = domain || getDefaultDomain();
+    this._rng = rng;
+    this._labeler = BehaviorLabeler.create(this.domain);
+    this._stateCenters = this.domain.stateCenters;
+
+    // 人格调制参数
+    const ocean = personality ? personality.ocean : { neuroticism: 0.5, extraversion: 0.5, openness: 0.5, conscientiousness: 0.5, agreeableness: 0.5 };
+
+    // γ（摩擦）：高神经质 → 高摩擦（行为难以改变）
+    // 范围放大：neuroticism 0→γ×0.5, neuroticism 1→γ×1.5（3倍差异）
+    this.gamma = this.cfg.gamma * (0.5 + ocean.neuroticism * 1.0);
+
+    // σ（噪声）：高外向性 → 高噪声（行为更随机/探索性）
+    // 范围放大：extraversion 0→σ×0.3, extraversion 1→σ×1.7（5.7倍差异）
+    this.sigma = this.cfg.sigma * (0.3 + ocean.extraversion * 1.4);
+
+    // 人格对驱力权重的调制（放大差异，让不同人格的行为轨迹可区分）
+    this._weightModifiers = {
+      needs:      0.8 + ocean.neuroticism * 0.6,           // N=0→0.8, N=1→1.4
+      emotion:    0.3 + ocean.openness * 0.8 + ocean.extraversion * 0.9, // 外向者对情绪梯度响应3×更强
+      schedule:   0.3 + ocean.conscientiousness * 1.4,     // C=0→0.3, C=1→1.7（5.7×差异）
+      intrinsic:  0.2 + ocean.openness * 1.6,              // O=0→0.2, O=1→1.8（9×差异）
+      habit:      0.3 + ocean.conscientiousness * 0.8,     // C=0→0.3, C=1→1.1
+    };
+
+    // Domain-driven fallback label
+    const fallbackLabel = this.domain.fallback.defaultState
+      || Object.keys(this.domain.states)[0]
+      || 'idle';
+
+    if (savedState) {
+      this.B = [...savedState.B];
+      this.velocity = [...savedState.velocity];
+      this._prevB = [...savedState.B];
+      // Validate saved _lastLabel exists in current domain states
+      this._lastLabel = (savedState._lastLabel && this.domain.states[savedState._lastLabel])
+        ? savedState._lastLabel
+        : fallbackLabel;
+      this._tickCount = savedState._tickCount || 0;
+    } else {
+      // 初始位置：休息状态附近
+      this.B = [0.15, 0.08, 0.15, 0.08];
+      this.velocity = [0, 0, 0, 0];
+      this._prevB = [...this.B];
+      this._lastLabel = fallbackLabel;
+      this._tickCount = 0;
+    }
+
+    // 缓存
+    this._lastGradient = [0, 0, 0, 0];
+    this._lastSignals = null;
+
+    // 地点意义影响（延迟初始化）
+    this._locationMeaningInfluence = null;
+    this._currentRegion = null;
+
+    // 未来行为倾向（延迟初始化）
+    this._futureTendency = null;
+  }
+
+  /**
+   * 设置地点意义影响器
+   * @param {Object} influence - LocationMeaningInfluence 实例
+   */
+  setLocationMeaningInfluence(influence) {
+    this._locationMeaningInfluence = influence;
+  }
+
+  /**
+   * 更新当前区域（由 Agent 在位置变化时调用）
+   * @param {string} region
+   */
+  setCurrentRegion(region) {
+    this._currentRegion = region;
+  }
+
+  /**
+   * 设置未来行为倾向跟踪器
+   * @param {Object} tracker - FutureTendencyTracker 实例
+   */
+  setFutureTendency(tracker) {
+    this._futureTendency = tracker;
+  }
+
+  // ═══════════════════════════════════════════
+  // 主入口
+  // ═══════════════════════════════════════════
+
+  /**
+   * 推进行为场一个时间步
+   *
+   * @param {Object} signals - 来自各子系统的信号（见 README 信号格式）
+   * @returns {{ B, label, labelSecondary, labelConfidence, gradient, velocity }}
+   */
+  tick(signals) {
+    this._tickCount++;
+    this._lastSignals = signals;
+
+    // 1. 计算总势能梯度
+    const gradient = this._computeGradient(signals);
+    this._lastGradient = [...gradient];
+
+    // 2. 朗之万动力学更新
+    this._updateDynamics(gradient);
+
+    // 3. 边界处理
+    this._enforceBoundary();
+
+    // 4. 语义标签投影（使用 domain-aware labeler）
+    const projection = this._labeler.project(this.B, { hour: signals.environment?.hour });
+
+    // 缓存
+    this._prevB = [...this.B];
+    this._lastLabel = projection.primary;
+
+    return {
+      B: [...this.B],
+      label: projection.primary,
+      labelSecondary: projection.secondary,
+      labelConfidence: projection.confidence,
+      gradient: [...gradient],
+      velocity: [...this.velocity],
+    };
+  }
+
+  // ═══════════════════════════════════════════
+  // 势能梯度计算
+  // ═══════════════════════════════════════════
+
+  /**
+   * 计算总势能梯度 ∇U(B)
+   *
+   * 势能 U(B) = Σ_k w_k · ||B - B*_k||²
+   * 梯度 ∇U = Σ_k 2·w_k · (B - B*_k)
+   *
+   * 正梯度 = 势能增加方向（远离目标）
+   * 负梯度 = 势能减少方向（靠近目标）
+   *
+   * 动力学方程中 v += -∇U·dt，因此梯度指向目标时 B 会被吸引过去
+   * @private
+   */
+  _computeGradient(signals) {
+    const grad = [0, 0, 0, 0];
+    const w = this.cfg.weights;
+
+    // ── 1. 需求梯度 ──
+    // 紧急需求放大：当任何需求极度匮乏（<0.1）时，需求权重翻倍
+    // 这确保"快饿死了"能压过日程/时间/习惯等其他梯度源
+    if (signals.needs) {
+      let needsWeight = w.needs * this._weightModifiers.needs;
+      const minNeed = Math.min(...Object.values(signals.needs));
+      if (minNeed < 0.1) {
+        needsWeight *= 1 + (0.1 - minNeed) * 10; // hunger=0 → 2×, hunger=0.05 → 1.5×
+      }
+      this._addNeedsGradient(grad, signals.needs, needsWeight);
+    }
+
+    // ── 2. 情绪梯度 ──
+    if (signals.emotion) {
+      this._addEmotionGradient(grad, signals.emotion, w.emotion * this._weightModifiers.emotion);
+    }
+
+    // ── 3. 日程梯度 ──
+    if (signals.schedule) {
+      this._addScheduleGradient(grad, signals.schedule, w.schedule * this._weightModifiers.schedule);
+    }
+
+    // ── 4. 自发动机梯度 ──
+    if (signals.intrinsic) {
+      this._addIntrinsicGradient(grad, signals.intrinsic, w.intrinsic * this._weightModifiers.intrinsic);
+    }
+
+    // ── 5. 习惯梯度 ──
+    this._addHabitGradient(grad, w.habit * this._weightModifiers.habit);
+
+    // ── 5.5 地点意义梯度 ──
+    if (this._locationMeaningInfluence && this._currentRegion) {
+      const locationGrad = this._locationMeaningInfluence.computeGradient(
+        this._currentRegion, this.B
+      );
+      for (let d = 0; d < DIMS; d++) {
+        grad[d] += locationGrad[d];
+      }
+    }
+
+    // ── 5.6 未来行为倾向梯度 ──
+    if (this._futureTendency && this._currentRegion) {
+      const tendencyGrad = this._futureTendency.getTendencyGradient(this._currentRegion);
+      for (let d = 0; d < DIMS; d++) {
+        grad[d] += tendencyGrad[d];
+      }
+    }
+
+    // ── 6. 时间约束 ──
+    if (signals.environment?.hour !== undefined) {
+      this._addTimeGradient(grad, signals.environment.hour);
+    }
+
+    // ── 7. 边界软势能 ──
+    this._addBoundaryGradient(grad);
+
+    // ── 8. 各向异性梯度裁剪 ──
+    // 不同维度允许不同的最大变化速率：
+    //   focus (1.2): 注意力可以快速转移（放下书本只需一念）
+    //   sociality (0.7): 社交状态变化中等（需要走到餐厅）
+    //   expressiveness (0.7): 表达方式变化中等
+    //   activity (0.5): 身体活动变化最慢（需要实际移动）
+    const dimLimits = [0.8, 0.7, 1.2, 0.7]; // [activity, sociality, focus, expressiveness]
+    // 找到最小的缩放因子（保持方向，但按最紧的维度约束）
+    let minScale = 1.0;
+    for (let d = 0; d < DIMS; d++) {
+      const absGrad = Math.abs(grad[d]);
+      if (absGrad > dimLimits[d]) {
+        minScale = Math.min(minScale, dimLimits[d] / absGrad);
+      }
+    }
+    if (minScale < 1.0) {
+      for (let d = 0; d < DIMS; d++) grad[d] *= minScale;
+    }
+
+    return grad;
+  }
+
+  /**
+   * 需求梯度：匮乏需求把 B 拉向满足方向
+   * @private
+   */
+  _addNeedsGradient(grad, needs, weight) {
+    for (const [need, target] of Object.entries(NEED_TARGETS)) {
+      const value = needs[need];
+      if (value === undefined) continue;
+
+      // 需求越匮乏，拉力越强（sigmoid 映射）
+      // 更陡的 sigmoid (k=8)：极端饥饿(value≈0)时 urgency≈0.97
+      const urgency = 1 / (1 + Math.exp(8 * (value - 0.25)));
+
+      if (urgency < 0.05) continue;
+
+      for (let d = 0; d < DIMS; d++) {
+        // ∇U = 2·w·(B - target)：梯度指向远离目标的方向
+        // 动力学 v += -∇U·dt 将 B 拉向目标
+        grad[d] += weight * urgency * (this.B[d] - target[d]);
+      }
+    }
+  }
+
+  /**
+   * 情绪梯度：情绪状态影响行为倾向
+   * @private
+   */
+  _addEmotionGradient(grad, emotion, weight) {
+    const { approachDrive = 0, avoidDrive = 0, agenticDrive = 0, arousal = 0.5 } = emotion;
+
+    // 主导驱力决定方向
+    const maxDrive = Math.max(approachDrive, avoidDrive, agenticDrive);
+    if (maxDrive < 0.1) return;
+
+    const effectiveWeight = weight * maxDrive;
+
+    if (approachDrive >= avoidDrive && approachDrive >= agenticDrive) {
+      // 趋近：增加社交和表达（梯度为负值，通过 -∇U·dt 增加维度）
+      for (let d = 0; d < DIMS; d++) {
+        grad[d] -= effectiveWeight * EMOTION_TARGETS.approach[d];
+      }
+    } else if (avoidDrive >= agenticDrive) {
+      // 回避：退缩（梯度为正值，通过 -∇U·dt 减少维度）
+      for (let d = 0; d < DIMS; d++) {
+        grad[d] -= effectiveWeight * EMOTION_TARGETS.avoid[d];
+      }
+    } else {
+      // 代理（愤怒/挫败）
+      for (let d = 0; d < DIMS; d++) {
+        grad[d] -= effectiveWeight * EMOTION_TARGETS.agentic[d];
+      }
+    }
+
+    // 高唤醒度放大所有情绪梯度
+    if (arousal > 0.6) {
+      const amp = 1 + (arousal - 0.6) * 1.5;
+      for (let d = 0; d < DIMS; d++) {
+        grad[d] *= amp;
+      }
+    }
+  }
+
+  /**
+   * 日程梯度：当前日程把 B 拉向目标行为
+   * @private
+   */
+  _addScheduleGradient(grad, schedule, weight) {
+    if (!schedule.inSchedule || !schedule.targetActivity) return;
+
+    const target = this._activityToTarget(schedule.targetActivity);
+    if (!target) return;
+
+    for (let d = 0; d < DIMS; d++) {
+      grad[d] += weight * (this.B[d] - target[d]);
+    }
+  }
+
+  /**
+   * 自发动机梯度：好奇心和探索目标
+   * @private
+   */
+  _addIntrinsicGradient(grad, intrinsic, weight) {
+    const { curiosity = 0 } = intrinsic;
+    if (curiosity < 0.3) return;
+
+    // 好奇心高 → 增加 activity 和 expressiveness，适度增加 sociality
+    // 梯度为负值（势能下降方向），通过 -∇U·dt 增加这些维度
+    const curiosityEffect = (curiosity - 0.3) * weight;
+    grad[DIM_ACTIVITY] -= curiosityEffect * 0.3;
+    grad[DIM_SOCIALITY] -= curiosityEffect * 0.15;
+    grad[DIM_EXPRESSIVENESS] -= curiosityEffect * 0.2;
+  }
+
+  /**
+   * 习惯梯度：惯性拉回上一次的行为位置
+   * @private
+   */
+  _addHabitGradient(grad, weight) {
+    // 拉回上一 tick 的位置（弱弹性力）
+    // ∇U = 2w(B - prevB)，-∇U 指向 prevB
+    for (let d = 0; d < DIMS; d++) {
+      grad[d] += weight * (this.B[d] - this._prevB[d]) * 0.3;
+    }
+  }
+
+  /**
+   * 时间梯度：时间段对行为的软约束
+   * @private
+   */
+  _addTimeGradient(grad, hour) {
+    const target = _getTimeTarget(hour);
+    if (!target) return;
+
+    // 时间引力（软约束，不应压过紧急需求）
+    const timeWeight = 0.4;
+    for (let d = 0; d < DIMS; d++) {
+      grad[d] += timeWeight * (this.B[d] - target[d]);
+    }
+  }
+
+  /**
+   * 边界软势能：靠近 [0,1] 边界时增加向内排斥力
+   * 形式：梯形势能（线性增长），比 log 势能更稳定
+   * @private
+   */
+  _addBoundaryGradient(grad) {
+    const margin = 0.08; // 边界缓冲区
+    const strength = this.cfg.boundaryStrength;
+
+    for (let d = 0; d < DIMS; d++) {
+      if (this.B[d] < margin) {
+        // 推向中心：梯度为负值（通过 -∇U·dt 增加 B）
+        grad[d] -= strength * (margin - this.B[d]) / margin;
+      } else if (this.B[d] > 1 - margin) {
+        // 推向中心：梯度为正值（通过 -∇U·dt 减少 B）
+        grad[d] += strength * (this.B[d] - (1 - margin)) / margin;
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // 动力学更新（半隐式欧拉-丸山）
+  // ═══════════════════════════════════════════
+
+  /**
+   * 欠阻尼朗之万动力学更新
+   *
+   * v(t+dt) = v(t)·(1 - γ·dt) - ∇U·dt + σ·√dt·ξ
+   * B(t+dt) = B(t) + v(t+dt)·dt
+   *
+   * 半隐式：速度更新用旧位置的梯度，位置更新用新速度
+   * （比全显式更稳定，比全隐式更简单）
+   * @private
+   */
+  _updateDynamics(gradient) {
+    const dt = this.cfg.dt;
+    const sqrtDt = Math.sqrt(dt);
+    const dampingFactor = Math.max(0, 1 - this.gamma * dt);
+
+    for (let d = 0; d < DIMS; d++) {
+      // 高斯白噪声
+      const noise = this.sigma * sqrtDt * _gaussianRandom(this._rng);
+
+      // 速度更新：阻尼 + 势能梯度（取负号：沿势能下降方向）+ 噪声
+      this.velocity[d] = this.velocity[d] * dampingFactor
+        - gradient[d] * dt
+        + noise;
+
+      // 位置更新
+      this.B[d] = this.B[d] + this.velocity[d] * dt;
+    }
+  }
+
+  /**
+   * 边界处理：clamp + 速度反射
+   * @private
+   */
+  _enforceBoundary() {
+    const reflect = this.cfg.boundaryReflection;
+
+    for (let d = 0; d < DIMS; d++) {
+      if (this.B[d] < 0) {
+        this.B[d] = 0;
+        this.velocity[d] = Math.abs(this.velocity[d]) * reflect;
+      } else if (this.B[d] > 1) {
+        this.B[d] = 1;
+        this.velocity[d] = -Math.abs(this.velocity[d]) * reflect;
+      }
+    }
+  }
+
+  // ═══════════════════════════════════════════
+  // 查询接口
+  // ═══════════════════════════════════════════
+
+  /** 获取当前行为向量 */
+  get current() { return [...this.B]; }
+
+  /** 获取当前标签 */
+  get label() { return this._lastLabel; }
+
+  /** 获取速度（行为变化趋势） */
+  get speed() {
+    let s = 0;
+    for (let d = 0; d < DIMS; d++) s += this.velocity[d] ** 2;
+    return Math.sqrt(s);
+  }
+
+  /**
+   * 获取行为状态的自然语言描述
+   * @param {Object} [options]
+   * @returns {string}
+   */
+  describe(options = {}) {
+    return this._labeler.describe(this.B, options);
+  }
+
+  /**
+   * 活动名 → 4D 目标位置（domain-aware）
+   * @private
+   */
+  _activityToTarget(activity) {
+    const centers = this._stateCenters;
+    if (centers[activity]) return centers[activity];
+
+    // 从 domain 取 activityTargets（如果有）
+    const activityTargets = this.domain.activityTargets || {};
+    if (activityTargets[activity]) {
+      const targetState = activityTargets[activity];
+      if (centers[targetState]) return centers[targetState];
+    }
+
+    return null;
+  }
+
+  /**
+   * 获取当前状态的详细快照（调试用）
+   * @returns {Object}
+   */
+  snapshot() {
+    return {
+      B: [...this.B],
+      velocity: [...this.velocity],
+      speed: this.speed,
+      label: this._lastLabel,
+      gradient: [...this._lastGradient],
+      gamma: this.gamma,
+      sigma: this.sigma,
+      tickCount: this._tickCount,
+    };
+  }
+
+  // ═══════════════════════════════════════════
+  // 序列化
+  // ═══════════════════════════════════════════
+
+  toJSON() {
+    return {
+      B: [...this.B],
+      velocity: [...this.velocity],
+      _prevB: [...this._prevB],
+      _lastLabel: this._lastLabel,
+      _tickCount: this._tickCount,
+    };
+  }
+
+  static fromJSON(data, personality) {
+    return new BehaviorField(personality, data);
+  }
+}
+
+// ═══════════════════════════════════════════
+// 工具函数
+// ═══════════════════════════════════════════
+
+/** Box-Muller 高斯随机数 */
+function _gaussianRandom(rng = null) {
+  const rand = rng ? rng.next.bind(rng) : Math.random;
+  const u1 = Math.max(1e-10, rand());
+  const u2 = rand();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+/**
+ * 时间段 → 目标行为位置（平滑插值版）
+ */
+const TIME_SCHEDULE = [
+  { hour: 0,  target: 'sleep' },
+  { hour: 6,  target: 'sleep' },
+  { hour: 7,  target: 'morning' },
+  { hour: 9,  target: 'active' },
+  { hour: 12, target: 'midday' },    // 12-13:30 午饭窗口
+  { hour: 13.5, target: 'active' },  // 13:30 回到学习/工作
+  { hour: 17, target: 'evening' },
+  { hour: 18, target: 'midday' },    // 18-19:30 晚饭窗口
+  { hour: 19.5, target: 'evening' },
+  { hour: 21, target: 'lateNight' },
+  { hour: 23, target: 'sleep' },
+  { hour: 24, target: 'sleep' },
+];
+
+function _getTimeTarget(hour) {
+  const h = ((hour % 24) + 24) % 24; // 确保 0-24
+
+  // 找到 h 两侧的 schedule 条目
+  let lo = TIME_SCHEDULE[0], hi = TIME_SCHEDULE[1];
+  for (let i = 0; i < TIME_SCHEDULE.length - 1; i++) {
+    if (h >= TIME_SCHEDULE[i].hour && h < TIME_SCHEDULE[i + 1].hour) {
+      lo = TIME_SCHEDULE[i];
+      hi = TIME_SCHEDULE[i + 1];
+      break;
+    }
+  }
+
+  const loTarget = TIME_TARGETS[lo.target];
+  const hiTarget = TIME_TARGETS[hi.target];
+  if (!loTarget || !hiTarget) return TIME_TARGETS.sleep;
+
+  // 在边界的 1 小时范围内做线性插值
+  const span = hi.hour - lo.hour;
+  const t = span > 0 ? (h - lo.hour) / span : 0;
+  const blend = Math.max(0, Math.min(1, t)); // 0=完全lo, 1=完全hi
+
+  const result = new Array(DIMS);
+  for (let d = 0; d < DIMS; d++) {
+    result[d] = loTarget[d] * (1 - blend) + hiTarget[d] * blend;
+  }
+  return result;
+}
+
+module.exports = {
+  BehaviorField,
+  DEFAULTS,
+  NEED_TARGETS,
+  EMOTION_TARGETS,
+  TIME_TARGETS,
+};

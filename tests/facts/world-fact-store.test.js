@@ -25,7 +25,7 @@ import {
   createEventFact,
   createObservationFact,
   createMemoryFact,
-} from '../../facts/FactSchema.js';
+} from '../../src/canon/FactSchema.js';
 
 // ═══════════════════════════════════════════
 // 辅助工厂

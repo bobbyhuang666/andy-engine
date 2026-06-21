@@ -1,5 +1,9 @@
 # Andy Engine Architecture Snapshot
 
+> **Historical snapshot.**
+> This file captures an older cleanup baseline and may contain retired top-level
+> paths. For current architecture, use `docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md`.
+>
 > Date: 2026-06-19
 > Branch: main
 > Baseline: HEAD f056e89 (v0.2.1) + current cleanup working tree

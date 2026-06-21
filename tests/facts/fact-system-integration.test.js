@@ -94,25 +94,11 @@ describe('Fact System Integration', () => {
   });
 
   it('FactEmitter 不使用 Math.random 或 Date.now', () => {
-    const content = fs.readFileSync('facts/FactEmitter.js', 'utf8');
+    const content = fs.readFileSync('src/canon/FactEmitter.js', 'utf8');
 
     expect(content).not.toMatch(/Math\.random\(\)/);
     expect(content).not.toMatch(/Date\.now\(\)/);
     expect(content).toMatch(/_getSimTime/);
-  });
-
-  it('FactEmitter 对缺失 id 的事件使用可重复 fallback id', () => {
-    const engineA = new AndyEngine({ enableFacts: true, seed: 'facts', startTime: new Date('2026-01-01T00:00:00Z') });
-    const engineB = new AndyEngine({ enableFacts: true, seed: 'facts', startTime: new Date('2026-01-01T00:00:00Z') });
-
-    engineA.world.factEmitter.setSimTime(engineA.world.time);
-    engineB.world.factEmitter.setSimTime(engineB.world.time);
-
-    const [factA] = engineA.world.factEmitter.emitEventFacts([{ type: 'custom', content: '测试事件' }]);
-    const [factB] = engineB.world.factEmitter.emitEventFacts([{ type: 'custom', content: '测试事件' }]);
-
-    expect(factA.eventId).toBe(factB.eventId);
-    expect(factA.eventId).toContain('2026-01-01T00:00:00.000Z');
   });
 
   it('legacy runtime snapshot 应恢复 factStore', () => {

@@ -1,5 +1,27 @@
 import { describe, it, expect } from 'vitest';
-const { applyActionEffect, computeStateDeltas } = require('../../effects/EventEffectPipeline');
+const { applyActionEffect: _applyActionEffect, computeStateDeltas: _computeStateDeltas } = require('../../src/effects/EventEffectPipeline');
+
+function applyActionEffect(params) {
+  const effectResult = _applyActionEffect(params);
+  const legacy = effectResult.toLegacyFormat();
+  legacy.updatedReasonTrace = params.reasonTrace ? { ...params.reasonTrace, stateDeltas: legacy.stateDeltas } : { stateDeltas: legacy.stateDeltas };
+  return legacy;
+}
+
+function computeStateDeltas(candidate, agentSnapshot) {
+  const deltas = _computeStateDeltas(candidate, agentSnapshot);
+  const result = { need: {}, emotion: {}, memory: null, relationship: null, location: null };
+  for (const d of deltas) {
+    switch (d.type) {
+      case 'need': Object.assign(result.need, d.changes); break;
+      case 'emotion': Object.assign(result.emotion, d.changes); break;
+      case 'memory': result.memory = { kind: d.kind, type: d.memoryType, target: d.target, content: d.content }; break;
+      case 'relationship': result.relationship = { targetAgentId: d.targetAgentId, interactionType: d.interactionType, valence: d.valence, content: d.content }; break;
+      case 'locationMeaning': result.location = { from: d.from || null, to: d.to || d.location, reason: d.reason }; break;
+    }
+  }
+  return result;
+}
 const AndyEngine = require('../../index.js');
 
 const TEST_START = new Date('2026-09-01T08:00:00Z');

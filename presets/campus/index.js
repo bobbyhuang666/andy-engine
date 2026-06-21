@@ -647,6 +647,19 @@ const campusDomain = {
   // ═══════════════════════════════════════════
   // 禁止词（用于 sanitize 最后防线）
   // ═══════════════════════════════════════════
+  actionCandidateMappings: {
+    memorySemanticCategoryActionMap: {
+      '在上课': { type: 'work', source: 'memory' },
+      '在图书馆': { type: 'work', source: 'memory' },
+      '在食堂': { type: 'consume', source: 'memory' },
+      '在宿舍': { type: 'rest', source: 'memory' },
+      '在发呆': { type: 'rest', source: 'memory' },
+      '在聊天': { type: 'socialize', source: 'memory' },
+      '在运动': { type: 'explore', source: 'memory' },
+      '在工作': { type: 'work', source: 'memory' },
+    },
+  },
+
   forbiddenTerms: [], // 校园 preset 不需要禁止自己的词
 
   // ═══════════════════════════════════════════

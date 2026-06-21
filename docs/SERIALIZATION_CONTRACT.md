@@ -1,0 +1,231 @@
+# Serialization Contract
+
+> Status: active governance document.
+> Date: 2026-06-21.
+> Scope: Stage 11 of Clean Architecture Pass.
+> Purpose: define the stable persistence boundary for Andy Engine.
+> Rule: all serialization boundaries must be documented here.
+
+---
+
+## Overview
+
+Andy Engine has two serialization layers:
+
+1. **Stable World Envelope** — the public, cross-version-safe persistence contract (owned by `src/store/Serialization.js`)
+2. **Runtime Snapshot** — the opaque internal state dump (owned by `src/runtime/AndyWorld.js`)
+
+These layers must never leak into each other. The envelope is the contract. The snapshot is the implementation detail.
+
+---
+
+## Runtime Snapshot Payload Ownership
+
+**Owner**: `AndyWorld.toJSON()` in `src/runtime/AndyWorld.js`
+
+The runtime snapshot is an opaque payload produced by `AndyWorld.toJSON()`. It contains:
+
+```js
+{
+  time: string,              // ISO 8601
+  tickCount: number,
+  environment: { weather, weatherChangedAt, timeOfDay, season },
+  agents: { [id]: agentToJSON },
+  socialGraph: edges[],
+  events: { eventLog: [...] },
+  rngState: number | undefined,     // only if seeded RNG
+  factStore: object | undefined,    // only if enableFacts
+  knowledgeStore: object | undefined, // only if enableFacts
+}
+```
+
+**Rules**:
+- Only `AndyWorld.toJSON()` produces runtime snapshots.
+- Only `AndyWorld` constructor (with `savedState`) restores from runtime snapshots.
+- The snapshot shape is NOT a public contract — it can change between minor versions.
+- External consumers must use the Stable World Envelope, not the raw snapshot.
+
+---
+
+## Stable World Envelope Ownership
+
+**Owner**: `Serialization` class in `src/store/Serialization.js`
+
+The envelope is the cross-version-safe persistence format:
+
+```js
+{
+  version: string,           // ENVELOPE_VERSION ('0.2.0')
+  timestamp: string,         // ISO 8601
+  runtimeSnapshot: object,   // Opaque Payload — not parsed by envelope layer
+}
+```
+
+**Rules**:
+- `Serialization.serialize(world)` creates the envelope from an AndyWorld instance.
+- `Serialization.deserialize(envelope)` extracts the opaque runtime snapshot.
+- The envelope has exactly 3 fields: `version`, `timestamp`, `runtimeSnapshot`.
+- `runtimeSnapshot` is opaque — `Serialization` does NOT parse or validate its internal structure.
+- Version changes require explicit migration logic.
+
+---
+
+## World State Adapter (Compatibility Layer)
+
+**Owner**: `src/store/world/WorldStateAdapter.js` (canonical implementation)
+
+The `src/store/world/` directory contains the Stable World Envelope adapter with additional stable fields (`characters`, `relationships`, `events`, `worldClock`).
+
+**Current ownership**:
+- `src/store/world/WorldStateAdapter.js` — `toWorldState()` / `fromWorldState()` — Stable Envelope adapter
+- `src/store/world/validator.js` — `validateWorldSpec()` / `validateWorldState()` — schema v0.1.0 validation
+- `src/store/world/compiler.js` — `compile()` — World Spec → World State
+- `src/store/world/migration.js` — `migrateWorldState()` — v0.0.0 → v0.1.0 migration
+
+**Legacy wrappers**: the old top-level `world/` files were retired during the Clean Architecture Pass. New code must import the canonical `src/store/world/*` modules.
+
+---
+
+## Agent Snapshot Restore Expectations
+
+**Owner**: `AgentSubsystemFactory.restoreSubsystems()` in `src/agent/lifecycle/AgentSubsystemFactory.js`
+
+When restoring an agent from a serialized snapshot, the following fields must be present in the saved state:
+
+| Field | Type | Required | Restored By |
+|-------|------|----------|-------------|
+| `id` | string | yes | Agent constructor |
+| `name` | string | yes | Agent constructor |
+| `personality` | object | yes | `Personality.fromJSON()` |
+| `emotion` | object | yes | `EmotionVector` constructor |
+| `stateMachine` | object | yes | `StateMachine` constructor |
+| `behaviorField` | object | yes | `BehaviorField` constructor |
+| `memory` | object | yes | `PersonalMemory` constructor |
+| `appraisalBiases` | object | no | `memory.appraisalBiases` assignment |
+| `proceduralMemory` | object | yes | `ProceduralMemory` constructor |
+| `schedule` | object | yes | `Schedule` constructor |
+| `needs` | object | yes | `NeedsSystem` constructor |
+| `emotionRegulation` | object | yes | `EmotionRegulation` constructor |
+| `intrinsicMotivation` | object | yes | `IntrinsicMotivation` constructor |
+| `position` | string | yes | direct assignment |
+| `socialEnergy` | number | no | defaults to `AGENT_DEFAULTS.socialEnergy` |
+| `health` | number | no | defaults to `AGENT_DEFAULTS.health` |
+| `isOnline` | boolean | no | defaults to `AGENT_DEFAULTS.isOnline` |
+| `_actionTraceHistory` | array | no | direct assignment |
+
+**Serialization source**: `AgentSerializer.toJSON()` in `src/agent/facade/AgentSerializer.js`
+
+---
+
+## RNG State Restore Expectations
+
+**Owner**: `RNG` class in `src/shared/rng.js`
+
+RNG state is saved and restored as a single integer:
+
+```js
+// Save
+const rngState = rng.getState();  // returns number
+
+// Restore
+const rng = new RNG(0);
+rng.setState(rngState);           // restores internal state
+```
+
+**In the runtime snapshot**: `savedState.rngState` (optional field)
+
+**In the engine constructor** (`index.js`):
+- If `config.rng` is provided, use it directly.
+- If `config.seed` is provided, create `new RNG(seed)`.
+- If `savedState.rngState` exists, create `new RNG(0)` and call `setState()`.
+- Otherwise, `rng` is `null` (falls back to `Math.random`).
+
+**Deterministic restore**: same `rngState` value → same subsequent random sequence.
+
+---
+
+## Schedule Restore Expectations
+
+**Owner**: `Schedule` class in `src/agent/schedule/Schedule.js`
+
+Schedule state is restored from `savedState.schedule`:
+
+```js
+{
+  _todayVariations: { [dateKey]: { [blockName]: { region, duration } } },
+  _lastVariationDate: string | null,
+}
+```
+
+**Restore path**: `new Schedule(config, savedState.schedule, rng)`
+
+The schedule config (archetype/preset) is passed separately from the saved state. The saved state only contains runtime variation data.
+
+---
+
+## Fact/Knowledge Restore Expectations
+
+**Owner**: `WorldFactStore` and `KnowledgeStore` in `src/canon/` and `src/knowledge/`
+
+Facts and knowledge are saved in the runtime snapshot:
+
+```js
+savedState.factStore     → WorldFactStore.fromJSON(savedState.factStore)
+savedState.knowledgeStore → KnowledgeStore.fromJSON(savedState.knowledgeStore, factStore)
+```
+
+**In `AndyWorld` constructor**:
+- If `enableFacts` is true and `savedState.factStore` exists, restore via `WorldFactStore.fromJSON()`.
+- If `enableFacts` is true and `savedState.knowledgeStore` exists, restore via `KnowledgeStore.fromJSON()`.
+- If `enableFacts` is true but no saved state, create fresh instances.
+
+**Important**: The fact store must be restored BEFORE the knowledge store (knowledge references fact IDs).
+
+---
+
+## Store API Surface
+
+**Public export path**: `require('andy-engine/store')`
+**Canonical source**: `src/store/index.js`
+
+| Export | Type | Purpose |
+|--------|------|---------|
+| `Serialization` | class | Stable World Envelope serialize/deserialize |
+| `ENVELOPE_VERSION` | string | Current envelope version (`'0.2.0'`) |
+| `SaveLoad` | class | Unified save/load interface (uses Serialization + store) |
+| `SnapshotStore` | class (interface) | Abstract snapshot store interface |
+| `MetaStore` | class (interface) | Abstract key-value metadata store interface |
+| `SQLiteStore` | class | SQLite implementation of StoryStore + SnapshotStore + MetaStore |
+| `SimulationStore` | class | High-level simulation persistence manager |
+| `StoryStore` | class (interface) | Abstract story store interface |
+| `createStore(options?)` | function | Create SimulationStore (SQLite) |
+| `createMemoryStore()` | function | Create in-memory SQLiteStore (for testing) |
+
+**SaveLoad flow**:
+```
+SaveLoad.save(world)
+  → Serialization.serialize(world)    // creates envelope
+  → store.save(envelope, metadata)    // persists envelope
+
+SaveLoad.load(snapshotId)
+  → store.load(snapshotId)            // retrieves envelope
+  → Serialization.deserialize(envelope) // extracts runtime snapshot
+```
+
+---
+
+## Ownership Summary
+
+| Component | Owner | File |
+|-----------|-------|------|
+| Runtime snapshot production | `AndyWorld.toJSON()` | `src/runtime/AndyWorld.js` |
+| Runtime snapshot restore | `AndyWorld` constructor | `src/runtime/AndyWorld.js` |
+| Stable Envelope creation | `Serialization.serialize()` | `src/store/Serialization.js` |
+| Stable Envelope extraction | `Serialization.deserialize()` | `src/store/Serialization.js` |
+| Save/Load orchestration | `SaveLoad` | `src/store/SaveLoad.js` |
+| Agent snapshot production | `AgentSerializer.toJSON()` | `src/agent/facade/AgentSerializer.js` |
+| Agent snapshot restore | `AgentSubsystemFactory.restoreSubsystems()` | `src/agent/lifecycle/AgentSubsystemFactory.js` |
+| WorldStateAdapter | `toWorldState()` / `fromWorldState()` | `src/store/world/WorldStateAdapter.js` |
+| Schema validation | `validateWorldSpec()` / `validateWorldState()` | `src/store/world/validator.js` |
+| World compiler | `compile()` | `src/store/world/compiler.js` |
+| Migration | `migrateWorldState()` | `src/store/world/migration.js` |

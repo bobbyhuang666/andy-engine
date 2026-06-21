@@ -1,5 +1,10 @@
 # Andy Engine Architecture Boundaries
 
+> **Conceptual governance document.**
+> Some path examples below predate the Stage 25.1 `src/` retirement. For current
+> file-level truth, use `docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md` and the enforced
+> checks in `scripts/check-boundaries.js`.
+>
 > Status: active governance document.
 > Scope: Andy Engine single-package repository.
 > Purpose: freeze current conceptual boundaries so future work does not contaminate engine core.

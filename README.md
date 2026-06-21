@@ -12,7 +12,7 @@ Actions become canonical events that affect memory, relationships, location mean
 
 LLMs only express what a character knows; they do not create world facts.
 
-> Status: WIP research prototype. Psychological simulation is stable; WorldCanon / Knowledge / Grounded Narrative are experimental.
+> Status: **v2.0.0-alpha.1 architecture preview**. Psychological simulation and clean `src/` architecture are stable; WorldCanon / Knowledge / Grounded Narrative remain experimental.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
@@ -62,7 +62,7 @@ The LLM is a rendering layer, not the source of truth.
 
 | Area | Status |
 |---|---|
-| Unit / integration / domain / source-scan tests | 1000+ tests passing |
+| Unit / integration / domain / source-scan tests | 1700+ tests passing |
 | Custom domain | Tavern preset passes domain-agnostic validation |
 | Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
 | Seeded RNG | Core simulation supports reproducible random baseline |
@@ -75,83 +75,41 @@ The LLM is a rendering layer, not the source of truth.
 
 ```
 AndyEngine
-├── core/
-│   ├── World.js              World state (time, environment, agent collection)
-│   ├── Simulator.js          Hybrid Tick+Event scheduler (5-step pipeline)
-│   ├── EventDispatcher.js    Event system (5 sources + causal chains + semantic classification)
-│   ├── EventEffectPipeline.js Action/event consequences pipeline
-│   ├── WorldPressure.js      World pressure computation (pure function)
-│   ├── StoryGenerator.js     Narrative generation for LLM prompt injection
-│   ├── RNG.js                Seedable PRNG (Mulberry32, deterministic replay)
-│   └── AndyBridge.js         Bridge to external LLM
+├── index.js                  Public AndyEngine facade
+├── agent/Agent.js            Public-approved Agent compatibility adapter
+├── facts/index.js            Public facts facade
+├── domain/index.js           Public domain facade
+├── store/index.js            Public store facade
+├── sdk/index.js              Public SDK facade
 │
-├── agent/
-│   ├── Agent.js              Autonomous agent (behavior field driven)
-│   ├── BehaviorField.js      4D continuous behavior field (Langevin dynamics)
-│   ├── BehaviorLabeler.js    Semantic label projection (50 state centers)
-│   ├── Personality.js        MBTI → OCEAN → behavior mapping
-│   ├── EmotionVector.js      30-dim emotion (10-step evolution pipeline)
-│   ├── StateMachine.js       State metadata only (42 states, read-only)
-│   ├── PersonalMemory.js     ACT-R memory (5-pathway retrieval + semantic classification)
-│   ├── NeedsSystem.js        Maslow hierarchy (5 drives + continuous gradient)
-│   ├── Appraisal.js          Cognitive appraisal (Scherer CPM, 8 dimensions)
-│   ├── EmotionRegulation.js  Gross process model (3 strategies)
-│   ├── IntrinsicMotivation.js Curiosity + self-generated goals
-│   ├── ProceduralMemory.js   Habit formation + disruption
-│   ├── Schedule.js           Schedule system (presets + Gaussian noise)
-│   ├── FutureTendencyTracker.js  Future behavioral tendency tracking
-│   ├── LocationMeaningInfluence.js Location meaning influence
-│   └── action/               Action selection stack (experimental)
-│       ├── ActionCandidate.js    Pure JSON candidate representation
-│       ├── GoalSystem.js        Serializable goal management
-│       ├── UtilityScorer.js     12-dimension scoring
-│       ├── UtilitySelector.js   Utility-based selection
-│       ├── WorldObject.js       World object interaction
-│       └── providers/           7 candidate providers
-│
-├── facts/                    World canon facts system (experimental)
-│   ├── FactSchema.js         Fact type definitions & validation
-│   ├── KnowledgeStore.js     Knowledge storage
-│   ├── WorldFactStore.js     World fact store
-│   ├── CanonEventPipeline.js Event → fact pipeline
-│   ├── FactProvider.js       Fact grounding boundaries
-│   └── FactConsistencyChecker.js Consistency validation (regex-based)
-│
-├── social/
-│   ├── SocialGraph.js        Global social graph (Dunbar layers + triadic closure)
-│   └── Relationship.js       Logarithmic growth + emotional bonds
-│
-├── spatial/
-│   ├── SpatialEngine.js      Continuous coordinate movement
-│   ├── SpatialHash.js        Spatial hash for O(1) neighbor queries
-│   ├── RegionGrid.js         Region-based agent index
-│   └── WorldMap.js           Map with named locations
-│
-├── store/                    Persistence layer (SQLite)
-│
-├── domain/                   Domain architecture
-│   ├── DomainRegistry.js     Domain parsing and management
-│   └── validateDomain.js     Domain config validation
-│
-├── world/                    Persistent world tooling
-│   ├── WorldStateAdapter.js  Stable Envelope adapter
-│   ├── validator.js          World Spec/State schema validation
-│   ├── compiler.js           World Spec → engine config
-│   └── migration.js          Schema version migration
+├── src/
+│   ├── runtime/              AndyWorld, EventDispatcher, WorldClock, RuntimeConfig
+│   ├── agent/                AgentRuntime, lifecycle, handlers, facade, memory, psychology, schedule
+│   ├── action/               ActionCandidate, providers, UtilityScorer, UtilitySelector, ReasonTrace
+│   ├── canon/                WorldFactStore, FactSchema, CanonEventPipeline, FactEmitter
+│   ├── knowledge/            KnowledgeStore: who knows what
+│   ├── narrative/            FactProvider, FactConsistencyChecker, FactFormatter, StoryGenerator
+│   ├── effects/              EffectCommitter, EventEffectPipeline, typed deltas
+│   ├── pressure/             Need, memory, relationship, location, and world pressure sources
+│   ├── domain/               DomainRegistry, validateDomain, forbidden-term guard
+│   ├── config/               Defaults and config validation
+│   ├── shared/               RNG, ids, errors, time, schemas
+│   ├── social/               SocialGraph, Relationship
+│   ├── spatial/              RegionGrid, SpatialEngine, SpatialHash, WorldMap
+│   ├── store/                Persistence, serialization, world schema tooling
+│   └── sdk/                  Character, Andy, LLMAdapter, NarrativeBuilder
 │
 ├── presets/                  World presets
 │   ├── campus/               Campus world (default)
 │   └── tavern/               Medieval tavern world (example)
-│
-├── config/defaults.js        All tunable parameters
-└── sdk/                      High-level SDK
+└── docs/                     Domain, architecture, performance, and governance docs
 ```
 
 ---
 
 ## Current Architecture Status
 
-Andy Engine is evolving from a character simulation engine into a persistent world engine.
+Andy Engine v2 is the architecture-preview line that turns Andy from a character simulation engine into a persistent world engine.
 
 ### Stable
 
@@ -159,7 +117,8 @@ Andy Engine is evolving from a character simulation engine into a persistent wor
 - Continuous 4D BehaviorField as the core behavior dynamics layer
 - Seeded RNG baseline for reproducible core simulations
 - Performance benchmark / profiling / perf-check baseline
-- 1000+ tests across unit, integration, domain, compatibility, and source-scan suites
+- 1700+ tests across unit, integration, domain, compatibility, and source-scan suites
+- Clean Architecture Pass complete: `src/` owns implementation; old top-level runtime wrappers retired; Semantic Closure Pass complete with 9 domain-safe read-only providers
 
 ### Experimental
 
@@ -533,7 +492,7 @@ B = (活跃度, 社交性, 专注度, 表达欲) ∈ [0,1]⁴
 
 ## 当前架构状态
 
-Andy Engine 正在从角色模拟引擎演化为持久世界引擎。
+Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 Persistent World Engine。
 
 ### 稳定
 
@@ -541,11 +500,12 @@ Andy Engine 正在从角色模拟引擎演化为持久世界引擎。
 - 连续 4D BehaviorField 作为核心行为动力学层
 - 可播种 RNG 基线，支持可复现的核心模拟
 - 性能基准 / Profiling / perf-check 基线
-- 1000+ 测试（单元、集成、domain、兼容性、source-scan）
+- 1700+ 测试（单元、集成、domain、兼容性、source-scan）
+- Clean Architecture Pass 完成：`src/` 拥有实现，旧顶层 runtime wrappers 已退休；Semantic Closure Pass 完成，9 个 domain-safe read-only provider 已接入
 
 ### 实验性
 
-- 行为候选栈：`CandidateProvider`、`UtilityScorer`、`UtilitySelector`、`ReasonTrace`
+- 行为候选栈：`CandidateProvider`、`UtilityScorer`、`UtilitySelector`、`ReasonTrace`（9 个 provider）
 - `EventEffectPipeline` 行为/事件后果管线
 - `WorldPressure` 和 `FutureTendencyTracker`
 - WorldCanon 事实系统：`WorldFactStore`、`CanonEventPipeline`、`KnowledgeStore`、`FactProvider`
@@ -553,6 +513,7 @@ Andy Engine 正在从角色模拟引擎演化为持久世界引擎。
 
 ### 尚未成为生产契约
 
+- 当前版本是 `2.0.0-alpha.1`，不是稳定生产版
 - Fact schema 和 Knowledge schema 可能还会变化
 - `FactConsistencyChecker` 基于正则表达式，是实验性的
 - `WorldObject` 已建模但尚未完全集成到 `Agent.tick`
@@ -565,44 +526,32 @@ Andy Engine 正在从角色模拟引擎演化为持久世界引擎。
 
 ```
 AndyEngine
-├── core/                     核心运行时
-│   ├── World.js              世界状态：时间、环境、角色集合
-│   ├── Simulator.js          多角色 tick 调度与事件推进
-│   ├── EventDispatcher.js    事件分发系统
-│   ├── EventEffectPipeline.js 事件后果管线：状态、记忆、地点意义、未来倾向
-│   ├── WorldPressure.js      世界压力计算
-│   ├── RNG.js                可播种随机源
-│   └── AndyBridge.js         外部 LLM 桥接层
+├── index.js                  AndyEngine 公共入口
+├── agent/Agent.js            公开批准的 Agent 兼容适配层
+├── facts/index.js            facts 公共 facade
+├── domain/index.js           domain 公共 facade
+├── store/index.js            store 公共 facade
+├── sdk/index.js              SDK 公共 facade
 │
-├── agent/                    角色心理与行为系统
-│   ├── Agent.js              角色主循环
-│   ├── BehaviorField.js      4D 连续行为场（朗之万动力学）
-│   ├── EmotionVector.js      30 维情绪系统
-│   ├── NeedsSystem.js        Maslow 需求系统
-│   ├── PersonalMemory.js     ACT-R 记忆系统
-│   ├── Personality.js        MBTI / OCEAN 人格映射
-│   ├── Appraisal.js          认知评价系统
-│   ├── ProceduralMemory.js   习惯系统
-│   ├── FutureTendencyTracker.js 未来行为倾向
-│   ├── LocationMeaningInfluence.js 地点意义影响
-│   └── action/               行为候选、Utility 评分、ReasonTrace（实验性）
+├── src/
+│   ├── runtime/              AndyWorld、EventDispatcher、WorldClock、RuntimeConfig
+│   ├── agent/                AgentRuntime、lifecycle、handlers、facade、memory、psychology、schedule
+│   ├── action/               ActionCandidate、providers、UtilityScorer、UtilitySelector、ReasonTrace
+│   ├── canon/                WorldFactStore、FactSchema、CanonEventPipeline、FactEmitter
+│   ├── knowledge/            KnowledgeStore：谁知道什么
+│   ├── narrative/            FactProvider、FactConsistencyChecker、FactFormatter、StoryGenerator
+│   ├── effects/              EffectCommitter、EventEffectPipeline、typed deltas
+│   ├── pressure/             need / memory / relationship / location / world pressure
+│   ├── domain/               DomainRegistry、validateDomain、forbidden-term guard
+│   ├── config/               defaults 与配置校验
+│   ├── shared/               RNG、ids、errors、time、schemas
+│   ├── social/               SocialGraph、Relationship
+│   ├── spatial/              RegionGrid、SpatialEngine、SpatialHash、WorldMap
+│   ├── store/                持久化、序列化、world schema tooling
+│   └── sdk/                  Character、Andy、LLMAdapter、NarrativeBuilder
 │
-├── facts/                    WorldCanon / 知识边界系统（实验性）
-│   ├── WorldFactStore.js     世界事实存储
-│   ├── CanonEventPipeline.js event → fact → knowledge
-│   ├── KnowledgeStore.js     每个角色知道什么
-│   ├── FactProvider.js       grounding package，过滤可见事实
-│   ├── FactConsistencyChecker.js LLM 输出一致性检查
-│   └── FactSchema.js         事实类型与校验
-│
-├── social/                   社交图谱与关系
-├── spatial/                  空间系统（连续坐标 + 空间哈希）
-├── domain/                   domain config 契约（DomainRegistry + 校验）
 ├── presets/                  campus / tavern 世界预设
-├── world/                    持久世界工具链（Stable Envelope + 校验 + 迁移）
-├── store/                    SQLite 持久化
-├── sdk/                      高层 SDK（Character / Andy / LLMAdapter）
-└── config/defaults.js        全局默认参数
+└── docs/                     domain、architecture、performance、governance 文档
 ```
 
 **当前运行主线：**
@@ -643,7 +592,7 @@ Grounded Narrative（有事实边界的叙事）
 
 | 项目 | 状态 |
 |---|---|
-| 单元 / 集成 / domain / source-scan 测试 | 1000+ tests passing |
+| 单元 / 集成 / domain / source-scan 测试 | 1700+ tests passing |
 | custom domain | tavern preset 通过 domain-agnostic 验证 |
 | facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
 | seeded RNG | 核心模拟支持可复现随机基线 |

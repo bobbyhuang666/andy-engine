@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from 'vitest';
 import AndyEngine from '../index.js';
-import { DomainRegistry } from '../domain/DomainRegistry.js';
+import { DomainRegistry } from '../src/domain/DomainRegistry.js';
 
 // 极简 domain，故意缺少多个配置
 const minimalDomain = {
@@ -207,7 +207,7 @@ describe('Fallback 测试：极简 domain 不泄漏 campus terms', () => {
   });
 
   it('极简 domain semantic classification 不崩，走 neutral fallback', () => {
-    const EventDispatcher = require('../core/EventDispatcher.js');
+    const EventDispatcher = require('../src/runtime/EventDispatcher.js');
     const ed = new EventDispatcher(minimalDomain);
     const evt = ed.createEvent({ type: 'random', content: '看到一只猫' });
     expect(typeof evt.semanticCategory).toBe('string');

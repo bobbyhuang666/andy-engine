@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
-import { scoreCandidate, scoreCandidates } from '../../agent/action/UtilityScorer.js';
-import { createCandidate } from '../../agent/action/ActionCandidate.js';
+import { scoreCandidate, scoreCandidates } from '../../src/action/UtilityScorer.js';
+import { ActionCandidate } from '../../src/action/ActionCandidate.js';
+
+function createCandidate(opts) {
+  return new ActionCandidate(opts).toJSON();
+}
 
 describe('Memory influence on scoring', () => {
   const baseContext = {

@@ -13,8 +13,8 @@ const pkg = JSON.parse(readFileSync(path.join(process.cwd(), 'package.json'), 'u
 
 describe('Package Boundary', () => {
   describe('package.json metadata', () => {
-    it('version is 0.2.1', () => {
-      expect(pkg.version).toBe('0.2.1');
+    it('version is 2.0.0-alpha.1', () => {
+      expect(pkg.version).toBe('2.0.0-alpha.1');
     });
 
     it('types points to src/sdk/types.d.ts', () => {
@@ -47,10 +47,17 @@ describe('Package Boundary', () => {
       expect(Array.isArray(pkg.files)).toBe(true);
     });
 
-    it('includes required directories', () => {
-      const required = ['index.js', 'agent/', 'core/', 'sdk/', 'domain/', 'presets/', 'config/'];
+    it('includes required public and canonical directories', () => {
+      const required = ['index.js', 'agent/', 'sdk/', 'domain/', 'facts/', 'store/', 'presets/', 'src/'];
       for (const dir of required) {
         expect(pkg.files).toContain(dir);
+      }
+    });
+
+    it('does not include retired top-level implementation directories', () => {
+      const retired = ['core/', 'effects/', 'social/', 'spatial/', 'config/'];
+      for (const dir of retired) {
+        expect(pkg.files).not.toContain(dir);
       }
     });
 
@@ -70,8 +77,8 @@ describe('Package Boundary', () => {
       'index.js',
       'sdk/types.d.ts',
       'domain/index.js',
-      'domain/validateDomain.js',
-      'domain/DomainRegistry.js',
+      'src/domain/validateDomain.js',
+      'src/domain/DomainRegistry.js',
       'presets/campus/index.js',
       'presets/tavern/index.js',
       'docs/DOMAIN.md',
@@ -238,8 +245,13 @@ describe('Package Boundary', () => {
       expect(existsSync(wrapperPath)).toBe(false);
     });
 
-    it('effects/EventEffectPipeline.js is the canonical implementation', () => {
-      const canonicalPath = path.join(process.cwd(), 'effects/EventEffectPipeline.js');
+    it('effects/EventEffectPipeline.js wrapper has been removed', () => {
+      const wrapperPath = path.join(process.cwd(), 'effects', 'EventEffectPipeline.js');
+      expect(existsSync(wrapperPath)).toBe(false);
+    });
+
+    it('src/effects/EventEffectPipeline.js is the canonical implementation', () => {
+      const canonicalPath = path.join(process.cwd(), 'src', 'effects', 'EventEffectPipeline.js');
       expect(existsSync(canonicalPath)).toBe(true);
       const content = readFileSync(canonicalPath, 'utf-8');
       const lineCount = content.split('\n').filter(l => l.trim().length > 0).length;
@@ -337,13 +349,13 @@ describe('Package Boundary', () => {
       }
     });
 
-    it('src/sdk/ NarrativeBuilder allowed imports are domain/ and facts/', () => {
+    it('src/sdk/ NarrativeBuilder allowed imports are domain/, facts/, and narrative/', () => {
       const nbPath = path.join(srcSdkDir, 'NarrativeBuilder.js');
       if (!existsSync(nbPath)) return;
       const imports = getImports(nbPath);
       const internalImports = imports.filter(i => i.startsWith('../'));
       const disallowed = internalImports.filter(
-        i => !i.startsWith('../domain/') && !i.startsWith('../../facts')
+        i => !i.startsWith('../domain/') && !i.startsWith('../../facts') && !i.startsWith('../narrative/')
       );
       expect(
         disallowed,

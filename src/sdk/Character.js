@@ -24,7 +24,7 @@
  *   const restored = Character.load(state);
  */
 
-const AndyEngine = require('../../index');
+const AndyEngine = require('./AndyEngine');
 const NarrativeBuilder = require('./NarrativeBuilder');
 const LLMAdapter = require('./LLMAdapter');
 const AutoTick = require('./AutoTick');

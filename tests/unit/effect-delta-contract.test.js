@@ -24,7 +24,6 @@ import { FutureTendencyDelta } from '../../src/effects/FutureTendencyDelta.js';
 import { EffectResult } from '../../src/effects/EffectResult.js';
 import { EffectCommitter } from '../../src/effects/EffectCommitter.js';
 import { applyActionEffect, computeDeltas, applyEventConsequences } from '../../src/effects/EventEffectPipeline.js';
-import { applyActionEffect as legacyApply, computeStateDeltas as legacyCompute, applyEventConsequences as legacyConsequences } from '../../effects/EventEffectPipeline.js';
 
 const TEST_TIME = new Date('2026-09-01T14:00:00Z');
 
@@ -446,79 +445,5 @@ describe('Phase 5: typed pipeline functions', () => {
     });
     expect(result.deltas).toHaveLength(0);
     expect(result.hasChanges).toBe(false);
-  });
-});
-
-// ─── Backward compatibility ───
-
-describe('Phase 5: backward compatibility', () => {
-  it('legacy applyActionEffect returns old shape', () => {
-    const result = legacyApply({
-      agentSnapshot: { id: 'a1' },
-      selectedCandidate: { type: 'rest', source: 'need' },
-      reasonTrace: { keyReasons: [], scoreBreakdown: { total: 0.5 } },
-      simTime: TEST_TIME,
-    });
-
-    expect(result).toHaveProperty('event');
-    expect(result).toHaveProperty('stateDeltas');
-    expect(result).toHaveProperty('updatedReasonTrace');
-    expect(result.event.type).toBe('action_selected');
-    expect(result.stateDeltas.need).toEqual({ energy: 0.4 });
-    expect(result.stateDeltas.emotion).toHaveProperty('calm');
-  });
-
-  it('legacy computeStateDeltas returns old shape', () => {
-    const deltas = legacyCompute({ type: 'rest', source: 'need' }, { id: 'a1' });
-
-    expect(deltas).toHaveProperty('need');
-    expect(deltas).toHaveProperty('emotion');
-    expect(deltas).toHaveProperty('memory');
-    expect(deltas).toHaveProperty('relationship');
-    expect(deltas).toHaveProperty('location');
-    expect(deltas.need).toEqual({ energy: 0.4 });
-  });
-
-  it('legacy computeStateDeltas observe returns memory object', () => {
-    const deltas = legacyCompute({ type: 'observe', source: 'explore', target: 'lib', label: 'see' }, { id: 'a1' });
-    expect(deltas.memory).toEqual({
-      kind: 'candidate',
-      type: 'observation',
-      target: 'lib',
-      content: 'see',
-    });
-  });
-
-  it('legacy computeStateDeltas socialize returns relationship object', () => {
-    const deltas = legacyCompute({ type: 'socialize', source: 'social', target: 'a2', label: 'hi' }, { id: 'a1' });
-    expect(deltas.relationship).toEqual({
-      targetAgentId: 'a2',
-      interactionType: 'action_socialize',
-      valence: 0.3,
-      content: 'hi',
-    });
-  });
-
-  it('legacy applyEventConsequences returns count shape', () => {
-    const mockAgent = {
-      id: 'a1',
-      memory: { addExperience: vi.fn() },
-      emotion: {},
-      futureTendency: { updateTendency: vi.fn() },
-    };
-    const agents = new Map();
-    agents.set('a1', mockAgent);
-
-    const result = legacyConsequences({
-      fact: { participants: ['a1'], description: 'test event', location: 'lib', scope: 'private' },
-      agents,
-      factStore: null,
-      domain: null,
-    });
-
-    expect(result).toHaveProperty('memoryUpdates');
-    expect(result).toHaveProperty('locationMeaningUpdates');
-    expect(result).toHaveProperty('tendencyUpdates');
-    expect(Array.isArray(result.memoryUpdates)).toBe(true);
   });
 });

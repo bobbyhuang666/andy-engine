@@ -17,7 +17,7 @@ import {
   createEventFact,
   FactSource,
   FactScope,
-} from '../../facts/FactSchema.js';
+} from '../../src/canon/FactSchema.js';
 
 // ═══════════════════════════════════════════
 // 辅助工厂

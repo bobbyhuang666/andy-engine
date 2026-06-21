@@ -295,11 +295,11 @@ Phase 17 **不**包含：
 
 ---
 
-## 9. Phase 18 Preview
+## 9. Implementation Status
 
-Phase 18 将实现：
+World schema tooling has been implemented and moved under the canonical `src/` tree:
 
-- `world/validator.js`：实现 `validateWorldSpec()` 和 `validateWorldState()`，只校验 Stable World Envelope
-- `tests/schema-validator.test.js`：覆盖校验器的单元测试
+- `src/store/world/validator.js`：实现 `validateWorldSpec()` 和 `validateWorldState()`，只校验 Stable World Envelope
+- `tests/store/schema-validator.test.js`：覆盖校验器的单元测试
 
-**Phase 18 前提：** Phase 17 两层 Schema 草案确认。
+旧的 `world/` 顶层工具目录已退休；不要新增 `world/*` 实现文件。

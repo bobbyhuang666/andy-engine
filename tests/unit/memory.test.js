@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import PersonalMemory from '../../agent/PersonalMemory.js';
+import PersonalMemory from '../../src/agent/memory/PersonalMemory.js';
 
 describe('PersonalMemory 模块', () => {
   let mem;

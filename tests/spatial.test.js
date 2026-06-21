@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import SpatialHash from '../spatial/SpatialHash.js';
-import { WorldMap } from '../spatial/WorldMap.js';
-import SpatialEngine from '../spatial/SpatialEngine.js';
+import SpatialHash from '../src/spatial/SpatialHash.js';
+import { WorldMap } from '../src/spatial/WorldMap.js';
+import SpatialEngine from '../src/spatial/SpatialEngine.js';
 import AndyEngine from '../index.js';
 
 describe('SpatialHash 基础操作', () => {

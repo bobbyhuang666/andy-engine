@@ -6,8 +6,8 @@
 
 import { describe, it, expect } from 'vitest';
 import AndyEngine from '../index.js';
-import { toWorldState, fromWorldState } from '../world/WorldStateAdapter.js';
-import { validateWorldState, CURRENT_SCHEMA_VERSION } from '../world/validator.js';
+import { toWorldState, fromWorldState } from '../src/store/world/WorldStateAdapter.js';
+import { validateWorldState, CURRENT_SCHEMA_VERSION } from '../src/store/world/validator.js';
 
 // ═══════════════════════════════════════════
 // 辅助函数

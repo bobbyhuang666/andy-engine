@@ -13,8 +13,32 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import { WorldFactStore, KnowledgeStore, FactEmitter, CanonEventPipeline } from '../../facts/index.js';
-import { FactScope } from '../../facts/FactSchema.js';
-import { applyEventConsequences } from '../../effects/EventEffectPipeline.js';
+import { FactScope } from '../../src/canon/FactSchema.js';
+import { applyEventConsequences as _applyEventConsequences } from '../../src/effects/EventEffectPipeline.js';
+import { EffectCommitter } from '../../src/effects/EffectCommitter.js';
+
+function applyEventConsequences({ fact, agents, factStore, domain }) {
+  const deltas = _applyEventConsequences({ fact, agents, factStore, domain });
+  const committer = new EffectCommitter({ world: { factStore, time: null }, agents });
+  for (const delta of deltas) {
+    committer._applyDelta(delta);
+  }
+  const results = { memoryUpdates: [], locationMeaningUpdates: [], tendencyUpdates: [] };
+  for (const delta of deltas) {
+    switch (delta.type) {
+      case 'memory':
+        results.memoryUpdates.push({ agentId: delta.agentId, type: 'memory_add' });
+        break;
+      case 'locationMeaning':
+        results.locationMeaningUpdates.push({ location: delta.location, meaningType: delta.meaningType, weight: delta.weight });
+        break;
+      case 'futureTendency':
+        results.tendencyUpdates.push({ agentId: delta.agentId, location: delta.location, delta: delta.delta });
+        break;
+    }
+  }
+  return results;
+}
 
 // ═══════════════════════════════════════════
 // 辅助工厂

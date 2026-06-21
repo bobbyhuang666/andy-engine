@@ -11,14 +11,18 @@
 const WorldClock = require('./WorldClock');
 const RuntimeConfig = require('./RuntimeConfig');
 const RuntimeContext = require('./RuntimeContext');
-const RegionGrid = require('../../spatial/RegionGrid');
-const SpatialEngine = require('../../spatial/SpatialEngine');
-const SocialGraph = require('../../social/SocialGraph');
-const EventDispatcher = require('../../core/EventDispatcher');
-const { ANDY_DEFAULTS, EMOTION_DIMENSIONS } = require('../../config/defaults');
-const { getDefaultDomain } = require('../../domain/DomainRegistry');
-const { WorldFactStore, FactEmitter, KnowledgeStore, CanonEventPipeline } = require('../../facts');
-const { applyEventConsequences } = require('../../effects/EventEffectPipeline');
+const RegionGrid = require('../spatial/RegionGrid');
+const SpatialEngine = require('../spatial/SpatialEngine');
+const SocialGraph = require('../social/SocialGraph');
+const EventDispatcher = require('./EventDispatcher');
+const { ANDY_DEFAULTS, EMOTION_DIMENSIONS } = require('../config/defaults');
+const { getDefaultDomain } = require('../domain/DomainRegistry');
+const { WorldFactStore, CanonEventPipeline, FactEmitter } = require('../canon');
+const { KnowledgeStore } = require('../knowledge');
+const { applyEventConsequences } = require('../effects/EventEffectPipeline');
+const { EffectCommitter } = require('../effects/EffectCommitter');
+const { RelationshipDelta } = require('../effects/RelationshipDelta');
+const { MemoryDelta } = require('../effects/MemoryDelta');
 
 class AndyWorld {
   /**
@@ -392,8 +396,11 @@ class AndyWorld {
             factStore: this.factStore,
             domain: this.domain,
           });
-          memoryUpdateCount += consequences.memoryUpdates.length;
-          locationUpdateCount += consequences.locationMeaningUpdates.length;
+          const committer = new EffectCommitter({ world: this, agents: this.agents });
+          committer.commit({ deltas: consequences });
+
+          memoryUpdateCount += consequences.filter(d => d.type === 'memory').length;
+          locationUpdateCount += consequences.filter(d => d.type === 'locationMeaning').length;
         }
       }
       result.phase.canonEventPipeline = {
@@ -402,6 +409,15 @@ class AndyWorld {
         memoryUpdates: memoryUpdateCount,
         locationMeaningUpdates: locationUpdateCount,
       };
+    }
+
+    // ─── Phase 8b: ENCOUNTER_EFFECTS ───
+    // Apply encounter relationship and memory effects through EffectCommitter.
+    // This replaces the direct recordInteraction/addExperience calls that were
+    // previously in EventDispatcher.generateEncounterEvent.
+    const encounterEffectCount = this._applyEncounterEffects(dispatched);
+    if (encounterEffectCount > 0) {
+      result.phase.encounterEffects = { applied: encounterEffectCount };
     }
 
     // ─── Phase 9: FACT_EMISSION ───
@@ -497,6 +513,60 @@ class AndyWorld {
     }
 
     return events;
+  }
+
+  // ═══════════════════════════════════════════
+  // Encounter Effect Application
+  // ═══════════════════════════════════════════
+
+  /**
+   * Apply encounter relationship and memory effects through EffectCommitter.
+   *
+   * Processes the `effects` array on social/encounter events and commits
+   * relationship and memory deltas via the canonical delta pipeline.
+   *
+   * @param {Object[]} dispatched - dispatched events
+   * @returns {number} count of effects applied
+   * @private
+   */
+  _applyEncounterEffects(dispatched) {
+    const deltas = [];
+
+    for (const event of dispatched) {
+      if (event.type !== 'social' || !event.effects) continue;
+
+      for (const effect of event.effects) {
+        if (effect.type === 'relationship' && effect.delta) {
+          const d = effect.delta;
+          if (typeof d.target === 'string' && typeof d.valence === 'number') {
+            deltas.push(new RelationshipDelta(effect.target, {
+              targetAgentId: d.target,
+              interactionType: 'encounter',
+              valence: d.valence,
+              content: event.content || '',
+            }));
+          }
+        } else if (effect.type === 'memory' && effect.delta) {
+          const d = effect.delta;
+          if (d.kind === 'candidate') {
+            deltas.push(new MemoryDelta(effect.target, {
+              kind: d.kind,
+              type: d.memoryType || 'gossip',
+              content: d.content || '',
+              category: d.category,
+              importance: d.importance,
+            }));
+          }
+        }
+      }
+    }
+
+    if (deltas.length > 0) {
+      const committer = new EffectCommitter({ world: this, agents: this.agents });
+      committer.commit({ deltas });
+    }
+
+    return deltas.length;
   }
 
   // ═══════════════════════════════════════════

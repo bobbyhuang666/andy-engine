@@ -22,7 +22,7 @@
  *   const states = world.getStates();
  */
 
-const AndyEngine = require('../../index');
+const AndyEngine = require('./AndyEngine');
 const Character = require('./Character');
 
 class Andy {

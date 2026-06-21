@@ -3,9 +3,9 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import LocationMeaningInfluence from '../../agent/LocationMeaningInfluence.js';
-import WorldFactStore from '../../facts/WorldFactStore.js';
-import { getDefaultDomain } from '../../domain/DomainRegistry.js';
+import LocationMeaningInfluence from '../../src/agent/psychology/LocationMeaningInfluence.js';
+import WorldFactStore from '../../src/canon/WorldFactStore.js';
+import { getDefaultDomain } from '../../src/domain/DomainRegistry.js';
 
 describe('LocationMeaningInfluence', () => {
   let factStore;

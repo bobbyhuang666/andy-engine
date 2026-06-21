@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-const Andy = require('../sdk/Andy');
-const Character = require('../sdk/Character');
+const Andy = require('../src/sdk/Andy');
+const Character = require('../src/sdk/Character');
 const tavern = require('../presets/tavern');
 
 describe('SDK Custom Domain Safety', () => {

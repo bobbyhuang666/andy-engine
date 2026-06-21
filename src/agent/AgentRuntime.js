@@ -169,7 +169,7 @@ class AgentRuntime {
     agent.emotion.tick(hoursElapsed, env.hour, contagionInputs);
 
     // ─── 11. 情绪调节资源恢复 ───
-    agent.emotionRegulation.tick(hoursElapsed, agent.stateMachine.currentState);
+    agent.emotionRegulation.tick(hoursElapsed, agent.stateMachine.currentState, agent._domain);
 
     // ─── 12. 记忆衰减 ───
     agent.memory.tick(hoursElapsed);

@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import AndyEngine from '../index.js';
 import { Character } from '../sdk/index.js';
-import { validateDomain } from '../domain/validateDomain.js';
+import { validateDomain } from '../src/domain/validateDomain.js';
 import tavernDomain from '../presets/tavern/index.js';
 
 describe('Backward Compatibility: Legacy API', () => {

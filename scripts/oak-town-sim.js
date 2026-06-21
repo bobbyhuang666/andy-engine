@@ -15,7 +15,7 @@
 const path = require('path');
 const fs = require('fs');
 const AndyEngine = require('../index');
-const Schedule = require('../agent/Schedule');
+const Schedule = require('../src/agent/schedule/Schedule');
 
 // ═══════════════════════════════════════════
 // 一、橡木镇 15 角色定义

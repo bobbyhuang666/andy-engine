@@ -1,6 +1,6 @@
 {
   "name": "andy-engine",
-  "version": "0.2.1",
+  "version": "2.0.0-alpha.1",
   "description": "心理学驱动的多智能体社会模拟引擎 — 让 AI 角色拥有记忆、情绪、人格和社交关系",
   "main": "index.js",
   "scripts": {
@@ -30,16 +30,11 @@
   "files": [
     "index.js",
     "agent/",
-    "core/",
-    "effects/",
-    "social/",
-    "spatial/",
     "store/",
     "sdk/",
     "facts/",
     "domain/",
     "presets/",
-    "config/",
     "src/",
     "examples/",
     "docs/DOMAIN.md",
@@ -77,23 +72,13 @@
     ".": "./index.js",
     "./sdk": "./sdk/index.js",
     "./domain": "./domain/index.js",
-    "./domain/validate": "./domain/validateDomain.js",
-    "./domain/registry": "./domain/DomainRegistry.js",
+    "./domain/validate": "./src/domain/validateDomain.js",
+    "./domain/registry": "./src/domain/DomainRegistry.js",
     "./facts": "./facts/index.js",
     "./store": "./store/index.js",
-    "./store/serialization": "./src/store/Serialization.js",
-    "./config/defaults": "./config/defaults.js",
-    "./runtime": "./src/runtime/index.js",
+    "./config/defaults": "./src/config/defaults.js",
     "./presets/campus": "./presets/campus/index.js",
-    "./presets/tavern": "./presets/tavern/index.js",
-    "./src/shared": "./src/shared/index.js",
-    "./src/shared/rng": "./src/shared/rng.js",
-    "./src/domain": "./src/domain/index.js",
-    "./src/spatial": "./src/spatial/index.js",
-    "./src/social": "./src/social/index.js",
-    "./src/sdk": "./src/sdk/index.js",
-    "./src/config": "./src/config/index.js",
-    "./src/config/defaults": "./src/config/defaults.js"
+    "./presets/tavern": "./presets/tavern/index.js"
   },
   "types": "src/sdk/types.d.ts"
 }

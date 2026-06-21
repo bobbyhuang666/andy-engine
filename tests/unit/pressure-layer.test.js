@@ -430,10 +430,10 @@ describe('PressureContext', () => {
 // 向后兼容性测试
 // ═══════════════════════════════════════════
 
-describe('向后兼容性 — core/WorldPressure', () => {
-  it('旧接口 computeWorldPressure 仍然可用', async () => {
-    const { computeWorldPressure } = await import('../../core/WorldPressure.js');
-    const pressure = computeWorldPressure({
+describe('向后兼容性 — WorldPressure', () => {
+  it('旧接口 compute 仍然可用', async () => {
+    const { WorldPressure } = await import('../../src/pressure/WorldPressure.js');
+    const pressure = WorldPressure.compute({
       world: { time: '2026-09-01T14:00:00Z' },
       agent: { position: 'library' },
       events: [],
@@ -442,13 +442,13 @@ describe('向后兼容性 — core/WorldPressure', () => {
     expect(pressure).toHaveProperty('total');
   });
 
-  it('旧接口 computeTimePressure 仍然可用', async () => {
-    const { computeTimePressure } = await import('../../core/WorldPressure.js');
-    expect(computeTimePressure({ time: '2026-09-01T02:00:00Z' })).toBeGreaterThan(0.5);
+  it('旧接口 computeTime 仍然可用', async () => {
+    const { WorldPressure } = await import('../../src/pressure/WorldPressure.js');
+    expect(WorldPressure.computeTime({ time: '2026-09-01T02:00:00Z' })).toBeGreaterThan(0.5);
   });
 
-  it('旧接口 computeEventPressure 仍然可用', async () => {
-    const { computeEventPressure } = await import('../../core/WorldPressure.js');
-    expect(computeEventPressure([{ pressure: 0.3 }])).toBeCloseTo(0.3);
+  it('旧接口 computeEvent 仍然可用', async () => {
+    const { WorldPressure } = await import('../../src/pressure/WorldPressure.js');
+    expect(WorldPressure.computeEvent([{ pressure: 0.3 }])).toBeCloseTo(0.3);
   });
 });

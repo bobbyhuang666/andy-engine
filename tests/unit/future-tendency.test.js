@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import FutureTendencyTracker from '../../agent/FutureTendencyTracker.js';
+import FutureTendencyTracker from '../../src/agent/psychology/FutureTendencyTracker.js';
 
 describe('FutureTendencyTracker', () => {
   let tracker;

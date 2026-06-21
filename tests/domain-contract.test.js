@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { validateDomain } from '../domain/validateDomain.js';
-import { DomainRegistry } from '../domain/DomainRegistry.js';
+import { validateDomain } from '../src/domain/validateDomain.js';
+import { DomainRegistry } from '../src/domain/DomainRegistry.js';
 import tavernDomain from '../presets/tavern/index.js';
 import campusDomain from '../presets/campus/index.js';
 
@@ -272,12 +272,12 @@ describe('Public API exports', () => {
   });
 
   it('require("andy-engine/domain/validate") works', async () => {
-    const mod = await import('../domain/validateDomain.js');
+    const mod = await import('../src/domain/validateDomain.js');
     expect(mod.validateDomain).toBeDefined();
   });
 
   it('require("andy-engine/domain/registry") works', async () => {
-    const mod = await import('../domain/DomainRegistry.js');
+    const mod = await import('../src/domain/DomainRegistry.js');
     expect(mod.DomainRegistry).toBeDefined();
   });
 

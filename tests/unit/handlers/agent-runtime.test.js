@@ -5,7 +5,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import Agent from '../../../agent/Agent.js';
-import Schedule from '../../../agent/Schedule.js';
+import Schedule from '../../../src/agent/schedule/Schedule.js';
 import AgentRuntime from '../../../src/agent/AgentRuntime.js';
 
 function createAgent(overrides = {}) {

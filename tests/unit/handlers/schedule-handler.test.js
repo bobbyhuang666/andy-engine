@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import Agent from '../../../agent/Agent.js';
-import Schedule from '../../../agent/Schedule.js';
+import Schedule from '../../../src/agent/schedule/Schedule.js';
 import ScheduleHandler from '../../../src/agent/handlers/ScheduleHandler.js';
 
 function createAgent(overrides = {}) {

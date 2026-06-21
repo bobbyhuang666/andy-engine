@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import { StateMachine, STATES } from '../../agent/StateMachine.js';
+import { StateMachine, STATES } from '../../src/agent/psychology/StateMachine.js';
 
 describe('StateMachine 模块', () => {
   describe('基础功能', () => {

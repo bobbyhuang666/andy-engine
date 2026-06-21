@@ -15,10 +15,10 @@ import {
   BehaviorLabeler, STATE_CENTERS, STATE_NAMES,
   DIM_ACTIVITY, DIM_SOCIALITY, DIM_FOCUS, DIM_EXPRESSIVENESS, DIMS,
   dist, getTimePenalty,
-} from '../agent/BehaviorLabeler.js';
+} from '../src/agent/psychology/BehaviorLabeler.js';
 import {
   BehaviorField, DEFAULTS, NEED_TARGETS, TIME_TARGETS,
-} from '../agent/BehaviorField.js';
+} from '../src/agent/psychology/BehaviorField.js';
 
 // ═══════════════════════════════════════════
 // Mock Personality
@@ -189,7 +189,7 @@ describe('BehaviorLabeler', () => {
 
     it('BehaviorLabelerDomain.describe should describe behavior in custom domain', () => {
       const tavern = require('../presets/tavern');
-      const { DomainRegistry } = require('../domain/DomainRegistry');
+      const { DomainRegistry } = require('../src/domain/DomainRegistry');
       const registry = new DomainRegistry(tavern);
       const labeler = BehaviorLabeler.create(registry);
 
@@ -588,8 +588,8 @@ describe('工具函数', () => {
 // ═══════════════════════════════════════════
 
 describe('Phase 1: NeedsSystem 连续梯度', () => {
-  const NeedsSystem = require('../agent/NeedsSystem.js');
-  const Personality = require('../agent/Personality.js');
+  const NeedsSystem = require('../src/agent/psychology/NeedsSystem.js');
+  const Personality = require('../src/agent/psychology/Personality.js');
 
   function createNeeds(oceanOverrides = {}, needOverrides = {}) {
     const p = new Personality({ mbti: 'INFP', ocean: oceanOverrides });
@@ -679,8 +679,8 @@ describe('Phase 1: NeedsSystem 连续梯度', () => {
 });
 
 describe('Phase 1: IntrinsicMotivation 连续梯度', () => {
-  const IntrinsicMotivation = require('../agent/IntrinsicMotivation.js');
-  const Personality = require('../agent/Personality.js');
+  const IntrinsicMotivation = require('../src/agent/psychology/IntrinsicMotivation.js');
+  const Personality = require('../src/agent/psychology/Personality.js');
 
   it('高好奇心时 drive 包含 gradientVector', () => {
     const p = new Personality({ mbti: 'ENFP' });
