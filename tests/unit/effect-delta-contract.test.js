@@ -371,6 +371,108 @@ describe('Phase 5: EffectCommitter', () => {
     expect(() => committer.commit(null)).not.toThrow();
     expect(() => committer.commit(undefined)).not.toThrow();
   });
+
+  it('commit returns diagnostics shape', () => {
+    const agents = makeMockAgents();
+    const world = makeMockWorld();
+    const committer = new EffectCommitter({ world, agents });
+
+    const result = committer.commit(new EffectResult({
+      event: {},
+      deltas: [new NeedDelta('a1', { energy: 0.4 })],
+      reasonTrace: {},
+    }));
+
+    expect(result).toHaveProperty('applied');
+    expect(result).toHaveProperty('skipped');
+    expect(result).toHaveProperty('errors');
+    expect(Array.isArray(result.applied)).toBe(true);
+    expect(Array.isArray(result.skipped)).toBe(true);
+    expect(Array.isArray(result.errors)).toBe(true);
+  });
+
+  it('commit reports valid deltas in applied', () => {
+    const agents = makeMockAgents();
+    const world = makeMockWorld();
+    const committer = new EffectCommitter({ world, agents });
+
+    const d1 = new NeedDelta('a1', { energy: 0.1 });
+    const d2 = new EmotionDelta('a1', { calm: 0.05 });
+    const result = committer.commit(new EffectResult({
+      event: {},
+      deltas: [d1, d2],
+      reasonTrace: {},
+    }));
+
+    expect(result.applied).toHaveLength(2);
+    expect(result.skipped).toHaveLength(0);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('commit reports unknown delta types in skipped', () => {
+    const agents = makeMockAgents();
+    const world = makeMockWorld();
+    const committer = new EffectCommitter({ world, agents });
+
+    const unknownDelta = { type: 'teleport', agentId: 'a1', timestamp: null };
+    const result = committer.commit(new EffectResult({
+      event: {},
+      deltas: [unknownDelta],
+      reasonTrace: {},
+    }));
+
+    expect(result.applied).toHaveLength(0);
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0]).toBe(unknownDelta);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('commit mixes applied and skipped deltas', () => {
+    const agents = makeMockAgents();
+    const world = makeMockWorld();
+    const committer = new EffectCommitter({ world, agents });
+
+    const valid = new NeedDelta('a1', { energy: 0.1 });
+    const unknown = { type: 'fake', agentId: 'a1', timestamp: null };
+    const result = committer.commit(new EffectResult({
+      event: {},
+      deltas: [valid, unknown],
+      reasonTrace: {},
+    }));
+
+    expect(result.applied).toHaveLength(1);
+    expect(result.applied[0]).toBe(valid);
+    expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0]).toBe(unknown);
+  });
+
+  it('commit returns empty diagnostics for null input', () => {
+    const committer = new EffectCommitter({ world: makeMockWorld(), agents: makeMockAgents() });
+
+    const result = committer.commit(null);
+    expect(result.applied).toHaveLength(0);
+    expect(result.skipped).toHaveLength(0);
+    expect(result.errors).toHaveLength(0);
+  });
+
+  it('commit position delta still applies correctly with diagnostics', () => {
+    const agents = makeMockAgents();
+    const agent = agents.get('a1');
+    agent.position = 'cafe';
+    const world = makeMockWorld();
+    const committer = new EffectCommitter({ world, agents });
+
+    const posDelta = { type: 'position', agentId: 'a1', to: 'library', timestamp: null };
+    const result = committer.commit(new EffectResult({
+      event: {},
+      deltas: [posDelta],
+      reasonTrace: {},
+    }));
+
+    expect(agent.position).toBe('library');
+    expect(result.applied).toHaveLength(1);
+    expect(result.applied[0]).toBe(posDelta);
+  });
 });
 
 // ─── Typed pipeline ───

@@ -26,40 +26,61 @@ class EffectCommitter {
    * Commit all deltas in an EffectResult to live state.
    *
    * @param {import('./EffectResult').EffectResult} effectResult
+   * @returns {{ applied: Array, skipped: Array, errors: Array }}
    */
   commit(effectResult) {
-    if (!effectResult || !effectResult.deltas) return;
+    const diagnostics = { applied: [], skipped: [], errors: [] };
+    if (!effectResult || !effectResult.deltas) return diagnostics;
 
     const now = this.world?.time || null;
 
     for (const delta of effectResult.deltas) {
       delta.timestamp = now;
-      this._applyDelta(delta);
+      try {
+        const result = this._applyDelta(delta);
+        if (result === 'skipped') {
+          diagnostics.skipped.push(delta);
+        } else {
+          diagnostics.applied.push(delta);
+        }
+      } catch (err) {
+        diagnostics.errors.push({ delta, error: err });
+      }
     }
+
+    return diagnostics;
   }
 
   /**
    * @param {import('./StateDelta').StateDelta} delta
+   * @returns {'applied'|'skipped'}
    * @private
    */
   _applyDelta(delta) {
     switch (delta.type) {
       case 'need':
-        return this._applyNeedDelta(delta);
+        this._applyNeedDelta(delta);
+        return 'applied';
       case 'emotion':
-        return this._applyEmotionDelta(delta);
+        this._applyEmotionDelta(delta);
+        return 'applied';
       case 'memory':
-        return this._applyMemoryDelta(delta);
+        this._applyMemoryDelta(delta);
+        return 'applied';
       case 'relationship':
-        return this._applyRelationshipDelta(delta);
+        this._applyRelationshipDelta(delta);
+        return 'applied';
       case 'position':
-        return this._applyPositionDelta(delta);
+        this._applyPositionDelta(delta);
+        return 'applied';
       case 'locationMeaning':
-        return this._applyLocationMeaningDelta(delta);
+        this._applyLocationMeaningDelta(delta);
+        return 'applied';
       case 'futureTendency':
-        return this._applyFutureTendencyDelta(delta);
+        this._applyFutureTendencyDelta(delta);
+        return 'applied';
       default:
-        return;
+        return 'skipped';
     }
   }
 

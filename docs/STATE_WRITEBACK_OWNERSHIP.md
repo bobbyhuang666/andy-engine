@@ -223,3 +223,23 @@ All previously documented legacy direct mutation paths have been resolved:
 - New dispatched-event → fact conversions MUST use `CanonEventPipeline`, not `FactEmitter`.
 - `FactEmitter.emitEventFacts()` and `propagateEventKnowledge()` are legacy fallback paths — new code must NOT use them.
 - Psychological tick mutations are exempt from EffectCommitter routing per this document.
+
+---
+
+## 8. EffectCommitter Diagnostics
+
+`EffectCommitter.commit()` returns a diagnostics shape:
+
+```js
+{
+  applied: StateDelta[],   // successfully applied deltas
+  skipped: StateDelta[],   // deltas with unknown type (not in switch)
+  errors: Array<{ delta, error }>,  // deltas that threw during application
+}
+```
+
+- **applied**: delta type was recognized and dispatched to the appropriate handler.
+- **skipped**: delta type was not recognized (default case). The delta object is preserved for inspection.
+- **errors**: the handler threw an unexpected error. The delta and error are preserved.
+
+Callers that do not inspect the return value are unaffected (backward compatible). Unknown delta types are silently skipped as before, but are now tracked in the diagnostics structure.
