@@ -242,6 +242,10 @@ const tavernDomain = {
     socialStates: ['聊天', '喝酒', '闲逛'],
     outdoorPositions: ['广场', '森林'],
     scheduledStates: ['工作'],
+    normConformityKeywords: {
+      positive: ['打招呼', '聊天', '帮助'],
+      negative: ['冲突', '吵架'],
+    },
   },
 
   // ═══════════════════════════════════════════
@@ -404,6 +408,42 @@ const tavernDomain = {
       '进食': { type: 'consume', source: 'memory' },
       '睡觉': { type: 'rest', source: 'memory' },
     },
+  },
+
+  // ═══════════════════════════════════════════
+  // 社交交互文本
+  // ═══════════════════════════════════════════
+  socialInteractions: {
+    positive: [
+      '一起喝了杯酒，聊得很开心',
+      '分享了最近的冒险故事，哈哈大笑',
+      '在酒馆遇到，一起坐了一会',
+      '聊到了共同感兴趣的话题',
+      '互相敬了杯酒，心情变好了',
+    ],
+    neutral: [
+      '打了个招呼',
+      '简单聊了几句',
+      '点头致意',
+      '擦肩而过，互相看了一眼',
+    ],
+    negative: [
+      '感觉对方态度有些冷淡',
+      '聊天中有些小摩擦',
+      '对方似乎不太想被打扰',
+      '话不投机，气氛有点尴尬',
+      '因为小事起了点争执',
+    ],
+    withGoodFriendTemplate: (region) => `和好朋友一起在${region}，聊得很开心`,
+    strangerNotice: '在附近注意到有人',
+    strangerBrief: '在附近注意到有人，没什么特别的',
+  },
+
+  // ═══════════════════════════════════════════
+  // 情绪调节关键词
+  // ═══════════════════════════════════════════
+  emotionRegulationConfig: {
+    positiveMemoryKeywords: ['开心', '高兴', '满意', '有趣', '朋友', '成功'],
   },
 
   forbiddenTerms: [

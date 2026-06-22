@@ -49,7 +49,7 @@ class Appraisal {
       compatibility:      Appraisal._evalCompatibility(event, agent),
       agency:             Appraisal._evalAgency(event, agent),
       copingPotential:    Appraisal._evalCopingPotential(event, agent),
-      normConformity:     Appraisal._evalNormConformity(event, agent),
+      normConformity:     Appraisal._evalNormConformity(event, agent, domain),
     };
 
     const emotionModifier = Appraisal._appraisalToEmotion(dims, agent);
@@ -351,18 +351,21 @@ class Appraisal {
    * 8. 标准一致性 - 事件是否符合社会规范
    * @private
    */
-  static _evalNormConformity(event, agent) {
+  static _evalNormConformity(event, agent, domain) {
     let conformity = 0.5;
 
     // 社交事件的规范性基于关系类型
     if (event.type === 'social' && event.content) {
       const content = event.content;
+      const normKeywords = (domain.appraisalConfig && domain.appraisalConfig.normConformityKeywords) || {};
+      const positiveNorms = normKeywords.positive || ['打招呼', '聊天', '帮助'];
+      const negativeNorms = normKeywords.negative || ['冲突', '吵架'];
       // 正面社交互动符合规范
-      if (content.includes('打招呼') || content.includes('聊天') || content.includes('帮助')) {
+      if (positiveNorms.some(k => content.includes(k))) {
         conformity = 0.8;
       }
       // 冲突不符合规范
-      if (content.includes('冲突') || content.includes('吵架')) {
+      if (negativeNorms.some(k => content.includes(k))) {
         conformity = 0.2;
       }
     }

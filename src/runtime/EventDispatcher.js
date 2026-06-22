@@ -131,20 +131,21 @@ class EventDispatcher {
 
     // 根据关系类型 + 区域 + 情绪选择交互内容
     let content, valence;
-    const positiveInteractions = [
+    const si = this.domain.socialInteractions || {};
+    const positiveInteractions = si.positive || [
       '一起聊了会天，气氛很愉快',
       '分享了最近的趣事，相视而笑',
       '在同一个地方遇到，一起待了一会',
       '聊到了共同感兴趣的话题',
       '互相鼓励了几句，心情变好了',
     ];
-    const neutralInteractions = [
+    const neutralInteractions = si.neutral || [
       '打了个招呼',
       '简单聊了几句',
       '微笑点头致意',
       '擦肩而过，互相看了一眼',
     ];
-    const negativeInteractions = [
+    const negativeInteractions = si.negative || [
       '感觉对方态度有些冷淡',
       '聊天中有些小摩擦',
       '对方似乎不太想被打扰',
@@ -166,7 +167,8 @@ class EventDispatcher {
       const socialRegions = this.domain.placeTypes.social || ['酒馆', '广场'];
       if (socialRegions.includes(region)) {
         if (valence > 0) {
-          content = `和好朋友一起在${region}，聊得很开心`;
+          const tpl = si.withGoodFriendTemplate || ((r) => `和好朋友一起在${r}，聊得很开心`);
+          content = tpl(region);
           valence += 0.1;
         }
       }
@@ -182,12 +184,12 @@ class EventDispatcher {
       }
     } else if (strength > 0.1) {
       // 陌生人但有一些接触
-      content = '在附近注意到有人，没什么特别的';
+      content = si.strangerBrief || '在附近注意到有人，没什么特别的';
       valence = 0.05 + this._rand() * 0.05;
     } else {
       // 完全陌生
       if (this._rand() > 0.5) return null; // 陌生人互动概率很低
-      content = '在附近注意到有人';
+      content = si.strangerNotice || '在附近注意到有人';
       valence = 0.03;
     }
 
