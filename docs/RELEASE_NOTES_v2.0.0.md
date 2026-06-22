@@ -168,12 +168,14 @@ const narrative = engine.getNarrative('alice');
 - Consumer typecheck script (`npm run typecheck:consumer`)
 
 ### Testing
-- 1916 tests passing
+- 1918 tests passing
 - Domain validation tests (campus, tavern, custom)
 - Package boundary tests
 - Source-scan tests for forbidden terms
 - Compatibility tests
 - Performance regression checks
+- Core runtime and default package smoke tests do not require SQLite native bindings
+- SQLite persistence is verified separately with `npm run sqlite:smoke` when `better-sqlite3` is available
 
 ---
 
