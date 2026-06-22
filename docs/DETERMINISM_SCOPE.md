@@ -139,3 +139,17 @@ Files that correctly use `this._rng ? this._rng.next() : Math.random()` or equiv
 1. ~~**P0**: WorldMap needs an `_rng` injection (constructor option or from runtime context) and all 6 `Math.random()` calls replaced with `_rng ? _rng.next() : Math.random()`.~~ **DONE.**
 2. **P1**: `src/shared/ids.js` could accept an optional rng for deterministic ID generation (low priority — IDs don't affect simulation logic).
 3. No README changes needed for determinism claims.
+
+## Known Technical Debt (alpha.4 / beta)
+
+### NarrativeBuilder string parsing debt
+
+`src/sdk/NarrativeBuilder.js` uses fragile string matching on Chinese text output from upstream modules (NeedsSystem, EmotionVector, WorldContext). Any format change in upstream `toPromptString()` methods will silently break prompt generation. This should be replaced with structured data access.
+
+### SDK presentation RNG debt: EmotionSignalBuffer
+
+`src/sdk/EmotionSignalBuffer.js` (lines 98, 105, 112) uses bare `Math.random()` without the seeded RNG fallback pattern used everywhere else in `src/`. Lines 34, 60 use bare `Date.now()` without simTime integration. This module needs RNG injection and simTime support.
+
+### Personality restore semantic debt
+
+`src/agent/psychology/Personality.js` `fromJSON()` passes saved `emotionBaseline` as modifiers to the constructor, which may double-apply the baseline on restore. Additionally, `_refreshBehavior()` calls `_computeEmotionBaseline()` without modifiers, losing original config modifiers after drift. The semantics of modifiers vs baseline vs drift need clarification.
