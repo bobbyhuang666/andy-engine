@@ -6,9 +6,10 @@
 
 let _counter = 0;
 
-function generateId(prefix = 'id') {
+function generateId(prefix = 'id', rng = null) {
   _counter++;
-  return `${prefix}_${Date.now()}_${_counter}_${Math.random().toString(36).slice(2, 8)}`;
+  const randomValue = rng && typeof rng.next === 'function' ? rng.next() : Math.random();
+  return `${prefix}_${Date.now()}_${_counter}_${randomValue.toString(36).slice(2, 8)}`;
 }
 
 function isValidId(id) {
