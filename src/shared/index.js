@@ -8,6 +8,7 @@ const { generateId, isValidId } = require('./ids');
 const { TICK_INTERVAL_MINUTES, TICKS_PER_HOUR, TICKS_PER_DAY, ticksToHours, hoursToTicks, formatSimTime } = require('./time');
 const { AndyError, ConfigError, DomainError, AgentError } = require('./errors');
 const { RNG } = require('./rng');
+const { Diagnostics, diagnostics } = require('./Diagnostics');
 
 module.exports = {
   // IDs
@@ -27,4 +28,7 @@ module.exports = {
   AgentError,
   // RNG
   RNG,
+  // Diagnostics
+  Diagnostics,
+  diagnostics,
 };

@@ -7,6 +7,7 @@
 
 const { applyForbiddenTerms } = require('../domain/ForbiddenTerms');
 const { EmotionEffectClassifier } = require('./EmotionEffectClassifier');
+const { diagnostics } = require('../shared/Diagnostics');
 
 // ═══════════════════════════════════════════
 // 种子记忆 → 文本
@@ -88,7 +89,8 @@ function buildNarrative(agent, options = {}) {
         }
       }
     } catch (e) {
-      // 分类失败不影响叙事生成
+      diagnostics.warn(`Emotion classification error: ${e.message}`);
+      diagnostics.collect({ type: 'emotion_classification_error', error: e.message });
     }
   }
 
@@ -96,6 +98,8 @@ function buildNarrative(agent, options = {}) {
   try {
     narrative = agent.toNarrative();
   } catch (e) {
+    diagnostics.warn(`Narrative generation error: ${e.message}`);
+    diagnostics.collect({ type: 'narrative_generation_error', error: e.message });
     narrative = '';
   } finally {
     // 还原情绪（共情是临时的），确保即使 toNarrative 抛异常也还原

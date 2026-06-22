@@ -44,6 +44,7 @@ class SpatialEngine {
       distanceDecay = 0.3,
       regions = [],
       adjacency = {},
+      rng = null,
     } = options;
 
     // 最大交互半径用于网格查询
@@ -77,6 +78,7 @@ class SpatialEngine {
       width: worldWidth,
       height: worldHeight,
       regions,
+      rng,
     });
     if (Object.keys(adjacency).length > 0) {
       this.worldMap.setAdjacency(adjacency);

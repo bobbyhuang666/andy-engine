@@ -104,7 +104,7 @@ class StoryGenerator {
    * @param {string} agentId - 目标 agent
    * @returns {Story|null} 故事对象，无事发生时返回 null
    */
-  generateFromTick(tickResult, agentId = 'bobby', options = {}) {
+  generateFromTick(tickResult, agentId = 'default', options = {}) {
     if (!tickResult || !tickResult.phase?.agentThink?.results) return null;
 
     const agentResult = tickResult.phase.agentThink.results[agentId];
@@ -188,7 +188,7 @@ class StoryGenerator {
     return {
       tick,
       timestamp,
-      agentId: 'bobby',
+      agentId: 'default',
       category: 'conversation',
       content: storyText,
       emotionTag,

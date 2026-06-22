@@ -153,7 +153,7 @@ All 5 public facades are thin re-exports. `package.json` exports match `docs/PUB
 
 | Category | Files | Tests | Status |
 |----------|-------|-------|--------|
-| All tests (`npm test`) | 92 | 1737 | ✅ PASS |
+| All tests (`npm test`) | 99 | 1844 | ✅ PASS |
 | Domain tests (`npm run test:domain`) | 5 | 78 | ✅ PASS |
 | Boundary checks (`npm run check:boundaries`) | 1 script | 15 checks | ✅ PASS |
 | Smoke pack (`npm run smoke:pack`) | 1 script | 14 checks | ✅ PASS |

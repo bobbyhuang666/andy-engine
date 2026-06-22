@@ -4,6 +4,8 @@
  * Extracted from Agent.recordExternalExperience.
  */
 
+const { diagnostics } = require('../../shared/Diagnostics');
+
 /**
  * Record an external experience as a memory.
  * @param {Object} agent
@@ -43,6 +45,8 @@ function recordExternalExperience(agent, event, options = {}) {
     }
     return memory;
   } catch (e) {
+    diagnostics.warn(`External experience injection error: ${e.message}`);
+    diagnostics.collect({ type: 'external_experience_error', agentId: agent?.id, error: e.message });
     return null;
   }
 }

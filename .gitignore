@@ -19,6 +19,7 @@ experiments/output_round5/exp*.json
 .experiments_cache/
 coverage/
 .vitest/
+.mimocode/
 data/
 *.db
 *.db-wal

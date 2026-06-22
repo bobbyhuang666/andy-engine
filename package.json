@@ -1,6 +1,6 @@
 {
   "name": "andy-engine",
-  "version": "2.0.0-alpha.1",
+  "version": "2.0.0-alpha.2",
   "description": "心理学驱动的多智能体社会模拟引擎 — 让 AI 角色拥有记忆、情绪、人格和社交关系",
   "main": "index.js",
   "scripts": {
@@ -15,6 +15,7 @@
     "benchmark": "node benchmarks/baseline.js",
     "benchmark:quick": "node benchmarks/baseline.js quick",
     "perf:check": "node benchmarks/perf-check.js",
+    "perf:diagnose": "node benchmarks/perf-check.js --diagnose",
     "profile": "node benchmarks/profile.js",
     "profile:quick": "node benchmarks/profile.js quick",
     "profile:agent": "node benchmarks/agent-tick-profile.js",
@@ -62,12 +63,11 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "better-sqlite3": "^12.10.0",
-    "express": "^5.2.1",
-    "ws": "^8.21.0"
+    "better-sqlite3": "^12.10.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.7",
+    "express": "^5.2.1",
     "vitest": "^4.1.7"
   },
   "exports": {

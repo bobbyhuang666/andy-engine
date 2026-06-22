@@ -1,16 +1,16 @@
 /**
- * AndyBridge — Andy 模拟 ↔ Bobby 对话 的桥梁
+ * AndyBridge — Andy 模拟 ↔ Agent 对话 的桥梁
  *
  * 职责:
  *   1. 接收用户消息 → 情绪信号提取 → 缓冲
- *   2. Andy tick 时 → 消费缓冲 → 注入 Bobby agent 情绪
+ *   2. Andy tick 时 → 消费缓冲 → 注入 agent 情绪
  *   3. 从 tick 结果生成故事 → 持久化
- *   4. Bobby 对话时 → 查询最近故事 → 注入 system prompt
+ *   4. Agent 对话时 → 查询最近故事 → 注入 system prompt
  *
  * 数据流:
  *   用户消息 → push() → buffer → [等待 tick] → consume() → applyEffect
  *   Andy tick → tick() → stories → SimulationStore
- *   Bobby 对话 → getStoriesForBobby() → prompt 注入
+ *   Agent 对话 → getStoriesForAgent() → prompt 注入
  */
 
 const { EmotionSignalBuffer } = require('./EmotionSignalBuffer');
@@ -26,7 +26,7 @@ class AndyBridge {
    */
   constructor(options = {}) {
     this.andy = options.andy;
-    this.agentId = options.agentId || 'bobby';
+    this.agentId = options.agentId || 'default';
     this._rng = options.rng || null;
 
     // 核心模块
@@ -105,7 +105,7 @@ class AndyBridge {
     const simTime = this.store.virtualTime ? new Date(this.store.virtualTime) : undefined;
     const options = { rng: this._rng, simTime };
 
-    // 1. 消费情绪信号缓冲 → 注入 Bobby agent
+    // 1. 消费情绪信号缓冲 → 注入 agent
     const signal = this.signalBuffer.consume();
     if (signal) {
       this._applySignalToAgent(signal);
@@ -129,35 +129,49 @@ class AndyBridge {
   }
 
   // ═══════════════════════════════════════════
-  // Bobby 查询（对话时调用）
+  // Agent 查询（对话时调用）
   // ═══════════════════════════════════════════
 
   /**
-   * 获取 Bobby 最近的故事（供 system prompt 注入）
+   * 获取 agent 最近的故事（供 system prompt 注入）
    *
    * @param {number} hours - 最近多少小时
    * @param {number} limit - 最多几条
    * @returns {Story[]}
    */
-  getStoriesForBobby(hours = 72, limit = 5) {
-    return this.store.getStoriesForBobby(this.agentId, hours, limit);
+  getStoriesForAgent(hours = 72, limit = 5) {
+    return this.store.getStoriesForAgent(this.agentId, hours, limit);
   }
 
   /**
-   * 获取 Bobby 的当前情绪状态
+   * @deprecated Use getStoriesForAgent instead
+   */
+  getStoriesForBobby(hours = 72, limit = 5) {
+    return this.getStoriesForAgent(hours, limit);
+  }
+
+  /**
+   * 获取 agent 的当前情绪状态
    * @returns {Object|null} { current: Float64Array, stress: number }
    */
-  getBobbyEmotion() {
+  getAgentEmotion() {
     if (!this.andy || !this.andy.agents) return null;
 
-    const bobby = this.andy.agents.get?.(this.agentId)
+    const agent = this.andy.agents.get?.(this.agentId)
       || this.andy.getAgent?.(this.agentId);
-    if (!bobby || !bobby.emotion) return null;
+    if (!agent || !agent.emotion) return null;
 
     return {
-      current: { ...bobby.emotion.current },
-      stress: bobby.emotion.stress,
+      current: { ...agent.emotion.current },
+      stress: agent.emotion.stress,
     };
+  }
+
+  /**
+   * @deprecated Use getAgentEmotion instead
+   */
+  getBobbyEmotion() {
+    return this.getAgentEmotion();
   }
 
   /**
@@ -177,23 +191,23 @@ class AndyBridge {
   // ═══════════════════════════════════════════
 
   /**
-   * 将情绪信号注入 Bobby agent
+   * 将情绪信号注入 agent
    * @private
    */
   _applySignalToAgent(signal) {
     if (!this.andy || !signal.mergedEffect) return;
 
-    const bobby = this.andy.agents?.get?.(this.agentId)
+    const agent = this.andy.agents?.get?.(this.agentId)
       || this.andy.getAgent?.(this.agentId);
-    if (!bobby || !bobby.emotion) return;
+    if (!agent || !agent.emotion) return;
 
     const effect = signal.mergedEffect;
 
     // 直接修改 current（简化版，跳过 applyEffect 的完整评估）
     for (const [dim, delta] of Object.entries(effect)) {
-      if (bobby.emotion.current[dim] !== undefined) {
-        bobby.emotion.current[dim] = Math.max(-1, Math.min(1,
-          bobby.emotion.current[dim] + delta
+      if (agent.emotion.current[dim] !== undefined) {
+        agent.emotion.current[dim] = Math.max(-1, Math.min(1,
+          agent.emotion.current[dim] + delta
         ));
       }
     }

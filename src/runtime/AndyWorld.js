@@ -23,6 +23,7 @@ const { applyEventConsequences } = require('../effects/EventEffectPipeline');
 const { EffectCommitter } = require('../effects/EffectCommitter');
 const { RelationshipDelta } = require('../effects/RelationshipDelta');
 const { MemoryDelta } = require('../effects/MemoryDelta');
+const { diagnostics } = require('../shared/Diagnostics');
 
 class AndyWorld {
   /**
@@ -116,6 +117,7 @@ class AndyWorld {
         distanceDecay: spatialConfig.distanceDecay || 0.3,
         regions: regionDefs,
         adjacency: this._buildAdjacencyMap(this.domain.adjacency),
+        rng: this.rng,
       });
     }
 
@@ -436,7 +438,7 @@ class AndyWorld {
 
     // ─── 回调 + 统计 ───
     for (const cb of this._tickCallbacks) {
-      try { cb(result); } catch (e) { /* 回调错误不影响主循环 */ }
+      try { cb(result); } catch (e) { diagnostics.warn(`onTick callback error: ${e.message}`); }
     }
     result.durationMs = Date.now() - tickStart;
     this._lastTickTime = result.durationMs;

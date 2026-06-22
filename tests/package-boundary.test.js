@@ -13,8 +13,8 @@ const pkg = JSON.parse(readFileSync(path.join(process.cwd(), 'package.json'), 'u
 
 describe('Package Boundary', () => {
   describe('package.json metadata', () => {
-    it('version is 2.0.0-alpha.1', () => {
-      expect(pkg.version).toBe('2.0.0-alpha.1');
+    it('version is 2.0.0-alpha.2', () => {
+      expect(pkg.version).toBe('2.0.0-alpha.2');
     });
 
     it('types points to index.d.ts', () => {
@@ -187,6 +187,54 @@ describe('Package Boundary', () => {
     it('require("andy-engine/presets/tavern") works', async () => {
       const mod = await import('../presets/tavern/index.js');
       expect(mod.id).toBe('tavern');
+    });
+  });
+
+  describe('index.d.ts type declarations', () => {
+    it('index.d.ts exports AndyEngine', () => {
+      const dtsPath = path.join(process.cwd(), 'index.d.ts');
+      expect(existsSync(dtsPath)).toBe(true);
+      const content = readFileSync(dtsPath, 'utf-8');
+      expect(content).toContain('export = AndyEngine');
+    });
+
+    it('index.d.ts contains AndyEngineConfig interface', () => {
+      const content = readFileSync(path.join(process.cwd(), 'index.d.ts'), 'utf-8');
+      expect(content).toContain('interface AndyEngineConfig');
+    });
+
+    it('index.d.ts contains AgentConfig interface', () => {
+      const content = readFileSync(path.join(process.cwd(), 'index.d.ts'), 'utf-8');
+      expect(content).toContain('interface AgentConfig');
+    });
+
+    it('index.d.ts contains TickResult interface', () => {
+      const content = readFileSync(path.join(process.cwd(), 'index.d.ts'), 'utf-8');
+      expect(content).toContain('interface TickResult');
+    });
+
+    it('index.d.ts contains WorldContext interface', () => {
+      const content = readFileSync(path.join(process.cwd(), 'index.d.ts'), 'utf-8');
+      expect(content).toContain('interface WorldContext');
+    });
+
+    it('index.d.ts contains GroundingPackage interface', () => {
+      const content = readFileSync(path.join(process.cwd(), 'index.d.ts'), 'utf-8');
+      expect(content).toContain('interface GroundingPackage');
+    });
+
+    it('index.d.ts contains ConsistencyCheckResult interface', () => {
+      const content = readFileSync(path.join(process.cwd(), 'index.d.ts'), 'utf-8');
+      expect(content).toContain('interface ConsistencyCheckResult');
+    });
+
+    it('index.d.ts methods use typed parameters', () => {
+      const content = readFileSync(path.join(process.cwd(), 'index.d.ts'), 'utf-8');
+      expect(content).toContain('constructor(config?: AndyEngineConfig)');
+      expect(content).toContain('createCharacter(config: AgentConfig)');
+      expect(content).toContain('addAgent(config: AgentConfig)');
+      expect(content).toContain('getWorldContext(agentId: string): WorldContext');
+      expect(content).toContain('tick(): TickResult');
     });
   });
 
