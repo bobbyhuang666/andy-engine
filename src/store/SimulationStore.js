@@ -12,7 +12,7 @@
  *
  *   // tick 循环中
  *   store.onTick(tickResult);
- *   const stories = store.getStoriesForBobby();
+ *   const stories = store.getStoriesForAgent();
  *
  *   // 关闭时
  *   await store.shutdown();
@@ -135,17 +135,17 @@ class SimulationStore {
   }
 
   // ═══════════════════════════════════════════
-  // 查询接口（Bobby 对话时使用）
+  // 查询接口（对话时使用）
   // ═══════════════════════════════════════════
 
   /**
-   * 获取 Bobby 最近的故事（供 system prompt 注入）
-   * @param {string} agentId - 'bobby'
+   * 获取 agent 最近的故事（供 system prompt 注入）
+   * @param {string} agentId - agent id
    * @param {number} hours - 最近多少小时
    * @param {number} limit - 最多几条
    * @returns {Story[]}
    */
-  getStoriesForBobby(agentId = 'bobby', hours = 72, limit = 5) {
+  getStoriesForAgent(agentId = 'default', hours = 72, limit = 5) {
     // 合并内存缓冲和数据库
     const buffered = this.storyBuffer
       .filter(s => s.agentId === agentId)
@@ -167,6 +167,13 @@ class SimulationStore {
     // 按重要性排序
     merged.sort((a, b) => (b.importance ?? 0) - (a.importance ?? 0));
     return merged.slice(0, limit);
+  }
+
+  /**
+   * @deprecated Use getStoriesForAgent instead
+   */
+  getStoriesForBobby(agentId = 'default', hours = 72, limit = 5) {
+    return this.getStoriesForAgent(agentId, hours, limit);
   }
 
   /**

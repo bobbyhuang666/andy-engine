@@ -1,8 +1,8 @@
 /**
  * PersonalMemory - 动态个人记忆系统
  *
- * 与 BobbyMemory 的区别：
- *   - BobbyMemory 是静态种子数据（Bobby 的背景故事）
+ * 与静态种子记忆的区别：
+ *   - 静态种子记忆是预设的背景故事
  *   - PersonalMemory 是动态积累的（Agent 真实经历过的事件）
  *
  * 基于 ACT-R 记忆模型 (Anderson, 2007):

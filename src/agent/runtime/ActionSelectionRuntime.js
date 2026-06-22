@@ -16,6 +16,7 @@ const { EmotionDelta } = require('../../effects/EmotionDelta');
 const { MemoryDelta } = require('../../effects/MemoryDelta');
 const { PositionDelta } = require('../../effects/PositionDelta');
 const { RelationshipDelta } = require('../../effects/RelationshipDelta');
+const { diagnostics } = require('../../shared/Diagnostics');
 
 /**
  * Build action selection context (read-only snapshot of agent state).
@@ -128,7 +129,8 @@ function runShadowActionSelection(agent, env) {
       return buildActionSelectedEvent(agent, trace, env, stateDeltas);
     }
   } catch (e) {
-    // Shadow pipeline failures must never break the main tick
+    diagnostics.warn(`Action selection error for ${agent.id}: ${e.message}`);
+    diagnostics.collect({ type: 'action_selection_error', agentId: agent.id, error: e.message });
   }
   return null;
 }

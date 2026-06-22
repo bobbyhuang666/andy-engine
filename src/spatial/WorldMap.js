@@ -17,15 +17,16 @@ class WorldMap {
    * @param {number} options.height - 世界高度（米）
    * @param {Object[]} options.regions - 区域定义列表
    */
-  constructor({ width = 1000, height = 1000, regions = [] }) {
+  constructor({ width = 1000, height = 1000, regions = [], rng = null }) {
     this.width = width;
     this.height = height;
+    this._rng = rng || null;
 
     /** @type {Map<string, RegionDef>} */
     this.regions = new Map();
 
     for (const def of regions) {
-      this.regions.set(def.name, new RegionDef(def));
+      this.regions.set(def.name, new RegionDef(def, this._rng));
     }
   }
 
@@ -41,8 +42,8 @@ class WorldMap {
     if (!region) {
       // 未知区域：返回世界中心随机偏移
       return {
-        x: this.width / 2 + (Math.random() - 0.5) * 50,
-        y: this.height / 2 + (Math.random() - 0.5) * 50,
+        x: this.width / 2 + ((this._rng ? this._rng.next() : Math.random()) - 0.5) * 50,
+        y: this.height / 2 + ((this._rng ? this._rng.next() : Math.random()) - 0.5) * 50,
       };
     }
     return region.randomPoint();
@@ -106,12 +107,13 @@ class RegionDef {
    * @param {boolean} [def.indoor=true] - 是否室内
    * @param {number} [def.capacity] - 容量上限
    */
-  constructor(def) {
+  constructor(def, rng = null) {
     this.name = def.name;
     this.shape = def.shape || 'rect';
     this.indoor = def.indoor !== false;
     this.capacity = def.capacity || null;
     this.adjacentTo = [];
+    this._rng = rng;
 
     if (this.shape === 'rect') {
       this.x = def.x || 0;
@@ -156,15 +158,16 @@ class RegionDef {
    */
   randomPoint() {
     const padding = 2; // 2 米边距
+    const rand = () => this._rng ? this._rng.next() : Math.random();
     if (this.shape === 'rect') {
       return {
-        x: this.x + padding + Math.random() * (this.w - padding * 2),
-        y: this.y + padding + Math.random() * (this.h - padding * 2),
+        x: this.x + padding + rand() * (this.w - padding * 2),
+        y: this.y + padding + rand() * (this.h - padding * 2),
       };
     }
     if (this.shape === 'circle') {
-      const angle = Math.random() * Math.PI * 2;
-      const r = Math.sqrt(Math.random()) * (this.radius - padding);
+      const angle = rand() * Math.PI * 2;
+      const r = Math.sqrt(rand()) * (this.radius - padding);
       return {
         x: this.cx + Math.cos(angle) * r,
         y: this.cy + Math.sin(angle) * r,

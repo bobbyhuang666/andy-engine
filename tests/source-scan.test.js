@@ -290,4 +290,37 @@ describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
     // 不应包含 Math.random 作为 fallback
     expect(content).not.toMatch(/Math\.random\s*\(\s*\)/);
   });
+
+  it('src/ 中不应有新增的 bobby 字符串（允许的 deprecated alias 除外，见 docs/DOMAIN_COMPATIBILITY_EXCEPTIONS.md）', () => {
+    const rootDir = process.cwd();
+    const srcDir = path.join(rootDir, 'src');
+
+    // 允许的文件：只有这些文件可以包含 bobby（deprecated alias）
+    const BOBBY_ALLOWED_FILES = [
+      'src/store/SimulationStore.js',  // getStoriesForBobby deprecated alias
+      'src/sdk/AndyBridge.js',         // getStoriesForBobby/getBobbyEmotion deprecated aliases
+    ];
+
+    const files = getJsFiles(srcDir);
+    const violations = [];
+
+    for (const file of files) {
+      const relativePath = path.relative(rootDir, file);
+      if (BOBBY_ALLOWED_FILES.includes(relativePath)) continue;
+
+      const content = readFileSync(file, 'utf-8');
+      const matches = content.match(/bobby/gi);
+      if (matches) {
+        violations.push({ file: relativePath, count: matches.length });
+      }
+    }
+
+    if (violations.length > 0) {
+      const msg = violations.map(v => `  ${v.file}: ${v.count} occurrences`).join('\n');
+      expect.fail(
+        `src/ 中发现非预期的 bobby 字符串:\n${msg}\n\n` +
+        'bobby 只允许在 deprecated alias 中出现。请参考 docs/DOMAIN_COMPATIBILITY_EXCEPTIONS.md'
+      );
+    }
+  });
 });

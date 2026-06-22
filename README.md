@@ -12,7 +12,7 @@ Actions become canonical events that affect memory, relationships, location mean
 
 LLMs only express what a character knows; they do not create world facts.
 
-> Status: **v2.0.0-alpha.1 architecture preview**. Psychological simulation and clean `src/` architecture are stable; WorldCanon / Knowledge / Grounded Narrative remain experimental.
+> **Alpha Status**: v2.0.0-alpha.2 — API still hardening, not stable v2.0.0.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
@@ -62,10 +62,10 @@ The LLM is a rendering layer, not the source of truth.
 
 | Area | Status |
 |---|---|
-| Unit / integration / domain / source-scan tests | 1700+ tests passing |
+| Unit / integration / domain / source-scan tests | 1844 tests passing |
 | Custom domain | Tavern preset passes domain-agnostic validation |
 | Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
-| Seeded RNG | Core simulation supports reproducible random baseline |
+| Seeded RNG | Core runtime paths support seeded simulation baseline (not full deterministic replay) |
 | Perf-check | Benchmark / contagion profile regression checks pass |
 | Early subjective evaluation | Internal experiments suggest stronger character continuity and presence; not yet published as a standard benchmark |
 
@@ -115,9 +115,9 @@ Andy Engine v2 is the architecture-preview line that turns Andy from a character
 
 - Domain-agnostic runtime with campus default preset and custom domain support
 - Continuous 4D BehaviorField as the core behavior dynamics layer
-- Seeded RNG baseline for reproducible core simulations
+- Seeded RNG baseline for reproducible core runtime paths (not full deterministic replay)
 - Performance benchmark / profiling / perf-check baseline
-- 1700+ tests across unit, integration, domain, compatibility, and source-scan suites
+- 1844 tests across unit, integration, domain, compatibility, and source-scan suites
 - Clean Architecture Pass complete: `src/` owns implementation; old top-level runtime wrappers retired; Semantic Closure Pass complete with 9 domain-safe read-only providers
 
 ### Experimental
@@ -327,7 +327,17 @@ const reply = await maya.chat("I'm so tired today");
 See `examples/` for working demos.
 ## Rust Native Acceleration
 
-For large-scale simulations, enable the Rust native module:
+For large-scale simulations, an optional Rust native module is available.
+
+**Default (unset):** Pure JavaScript, no native dependency required.
+
+**Environment modes:**
+
+| `ANDY_USE_NATIVE` | Behavior |
+|---|---|
+| `unset` | Pure JS, no warning |
+| `1` or `true` | Required mode — throws if native binding is missing |
+| `optional` | Loads native if available, warns and falls back to JS if not |
 
 ```bash
 cd native && npm install && npm run build
@@ -424,7 +434,7 @@ Andy Engine 维护一个共享的 **WorldCanon**：发生了什么、谁看到�
 
 LLM 只能表达角色知道的事，不能创造世界事实。
 
-> 状态：WIP 研究原型。心理模拟已稳定；WorldCanon / 知识边界 / Grounded 叙事实验性。
+> 状态：**Alpha — v2.0.0-alpha.2**，API 仍在硬化中，不是稳定 v2.0.0。
 
 ---
 
@@ -498,9 +508,9 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 
 - Domain-agnostic 运行时，支持 campus 默认 preset 和自定义 domain
 - 连续 4D BehaviorField 作为核心行为动力学层
-- 可播种 RNG 基线，支持可复现的核心模拟
+- 可播种 RNG 基线，支持核心运行时路径的可复现模拟（非全路径确定性重放）
 - 性能基准 / Profiling / perf-check 基线
-- 1700+ 测试（单元、集成、domain、兼容性、source-scan）
+- 1853 测试（单元、集成、domain、兼容性、source-scan）
 - Clean Architecture Pass 完成：`src/` 拥有实现，旧顶层 runtime wrappers 已退休；Semantic Closure Pass 完成，9 个 domain-safe read-only provider 已接入
 
 ### 实验性
@@ -513,7 +523,7 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 
 ### 尚未成为生产契约
 
-- 当前版本是 `2.0.0-alpha.1`，不是稳定生产版
+- 当前版本是 `2.0.0-alpha.2`，不是稳定生产版
 - Fact schema 和 Knowledge schema 可能还会变化
 - `FactConsistencyChecker` 基于正则表达式，是实验性的
 - `WorldObject` 已建模但尚未完全集成到 `Agent.tick`
@@ -592,10 +602,10 @@ Grounded Narrative（有事实边界的叙事）
 
 | 项目 | 状态 |
 |---|---|
-| 单元 / 集成 / domain / source-scan 测试 | 1700+ tests passing |
+| 单元 / 集成 / domain / source-scan 测试 | 1844 tests passing |
 | custom domain | tavern preset 通过 domain-agnostic 验证 |
 | facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
-| seeded RNG | 核心模拟支持可复现随机基线 |
+| seeded RNG | 核心运行时路径支持 seeded simulation 基线（非全路径确定性重放） |
 | perf-check | benchmark / contagion profile 回归检查通过 |
 | 早期主观评测 | 内部实验显示角色连续性和状态感更强，尚未作为公开 benchmark 发布 |
 
@@ -777,7 +787,17 @@ const engine2 = AndyEngine.fromJSON(data);
 
 ## Rust Native / 性能
 
-大规模模拟可启用 Rust Native 模块：
+大规模模拟可选用 Rust Native 模块。
+
+**默认（未设置）：** 纯 JavaScript，无 native 依赖。
+
+**环境变量模式：**
+
+| `ANDY_USE_NATIVE` | 行为 |
+|---|---|
+| `unset` | 纯 JS，无警告 |
+| `1` 或 `true` | 必需模式 — 缺少 native binding 时抛出错误 |
+| `optional` | 有则加载，无则警告并回退到 JS |
 
 ```bash
 cd native && npm install && npm run build

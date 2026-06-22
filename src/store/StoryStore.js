@@ -1,13 +1,13 @@
 /**
  * StoryStore — 故事持久化接口
  *
- * 存储 Andy 模拟产生的故事片段，供 Bobby system prompt 注入。
+ * 存储 Andy 模拟产生的故事片段，供 agent system prompt 注入。
  * 当前实现: SQLite
  * 将来迁移: PostgreSQL / CockroachDB / 任何关系数据库
  *
  * 设计约束:
  *   - 写入: 每 tick 批量写入 (~5-10 条/tick)
- *   - 读取: Bobby 对话时按 agent_id + 时间范围查询
+ *   - 读取: 对话时按 agent_id + 时间范围查询
  *   - 清理: 定期衰减 + 删除过期故事
  */
 
