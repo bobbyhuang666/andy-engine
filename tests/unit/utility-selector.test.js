@@ -5,6 +5,7 @@
 import { describe, it, expect } from 'vitest';
 import { selectAction } from '../../src/action/UtilitySelector.js';
 import { ActionCandidate } from '../../src/action/ActionCandidate.js';
+import { validateActionSelectionConfig } from '../../src/agent/runtime/ActionSelectionRuntime.js';
 
 function createCandidate(opts) {
   return new ActionCandidate(opts).toJSON();
@@ -95,6 +96,32 @@ describe('UtilitySelector', () => {
       const json = JSON.stringify(trace);
       const parsed = JSON.parse(json);
       expect(parsed.selectedAction).toBe(trace.selectedAction);
+    });
+  });
+
+  describe('config validation (T8)', () => {
+    it('active + temperature > 0 + no seed => throws clear config error', () => {
+      const cfg = { enabled: true, mode: 'active', temperature: 0.5, recordTraces: true, maxTraceHistory: 100 };
+      expect(() => validateActionSelectionConfig(cfg, null, 'test_agent'))
+        .toThrow('UtilitySelector requires a seeded RNG when temperature > 0');
+    });
+
+    it('active + temperature > 0 + seed => works normally', () => {
+      const rng = new RNG(42);
+      const cfg = { enabled: true, mode: 'active', temperature: 0.5, recordTraces: true, maxTraceHistory: 100 };
+      expect(() => validateActionSelectionConfig(cfg, rng, 'test_agent')).not.toThrow();
+    });
+
+    it('shadow/event/dryRunEffects modes are not affected by this validation', () => {
+      for (const mode of ['shadow', 'event', 'dryRunEffects']) {
+        const cfg = { enabled: true, mode, temperature: 0.5, recordTraces: true, maxTraceHistory: 100 };
+        expect(() => validateActionSelectionConfig(cfg, null, 'test_agent')).not.toThrow();
+      }
+    });
+
+    it('temperature = 0 works without seed (greedy mode)', () => {
+      const cfg = { enabled: true, mode: 'active', temperature: 0, recordTraces: true, maxTraceHistory: 100 };
+      expect(() => validateActionSelectionConfig(cfg, null, 'test_agent')).not.toThrow();
     });
   });
 });

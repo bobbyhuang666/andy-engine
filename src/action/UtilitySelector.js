@@ -46,7 +46,7 @@ function selectAction(scoredCandidates, { temperature = 0.5, rng = null, agentId
   }
 
   if (!rng || typeof rng.next !== 'function') {
-    throw new Error('UtilitySelector requires a seeded RNG when temperature > 0');
+    throw new Error('UtilitySelector requires a seeded RNG when temperature > 0. Provide a seed in AndyEngineConfig or set actionSelection.temperature to 0.');
   }
 
   const traceDraw = typeof rng.traceDraw === 'function'

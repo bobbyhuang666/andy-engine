@@ -4,6 +4,7 @@ const AndyEngine = require('../../index.js');
 describe('Phase 36: Minimal Active Writeback', () => {
   it('active mode can be enabled via config', () => {
     const engine = new AndyEngine({
+      seed: 'active-test',
       enableFacts: true,
       actionSelection: {
         enabled: true,
@@ -19,6 +20,7 @@ describe('Phase 36: Minimal Active Writeback', () => {
 
   it('active mode does not crash', () => {
     const engine = new AndyEngine({
+      seed: 'active-test',
       enableFacts: true,
       actionSelection: {
         enabled: true,
@@ -36,6 +38,7 @@ describe('Phase 36: Minimal Active Writeback', () => {
 
   it('active mode changes agent state through events', () => {
     const engine = new AndyEngine({
+      seed: 'active-test',
       enableFacts: true,
       actionSelection: {
         enabled: true,
@@ -57,6 +60,7 @@ describe('Phase 36: Minimal Active Writeback', () => {
 
   it('active mode can be disabled', () => {
     const engine = new AndyEngine({
+      seed: 'active-test',
       enableFacts: true,
       actionSelection: {
         enabled: true,
@@ -81,6 +85,7 @@ describe('Phase 36: Minimal Active Writeback', () => {
 
   it('active mode produces ReasonTrace', () => {
     const engine = new AndyEngine({
+      seed: 'active-test',
       enableFacts: true,
       actionSelection: {
         enabled: true,
