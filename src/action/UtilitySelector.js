@@ -56,7 +56,8 @@ function selectAction(scoredCandidates, { temperature = 0.5, rng = null, agentId
   const draw = traceDraw.randomDraw;
   const stateAfter = traceDraw.rngStateAfter;
 
-  const weights = valid.map(sc => Math.exp(sc.score.total / temperature));
+  const maxScore = Math.max(...valid.map(sc => sc.score.total));
+  const weights = valid.map(sc => Math.exp((sc.score.total - maxScore) / temperature));
   const totalWeight = weights.reduce((a, b) => a + b, 0);
   const probabilities = weights.map(w => w / totalWeight);
 

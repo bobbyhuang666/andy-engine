@@ -20,6 +20,7 @@ class WorldClock {
    * @returns {Date} 推进后的时间
    */
   advance(minutes = 5) {
+    if (minutes < 0) minutes = 0;
     this.time = new Date(this.time.getTime() + minutes * 60 * 1000);
     this.tickCount++;
     return this.time;
