@@ -213,7 +213,7 @@ declare class AndyEngine {
   addAgent(config: AgentConfig): object;
   addAgents(configs: AgentConfig[]): object[];
   getAgent(agentId: string): object | undefined;
-  getAllAgents(): Map<string, object>;
+  getAllAgents(): AgentSnapshot[];
   getNarrative(agentId: string, options?: { userText?: string; relationship?: number }): string;
   getWorldContext(agentId: string): WorldContext | null;
   getGroundingPackage(agentId: string, options?: object): GroundingPackage | null;
