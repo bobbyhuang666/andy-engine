@@ -4,7 +4,7 @@
  * 基于 Cowen & Keltner (2017) 的 30 维情绪空间
  * 每个维度范围 [-1, 1]
  *
- * 演化机制（10步，参考 Bobby emotionEngine 但增加多 Agent 传染）：
+ * 演化机制（10步，增加多 Agent 传染）：
  *   1. 时间衰减（向基线回归）
  *   2. 昼夜节律调制
  *   3. 1/f 粉噪声漂移
@@ -19,6 +19,12 @@
 
 const { EMOTION_DIMENSIONS, CO_ACTIVATION, EMOTION_OPPOSITES, ANDY_DEFAULTS } = require('../../config/defaults');
 const cfg = ANDY_DEFAULTS.emotion;
+
+const POSITIVE_DIMS = new Set(['joy', 'contentment', 'satisfaction', 'excitement',
+  'calm', 'hope', 'love', 'pride', 'gratitude', 'relief', 'triumph', 'amusement']);
+const NEGATIVE_DIMS = new Set(['sadness', 'anger', 'fear', 'disgust',
+  'nervousness', 'frustration', 'guilt', 'shame', 'horror', 'boredom']);
+const NON_NEGATIVE_DIMS = new Set(['loneliness', 'boredom', 'nervousness', 'guilt', 'shame', 'embarrassment']);
 
 class EmotionVector {
   /**
@@ -137,11 +143,6 @@ class EmotionVector {
     // 负面情绪衰减更慢（0.7x），模拟负面情绪的持续效应
     const negativityBiasFactor = 0.7;
 
-    const positiveDims = new Set(['joy', 'contentment', 'satisfaction', 'excitement',
-      'calm', 'hope', 'love', 'pride', 'gratitude', 'relief', 'triumph', 'amusement']);
-    const negativeDims = new Set(['sadness', 'anger', 'fear', 'disgust',
-      'nervousness', 'frustration', 'guilt', 'shame', 'horror', 'boredom']);
-
     // current 衰减向 mood（快速）
     for (const dim of EMOTION_DIMENSIONS) {
       const moodLevel = this.mood[dim] || 0;
@@ -149,10 +150,10 @@ class EmotionVector {
       const excess = current - moodLevel;
 
       let effectiveLambda = lambda;
-      if (excess > 0 && positiveDims.has(dim)) {
+      if (excess > 0 && POSITIVE_DIMS.has(dim)) {
         // 正面情绪高于 mood → 享乐适应加速衰减
         effectiveLambda = lambda * hedonicAdaptFactor;
-      } else if (excess < 0 && negativeDims.has(dim)) {
+      } else if (excess < 0 && NEGATIVE_DIMS.has(dim)) {
         // 负面情绪低于 mood → 消极偏见减缓衰减
         effectiveLambda = lambda * negativityBiasFactor;
       }
@@ -168,7 +169,7 @@ class EmotionVector {
       const base = this.baseline[dim] || 0;
       const moodExcess = this.mood[dim] - base;
       let moodLambda = baseMoodLambda;
-      if (moodExcess < 0 && negativeDims.has(dim)) {
+      if (moodExcess < 0 && NEGATIVE_DIMS.has(dim)) {
         moodLambda *= negativityBiasFactor; // 负面心境衰减更慢
       }
       const moodFactor = Math.exp(-moodLambda * dt);
@@ -176,10 +177,9 @@ class EmotionVector {
     }
 
     // mood 截断：非负语义维度 + 常规 [-1, 1] 范围
-    const nonNegative = new Set(['loneliness', 'boredom', 'nervousness', 'guilt', 'shame', 'embarrassment']);
     for (const dim of EMOTION_DIMENSIONS) {
       if (this.mood[dim] !== undefined) {
-        const lower = nonNegative.has(dim) ? 0 : -1;
+        const lower = NON_NEGATIVE_DIMS.has(dim) ? 0 : -1;
         this.mood[dim] = Math.max(lower, Math.min(1, this.mood[dim]));
       }
     }
@@ -375,11 +375,6 @@ class EmotionVector {
   _socialContagion(contagionInputs) {
     const susceptibility = this.personality.behavior.susceptibility;
 
-    // 负面情绪维度（传染率更高）
-    // 参考 Baumeister et al. (2001) "Bad is stronger than good"
-    // + Nature 2024: 负面情绪比正面情绪更具传染性和持续性
-    const negativeDims = new Set(['sadness', 'anger', 'fear', 'disgust',
-      'nervousness', 'frustration', 'guilt', 'shame', 'horror', 'boredom']);
     const negativityBias = 1.4; // 负面情绪传染率高 40%
 
     for (const [agentId, input] of Object.entries(contagionInputs)) {
@@ -396,7 +391,7 @@ class EmotionVector {
         // 只对显著差异产生传染
         // 基础传染率 30%（Hatfield 1993），负面情绪额外+40%
         if (Math.abs(diff) > 0.05) {
-          const isNegative = negativeDims.has(dim) && theirVal < myVal;
+          const isNegative = NEGATIVE_DIMS.has(dim) && theirVal < myVal;
           const contagionRate = isNegative ? 0.3 * negativityBias : 0.3;
           this.current[dim] = myVal + diff * effectiveWeight * contagionRate;
         }
@@ -457,13 +452,9 @@ class EmotionVector {
    * @private
    */
   _clamp() {
-    // 非负语义维度：强度类情绪的最小值为 0（不存在"负孤独"/"负无聊"）
-    // 这些维度只表示强度，-1 的语义未定义
-    const nonNegative = new Set(['loneliness', 'boredom', 'nervousness', 'guilt', 'shame', 'embarrassment']);
-
     for (const dim of EMOTION_DIMENSIONS) {
       if (this.current[dim] !== undefined) {
-        const lower = nonNegative.has(dim) ? 0 : -1;
+        const lower = NON_NEGATIVE_DIMS.has(dim) ? 0 : -1;
         this.current[dim] = Math.max(lower, Math.min(1, this.current[dim]));
       }
     }
@@ -508,10 +499,9 @@ class EmotionVector {
     }
     this._clamp();
     // mood 也需要边界截断（含非负下界）
-    const nonNegative = new Set(['loneliness', 'boredom', 'nervousness', 'guilt', 'shame', 'embarrassment']);
     for (const dim of EMOTION_DIMENSIONS) {
       if (this.mood[dim] !== undefined) {
-        const lower = nonNegative.has(dim) ? 0 : -1;
+        const lower = NON_NEGATIVE_DIMS.has(dim) ? 0 : -1;
         this.mood[dim] = Math.max(lower, Math.min(1, this.mood[dim]));
       }
     }

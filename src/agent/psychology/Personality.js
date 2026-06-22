@@ -6,7 +6,7 @@
  * 研究发现：
  *   - 大五人格与情绪动态高度相关（神经质→情绪惯性，外向性→表达性）
  *   - 可以通过 Cholesky 分解生成相关的人格向量
- *   - MBTI 可以映射到大五维度（用于兼容 Bobby 的 MBTI 设定）
+ *   - MBTI 可以映射到大五维度（用于兼容 MBTI 设定）
  */
 
 const { personalityToBehavior } = require('../../config/defaults');
@@ -71,43 +71,7 @@ class Personality {
 
     // 情绪基线修正（人格决定的长期情绪倾向）
     // 覆盖全部 30 维度，基于 OCEAN 特质的理论映射
-    const o = this.ocean;
-    this.emotionBaseline = {
-      // Ekman 基础 6
-      joy:          0.15 * o.extraversion + 0.05 * o.agreeableness,
-      sadness:      0.12 * o.neuroticism - 0.05 * o.extraversion,
-      anger:        0.10 * o.neuroticism - 0.08 * o.agreeableness,
-      fear:         0.12 * o.neuroticism - 0.05 * (1 - o.neuroticism),
-      surprise:     0.08 * o.openness,
-      disgust:      0.06 * o.neuroticism - 0.04 * o.agreeableness,
-      // Keltner 扩展
-      amusement:    0.10 * o.extraversion + 0.05 * o.openness,
-      awe:          0.08 * o.openness,
-      contentment:  0.15 * o.agreeableness + 0.05 * (1 - o.neuroticism),
-      desire:       0.08 * o.extraversion + 0.05 * o.openness,
-      embarrassment: 0.08 * o.neuroticism - 0.03 * o.extraversion,
-      guilt:        0.10 * o.agreeableness + 0.05 * o.neuroticism,
-      horror:       0.05 * o.neuroticism,
-      interest:     0.12 * o.openness + 0.05 * o.extraversion,
-      love:         0.10 * o.agreeableness + 0.05 * o.extraversion,
-      nervousness:  0.15 * o.neuroticism - 0.05 * o.extraversion,
-      pride:        0.08 * o.extraversion + 0.03 * o.conscientiousness,
-      relief:       0.05 * (1 - o.neuroticism),
-      satisfaction: 0.10 * o.conscientiousness + 0.05 * o.agreeableness,
-      shame:        0.08 * o.neuroticism + 0.03 * o.agreeableness,
-      sympathy:     0.10 * o.agreeableness + 0.05 * o.openness,
-      triumph:      0.06 * o.extraversion + 0.04 * o.conscientiousness,
-      // 补充
-      boredom:      0.15 * (1 - o.openness) - 0.05 * o.extraversion,
-      calm:         0.20 * (1 - o.neuroticism) + 0.05 * o.agreeableness,
-      confusion:    0.05 * o.neuroticism - 0.03 * o.openness,
-      excitement:   0.10 * o.extraversion + 0.08 * o.openness,
-      frustration:  0.10 * o.neuroticism - 0.05 * o.conscientiousness,
-      gratitude:    0.10 * o.agreeableness,
-      hope:         0.10 * o.openness + 0.05 * (1 - o.neuroticism),
-      loneliness:   0.20 * (1 - o.extraversion) + 0.05 * o.neuroticism,
-      ...(config.modifiers || {}),
-    };
+    this.emotionBaseline = this._computeEmotionBaseline(config.modifiers);
 
     // 行为参数（从 OCEAN 派生）
     this.behavior = personalityToBehavior(this.ocean);
@@ -202,10 +166,18 @@ class Personality {
    */
   _refreshBehavior() {
     this.behavior = personalityToBehavior(this.ocean);
+    this.emotionBaseline = this._computeEmotionBaseline();
+  }
 
-    // 重新计算情绪基线
+  /**
+   * 从 OCEAN 特质计算情绪基线
+   * @param {Object} [modifiers] - 可选的情绪基线修正
+   * @returns {Object}
+   * @private
+   */
+  _computeEmotionBaseline(modifiers) {
     const o = this.ocean;
-    this.emotionBaseline = {
+    return {
       joy:          0.15 * o.extraversion + 0.05 * o.agreeableness,
       sadness:      0.12 * o.neuroticism - 0.05 * o.extraversion,
       anger:        0.10 * o.neuroticism - 0.08 * o.agreeableness,
@@ -236,6 +208,7 @@ class Personality {
       gratitude:    0.10 * o.agreeableness,
       hope:         0.10 * o.openness + 0.05 * (1 - o.neuroticism),
       loneliness:   0.20 * (1 - o.extraversion) + 0.05 * o.neuroticism,
+      ...(modifiers || {}),
     };
   }
 
