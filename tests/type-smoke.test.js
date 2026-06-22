@@ -38,6 +38,13 @@ describe('Type Safety Smoke', () => {
     }
   });
 
+  it('getAllAgents returns an array, not a Map', () => {
+    const dtsPath = path.resolve(process.cwd(), 'index.d.ts');
+    const content = readFileSync(dtsPath, 'utf-8');
+    expect(content).toContain('getAllAgents(): AgentSnapshot[]');
+    expect(content).not.toMatch(/getAllAgents\(\):\s*Map</);
+  });
+
   it('index.d.ts defines key AndyEngine methods', () => {
     const dtsPath = path.resolve(process.cwd(), 'index.d.ts');
     const content = readFileSync(dtsPath, 'utf-8');
