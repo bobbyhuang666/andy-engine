@@ -243,7 +243,7 @@ class FactEmitter {
           agentB: otherId,
           relationType: rel.type || 'stranger',
           strength: rel.strength || 0,
-          previousType: rel._previousType || null,
+          previousType: null,
           timestamp: now,
           source: FactSource.ENGINE,
           confidence: 1.0,
