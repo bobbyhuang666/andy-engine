@@ -62,7 +62,7 @@ The LLM is a rendering layer, not the source of truth.
 
 | Area | Status |
 |---|---|
-| Unit / integration / domain / source-scan tests | 1844 tests passing |
+| Unit / integration / domain / source-scan tests | 1862 tests passing |
 | Custom domain | Tavern preset passes domain-agnostic validation |
 | Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
 | Seeded RNG | Core runtime paths support seeded simulation baseline (not full deterministic replay) |
@@ -117,7 +117,7 @@ Andy Engine v2 is the architecture-preview line that turns Andy from a character
 - Continuous 4D BehaviorField as the core behavior dynamics layer
 - Seeded RNG baseline for reproducible core runtime paths (not full deterministic replay)
 - Performance benchmark / profiling / perf-check baseline
-- 1844 tests across unit, integration, domain, compatibility, and source-scan suites
+- 1862 tests across unit, integration, domain, compatibility, and source-scan suites
 - Clean Architecture Pass complete: `src/` owns implementation; old top-level runtime wrappers retired; Semantic Closure Pass complete with 9 domain-safe read-only providers
 
 ### Experimental
@@ -522,7 +522,7 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 - 连续 4D BehaviorField 作为核心行为动力学层
 - 可播种 RNG 基线，支持核心运行时路径的可复现模拟（非全路径确定性重放）
 - 性能基准 / Profiling / perf-check 基线
-- 1853 测试（单元、集成、domain、兼容性、source-scan）
+- 1862 测试（单元、集成、domain、兼容性、source-scan）
 - Clean Architecture Pass 完成：`src/` 拥有实现，旧顶层 runtime wrappers 已退休；Semantic Closure Pass 完成，9 个 domain-safe read-only provider 已接入
 
 ### 实验性
@@ -614,7 +614,7 @@ Grounded Narrative（有事实边界的叙事）
 
 | 项目 | 状态 |
 |---|---|
-| 单元 / 集成 / domain / source-scan 测试 | 1844 tests passing |
+| 单元 / 集成 / domain / source-scan 测试 | 1862 tests passing |
 | custom domain | tavern preset 通过 domain-agnostic 验证 |
 | facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
 | seeded RNG | 核心运行时路径支持 seeded simulation 基线（非全路径确定性重放） |

@@ -30,7 +30,8 @@ class MemoryPressure {
     let count = 0;
 
     if (!options.simTime) {
-      console.warn('[andy-engine] MemoryPressure.compute() called without simTime — falling back to Date.now(). This produces incorrect recency during fast-forward simulation.');
+      const { diagnostics } = require('../shared/Diagnostics');
+      diagnostics.warnOnce('memory-pressure-simtime', '[andy-engine] MemoryPressure.compute() called without simTime — falling back to Date.now(). This produces incorrect recency during fast-forward simulation.');
     }
     const now = options.simTime ? new Date(options.simTime).getTime() : Date.now();
 

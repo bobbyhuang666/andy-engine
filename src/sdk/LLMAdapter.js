@@ -7,7 +7,7 @@
  *   - Anthropic API
  *   - Ollama（本地，零成本）
  *   - 流式输出（chatStream）
- *   - 自动重试（指数退避）
+ *   - 自动重试（线性退避）
  */
 
 const SUPPORTED_PROVIDERS = ['openai', 'openai-compatible', 'anthropic', 'ollama', 'custom'];

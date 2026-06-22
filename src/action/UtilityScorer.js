@@ -233,6 +233,9 @@ const CANDIDATE_TYPE_VECTORS = {
   consume:  [0, 0.2, 0, 0.2],
 };
 
+const QUIET_TYPES = new Set(['rest', 'observe', 'reflect']);
+const ACTIVE_TYPES = new Set(['work', 'explore', 'move']);
+
 function scoreHabit(candidate, context) {
   return 0;
 }
@@ -339,8 +342,8 @@ function scoreWorld(candidate, context) {
 
   if (pressure === 0) return 0;
 
-  const quietTypes = new Set(['rest', 'observe', 'reflect']);
-  const activeTypes = new Set(['work', 'explore', 'move']);
+  const quietTypes = QUIET_TYPES;
+  const activeTypes = ACTIVE_TYPES;
 
   let score = 0;
   if (quietTypes.has(candidate.type)) {
