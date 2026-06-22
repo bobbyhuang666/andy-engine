@@ -197,6 +197,10 @@ class Andy {
     const llm = state.defaultLLM || options.llm || {};
     for (const [id, charState] of Object.entries(state.characters)) {
       const character = Character.load(charState, { llm, domain: options.domain });
+      // 修复 engine 共享：所有角色必须指向同一个 Andy 引擎
+      character._engine = world._engine;
+      character._ownsEngine = false;
+      character._agent = world._engine.getAgent(character.id);
       world._characters.set(id, character);
     }
     return world;

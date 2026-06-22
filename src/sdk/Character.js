@@ -29,6 +29,7 @@ const NarrativeBuilder = require('./NarrativeBuilder');
 const LLMAdapter = require('./LLMAdapter');
 const AutoTick = require('./AutoTick');
 const ConversationLog = require('./ConversationLog');
+const { diagnostics } = require('../shared/Diagnostics');
 
 class Character {
   /**
@@ -52,6 +53,7 @@ class Character {
       throw new Error('Character: 至少需要 name 或 id。用法: new Character({ name: "Maya", llm: ... })');
     }
 
+    // ID 生成使用 Math.random()，不影响模拟确定性
     this.id = config.id || `char_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     this.name = config.name || '角色';
     this.backstory = config.backstory || [];
@@ -143,7 +145,8 @@ class Character {
     try {
       this._autoTick.advance(this._engine);
     } catch (e) {
-      // 时间推进失败不应阻断对话
+      diagnostics.warn(`AutoTick advance error: ${e.message}`);
+      diagnostics.collect({ type: 'auto_tick_error', error: e.message });
     }
 
     // 2. 记录用户消息
@@ -394,7 +397,8 @@ class Character {
         importance: 0.5,
       });
     } catch (e) {
-      // 记忆失败不影响对话
+      diagnostics.warn(`Conversation memory error: ${e.message}`);
+      diagnostics.collect({ type: 'conversation_memory_error', agentId: this.id, error: e.message });
     }
   }
 }

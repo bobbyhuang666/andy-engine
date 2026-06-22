@@ -2,7 +2,7 @@
  * EmotionSignalBuffer — 情绪信号缓冲层
  *
  * 解决时序不对齐问题:
- *   Bobby 对话: 秒级（用户连发 10 条消息）
+ *   Agent 对话: 秒级（用户连发 10 条消息）
  *   Andy tick: 分钟级（每 5 分钟一次）
  *
  * 工作方式:
@@ -94,6 +94,7 @@ class EmotionSignalBuffer {
         '被人关心了，心里暖暖的',
         '有人嘘寒问暖，心情好了一点',
       ];
+      // SDK 层故事文案随机选择，不影响模拟状态，故意非确定性以增加多样性
       story = variants[Math.floor(Math.random() * variants.length)];
     } else if (intent === 'praise') {
       const variants = [
