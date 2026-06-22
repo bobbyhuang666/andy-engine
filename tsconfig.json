@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true
+  },
+  "include": [
+    "index.js",
+    "index.d.ts",
+    "src/**/*.js"
+  ],
+  "exclude": [
+    "node_modules",
+    "tests",
+    "benchmarks",
+    "experiments",
+    "demo",
+    "native"
+  ]
+}

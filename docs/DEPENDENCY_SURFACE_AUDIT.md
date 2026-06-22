@@ -9,7 +9,7 @@
 
 | Dependency | Current | Used in `src/`? | Used in `demo/`? | Used elsewhere? | Applied |
 |---|---|---|---|---|---|
-| better-sqlite3 | dependencies | Yes (src/store/SQLiteStore.js) | No | No | **Kept as dependencies** |
+| better-sqlite3 | optionalDependencies | Yes (src/store/SQLiteStore.js) | No | No | **Moved to optionalDependencies** |
 | express | devDependencies | No | Yes (demo/character-lab/server.js) | No | **Moved to devDependencies** |
 | ws | removed | No | No | No | **Removed entirely** |
 
@@ -39,7 +39,7 @@
 | Keep as dependencies | Smoke tests pass; store works out of box | Adds native build requirement to all installs |
 | Move to optionalDependencies | npm install succeeds even without native build; clear error on store use | smoke:pack would need conditional skip |
 
-**Recommendation:** **Keep as `dependencies`**. The store layer is a core feature, and the smoke test validates it. The try/catch pattern already handles missing builds gracefully at runtime. If native build issues become a user pain point, consider moving to `optionalDependencies` with a smoke:pack conditional.
+**Recommendation:** **Move to `optionalDependencies`**. The store layer is a core feature but requires native compilation. Moving to optionalDependencies means `npm install` succeeds even without native build tools. The `require('andy-engine/store')` facade loads without error; only constructing a `SQLiteStore` throws a clear error if better-sqlite3 is missing. A `sqlite:smoke` npm script is available to verify SQLite functionality when the dependency is installed.
 
 ---
 
@@ -84,14 +84,15 @@
 
 ```jsonc
 {
-  "dependencies": {
-    "better-sqlite3": "^12.10.0"  // keep
+  "optionalDependencies": {
+    "better-sqlite3": "^12.10.0"  // moved from dependencies
     // express: removed
     // ws: removed
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.7",
     "express": "^5.2.1",          // moved from dependencies
+    "typescript": "^5.8.3",       // new: for typecheck
     "vitest": "^4.1.7"
   }
 }
@@ -103,11 +104,11 @@
 |---|---|---|
 | Move express to devDependencies | None | demo/ not in package files; demo script does own npm install |
 | Remove ws | None | Zero imports; zero tests; zero runtime usage |
-| Keep better-sqlite3 | Low | Already has try/catch; smoke:pack validates |
+| Move better-sqlite3 to optionalDependencies | Low | Store facade loads without error; SQLiteStore constructor throws clear message; sqlite:smoke validates |
 
 ## Action Items
 
 - [x] Move `express` from dependencies to devDependencies
 - [x] Remove `ws` from dependencies
-- [x] Keep `better-sqlite3` as dependencies
+- [x] Move `better-sqlite3` to optionalDependencies
 - [ ] Run full validation: `npm test && npm run test:domain && npm run check:boundaries && npm run smoke:pack`

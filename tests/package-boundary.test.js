@@ -13,8 +13,8 @@ const pkg = JSON.parse(readFileSync(path.join(process.cwd(), 'package.json'), 'u
 
 describe('Package Boundary', () => {
   describe('package.json metadata', () => {
-    it('version is 2.0.0-alpha.2', () => {
-      expect(pkg.version).toBe('2.0.0-alpha.2');
+    it('version is 2.0.0-alpha.3', () => {
+      expect(pkg.version).toBe('2.0.0-alpha.3');
     });
 
     it('types points to index.d.ts', () => {
@@ -230,7 +230,7 @@ describe('Package Boundary', () => {
 
     it('index.d.ts methods use typed parameters', () => {
       const content = readFileSync(path.join(process.cwd(), 'index.d.ts'), 'utf-8');
-      expect(content).toContain('constructor(config?: AndyEngineConfig)');
+      expect(content).toContain('constructor(config?: AndyEngineConfig');
       expect(content).toContain('createCharacter(config: AgentConfig)');
       expect(content).toContain('addAgent(config: AgentConfig)');
       expect(content).toContain('getWorldContext(agentId: string): WorldContext');

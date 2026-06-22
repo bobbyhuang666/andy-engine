@@ -12,7 +12,7 @@ Actions become canonical events that affect memory, relationships, location mean
 
 LLMs only express what a character knows; they do not create world facts.
 
-> **Alpha Status**: v2.0.0-alpha.2 — API still hardening, not stable v2.0.0.
+> **Alpha Status**: v2.0.0-alpha.3 — API still hardening, not stable v2.0.0.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
@@ -373,6 +373,12 @@ await store.init({
 await store.shutdown();
 ```
 
+**Note:** SQLite persistence uses the optional `better-sqlite3` dependency. If not installed, the store facade still loads — only constructing a `SQLiteStore` instance will throw. Install it with:
+
+```bash
+npm install better-sqlite3
+```
+
 **Advanced:** For direct SQLite access:
 
 ```javascript
@@ -409,6 +415,8 @@ See `experiments/` for the full experiment suite:
 
 ## License
 
+This project is licensed under the AGPL-3.0-only license. npm publication is not planned at this time.
+
 [GNU Affero General Public License v3.0](LICENSE)
 
 You are free to use, modify, and distribute this software, provided that:
@@ -417,6 +425,10 @@ You are free to use, modify, and distribute this software, provided that:
 - Network use counts as distribution (if you run a modified version as a service, you must share the source)
 
 For commercial licensing inquiries: huangweijiebobby@gmail.com
+
+## Commercial Licensing
+
+Commercial licensing is available for proprietary integration, hosted products, games, AI companions, robots, and enterprise deployments. Contact us for details.
 
 ---
 
@@ -434,7 +446,7 @@ Andy Engine 维护一个共享的 **WorldCanon**：发生了什么、谁看到�
 
 LLM 只能表达角色知道的事，不能创造世界事实。
 
-> 状态：**Alpha — v2.0.0-alpha.2**，API 仍在硬化中，不是稳定 v2.0.0。
+> 状态：**Alpha — v2.0.0-alpha.3**，API 仍在硬化中，不是稳定 v2.0.0。
 
 ---
 
@@ -523,7 +535,7 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 
 ### 尚未成为生产契约
 
-- 当前版本是 `2.0.0-alpha.2`，不是稳定生产版
+- 当前版本是 `2.0.0-alpha.3`，不是稳定生产版
 - Fact schema 和 Knowledge schema 可能还会变化
 - `FactConsistencyChecker` 基于正则表达式，是实验性的
 - `WorldObject` 已建模但尚未完全集成到 `Agent.tick`
@@ -818,8 +830,14 @@ Rust SoA f32 引擎在 50K agents 时比 JS 快 **5.92x**，精度误差 < 1e-8�
 
 ## 许可证
 
+本项目基于 AGPL-3.0-only 许可证。目前不计划发布到 npm。
+
 [GNU Affero General Public License v3.0](LICENSE)
 
 可自由使用、修改和分发，但需遵守 AGPL-3.0 条款。
 
 商业授权联系：huangweijiebobby@gmail.com
+
+## 商业授权
+
+商业授权适用于私有集成、托管产品、游戏、AI 伴侣、机器人和企业部署。请联系了解详情。

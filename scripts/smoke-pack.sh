@@ -136,6 +136,13 @@ check('createMemoryStore()', () => {
   s.close();
 });
 
+check('require("andy-engine/store") without SQLite', () => {
+  const store = require('andy-engine/store');
+  if (!store.SQLiteStore) throw new Error('no SQLiteStore export');
+  if (!store.createStore) throw new Error('no createStore export');
+  if (!store.createMemoryStore) throw new Error('no createMemoryStore export');
+});
+
 // Config
 check('require("andy-engine/config/defaults")', () => {
   const defaults = require('andy-engine/config/defaults');
