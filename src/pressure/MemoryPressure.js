@@ -14,7 +14,8 @@ class MemoryPressure {
    * @param {Object} agentSnapshot - agent 状态快照（只读）
    * @param {Object[]} agentSnapshot.memories - memories 数组
    * @param {Object} [options]
-   * @param {Date|string} [options.simTime] - simulation time (falls back to Date.now())
+   * @param {Date|string} [options.simTime] - simulation time. When omitted, falls back to Date.now()
+   *   which produces incorrect recency calculations during fast-forward simulation.
    * @returns {Object} pressure - { negative, positive, recency, total }
    */
   static compute(agentSnapshot, options = {}) {
@@ -28,6 +29,9 @@ class MemoryPressure {
     let recencySum = 0;
     let count = 0;
 
+    if (!options.simTime) {
+      console.warn('[andy-engine] MemoryPressure.compute() called without simTime — falling back to Date.now(). This produces incorrect recency during fast-forward simulation.');
+    }
     const now = options.simTime ? new Date(options.simTime).getTime() : Date.now();
 
     for (const mem of memories) {
@@ -71,7 +75,7 @@ class MemoryPressure {
    * @param {Object} agentSnapshot
    * @param {number} [threshold=0.3]
    * @param {Object} [options]
-   * @param {Date|string} [options.simTime] - simulation time
+   * @param {Date|string} [options.simTime] - simulation time (recommended for deterministic results)
    * @returns {boolean}
    */
   static hasSignificantNegativeMemory(agentSnapshot, threshold = 0.3, options = {}) {
