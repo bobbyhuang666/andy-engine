@@ -34,8 +34,7 @@ class SQLiteStore {
   constructor(dbPath = ':memory:') {
     if (!Database) {
       throw new Error(
-        'better-sqlite3 未安装。请运行: npm install better-sqlite3\n' +
-        '或者: npm install better-sqlite3 --build-from-source'
+        'SQLite persistence requires optional dependency better-sqlite3. Install it with: npm install better-sqlite3'
       );
     }
 

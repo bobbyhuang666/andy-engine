@@ -1,6 +1,6 @@
 {
   "name": "andy-engine",
-  "version": "2.0.0-alpha.2",
+  "version": "2.0.0-alpha.3",
   "description": "心理学驱动的多智能体社会模拟引擎 — 让 AI 角色拥有记忆、情绪、人格和社交关系",
   "main": "index.js",
   "scripts": {
@@ -26,7 +26,9 @@
     "profile:contagion:quick": "node benchmarks/contagion-profile.js quick",
     "demo": "cd demo/character-lab && npm install && node server.js",
     "pack:dry-run": "npm pack --dry-run",
-    "check:boundaries": "node scripts/check-boundaries.js"
+    "check:boundaries": "node scripts/check-boundaries.js",
+    "typecheck": "tsc --noEmit",
+    "sqlite:smoke": "node -e \"const { SQLiteStore } = require('./src/store'); const db = new SQLiteStore(':memory:'); db.saveSnapshot(0, Date.now(), Buffer.from('test')); const s = db.loadLatest(); if (!s || s.tick !== 0) throw new Error('SQLite smoke failed'); db.close(); console.log('SQLite smoke: OK');\""
   },
   "files": [
     "index.js",
@@ -58,16 +60,17 @@
     "domain-config"
   ],
   "author": "bobbyhuang666",
-  "license": "AGPL-3.0",
+  "license": "AGPL-3.0-only",
   "engines": {
     "node": ">=18.0.0"
   },
-  "dependencies": {
+  "optionalDependencies": {
     "better-sqlite3": "^12.10.0"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.7",
     "express": "^5.2.1",
+    "typescript": "^5.8.3",
     "vitest": "^4.1.7"
   },
   "exports": {
