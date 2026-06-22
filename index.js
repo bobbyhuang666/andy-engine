@@ -29,6 +29,7 @@ const { validateConfig, validateAgentConfig } = require('./src/config/validate')
 const { DomainRegistry } = require('./src/domain/DomainRegistry');
 const { validateDomain } = require('./src/domain/validateDomain');
 const { RNG } = require('./src/shared/rng');
+const { diagnostics } = require('./src/shared/Diagnostics');
 const FactProvider = require('./src/narrative/FactProvider');
 const FactConsistencyChecker = require('./src/narrative/FactConsistencyChecker');
 const Schedule = require('./src/agent/schedule/Schedule');
@@ -357,7 +358,7 @@ class AndyEngine {
    * 推进到指定时间
    * @param {Date} targetTime
    * @param {number} [maxTicks=10000]
-   * @returns {Object[]}
+   * @returns {Object[]} results array with `_completed` and `_ticksUsed` metadata
    */
   advanceTo(targetTime, maxTicks = 10000) {
     const results = [];
@@ -365,6 +366,22 @@ class AndyEngine {
     while (this.world.time < targetTime && count < maxTicks) {
       results.push(this.tick());
       count++;
+    }
+    const completed = this.world.time >= targetTime;
+    results._completed = completed;
+    results._ticksUsed = count;
+    if (!completed) {
+      diagnostics.warn(
+        `advanceTo() truncated: used ${count} ticks without reaching targetTime. ` +
+        `Current time: ${this.world.time}, target: ${targetTime}`
+      );
+      diagnostics.collect({
+        type: 'advanceTo_truncated',
+        ticksUsed: count,
+        maxTicks,
+        currentTime: this.world.time,
+        targetTime,
+      });
     }
     return results;
   }
