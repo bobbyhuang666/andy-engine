@@ -31,7 +31,7 @@ const { toNarrative: _toNarrativeImpl } = require('../src/agent/facade/AgentNarr
 const { recordExternalExperience: _recordExternalExperienceImpl } = require('../src/agent/facade/ExternalExperience');
 const { interact: _interactImpl, calculateInteractionValence: _calcValenceImpl, personalityCompatibility: _compatImpl } = require('../src/agent/facade/InteractionFacade');
 const { toJSON: _toJSONImpl } = require('../src/agent/facade/AgentSerializer');
-const { runShadowActionSelection, buildActionContext: _buildActionContextImpl } = require('../src/agent/runtime/ActionSelectionRuntime');
+const { runShadowActionSelection, buildActionContext: _buildActionContextImpl, validateActionSelectionConfig } = require('../src/agent/runtime/ActionSelectionRuntime');
 const { perceiveEvents } = require('../src/agent/runtime/PerceptionRuntime');
 const ScheduleHandler = require('../src/agent/handlers/ScheduleHandler');
 const { applyNeedsToEmotion, updateHealth, updateSocialEnergy } = require('../src/agent/runtime/PhysiologyRuntime');
@@ -57,6 +57,7 @@ class Agent {
       ...ANDY_DEFAULTS.actionSelection,
       ...(config.actionSelection || {}),
     };
+    validateActionSelectionConfig(this._actionSelectionConfig, this._rng, this.id);
 
     // ─── Create or restore subsystems ───
     const subs = savedState

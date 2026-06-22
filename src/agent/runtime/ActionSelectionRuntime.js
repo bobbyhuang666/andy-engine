@@ -19,6 +19,24 @@ const { RelationshipDelta } = require('../../effects/RelationshipDelta');
 const { diagnostics } = require('../../shared/Diagnostics');
 
 /**
+ * Validate action selection config at agent construction time.
+ * Throws if mode is 'active' with temperature > 0 but no seeded RNG.
+ * @param {Object} actionCfg - merged actionSelection config
+ * @param {Object|null} rng - agent's RNG instance
+ * @param {string} agentId - agent identifier for error message
+ */
+function validateActionSelectionConfig(actionCfg, rng, agentId) {
+  if (!actionCfg || !actionCfg.enabled) return;
+  if (actionCfg.mode === 'active' && actionCfg.temperature > 0 && (!rng || typeof rng.next !== 'function')) {
+    throw new Error(
+      `ActionSelection config error for agent "${agentId}": ` +
+      'UtilitySelector requires a seeded RNG when temperature > 0. ' +
+      'Provide a seed in AndyEngineConfig or set actionSelection.temperature to 0.'
+    );
+  }
+}
+
+/**
  * Build action selection context (read-only snapshot of agent state).
  * @param {Object} agent
  * @param {Object} env
@@ -260,4 +278,5 @@ module.exports = {
   runShadowActionSelection,
   buildActionSelectedEvent,
   applyActionStateDeltas,
+  validateActionSelectionConfig,
 };
