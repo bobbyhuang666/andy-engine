@@ -25,6 +25,8 @@ function toNarrative(agent, externalState = null) {
 
   const narrativeTemplates = agent._domain ? agent._domain.narrativeTemplates : {};
   const statePositionMap = narrativeTemplates.statePositionMap || {};
+  const sp = agent._domain && agent._domain.semanticProfile;
+  const narrativeSp = sp && sp.narrativeModifiers;
 
   let stateDesc;
   if (externalState && externalState.scheduleActivity) {
@@ -42,25 +44,27 @@ function toNarrative(agent, externalState = null) {
   const stateDef = agent._domain ? agent._domain.states[rawState] : null;
   const isActiveCategory = stateDef && activeCategories.includes(stateDef.category);
   if (elapsedMin > 60 && isActiveCategory) {
-    parts.push('但有点坐不住');
+    parts.push((narrativeSp && narrativeSp.needPhrases && narrativeSp.needPhrases.restless) || '但有点坐不住');
   }
 
   // 3. Need deficits (only when obviously deficient)
   const needs = agent.needs.needs;
+  const needPhrases = narrativeSp && narrativeSp.needPhrases;
   if (needs.energy < 0.25) {
-    parts.push('好困');
+    parts.push((needPhrases && needPhrases.veryTired) || '好困');
   } else if (needs.energy < 0.4 && agent.emotion.current.boredom > 0.15) {
-    parts.push('有点困');
+    parts.push((needPhrases && needPhrases.tired) || '有点困');
   }
   if (needs.hunger < 0.25) {
-    parts.push('好饿');
+    parts.push((needPhrases && needPhrases.veryHungry) || '好饿');
   } else if (needs.hunger < 0.4) {
-    parts.push('有点饿');
+    parts.push((needPhrases && needPhrases.hungry) || '有点饿');
   }
 
   // 4. Emotion tone (only when significantly off-neutral)
   const valence = agent.emotion.getValence();
   const dominant = agent.emotion.getDominant(2);
+  const emotionLabels = (narrativeSp && narrativeSp.emotionLabels) || {};
   if (valence < -0.08) {
     const topNeg = dominant.find(d => d.value < 0);
     if (topNeg) {
@@ -69,7 +73,7 @@ function toNarrative(agent, externalState = null) {
         nervousness: '有点焦虑', boredom: '好无聊', anger: '有点烦躁',
         fear: '有点不安',
       };
-      const label = negLabels[topNeg.dimension] || null;
+      const label = emotionLabels[topNeg.dimension] || negLabels[topNeg.dimension] || null;
       if (label) parts.push(label);
     }
   } else if (valence > 0.08) {
@@ -79,12 +83,12 @@ function toNarrative(agent, externalState = null) {
         joy: '心情还不错', contentment: '挺满足的', excitement: '有点兴奋',
         calm: '挺平静的', hope: '有点期待',
       };
-      const label = posLabels[topPos.dimension] || null;
+      const label = emotionLabels[topPos.dimension] || posLabels[topPos.dimension] || null;
       if (label) parts.push(label);
     }
   }
   if (agent.emotion.stress > 6) {
-    parts.push('压力好大');
+    parts.push((narrativeSp && narrativeSp.cognitivePhrases && narrativeSp.cognitivePhrases.highStress) || '压力好大');
   }
 
   // 5. Recent memory (most recent meaningful event)
@@ -110,11 +114,11 @@ function toNarrative(agent, externalState = null) {
   if (agent.intrinsicMotivation && agent.intrinsicMotivation.curiosity > 0.6) {
     const imStatus = agent.intrinsicMotivation.getStatus();
     if (imStatus.activeGoals > 0) {
-      parts.push('在想一些事');
+      parts.push((narrativeSp && narrativeSp.cognitivePhrases && narrativeSp.cognitivePhrases.thinking) || '在想一些事');
     }
   }
   if (agent.health < 0.5) {
-    parts.push('身体不太舒服');
+    parts.push((narrativeSp && narrativeSp.cognitivePhrases && narrativeSp.cognitivePhrases.unwell) || '身体不太舒服');
   }
 
   // 7. BehaviorField dynamics
@@ -124,14 +128,15 @@ function toNarrative(agent, externalState = null) {
 
   const { STATE_CENTERS } = require('../psychology/BehaviorLabeler');
   const center = STATE_CENTERS[rawState];
+  const cognitiveSp = narrativeSp && narrativeSp.cognitivePhrases;
   if (center) {
     const focusDiff = center[DIM_FOCUS] - B[DIM_FOCUS];
     if (focusDiff > 0.25 && center[DIM_FOCUS] > 0.4) {
-      parts.push('心思不太集中');
+      parts.push((cognitiveSp && cognitiveSp.distracted) || '心思不太集中');
     }
     const socialVel = vel[DIM_SOCIALITY];
     if (socialVel > 0.3 && B[DIM_SOCIALITY] < 0.4) {
-      parts.push('有点想找人聊天');
+      parts.push((cognitiveSp && cognitiveSp.wantsSocial) || '有点想找人聊天');
     }
   }
 

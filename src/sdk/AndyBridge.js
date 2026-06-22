@@ -30,7 +30,7 @@ class AndyBridge {
     this._rng = options.rng || null;
 
     // 核心模块
-    this.signalBuffer = new EmotionSignalBuffer();
+    this.signalBuffer = new EmotionSignalBuffer({ rng: this._rng });
     this.storyGenerator = new StoryGenerator();
     this.store = new SimulationStore({
       dbPath: options.dbPath || ':memory:',

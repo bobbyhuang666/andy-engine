@@ -14,12 +14,20 @@
 const { EmotionEffectClassifier } = require('./EmotionEffectClassifier');
 
 class EmotionSignalBuffer {
-  constructor() {
+  /**
+   * @param {Object} [options]
+   * @param {Object} [options.rng] - 可选的 seeded RNG（需有 .next() 方法）
+   * @param {Object} [options.simTime] - 可选的模拟时间源（需有 .getTime() 方法）
+   */
+  constructor(options = {}) {
     /** @type {Array<{ timestamp: number, text: string, result: Object }>} */
     this.pending = [];
 
     /** 上次消费时间 */
     this.lastConsumeTime = 0;
+
+    this._rng = options.rng || null;
+    this._simTime = options.simTime || null;
   }
 
   /**
@@ -31,7 +39,7 @@ class EmotionSignalBuffer {
     const result = EmotionEffectClassifier.classify(text);
 
     this.pending.push({
-      timestamp: Date.now(),
+      timestamp: this._simTime ? this._simTime.getTime() : Date.now(),
       text,       // 仅在缓冲中暂存，消费后丢弃
       result,
     });
@@ -57,7 +65,7 @@ class EmotionSignalBuffer {
       EmotionEffectClassifier.classifyBatch(messages);
 
     const messageCount = this.pending.length;
-    this.lastConsumeTime = Date.now();
+    this.lastConsumeTime = this._simTime ? this._simTime.getTime() : Date.now();
 
     // 清空缓冲
     this.pending = [];
@@ -95,21 +103,21 @@ class EmotionSignalBuffer {
         '有人嘘寒问暖，心情好了一点',
       ];
       // SDK 层故事文案随机选择，不影响模拟状态，故意非确定性以增加多样性
-      story = variants[Math.floor(Math.random() * variants.length)];
+      story = variants[Math.floor((this._rng ? this._rng.next() : Math.random()) * variants.length)];
     } else if (intent === 'praise') {
       const variants = [
         '被人夸了一下，有点开心',
         '有人说你好话，心情不错',
         '收到了一点赞美',
       ];
-      story = variants[Math.floor(Math.random() * variants.length)];
+      story = variants[Math.floor((this._rng ? this._rng.next() : Math.random()) * variants.length)];
     } else if (intent === 'comfort') {
       const variants = [
         '有人安慰了你',
         '得到了一些鼓励',
         '有人说了些暖心的话',
       ];
-      story = variants[Math.floor(Math.random() * variants.length)];
+      story = variants[Math.floor((this._rng ? this._rng.next() : Math.random()) * variants.length)];
     } else if (messageCount >= 5) {
       story = '和一个人聊了很久';
     } else if (messageCount >= 2) {

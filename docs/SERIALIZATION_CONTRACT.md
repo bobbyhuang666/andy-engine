@@ -238,6 +238,19 @@ SaveLoad.load(snapshotId)
 
 ---
 
+## Version Disambiguation
+
+Two version numbers coexist in the persistence layer. They are **layered, not competing**:
+
+| Version | Owner | Scope |
+|---------|-------|-------|
+| `schemaVersion` (`'0.1.0'`) | `validator.js` / `migration.js` | Stable World Envelope schema version. Drives migration pipeline. Part of the `WorldStateAdapter` envelope. |
+| `ENVELOPE_VERSION` (`'0.2.0'`) | `Serialization.js` | Serialization envelope version. Wraps the runtime snapshot in `{ version, timestamp, runtimeSnapshot }`. Independent of schema version. |
+
+**Layering**: `Serialization` envelope (transport) wraps `WorldStateAdapter` envelope (semantic contract). The transport envelope has 3 fields. The semantic envelope has 7+ fields plus the opaque runtime snapshot.
+
+---
+
 ## Ownership Summary
 
 | Component | Owner | File |
@@ -253,3 +266,18 @@ SaveLoad.load(snapshotId)
 | Schema validation | `validateWorldSpec()` / `validateWorldState()` | `src/store/world/validator.js` |
 | World compiler | `compile()` | `src/store/world/compiler.js` |
 | Migration | `migrateWorldState()` | `src/store/world/migration.js` |
+
+---
+
+## SQLite Optional Path
+
+`better-sqlite3` is declared as `optionalDependencies` in `package.json`. The persistence layer degrades gracefully:
+
+| Scenario | Behavior |
+|----------|----------|
+| `require('andy-engine/store')` without `better-sqlite3` | Loads without error. `SQLiteStore` class is exported. |
+| `new SQLiteStore(':memory:')` without `better-sqlite3` | Throws: `"SQLite persistence requires optional dependency better-sqlite3. Install it with: npm install better-sqlite3"` |
+| `new SQLiteStore(':memory:')` with `better-sqlite3` | Works. Smoke test: `npm run sqlite:smoke` |
+| `require('andy-engine')` (engine only, no store) | No SQLite dependency needed. |
+
+**Verified**: `npm run sqlite:smoke` passes (beta.2).

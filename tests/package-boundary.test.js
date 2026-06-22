@@ -13,8 +13,8 @@ const pkg = JSON.parse(readFileSync(path.join(process.cwd(), 'package.json'), 'u
 
 describe('Package Boundary', () => {
   describe('package.json metadata', () => {
-    it('version is 2.0.0-alpha.3', () => {
-      expect(pkg.version).toBe('2.0.0-alpha.3');
+    it('version is 2.0.0', () => {
+      expect(pkg.version).toBe('2.0.0');
     });
 
     it('types points to index.d.ts', () => {
@@ -27,7 +27,10 @@ describe('Package Boundary', () => {
 
     it('exports are complete', () => {
       expect(pkg.exports['.'].require).toBe('./index.js');
-      expect(pkg.exports['./sdk']).toBe('./sdk/index.js');
+      expect(pkg.exports['./sdk'].require || pkg.exports['./sdk']).toBe('./sdk/index.js');
+      if (pkg.exports['./sdk'].types) {
+        expect(existsSync(path.join(process.cwd(), pkg.exports['./sdk'].types))).toBe(true);
+      }
       expect(pkg.exports['./domain']).toBe('./domain/index.js');
       expect(pkg.exports['./domain/validate']).toBe('./src/domain/validateDomain.js');
       expect(pkg.exports['./domain/registry']).toBe('./src/domain/DomainRegistry.js');

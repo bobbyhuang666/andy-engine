@@ -234,10 +234,12 @@ class EventDispatcher {
         if (shareable.length > 0) {
           const memory = shareable[0];
           const gossiperName = gossiperInst.name;
-          content += `。${gossiperName}还提到了：${memory.content}`;
+          const gossipSuffix = this.domain?.semanticProfile?.eventDefaults?.gossipSuffix || '还提到了';
+          content += `。${gossiperName}${gossipSuffix}：${memory.content}`;
 
           // 去重：检查接收方是否已经知道这条八卦
-          const gossipContent = `${gossiperName}说：${memory.content}`;
+          const gossipVerb = this.domain?.semanticProfile?.eventDefaults?.gossipVerb || '说';
+          const gossipContent = `${gossiperName}${gossipVerb}：${memory.content}`;
           const existingGossip = listenerInst.memory.memories.find(
             m => m.category === 'gossip' && m.content === gossipContent
           );
@@ -535,7 +537,7 @@ class EventDispatcher {
       }
     }
 
-    return '日常琐事';
+    return this.domain?.semanticProfile?.eventDefaults?.defaultSemanticCategory || '日常琐事';
   }
 
   /**

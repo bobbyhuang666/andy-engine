@@ -261,6 +261,8 @@ class DomainRegistry {
 
   get emotionRegulationConfig() { return this.domain.emotionRegulationConfig || {}; }
 
+  get semanticProfile() { return this.domain.semanticProfile; }
+
   // ═══════════════════════════════════════════
   // 禁止词
   // ═══════════════════════════════════════════

@@ -88,8 +88,20 @@ npm run benchmark
 # Quick benchmark (recommended for daily use)
 npm run benchmark:quick
 
-# Performance regression check
+# Performance regression check (against release baseline)
 npm run perf:check
+
+# Performance regression check with median of 3 runs
+npm run perf:check -- --runs=3
+
+# Calibrate local baseline for your machine
+npm run perf:calibrate
+
+# Performance regression check against local baseline
+npm run perf:check -- --local
+
+# Diagnose: test different engine configurations
+npm run perf:diagnose
 
 # Subsystem profiling
 npm run profile:quick
@@ -100,9 +112,28 @@ npm run profile:contagion:quick
 
 ---
 
+## Local Baseline Calibration
+
+The release baseline (`benchmarks/baselines/v0.2.0-post-contagion-cache.json`) was captured on a specific machine. Timing numbers vary across machines due to CPU, OS scheduling, thermal state, and background load.
+
+To establish a baseline for your machine:
+
+```bash
+npm run perf:calibrate          # saves to benchmarks/baselines/local.json
+npm run perf:check -- --local   # compare against your local baseline
+```
+
+The local baseline records your CPU model, core count, node version, and the median of 3 runs. Use `--local` for all subsequent checks on your machine.
+
+See `docs/PERF_CALIBRATION_GUIDE.md` for full details.
+
+---
+
 ## Caveats
 
-- Numbers vary by machine, OS, and system load
-- `benchmark:quick` takes ~10 seconds; full `benchmark` takes longer
-- Profile numbers are inclusive timings (nested calls may overlap)
-- For reliable comparison, run on the same machine with similar load
+- **Cross-machine comparison is unreliable.** CPU model, core count, thermal throttling, and background load all affect timing. Use `perf:calibrate` to establish your own baseline.
+- **Single-run variance is high.** Use `--runs=3` for stable results. OS scheduling, GC pauses, and JIT warmup all cause noise.
+- **`benchmark:quick` takes ~10 seconds;** full `benchmark` takes longer.
+- **Profile numbers are inclusive timings** (nested calls may overlap).
+- **Thresholds (WARN 1.6x, FAIL 2.0x)** are tuned for median-of-3 comparisons against a same-machine baseline. Single runs may trigger false positives.
+- **For CI:** use a dedicated runner with consistent specs, or compare only against the release baseline on the same runner type.

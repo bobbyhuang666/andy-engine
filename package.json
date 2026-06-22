@@ -1,6 +1,6 @@
 {
   "name": "andy-engine",
-  "version": "2.0.0-alpha.3",
+  "version": "2.0.0",
   "description": "心理学驱动的多智能体社会模拟引擎 — 让 AI 角色拥有记忆、情绪、人格和社交关系",
   "main": "index.js",
   "scripts": {
@@ -15,6 +15,7 @@
     "benchmark": "node benchmarks/baseline.js",
     "benchmark:quick": "node benchmarks/baseline.js quick",
     "perf:check": "node benchmarks/perf-check.js",
+    "perf:calibrate": "bash scripts/perf-calibrate.sh",
     "perf:diagnose": "node benchmarks/perf-check.js --diagnose",
     "profile": "node benchmarks/profile.js",
     "profile:quick": "node benchmarks/profile.js quick",
@@ -28,6 +29,7 @@
     "pack:dry-run": "npm pack --dry-run",
     "check:boundaries": "node scripts/check-boundaries.js",
     "typecheck": "tsc --noEmit",
+    "typecheck:consumer": "bash scripts/consumer-typecheck.sh",
     "sqlite:smoke": "node -e \"const { SQLiteStore } = require('./src/store'); const db = new SQLiteStore(':memory:'); db.saveSnapshot(0, Date.now(), Buffer.from('test')); const s = db.loadLatest(); if (!s || s.tick !== 0) throw new Error('SQLite smoke failed'); db.close(); console.log('SQLite smoke: OK');\""
   },
   "files": [
@@ -78,7 +80,10 @@
       "types": "./index.d.ts",
       "require": "./index.js"
     },
-    "./sdk": "./sdk/index.js",
+    "./sdk": {
+      "types": "./sdk/index.d.ts",
+      "require": "./sdk/index.js"
+    },
     "./domain": "./domain/index.js",
     "./domain/validate": "./src/domain/validateDomain.js",
     "./domain/registry": "./src/domain/DomainRegistry.js",

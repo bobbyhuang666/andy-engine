@@ -303,3 +303,86 @@ World schema tooling has been implemented and moved under the canonical `src/` t
 - `tests/store/schema-validator.test.js`：覆盖校验器的单元测试
 
 旧的 `world/` 顶层工具目录已退休；不要新增 `world/*` 实现文件。
+
+---
+
+## 10. Field Classification (beta.2 Freeze Review)
+
+Each field in the world state is classified into one of four stability tiers:
+
+| Tier | Meaning | Migration responsibility |
+|------|---------|------------------------|
+| **Stable Envelope** | Cross-version public contract. Breaking changes require schema version bump + migration. | `migration.js` must handle |
+| **Opaque Runtime Snapshot** | Internal to the runtime version that produced it. Not a public contract. | Runtime reports error at load time if incompatible |
+| **Experimental** | Shipped but may change shape between minor versions. Not guaranteed stable. | Best-effort migration |
+| **Migration-Only** | Fields that exist only in the migration path (v0.0.0 → v0.1.0). Not persisted in current schema. | `migrateV0ToV1()` only |
+
+### 10.1 Stable World Envelope Fields
+
+| Path | Type | Description |
+|------|------|-------------|
+| `schemaVersion` | `string` | Schema version for migration pipeline (`'0.1.0'`) |
+| `worldId` | `string` | World unique identifier |
+| `domainRef` | `string` | Domain Config ID reference |
+| `worldClock.time` | `string` (ISO 8601) | Current simulation time |
+| `worldClock.tickCount` | `number` (non-negative int) | Executed tick count |
+| `characters[].id` | `string` | Character unique identifier |
+| `characters[].name` | `string` | Character display name |
+| `characters[].position` | `string` | Current region (from domain config) |
+| `relationships[].from` | `string` | Source character ID |
+| `relationships[].to` | `string` | Target character ID |
+| `relationships[].type` | `string` (optional) | Relationship type (`stranger`/`acquaintance`/`friend`/`closeFriend`) |
+| `relationships[].strength` | `number` (optional, 0–1) | Relationship strength |
+| `events[].id` | `string` | Event unique identifier |
+| `events[].time` | `string` (ISO 8601) | Event timestamp |
+| `events[].type` | `string` | Event type (`social`/`random`/`weather`/`state_change`) |
+| `events[].content` | `string` | Event content description |
+| `runtimeSnapshot` | `object` | Opaque payload — only `typeof === 'object'` validated |
+
+### 10.2 Opaque Runtime Snapshot Fields
+
+These fields live inside `runtimeSnapshot` and are produced by `AndyWorld.toJSON()`. Their shape is NOT a public contract and may change between minor versions without migration.
+
+| Path | Type | Description |
+|------|------|-------------|
+| `runtimeSnapshot.time` | `string` | Internal sim time |
+| `runtimeSnapshot.tickCount` | `number` | Internal tick count |
+| `runtimeSnapshot.environment` | `object` | Weather, timeOfDay, season |
+| `runtimeSnapshot.agents` | `{ [id]: object }` | Full agent state (emotion, needs, memory, personality, behaviorField, etc.) |
+| `runtimeSnapshot.socialGraph` | `array` | Social graph edges (raw) |
+| `runtimeSnapshot.events` | `object` | Event log with full details |
+| `runtimeSnapshot.rngState` | `number \| undefined` | Seeded RNG state (only if seeded) |
+| `runtimeSnapshot.factStore` | `object \| undefined` | World fact store (only if `enableFacts`) |
+| `runtimeSnapshot.knowledgeStore` | `object \| undefined` | Knowledge store (only if `enableFacts`) |
+
+### 10.3 Experimental Fields
+
+These are shipped in the Stable Envelope but their exact shape may evolve. Best-effort migration only.
+
+| Path | Type | Status |
+|------|------|--------|
+| `events[].content` | `string` | Content format may evolve (currently plain text) |
+| `relationships[].type` | `string` | Type vocabulary may expand |
+| `domainRef` | `string` | Cross-domain migration not yet defined |
+
+### 10.4 Migration-Only Fields
+
+These fields exist only in the v0.0.0 → v0.1.0 migration path and are not part of the current schema.
+
+| Path | Type | Origin |
+|------|------|--------|
+| `stateVersion` | `string` | Old field name, mapped to `schemaVersion` |
+| `agents` (top-level) | `object` | Old format had agents at root instead of `characters[]` |
+| `socialGraph` (top-level, edges with `agentA`/`agentB`) | `array` | Old edge format, mapped to `relationships[]` |
+| `events.eventLog` (raw) | `array` | Old event format with mixed types, mapped to `events[]` |
+
+### 10.5 Envelope Version Disambiguation
+
+Two version numbers coexist:
+
+| Version | Owner | Scope |
+|---------|-------|-------|
+| `schemaVersion` (`'0.1.0'`) | `validator.js` / `migration.js` | Stable World Envelope schema version. Drives migration pipeline. |
+| `ENVELOPE_VERSION` (`'0.2.0'`) | `Serialization.js` | Serialization envelope version. Wraps the runtime snapshot. Independent of schema version. |
+
+The `Serialization` envelope (`{ version, timestamp, runtimeSnapshot }`) is a transport wrapper. The `WorldStateAdapter` envelope (`{ schemaVersion, worldId, domainRef, worldClock, characters, relationships, events, runtimeSnapshot }`) is the semantic persistence contract. They are layered, not competing.

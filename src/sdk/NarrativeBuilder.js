@@ -22,6 +22,7 @@ class NarrativeBuilder {
       scenario = '',
       conversationHistory = null,
       domain = null,
+      affectFrame = null,
     } = options;
 
     if (!worldContext) return '';
@@ -41,7 +42,7 @@ class NarrativeBuilder {
       sections.push(`# 你的故事\n${backstory.map(b => `- ${b}`).join('\n')}`);
     }
 
-    const state = NarrativeBuilder._buildCurrentState(worldContext, narrativeTemplates);
+    const state = NarrativeBuilder._buildCurrentState(worldContext, narrativeTemplates, affectFrame);
     if (state) sections.push(state);
 
     const memory = NarrativeBuilder._buildMemory(worldContext.memoryContext);
@@ -103,7 +104,7 @@ class NarrativeBuilder {
   // ═══════════════════════════════════════════
   // 当前状态（自然语言叙述）
   // ═══════════════════════════════════════════
-  static _buildCurrentState(ctx, narrativeTemplates = {}) {
+  static _buildCurrentState(ctx, narrativeTemplates = {}, affectFrame = null) {
     const parts = [];
 
     if (ctx.currentRegion) {
@@ -114,7 +115,15 @@ class NarrativeBuilder {
     }
 
     // 生理状态
-    if (ctx.needsState) {
+    if (affectFrame) {
+      for (const n of affectFrame.needs) {
+        if (n.need === 'energy' && n.urgency >= 0.8) parts.push('眼皮重得抬不起来');
+        else if (n.need === 'energy' && n.urgency >= 0.6) parts.push('有点犯困');
+        if (n.need === 'hunger' && n.urgency >= 0.8) parts.push('肚子咕咕叫');
+        else if (n.need === 'hunger' && n.urgency >= 0.6) parts.push('有点饿');
+        if (n.need === 'social' && n.urgency >= 0.8) parts.push('好久没跟人说话了');
+      }
+    } else if (ctx.needsState) {
       if (ctx.needsState.includes('精力极度匮乏')) parts.push('眼皮重得抬不起来');
       else if (ctx.needsState.includes('精力不足')) parts.push('有点犯困');
       if (ctx.needsState.includes('饱腹极度匮乏')) parts.push('肚子咕咕叫');
@@ -122,8 +131,46 @@ class NarrativeBuilder {
       if (ctx.needsState.includes('社交极度匮乏')) parts.push('好久没跟人说话了');
     }
 
-    // 情绪状态（提取自然语言，清理数值和冗余前缀）
-    if (ctx.emotionState) {
+    // 情绪状态
+    if (affectFrame) {
+      const emotionNames = {
+        joy: '开心', sadness: '难过', anger: '生气', fear: '害怕',
+        surprise: '惊讶', disgust: '厌恶', amusement: '觉得好笑',
+        contentment: '满足', excitement: '兴奋', calm: '平静',
+        hope: '希望', love: '喜欢/爱', nervousness: '紧张',
+        pride: '自豪', relief: '如释重负', satisfaction: '满意',
+        frustration: '沮丧/烦躁', gratitude: '感激', loneliness: '孤独',
+        boredom: '无聊', guilt: '内疚', shame: '羞耻', horror: '恐惧',
+        triumph: '得意', interest: '感兴趣', desire: '渴望',
+        awe: '敬畏', embarrassment: '尴尬', sympathy: '同情', confusion: '困惑',
+      };
+      const intensityLabel = (abs) => {
+        if (abs > 0.85) return '极度';
+        if (abs > 0.7) return '非常';
+        if (abs > 0.55) return '很';
+        if (abs > 0.4) return '挺';
+        if (abs > 0.25) return '比较';
+        if (abs > 0.12) return '有点';
+        return '略微';
+      };
+      const positive = [];
+      const negative = [];
+      for (const e of affectFrame.emotions) {
+        const name = emotionNames[e.dimension] || e.dimension;
+        const label = intensityLabel(Math.abs(e.intensity));
+        if (e.intensity > 0) positive.push(`${label}${name}`);
+        else negative.push(`${label}${name}`);
+      }
+      if (affectFrame.valence > 0.2 && positive.length > 0) {
+        parts.push(`${positive[0]}的情绪主导着你的心境`);
+      } else if (affectFrame.valence < -0.2 && negative.length > 0) {
+        parts.push(`${negative[0]}的情绪笼罩着你`);
+      } else if (positive.length > 0 || negative.length > 0) {
+        const all = [...positive, ...negative];
+        parts.push(`你的内心平静而微妙，${all[0]}`);
+        if (all.length > 1) parts[parts.length - 1] += `与${all[1]}并存`;
+      }
+    } else if (ctx.emotionState) {
       const sceneMatch = ctx.emotionState.match(/^(.*?)（效价/);
       if (sceneMatch && sceneMatch[1]) {
         let emotion = sceneMatch[1].trim()

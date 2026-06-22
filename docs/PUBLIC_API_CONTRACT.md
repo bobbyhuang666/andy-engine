@@ -51,8 +51,8 @@ require('andy-engine/presets/tavern') → presets/tavern/index.js
   - `onTick(callback)` — stable
   - `setWeather(weather)` — stable
   - `getSocialGraph()` — stable
-  - `toJSON()` — deprecated
-  - `fromJSON(data, config?)` — deprecated
+  - `toJSON()` — legacy compatibility (functional; prefer `snapshot()` + `WorldStateAdapter`)
+  - `fromJSON(data, config?)` — legacy compatibility (functional; prefer `WorldStateAdapter.fromWorldState()`)
 - **Allowed consumers**: external apps, SDK, examples, all tests
 - **Breaking-change policy**: major version bump only. `AndyEngine` is the primary public class.
 - **Smoke test coverage**: `scripts/smoke-pack.sh` — `new AndyEngine()`, `createCharacter`, `tick`, `getNarrative`, custom domain

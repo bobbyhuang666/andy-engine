@@ -551,3 +551,53 @@ This RFC is successful if:
 3. LLM integration via AffectFrame produces character expressions that are more consistent with engine state than current string-based injection
 4. `checkConsistency()` can validate LLM output against AffectFrame without false positives exceeding 10%
 5. The open-source / commercial boundary is clear and enforceable
+
+---
+
+## 13. Seam Compatibility Review (beta.1)
+
+> Added during B1.4 task — Public API contract finalization.
+
+### 13.1 Current Seam Status
+
+`AffectFrame` is implemented as a seam at `src/shared/AffectFrame.js:buildAffectFrame(agent)`. It is a pure function that derives a structured snapshot from existing agent subsystems (EmotionVector, NeedsSystem, BehaviorField) without modifying them. The output shape is:
+
+```js
+{
+  emotions: [{ dimension, intensity }],
+  valence: number,
+  arousal: number,
+  needs: [{ need, urgency }],
+  behavior: { activity, sociality, focus, expressiveness },
+  behaviorSpeed: number,
+  stability: number,  // placeholder 0.5
+  _meta: { version: '0.1-seam' }
+}
+```
+
+**What is present:** Basic emotion extraction (Top-K by `|intensity| >= 0.1`), valence/arousal from `EmotionVector.getValence()`/`getArousal()`, need urgency from `NeedsSystem.needs`, behavior vector snapshot, and behavior speed.
+
+**What is NOT present (deferred to AffectCompiler):** trend detection, social energy, regulation state, stability computation (currently hardcoded 0.5), memory pressure contribution.
+
+### 13.2 Compatibility Assessment
+
+| Criterion | Status | Notes |
+|-----------|--------|-------|
+| AffectFrame flows into narrative generation | ✅ Compatible | `NarrativeBuilder.buildSystemPrompt()` accepts `affectFrame` option (`src/sdk/NarrativeBuilder.js:25`). `_buildCurrentState()` reads `affectFrame.needs` and `affectFrame.emotions` to produce natural-language state text. |
+| LLM can express structured affect without creating world facts | ✅ Compatible | AffectFrame is read-only data injected into the prompt. LLM output is validated by `FactConsistencyChecker`, not by AffectFrame. No world facts are created from affect expressions. |
+| No public API frozen in string-parsing shape | ✅ Compatible | The `affectFrame` option is additive to `NarrativeBuilder.buildSystemPrompt()`. Existing `toPromptString()` path is preserved as default. No breaking API change. |
+| NarrativeBuilder affectFrame seam is compatible | ✅ Compatible | `buildSystemPrompt(options)` already destructures `affectFrame = null` from options. When null, falls back to `ctx.needsState`/`ctx.emotionState` string parsing. When provided, uses structured data directly. |
+
+### 13.3 Blockers for Future AffectCompiler Integration
+
+**No blocking issues.** The current seam is designed for forward compatibility:
+
+1. `AffectFrame` shape from `buildAffectFrame()` is a subset of the full RFC spec (Section 4). Missing fields (`socialEnergy`, `behaviorDynamics`, `regulation`, trend data) can be added without breaking consumers — the seam consumer (`NarrativeBuilder`) only reads `emotions`, `valence`, `needs`.
+
+2. `buildAffectFrame()` returns a plain object — no class identity issues across CJS/ESM boundaries.
+
+3. The `NarrativeBuilder` affectFrame path is additive opt-in, so AffectCompiler can be built in parallel without touching existing narrative generation.
+
+4. Type surface in `index.d.ts` declares `AffectFrame` as `@experimental`, signaling consumers that the shape may evolve.
+
+**Recommended next step:** When AffectCompiler is implemented, promote `AffectFrame` from experimental to stable and add missing fields (`socialEnergy`, `behaviorDynamics`, `regulation`, trend data) to both the implementation and the type declaration.

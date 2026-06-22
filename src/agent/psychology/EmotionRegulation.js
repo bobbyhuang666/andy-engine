@@ -334,7 +334,9 @@ class EmotionRegulation {
       // （正常是 mood-congruent recall，注意部署是 mood-incongruent recall）
       const domain = agent._domain;
       const erConfig = domain && domain.emotionRegulationConfig;
-      const positiveKeywords = (erConfig && erConfig.positiveMemoryKeywords) || ['开心', '高兴', '满意', '有趣', '朋友', '成功'];
+      const positiveKeywords = (erConfig && erConfig.positiveMemoryKeywords)
+        || (domain && domain.semanticProfile && domain.semanticProfile.emotionRegulationKeywords && domain.semanticProfile.emotionRegulationKeywords.positiveMemory)
+        || ['开心', '高兴', '满意', '有趣', '朋友', '成功'];
       const { memories: positiveMemories, recallEmotionDelta } = agent.memory.retrieve({
         keywords: positiveKeywords,
         emotion: { joy: 0.5, contentment: 0.3 }, // 检索正面情绪的记忆

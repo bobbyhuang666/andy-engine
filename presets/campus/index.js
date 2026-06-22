@@ -700,6 +700,130 @@ const campusDomain = {
     positiveMemoryKeywords: ['开心', '高兴', '满意', '有趣', '朋友', '成功'],
   },
 
+  // ═══════════════════════════════════════════
+  // 语义配置（中文语言资源）
+  // ═══════════════════════════════════════════
+  semanticProfile: {
+    language: 'zh-CN',
+
+    mindWander: {
+      negativeKeywords: ['难过', '不开心', '孤独', '压力'],
+      positiveKeywords: ['开心', '有趣', '朋友', '喜欢'],
+      thoughtTypes: {
+        recall: '回忆',
+        rumination: '反刍',
+        nostalgia: '怀念',
+        worry: '担忧',
+        daydream: '白日梦',
+      },
+      daydreamContents: [
+        '想着等下做什么好呢',
+        '今天天气不错，心情也挺好的',
+        '希望这样的日子能多一些',
+        '突然想到了一个有趣的想法',
+      ],
+      timeLabels: {
+        justNow: '刚刚',
+        hoursAgo: (h) => `${h}小时前`,
+        daysAgo: (d) => `${d}天前`,
+        weeksAgo: (w) => `${w}周前`,
+      },
+    },
+
+    narrativeModifiers: {
+      emotionLabels: {
+        sadness: '心情不太好', loneliness: '有点孤独', frustration: '有点烦',
+        nervousness: '有点焦虑', boredom: '好无聊', anger: '有点烦躁',
+        fear: '有点不安',
+        joy: '心情还不错', contentment: '挺满足的', excitement: '有点兴奋',
+        calm: '挺平静的', hope: '有点期待',
+      },
+      needPhrases: {
+        veryTired: '好困', tired: '有点困', veryHungry: '好饿', hungry: '有点饿',
+        restless: '但有点坐不住',
+      },
+      cognitivePhrases: {
+        highStress: '压力好大',
+        distracted: '心思不太集中',
+        wantsSocial: '有点想找人聊天',
+        thinking: '在想一些事',
+        unwell: '身体不太舒服',
+      },
+    },
+
+    behaviorModifiers: {
+      distracted: '有点心不在焉',
+      lonely: '想找人说话',
+      lazy: '不太想动',
+      verbMap: {},
+    },
+
+    emotionKeywords: {
+      happy: ['开心', '高兴', '快乐', '愉快', '兴奋', '喜悦'],
+      sad: ['难过', '伤心', '悲伤', '沮丧', '失落'],
+      angry: ['生气', '愤怒', '恼火', '烦躁'],
+      fear: ['害怕', '恐惧', '紧张', '焦虑', '担忧'],
+      surprise: ['惊讶', '意外', '震惊'],
+      disgust: ['厌恶', '恶心', '反感'],
+    },
+
+    emotionRegulationKeywords: {
+      positiveMemory: ['开心', '高兴', '满意', '有趣', '朋友', '成功'],
+    },
+
+    eventDefaults: {
+      defaultSemanticCategory: '日常琐事',
+      gossipSuffix: '还提到了',
+      gossipVerb: '说',
+    },
+
+    socialNormKeywords: {
+      positive: ['打招呼', '聊天', '帮助'],
+      negative: ['冲突', '吵架'],
+    },
+
+    defaultSemanticCategories: {
+      typeMap: {
+        social: '社交互动',
+        weather: '环境天气',
+        state_change: '行为转变',
+        regulation: '情绪调节',
+        mind_wander: '内心思绪',
+        need_satisfied: '需求满足',
+        intrinsic: '自我探索',
+        gossip: '社交信息',
+        encounter: '社交互动',
+        general: '日常琐事',
+        deviant: '偏离常规',
+        illness: '身体不适',
+      },
+      keywordMap: {
+        '情绪事件': ['开心', '难过', '生气', '害怕', '惊喜', '感动', '委屈', '焦虑', '兴奋', '失落', '空虚', '心酸', '寂寞', '悲伤', '快乐', '高兴'],
+        '学习成长': ['有趣的书', '有趣的话题', '老师讲', '找到', '发现', '新发现', '学习', '学到'],
+        '社交互动': ['聊天', '朋友', '分享', '鼓励', '一起', '偶遇', '打招呼', '聊', '提到', '情侣', '吵架'],
+        '环境天气': ['下雨', '天气', '阳光', '冷', '热', '晴朗', '淋湿', '雨声'],
+        '美食享受': ['好吃', '新菜', '吃饭', '咖啡', '零食', '味道', '宵夜'],
+        '工作劳动': ['打工', '工作', '上班', '下班', '会议'],
+        '休闲娱乐': ['看剧', '电影', '游戏', '音乐', '歌', '电视', '唱歌'],
+        '自然风光': ['花', '风景', '日出', '夕阳', '天空', '月亮', '星星', '清新', '公园'],
+        '生活杂事': ['手机', '充电', 'WiFi', '作业', '推送', '电量'],
+        '身体感受': ['困', '累', '痒', '蚊子', '水坑', '晒'],
+        '内心反思': ['想起', '回忆', '小时候', '思绪', '发呆', '往事'],
+        '深夜时刻': ['深夜', '凌晨', '夜'],
+        '尴尬羞耻': ['尴尬', '丢脸', '脸红'],
+        '身体不适': ['身体不舒服', '头疼', '感冒', '发烧', '生病', '没力气', '请假', '休息一下'],
+        '偏离常规': ['翘课', '不想上课', '不想上班', '闲逛', '网吧', '拖延', '熬夜'],
+      },
+      eventMeaningRules: [
+        { keywords: ['休息', '睡觉', '午休', '睡眠', '放松'], meaningType: 'rest', weight: 0.3 },
+        { keywords: ['工作', '学习', '研究', '专注', '任务'], meaningType: 'work', weight: 0.3 },
+        { keywords: ['聊天', '社交', '聚会', '约会', '闲聊', '交流'], meaningType: 'social', weight: 0.3 },
+        { keywords: ['运动', '跑步', '健身', '锻炼'], meaningType: 'exercise', weight: 0.2 },
+        { keywords: ['吃饭', '午餐', '晚餐', '早餐', '餐饮', '美食'], meaningType: 'dining', weight: 0.2 },
+      ],
+    },
+  },
+
   forbiddenTerms: [], // 校园 preset 不需要禁止自己的词
 
   // ═══════════════════════════════════════════

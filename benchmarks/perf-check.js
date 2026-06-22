@@ -7,7 +7,10 @@
  *   node benchmarks/perf-check.js              # 单次运行（向后兼容）
  *   node benchmarks/perf-check.js --runs=3     # 3次运行取中位数
  *   node benchmarks/perf-check.js --diagnose   # 诊断模式，测试不同配置
+ *   node benchmarks/perf-check.js --calibrate  # 运行并保存为 local baseline
+ *   node benchmarks/perf-check.js --local      # 对比 local baseline
  *   npm run perf:check
+ *   npm run perf:calibrate
  *   npm run perf:diagnose
  */
 
@@ -16,18 +19,19 @@ const path = require('path');
 const { execSync } = require('child_process');
 const os = require('os');
 
-const BASELINE_PATH = path.join(__dirname, 'baselines/v0.2.0-post-contagion-cache.json');
+const RELEASE_BASELINE_PATH = path.join(__dirname, 'baselines/v0.2.0-post-contagion-cache.json');
+const LOCAL_BASELINE_PATH = path.join(__dirname, 'baselines/local.json');
 const BENCH_JSON = '/tmp/andy-benchmark-baseline.json';
 const CONTAGION_JSON = '/tmp/andy-contagion-profile.json';
 const WARN_THRESHOLD = 1.6;
 const FAIL_THRESHOLD = 2.0;
 
-function loadBaseline() {
-  if (!fs.existsSync(BASELINE_PATH)) {
-    console.error(`Baseline not found: ${BASELINE_PATH}`);
+function loadBaseline(baselinePath) {
+  if (!fs.existsSync(baselinePath)) {
+    console.error(`Baseline not found: ${baselinePath}`);
     process.exit(1);
   }
-  return JSON.parse(fs.readFileSync(BASELINE_PATH, 'utf-8'));
+  return JSON.parse(fs.readFileSync(baselinePath, 'utf-8'));
 }
 
 function checkThreshold(name, current, baseline, warnTh, failTh) {
@@ -213,6 +217,45 @@ function runDiagnose() {
   console.log('\n\u2713 Diagnostics complete');
 }
 
+// ─── Save local baseline ───
+function saveLocalBaseline(metrics, runCount) {
+  const os = require('os');
+  const cpus = os.cpus();
+  const localBaseline = {
+    version: 'local',
+    date: new Date().toISOString().slice(0, 10),
+    commit: getGitCommit(),
+    nodeVersion: process.version,
+    platform: `${os.platform()} ${os.arch()}`,
+    cpu: cpus.length > 0 ? cpus[0].model : 'unknown',
+    cores: cpus.length,
+    runCount,
+    timestamp: new Date().toISOString(),
+    benchmark: { quick: {} },
+    profile: { contagion_quick: {} },
+  };
+
+  for (const m of metrics) {
+    if (m.name === '100 agents avg/tick') {
+      localBaseline.benchmark.quick['100_agents_50_ticks'] = { avgMsPerTick: m.current };
+    } else if (m.name === '300 agents avg/tick') {
+      localBaseline.benchmark.quick['300_agents_20_ticks'] = { avgMsPerTick: m.current };
+    } else if (m.name === 'fixed-clustered gather (ms)') {
+      localBaseline.profile.contagion_quick.fixed_clustered = { gatherMs: m.current };
+    } else if (m.name === 'fixed-clustered cache (ms)') {
+      if (!localBaseline.profile.contagion_quick.fixed_clustered) localBaseline.profile.contagion_quick.fixed_clustered = {};
+      localBaseline.profile.contagion_quick.fixed_clustered.cacheBuildMs = m.current;
+    } else if (m.name === 'runtime-clustered gather (ms)') {
+      localBaseline.profile.contagion_quick.runtime_clustered = { gatherMs: m.current };
+    }
+  }
+
+  const dir = path.dirname(LOCAL_BASELINE_PATH);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(LOCAL_BASELINE_PATH, JSON.stringify(localBaseline, null, 2));
+  console.log(`\nLocal baseline saved: ${LOCAL_BASELINE_PATH}`);
+}
+
 // ─── Main ───
 const args = process.argv.slice(2);
 
@@ -221,6 +264,9 @@ if (args.includes('--diagnose')) {
   process.exit(0);
 }
 
+const isCalibrate = args.includes('--calibrate');
+const isLocal = args.includes('--local');
+
 const runsFlag = args.find(a => a.startsWith('--runs='));
 const runCount = runsFlag ? parseInt(runsFlag.split('=')[1], 10) : 1;
 
@@ -228,8 +274,19 @@ console.log('Andy Engine Performance Regression Check');
 console.log('========================================\n');
 printEnvironment();
 
-const baseline = loadBaseline();
-console.log(`Baseline: ${baseline.version} (${baseline.date}, ${baseline.commit})`);
+let baselinePath;
+if (isLocal) {
+  baselinePath = LOCAL_BASELINE_PATH;
+  if (!fs.existsSync(baselinePath)) {
+    console.error(`Local baseline not found: ${baselinePath}`);
+    console.error('Run "npm run perf:calibrate" first to create a local baseline.');
+    process.exit(1);
+  }
+} else {
+  baselinePath = RELEASE_BASELINE_PATH;
+}
+const baseline = loadBaseline(baselinePath);
+console.log(`Baseline: ${baseline.version} (${baseline.date}, ${baseline.commit})${isLocal ? ' [LOCAL]' : ''}`);
 console.log(`Runs: ${runCount}${runCount > 1 ? ' (median mode)' : ' (single run)'}\n`);
 
 const allRunResults = [];
@@ -278,6 +335,12 @@ if (runCount === 1) {
     result.median = Math.round(med * 100) / 100;
     finalResults.push(result);
   }
+}
+
+// Save local baseline if calibrating
+if (isCalibrate) {
+  const medianMetrics = finalResults.map(r => ({ name: r.name, current: r.median || r.current }));
+  saveLocalBaseline(medianMetrics, runCount);
 }
 
 // Display
