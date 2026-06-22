@@ -127,20 +127,52 @@ check('require("andy-engine/facts")', () => {
   if (!facts.FactProvider) throw new Error('no FactProvider');
 });
 
-// Store
-check('createMemoryStore()', () => {
-  const { createMemoryStore } = require('andy-engine/store');
-  const s = createMemoryStore();
-  if (!s) throw new Error('no store');
-  s.saveSnapshot(0, Date.now(), Buffer.from('test'));
-  s.close();
-});
-
-check('require("andy-engine/store") without SQLite', () => {
+// Store facade must load without requiring SQLite at smoke time.
+check('require("andy-engine/store") facade', () => {
   const store = require('andy-engine/store');
   if (!store.SQLiteStore) throw new Error('no SQLiteStore export');
   if (!store.createStore) throw new Error('no createStore export');
   if (!store.createMemoryStore) throw new Error('no createMemoryStore export');
+});
+
+check('require("andy-engine/store") without SQLite binding', () => {
+  const Module = require('module');
+  const originalLoad = Module._load;
+  const pkgRoot = path.dirname(require.resolve('andy-engine'));
+  for (const key of Object.keys(require.cache)) {
+    if (key.includes(`${path.sep}andy-engine${path.sep}store${path.sep}`) ||
+        key.includes(`${path.sep}andy-engine${path.sep}src${path.sep}store${path.sep}`)) {
+      delete require.cache[key];
+    }
+  }
+
+  Module._load = function patchedLoad(request, parent, isMain) {
+    if (request === 'better-sqlite3') {
+      throw new Error('simulated missing better-sqlite3');
+    }
+    return originalLoad.apply(this, arguments);
+  };
+
+  try {
+    const store = require('andy-engine/store');
+    if (!store.SQLiteStore) throw new Error('no SQLiteStore export');
+    try {
+      new store.SQLiteStore(':memory:');
+      throw new Error('SQLiteStore should fail without better-sqlite3');
+    } catch (e) {
+      if (!String(e.message).includes('SQLite persistence requires a working optional dependency better-sqlite3')) {
+        throw e;
+      }
+    }
+  } finally {
+    Module._load = originalLoad;
+    for (const key of Object.keys(require.cache)) {
+      if (key.includes(`${path.sep}andy-engine${path.sep}store${path.sep}`) ||
+          key.includes(`${path.sep}andy-engine${path.sep}src${path.sep}store${path.sep}`)) {
+        delete require.cache[key];
+      }
+    }
+  }
 });
 
 // Config

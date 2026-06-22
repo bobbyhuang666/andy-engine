@@ -25,21 +25,23 @@
 **Usage pattern:**
 - Wrapped in try/catch; falls back to `null` if not installed
 - `SQLiteStore` constructor throws if `Database` is null (graceful degradation with clear error message)
+- `SQLiteStore` constructor also normalizes broken native binding errors thrown by `new Database(dbPath)`
 - `SimulationStore` internally creates `SQLiteStore` instances
 - `createMemoryStore()` uses `SQLiteStore(':memory:')` — requires better-sqlite3
 
 **Smoke test dependency:**
-- `smoke:pack` calls `createMemoryStore()` which requires better-sqlite3
-- Removing from dependencies would break smoke:pack
+- `smoke:pack` verifies the `andy-engine/store` facade loads without requiring SQLite
+- `smoke:pack` simulates missing `better-sqlite3` and verifies `SQLiteStore` throws a clear optional-dependency error
+- `sqlite:smoke` separately verifies the SQLite runtime path when `better-sqlite3` is available
 
 **Classification options:**
 
 | Option | Pros | Cons |
 |---|---|---|
 | Keep as dependencies | Smoke tests pass; store works out of box | Adds native build requirement to all installs |
-| Move to optionalDependencies | npm install succeeds even without native build; clear error on store use | smoke:pack would need conditional skip |
+| Move to optionalDependencies | npm install succeeds even without native build; clear error on store use | SQLite runtime tests must be separated from default smoke |
 
-**Recommendation:** **Move to `optionalDependencies`**. The store layer is a core feature but requires native compilation. Moving to optionalDependencies means `npm install` succeeds even without native build tools. The `require('andy-engine/store')` facade loads without error; only constructing a `SQLiteStore` throws a clear error if better-sqlite3 is missing. A `sqlite:smoke` npm script is available to verify SQLite functionality when the dependency is installed.
+**Applied decision:** **Moved to `optionalDependencies`**. The store layer is a core feature but requires native compilation. Moving to optionalDependencies means `npm install` succeeds even without native build tools. The `require('andy-engine/store')` facade loads without error; only constructing a `SQLiteStore` throws a clear error if better-sqlite3 is missing or its native binding is broken. A `sqlite:smoke` npm script verifies SQLite functionality when the dependency is installed.
 
 ---
 

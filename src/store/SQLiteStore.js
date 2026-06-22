@@ -21,9 +21,18 @@ let Database;
 try {
   Database = require('better-sqlite3');
 } catch {
-  // 降级: 如果没装 better-sqlite3，使用内建 sqlite（Node 22+）
-  // 或者提示安装
   Database = null;
+}
+
+function sqliteUnavailableError(originalError) {
+  const suffix = originalError && originalError.message
+    ? ` Original error: ${originalError.message}`
+    : '';
+  return new Error(
+    'SQLite persistence requires a working optional dependency better-sqlite3. ' +
+    'Install or rebuild it with: npm install better-sqlite3 or npm rebuild better-sqlite3.' +
+    suffix
+  );
 }
 
 class SQLiteStore {
@@ -33,9 +42,7 @@ class SQLiteStore {
    */
   constructor(dbPath = ':memory:') {
     if (!Database) {
-      throw new Error(
-        'SQLite persistence requires optional dependency better-sqlite3. Install it with: npm install better-sqlite3'
-      );
+      throw sqliteUnavailableError();
     }
 
     // 确保目录存在
@@ -46,7 +53,11 @@ class SQLiteStore {
       }
     }
 
-    this.db = new Database(dbPath);
+    try {
+      this.db = new Database(dbPath);
+    } catch (err) {
+      throw sqliteUnavailableError(err);
+    }
     this.db.pragma('journal_mode = WAL');      // 写入性能优化
     this.db.pragma('synchronous = NORMAL');     // 平衡安全和性能
     this.db.pragma('cache_size = -64000');      // 64MB 缓存

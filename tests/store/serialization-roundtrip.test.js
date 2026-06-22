@@ -12,6 +12,16 @@ import AndyEngine from '../../index.js';
 import { Serialization, ENVELOPE_VERSION } from '../../src/store/index.js';
 import { SQLiteStore } from '../../src/store/SQLiteStore.js';
 
+function canUseSQLiteStore() {
+  try {
+    const store = new SQLiteStore(':memory:');
+    store.close();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ═══════════════════════════════════════════
 // Helper
 // ═══════════════════════════════════════════
@@ -323,7 +333,9 @@ describe('Facts/knowledge serialize → restore → grounded narrative', () => {
 // Store create/write/read/close smoke
 // ═══════════════════════════════════════════
 
-describe('SQLiteStore create/write/read/close smoke', () => {
+const sqliteDescribe = canUseSQLiteStore() ? describe : describe.skip;
+
+sqliteDescribe('SQLiteStore create/write/read/close smoke', () => {
   it('createMemoryStore creates a working store', () => {
     const store = new SQLiteStore(':memory:');
     expect(store).toBeDefined();
