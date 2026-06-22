@@ -111,4 +111,21 @@
 - [x] Move `express` from dependencies to devDependencies
 - [x] Remove `ws` from dependencies
 - [x] Move `better-sqlite3` to optionalDependencies
-- [ ] Run full validation: `npm test && npm run test:domain && npm run check:boundaries && npm run smoke:pack`
+- [x] Run full validation: `npm test && npm run test:domain && npm run check:boundaries && npm run smoke:pack`
+
+---
+
+## npm Audit Findings (beta.4)
+
+| Package | Severity | Advisory | Dev only? | In packed runtime? | Fix strategy | Behavior change? |
+|---|---|---|---|---|---|---|
+| vite 8.0.0–8.0.15 | high | [GHSA-v6wh-96g9-6wx3](https://github.com/advisories/GHSA-v6wh-96g9-6wx3) — launch-editor NTLMv2 hash disclosure via UNC path (Windows only) | Yes (transitive via vitest) | **No** — vite is not in `files` array and not in `dependencies` | Wait for vitest update or add `overrides` | No |
+| vite 8.0.0–8.0.15 | high | [GHSA-fx2h-pf6j-xcff](https://github.com/advisories/GHSA-fx2h-pf6j-xcff) — `server.fs.deny` bypass on Windows alternate paths | Yes (transitive via vitest) | **No** | Wait for vitest update or add `overrides` | No |
+
+**Analysis:** Both advisories are **Windows-only** and affect the **dev server only**. Vite is a transitive dependency of `vitest@4.1.7`, not a direct dependency. It is not included in the packed `files` array (`npm pack --dry-run` confirms zero vite artifacts). No production runtime exposure.
+
+**Resolution:** Vite is a **transitive** dependency of `vitest@4.1.7` (not a direct devDependency). Fix options:
+1. Wait for vitest to ship with a patched vite version.
+2. Add `"overrides": { "vite": "^8.0.16" }` to package.json to force a patched version.
+
+Neither option affects published or packed artifacts.

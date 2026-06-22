@@ -446,6 +446,122 @@ const tavernDomain = {
     positiveMemoryKeywords: ['开心', '高兴', '满意', '有趣', '朋友', '成功'],
   },
 
+  // ═══════════════════════════════════════════
+  // 语义配置（中文语言资源）
+  // ═══════════════════════════════════════════
+  semanticProfile: {
+    language: 'zh-CN',
+
+    mindWander: {
+      negativeKeywords: ['难过', '不开心', '孤独', '压力'],
+      positiveKeywords: ['开心', '有趣', '朋友', '喜欢'],
+      thoughtTypes: {
+        recall: '回忆',
+        rumination: '反刍',
+        nostalgia: '怀念',
+        worry: '担忧',
+        daydream: '白日梦',
+      },
+      daydreamContents: [
+        '想想要去哪里冒险呢',
+        '今天的天气很适合出行',
+        '希望这样的日子能多一些',
+        '突然想到了一个新的锻造方法',
+      ],
+      timeLabels: {
+        justNow: '刚刚',
+        hoursAgo: (h) => `${h}小时前`,
+        daysAgo: (d) => `${d}天前`,
+        weeksAgo: (w) => `${w}周前`,
+      },
+    },
+
+    narrativeModifiers: {
+      emotionLabels: {
+        sadness: '心情不太好', loneliness: '有点孤独', frustration: '有点烦',
+        nervousness: '有点焦虑', boredom: '好无聊', anger: '有点烦躁',
+        fear: '有点不安',
+        joy: '心情还不错', contentment: '挺满足的', excitement: '有点兴奋',
+        calm: '挺平静的', hope: '有点期待',
+      },
+      needPhrases: {
+        veryTired: '好困', tired: '有点困', veryHungry: '好饿', hungry: '有点饿',
+        restless: '但有点坐不住',
+      },
+      cognitivePhrases: {
+        highStress: '压力好大',
+        distracted: '心思不太集中',
+        wantsSocial: '有点想找人聊天',
+        thinking: '在想一些事',
+        unwell: '身体不太舒服',
+      },
+    },
+
+    behaviorModifiers: {
+      distracted: '有点心不在焉',
+      lonely: '想找人说话',
+      lazy: '不太想动',
+      verbMap: {},
+    },
+
+    emotionKeywords: {
+      happy: ['开心', '高兴', '快乐', '愉快', '兴奋', '喜悦'],
+      sad: ['难过', '伤心', '悲伤', '沮丧', '失落'],
+      angry: ['生气', '愤怒', '恼火', '烦躁'],
+      fear: ['害怕', '恐惧', '紧张', '焦虑', '担忧'],
+      surprise: ['惊讶', '意外', '震惊'],
+      disgust: ['厌恶', '恶心', '反感'],
+    },
+
+    emotionRegulationKeywords: {
+      positiveMemory: ['开心', '高兴', '满意', '有趣', '朋友', '成功'],
+    },
+
+    eventDefaults: {
+      defaultSemanticCategory: '日常琐事',
+      gossipSuffix: '还提到了',
+      gossipVerb: '说',
+    },
+
+    socialNormKeywords: {
+      positive: ['打招呼', '聊天', '帮助'],
+      negative: ['冲突', '吵架'],
+    },
+
+    defaultSemanticCategories: {
+      typeMap: {
+        social: '社交互动',
+        weather: '环境天气',
+        state_change: '行为转变',
+        regulation: '情绪调节',
+        mind_wander: '内心思绪',
+        need_satisfied: '需求满足',
+        intrinsic: '自我探索',
+        gossip: '社交信息',
+        encounter: '社交互动',
+        general: '日常琐事',
+        deviant: '偏离常规',
+        illness: '身体不适',
+      },
+      keywordMap: {
+        '酒馆': ['喝酒', '麦酒', '吟游诗人', '酒馆', '干杯'],
+        '社交互动': ['聊天', '朋友', '一起', '偶遇', '打招呼'],
+        '环境天气': ['下雨', '天气', '阳光', '冷', '热'],
+        '工作劳动': ['打铁', '工作', '锻造', '铁匠'],
+        '自然风光': ['森林', '小鹿', '花', '风景', '月亮'],
+        '身体感受': ['困', '累', '热', '冷'],
+        '内心反思': ['想起', '回忆', '思绪', '发呆'],
+      },
+      eventMeaningRules: [
+        { keywords: ['休息', '睡觉', '午休', '睡眠', '放松'], meaningType: 'rest', weight: 0.4 },
+        { keywords: ['工作', '锻造', '修理', '专注', '任务'], meaningType: 'work', weight: 0.3 },
+        { keywords: ['聊天', '社交', '聚会', '喝酒', '闲聊', '交流', '吟游'], meaningType: 'social', weight: 0.4 },
+        { keywords: ['狩猎', '冒险', '探索', '巡林'], meaningType: 'explore', weight: 0.3 },
+        { keywords: ['吃饭', '午餐', '晚餐', '烤肉', '美食'], meaningType: 'dining', weight: 0.2 },
+      ],
+    },
+  },
+
   forbiddenTerms: [
     '教室', '图书馆', '宿舍', '食堂', '操场', '校园广场',
     '学生', '老师', '上课', '自习', '翘课', '考试', '作业',

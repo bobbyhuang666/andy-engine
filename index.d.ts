@@ -190,6 +190,101 @@ interface AgentSnapshot {
   [key: string]: any;
 }
 
+// ═══════════════════════════════════════════
+// Action / Effect types (beta.1)
+// ═══════════════════════════════════════════
+
+interface ActionCandidate {
+  type: string;
+  target?: string;
+  source?: string;
+  label?: string;
+  score?: number;
+  [key: string]: any;
+}
+
+/**
+ * Full audit trail of an action selection decision.
+ * Pure data, no live references.
+ */
+interface ReasonTrace {
+  agentId: string;
+  candidate: ActionCandidate | null;
+  scoreBreakdown: Record<string, number>;
+  keyReasons: string[];
+  pressureContext: Record<string, any> | null;
+  rngInfo: {
+    rngStateBefore: number | null;
+    randomDraw: number | null;
+    rngStateAfter: number | null;
+  };
+  temperature: number;
+  candidateAlternatives: ActionCandidate[];
+  stateDeltas: Record<string, any> | null;
+  readonly selectedAction: string | null;
+  readonly selectedCandidate: ActionCandidate | null;
+  readonly rngStateBefore: number | null;
+  readonly randomDraw: number | null;
+  readonly rngStateAfter: number | null;
+  toJSON(): Record<string, any>;
+}
+
+/**
+ * Wraps a chosen ActionCandidate with selection metadata.
+ * Immutable after construction.
+ */
+interface SelectedAction {
+  candidate: ActionCandidate;
+  score: Record<string, number>;
+  temperature: number;
+  alternatives: ActionCandidate[];
+  reasonTrace: ReasonTrace;
+  readonly type: string;
+  readonly target: string | undefined;
+  readonly source: string | undefined;
+  readonly label: string | undefined;
+  toJSON(): Record<string, any>;
+}
+
+interface StateDelta {
+  type: 'need' | 'emotion' | 'memory' | 'relationship' | 'locationMeaning' | 'futureTendency';
+  [key: string]: any;
+}
+
+/**
+ * Typed container for effect pipeline output.
+ */
+interface EffectResult {
+  event: Record<string, any>;
+  deltas: StateDelta[];
+  reasonTrace: Record<string, any>;
+  readonly hasChanges: boolean;
+  readonly memoryDeltas: StateDelta[];
+  readonly relationshipDeltas: StateDelta[];
+  readonly needDeltas: StateDelta[];
+  readonly emotionDeltas: StateDelta[];
+  readonly locationMeaningDeltas: StateDelta[];
+  readonly futureTendencyDeltas: StateDelta[];
+  toLegacyFormat(): { event: Record<string, any>; stateDeltas: Record<string, any>; updatedReasonTrace: Record<string, any> };
+}
+
+/**
+ * @experimental Structured affect snapshot.
+ * Derived from agent psychology subsystems (EmotionVector, NeedsSystem, BehaviorField).
+ * Shape may change in future versions as AffectCompiler evolves.
+ */
+interface AffectFrame {
+  emotions: Array<{ dimension: string; intensity: number }>;
+  valence: number;
+  arousal: number;
+  needs: Array<{ need: string; urgency: number }>;
+  behavior: { activity: number; sociality: number; focus: number; expressiveness: number };
+  behaviorSpeed: number;
+  stability: number;
+  _meta: { version: string };
+  [key: string]: any;
+}
+
 interface WorldSnapshot {
   time: string;
   tickCount: number;

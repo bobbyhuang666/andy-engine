@@ -287,13 +287,16 @@ class BehaviorLabelerDomain {
     const modifiers = [];
 
     if (B[DIM_FOCUS] < 0.25 && _isHighFocusState(primary, domain)) {
-      modifiers.push((domain.narrativeTemplates && domain.narrativeTemplates.distractedText) || '有点心不在焉');
+      const bm = domain.semanticProfile && domain.semanticProfile.behaviorModifiers;
+      modifiers.push((bm && bm.distracted) || (domain.narrativeTemplates && domain.narrativeTemplates.distractedText) || '有点心不在焉');
     }
     if (B[DIM_SOCIALITY] > 0.6 && !_isSocialState(primary, domain)) {
-      modifiers.push((domain.narrativeTemplates && domain.narrativeTemplates.lonelyText) || '想找人说话');
+      const bm = domain.semanticProfile && domain.semanticProfile.behaviorModifiers;
+      modifiers.push((bm && bm.lonely) || (domain.narrativeTemplates && domain.narrativeTemplates.lonelyText) || '想找人说话');
     }
     if (B[DIM_ACTIVITY] < 0.15 && _isActiveState(primary, domain)) {
-      modifiers.push((domain.narrativeTemplates && domain.narrativeTemplates.lazyText) || '不太想动');
+      const bm = domain.semanticProfile && domain.semanticProfile.behaviorModifiers;
+      modifiers.push((bm && bm.lazy) || (domain.narrativeTemplates && domain.narrativeTemplates.lazyText) || '不太想动');
     }
 
     if (modifiers.length > 0) {

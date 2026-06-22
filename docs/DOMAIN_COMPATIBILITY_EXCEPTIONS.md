@@ -2,7 +2,7 @@
 
 > Status: active governance document.
 > Date: 2026-06-22.
-> Purpose: document all remaining `bobby` and `campus` strings in `src/` that are allowed for backward compatibility.
+> Purpose: document all remaining `bobby`, `campus`, and Chinese string literal exceptions in `src/` that are allowed for backward compatibility.
 
 ---
 
@@ -63,9 +63,37 @@ These mention `campus` in a neutral or instructional context.
 
 ---
 
+## Chinese String Literal Exceptions (A5.3)
+
+Source scan `tests/source-scan.test.js` enforces that Chinese string literals in `src/runtime/` and `src/agent/` must be sourced from `domain.semanticProfile` (via `||` fallback pattern). The following files contain hardcoded Chinese strings that are documented backward-compatible exceptions.
+
+**Pattern**: These are `toPromptString()` descriptions, emotion/need labels, personality descriptions, and template content that predate the semanticProfile system. They should be migrated to semanticProfile in a future pass.
+
+**Rule**: No new hardcoded Chinese strings in `src/runtime/` or `src/agent/`. All new Chinese content must come from `domain.semanticProfile`.
+
+| File | Category | Strings | Why Allowed |
+|------|----------|---------|-------------|
+| `src/agent/psychology/EmotionVector.js` | Emotion labels, intensity labels, mood descriptions | `开心`, `难过`, `心情不错`, `略微`, etc. | `toPromptString()` backward compat |
+| `src/agent/psychology/EmotionVector.native.js` | Same as above (native binding) | Same | Native binding parity |
+| `src/agent/psychology/Personality.js` | Personality trait descriptions | `你性格外向...`, `你待人友善...`, etc. | `toPromptString()` LLM prompt injection |
+| `src/agent/psychology/EmotionRegulation.js` | Regulation status descriptions | `调节能力充足`, `善于重评价`, etc. | `toPromptString()` backward compat |
+| `src/agent/psychology/BehaviorLabeler.js` | Behavior modifiers | `有点心不在焉`, `想找人说话`, `不太想动` | Hardcoded fallback (dual-path with semanticProfile) |
+| `src/agent/psychology/NeedsSystem.js` | Need display names | `饱腹`, `精力`, `社交`, `舒适`, `兴趣` | `toPromptString()` backward compat |
+| `src/agent/psychology/NeedsSystem.native.js` | Same (native binding) | Same | Native binding parity |
+| `src/agent/psychology/LocationMeaningInfluence.js` | Default location meaning | `普通` | Fallback when no meaning type config |
+| `src/agent/runtime/MindWanderRuntime.js` | Thought content, time labels | `想起了...`, `脑子里乱乱的...`, `刚刚` | Template content backward compat |
+| `src/agent/memory/PersonalMemory.js` | Memory/time descriptions | `日常琐事`, `记忆：没有什么特别的印象。`, `刚刚` | Fallback descriptions |
+| `src/agent/facade/AgentNarrative.js` | Emotion labels, dimension names | `心情不太好`, `活动程度`, `在上升` | Narrative template backward compat |
+| `src/agent/facade/InteractionFacade.js` | Interaction type descriptions | `聊了天`, `互相帮助`, `发生了冲突`, `擦肩而过` | Interaction narrative templates |
+| `src/agent/lifecycle/AgentSubsystemFactory.js` | Default position | `住处` | Default initial position fallback |
+| `src/runtime/EventDispatcher.js` | Weather event template | `天气变化: ` | Fallback when domain has no weather template |
+
+---
+
 ## Rules
 
 1. **No new `bobby` references** in `src/`. All existing are deprecated aliases.
 2. **No new `campus` hardcoding** in `src/` runtime logic. Use domain config.
-3. **New domain-specific defaults** must go through `DomainRegistry` or presets.
-4. **Deprecated aliases** may be removed in the next major version.
+3. **No new hardcoded Chinese strings** in `src/runtime/` or `src/agent/`. Use `domain.semanticProfile` with `||` fallback pattern.
+4. **New domain-specific defaults** must go through `DomainRegistry` or presets.
+5. **Deprecated aliases** may be removed in the next major version.

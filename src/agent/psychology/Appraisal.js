@@ -358,8 +358,9 @@ class Appraisal {
     if (event.type === 'social' && event.content) {
       const content = event.content;
       const normKeywords = (domain.appraisalConfig && domain.appraisalConfig.normConformityKeywords) || {};
-      const positiveNorms = normKeywords.positive || ['打招呼', '聊天', '帮助'];
-      const negativeNorms = normKeywords.negative || ['冲突', '吵架'];
+      const sp = domain.semanticProfile;
+      const positiveNorms = normKeywords.positive || (sp && sp.socialNormKeywords && sp.socialNormKeywords.positive) || ['打招呼', '聊天', '帮助'];
+      const negativeNorms = normKeywords.negative || (sp && sp.socialNormKeywords && sp.socialNormKeywords.negative) || ['冲突', '吵架'];
       // 正面社交互动符合规范
       if (positiveNorms.some(k => content.includes(k))) {
         conformity = 0.8;

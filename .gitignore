@@ -25,3 +25,4 @@ data/
 *.db-wal
 *.db-shm
 *.tgz
+benchmarks/baselines/local.json

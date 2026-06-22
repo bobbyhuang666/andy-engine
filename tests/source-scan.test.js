@@ -291,6 +291,187 @@ describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
     expect(content).not.toMatch(/Math\.random\s*\(\s*\)/);
   });
 
+  // ─── A5.3: Semantic Profile Boundary Scan ───
+
+  function stripComments(content) {
+    return content
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
+  }
+
+  function extractChineseStrings(line) {
+    const results = [];
+    const patterns = [
+      /'([^'\\]*(?:\\.[^'\\]*)*[\u4e00-\u9fff][^'\\]*(?:\\.[^'\\]*)*)'/g,
+      /"([^"\\]*(?:\\.[^"\\]*)*[\u4e00-\u9fff][^"\\]*(?:\\.[^"\\]*)*)"/g,
+      /`([^`\\]*(?:\\.[^`\\]*)*[\u4e00-\u9fff][^`\\]*(?:\\.[^`\\]*)*)`/g,
+    ];
+    for (const pattern of patterns) {
+      let match;
+      while ((match = pattern.exec(line)) !== null) {
+        if (match[1].includes('${')) continue;
+        results.push(match[1]);
+      }
+    }
+    return results;
+  }
+
+  function hasFallbackPattern(line) {
+    const orIdx = line.lastIndexOf('||');
+    if (orIdx === -1) return false;
+    const afterOr = line.slice(orIdx + 2);
+    return /[\u4e00-\u9fff]/.test(afterOr);
+  }
+
+  function isInFallbackArray(lines, lineIdx) {
+    for (let i = lineIdx - 1; i >= Math.max(0, lineIdx - 10); i--) {
+      if (/[\u4e00-\u9fff]/.test(lines[i])) continue;
+      if (lines[i].includes('||') && lines[i].includes('[')) return true;
+      if (lines[i].includes('||') && /[\u4e00-\u9fff]/.test(lines[i])) return true;
+      if (lines[i].trim() === '' || lines[i].trim().startsWith('//')) continue;
+      break;
+    }
+    return false;
+  }
+
+  const SEMANTIC_PROFILE_EXCEPTIONS = {
+    'src/agent/psychology/EmotionVector.js': [
+      '开心', '难过', '生气', '害怕', '惊讶', '厌恶', '觉得好笑',
+      '敬畏', '满足', '渴望', '尴尬', '内疚', '恐惧', '感兴趣',
+      '喜欢/爱', '紧张', '自豪', '如释重负', '满意', '羞耻', '同情',
+      '得意', '无聊', '平静', '困惑', '兴奋', '沮丧/烦躁', '感激',
+      '希望', '孤独', '不开心', '不满足', '不安', '低落', '失望', '不满意',
+      '极度', '非常', '很', '挺', '比较', '有点', '略微',
+      '心情不错', '心情还行', '心情一般', '有点低落', '心情不太好',
+      '你的内心比较平静', '压力很大', '有点压力', '精力充沛', '有些疲倦',
+    ],
+    'src/agent/psychology/Personality.js': [
+      '你性格外向，喜欢社交，话比较多', '你性格内向，不太主动说话，更喜欢独处',
+      '你的社交倾向适中，既不特别外向也不特别内向',
+      '你容易焦虑和想太多，情绪波动较大', '你情绪稳定，不太容易焦虑',
+      '你的情绪稳定性一般，偶尔会有些焦虑',
+      '你待人友善温和，乐于助人', '你说话直接，不太在意别人的感受',
+      '你的人际态度取决于具体情况，有时温和有时直接',
+      '你思维开放，对新事物充满好奇', '你偏好熟悉的事物，不太喜欢变化',
+      '你对新事物持开放但审慎的态度',
+      '你做事有条理，计划性强', '你在需要时能有条理地做事，但也会灵活应变',
+      '你比较随性，不太喜欢被计划束缚',
+      '你说话偏简短，不喜欢长篇大论', '遇到不顺心的事你会表现出不安或犹豫',
+      '你说话热情，喜欢用感叹和鼓励的语气',
+    ],
+    'src/agent/psychology/EmotionRegulation.js': [
+      '调节能力充足', '调节能力一般', '调节能力不足', '调节资源枯竭',
+      '善于重评价', '善于转移注意力', '善于控制表达', '擅长', '情绪调节：',
+    ],
+    'src/agent/runtime/MindWanderRuntime.js': [
+      '想起了', '的事：', '心里不太舒服', '嘴角不自觉上扬',
+      '脑子里乱乱的，总觉得有什么事没做完',
+      '想着等下做什么好呢', '今天天气不错，心情也挺好的',
+      '希望这样的日子能多一些', '突然想到了一个有趣的想法',
+      '秒前', '分钟前', '小时前', '天前', '周前', '刚刚',
+    ],
+    'src/agent/memory/PersonalMemory.js': [
+      '日常琐事', '刚刚', '小时前', '天前', '周前',
+      '记忆：没有什么特别的印象。',
+    ],
+    'src/agent/lifecycle/AgentSubsystemFactory.js': [
+      '住处',
+    ],
+    'src/agent/psychology/NeedsSystem.js': [
+      '饱腹', '精力', '社交', '舒适', '兴趣',
+    ],
+    'src/agent/psychology/NeedsSystem.native.js': [
+      '饱腹', '精力', '社交', '舒适', '兴趣',
+    ],
+    'src/agent/psychology/EmotionVector.native.js': [
+      '开心', '难过', '生气', '害怕', '惊讶', '厌恶', '觉得好笑',
+      '敬畏', '满足', '渴望', '尴尬', '内疚', '恐惧', '感兴趣',
+      '喜欢/爱', '紧张', '自豪', '如释重负', '满意', '羞耻', '同情',
+      '得意', '无聊', '平静', '困惑', '兴奋', '沮丧/烦躁', '感激',
+      '希望', '孤独', '不开心', '不满足', '不安', '低落', '失望', '不满意',
+      '极度', '非常', '很', '挺', '比较', '有点', '略微',
+      '心情不错', '心情还行', '心情一般', '有点低落', '心情不太好',
+      '你的内心比较平静', '你的内心处于矛盾之中——', '的暖意', '的阴影', '在拉锯',
+      '同时还夹杂着', '压力很大', '有点压力', '精力充沛', '有些疲倦',
+      '整体心情', '略好', '略差',
+    ],
+    'src/runtime/EventDispatcher.js': [
+      '天气变化: ',
+    ],
+    'src/agent/facade/AgentNarrative.js': [
+      '心情不太好', '有点孤独', '有点烦', '有点焦虑', '好无聊', '有点烦躁',
+      '有点不安', '心情还不错', '挺满足的', '有点兴奋', '挺平静的', '有点期待',
+      '刚才', '不久前', '活动程度', '社交倾向', '专注度', '表达欲',
+      '在上升', '在下降',
+    ],
+    'src/agent/facade/InteractionFacade.js': [
+      '聊了天', '互相帮助', '发生了冲突', '擦肩而过',
+    ],
+    'src/agent/psychology/BehaviorLabeler.js': [
+      '有点心不在焉', '想找人说话', '不太想动',
+    ],
+    'src/agent/psychology/LocationMeaningInfluence.js': [
+      '普通',
+    ],
+  };
+
+  function scanFileForSemanticProfileViolations(filePath, rootDir) {
+    const relativePath = path.relative(rootDir, filePath);
+    const rawContent = readFileSync(filePath, 'utf-8');
+    const content = stripComments(rawContent);
+    const lines = content.split('\n');
+    const violations = [];
+    const exceptions = SEMANTIC_PROFILE_EXCEPTIONS[relativePath] || [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const chineseStrings = extractChineseStrings(line);
+
+      for (const str of chineseStrings) {
+        if (hasFallbackPattern(line)) continue;
+        if (isInFallbackArray(lines, i)) continue;
+        if (exceptions.some(ex => str.includes(ex) || ex.includes(str))) continue;
+        violations.push({ line: i + 1, string: str.slice(0, 30) });
+      }
+    }
+
+    return violations;
+  }
+
+  it('src/runtime/ 和 src/agent/ 中的 Chinese string literals 应通过 semanticProfile 获取（A5.3）', () => {
+    const violations = [];
+    const rootDir = process.cwd();
+    const scanDirs = ['src/runtime', 'src/agent'];
+
+    for (const dir of scanDirs) {
+      const fullDir = path.join(rootDir, dir);
+      const files = getJsFiles(fullDir);
+
+      for (const file of files) {
+        const relativePath = path.relative(rootDir, file);
+        if (relativePath.includes('.native.js')) continue;
+        if (relativePath.includes('__tests__/')) continue;
+
+        const fileViolations = scanFileForSemanticProfileViolations(file, rootDir);
+        if (fileViolations.length > 0) {
+          violations.push({ file: relativePath, violations: fileViolations });
+        }
+      }
+    }
+
+    if (violations.length > 0) {
+      const msg = violations.map(({ file, violations: v }) => {
+        const details = v.map(x => `L${x.line}:"${x.string}"`).join(', ');
+        return `  ${file}: ${details}`;
+      }).join('\n');
+
+      expect.fail(
+        `以下 src/runtime|agent 文件包含 Chinese string literals（非 fallback 模式）:\n${msg}\n\n` +
+        '请通过 domain.semanticProfile 获取，或将例外添加到 SEMANTIC_PROFILE_EXCEPTIONS 和 docs/DOMAIN_COMPATIBILITY_EXCEPTIONS.md'
+      );
+    }
+  });
+
   it('src/ 中不应有新增的 bobby 字符串（允许的 deprecated alias 除外，见 docs/DOMAIN_COMPATIBILITY_EXCEPTIONS.md）', () => {
     const rootDir = process.cwd();
     const srcDir = path.join(rootDir, 'src');

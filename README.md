@@ -12,7 +12,7 @@ Actions become canonical events that affect memory, relationships, location mean
 
 LLMs only express what a character knows; they do not create world facts.
 
-> **Alpha Status**: v2.0.0-alpha.3 — API still hardening, not stable v2.0.0.
+> **Stable Release**: v2.0.0 — Foundation Stable Release.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
@@ -62,7 +62,7 @@ The LLM is a rendering layer, not the source of truth.
 
 | Area | Status |
 |---|---|
-| Unit / integration / domain / source-scan tests | 1862 tests passing |
+| Unit / integration / domain / source-scan tests | 1916 tests passing |
 | Custom domain | Tavern preset passes domain-agnostic validation |
 | Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
 | Seeded RNG | Core runtime paths support seeded simulation baseline (not full deterministic replay) |
@@ -117,7 +117,7 @@ Andy Engine v2 is the architecture-preview line that turns Andy from a character
 - Continuous 4D BehaviorField as the core behavior dynamics layer
 - Seeded RNG baseline for reproducible core runtime paths (not full deterministic replay)
 - Performance benchmark / profiling / perf-check baseline
-- 1862 tests across unit, integration, domain, compatibility, and source-scan suites
+- 1916 tests across unit, integration, domain, compatibility, and source-scan suites
 - Clean Architecture Pass complete: `src/` owns implementation; old top-level runtime wrappers retired; Semantic Closure Pass complete with 9 domain-safe read-only providers
 
 ### Experimental
@@ -128,13 +128,18 @@ Andy Engine v2 is the architecture-preview line that turns Andy from a character
 - WorldCanon facts system: `WorldFactStore`, `CanonEventPipeline`, `KnowledgeStore`, `FactProvider`
 - Grounded narrative package and `FactConsistencyChecker`
 
-### Not Production Contract Yet
+### Foundation Stable Release (v2.0.0)
+
+This is a Foundation Stable Release. The public API surface, persistence contracts, domain configuration, and package installation are stable for downstream applications.
+
+The following remain experimental or deferred to v2.1/v3:
 
 - Fact schema and Knowledge schema may still change
 - `FactConsistencyChecker` is regex-based and experimental
 - `WorldObject` is modeled but not fully integrated into `Agent.tick`
 - StoryArc runtime is paused
-- npm package has not been published
+- AffectCompiler implementation (seam exists, compiler deferred)
+- npm publish not executed unless explicitly approved
 
 ---
 
@@ -446,7 +451,7 @@ Andy Engine 维护一个共享的 **WorldCanon**：发生了什么、谁看到�
 
 LLM 只能表达角色知道的事，不能创造世界事实。
 
-> 状态：**Alpha — v2.0.0-alpha.3**，API 仍在硬化中，不是稳定 v2.0.0。
+> 状态：**v2.0.0 Foundation Stable Release**。
 
 ---
 
@@ -522,7 +527,7 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 - 连续 4D BehaviorField 作为核心行为动力学层
 - 可播种 RNG 基线，支持核心运行时路径的可复现模拟（非全路径确定性重放）
 - 性能基准 / Profiling / perf-check 基线
-- 1862 测试（单元、集成、domain、兼容性、source-scan）
+- 1916 测试（单元、集成、domain、兼容性、source-scan）
 - Clean Architecture Pass 完成：`src/` 拥有实现，旧顶层 runtime wrappers 已退休；Semantic Closure Pass 完成，9 个 domain-safe read-only provider 已接入
 
 ### 实验性
@@ -533,14 +538,18 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 - WorldCanon 事实系统：`WorldFactStore`、`CanonEventPipeline`、`KnowledgeStore`、`FactProvider`
 - Grounded 叙事包和 `FactConsistencyChecker`
 
-### 尚未成为生产契约
+### Foundation Stable Release (v2.0.0)
 
-- 当前版本是 `2.0.0-alpha.3`，不是稳定生产版
+这是 Foundation Stable Release。公共 API、持久化契约、领域配置和包安装对下游应用已稳定。
+
+以下仍为实验性或推迟到 v2.1/v3：
+
 - Fact schema 和 Knowledge schema 可能还会变化
 - `FactConsistencyChecker` 基于正则表达式，是实验性的
 - `WorldObject` 已建模但尚未完全集成到 `Agent.tick`
 - StoryArc 运行时已暂停
-- npm 包尚未发布
+- AffectCompiler 实现（seam 已存在，编译器推迟）
+- npm publish 未执行，除非明确批准
 
 ---
 
@@ -614,7 +623,7 @@ Grounded Narrative（有事实边界的叙事）
 
 | 项目 | 状态 |
 |---|---|
-| 单元 / 集成 / domain / source-scan 测试 | 1862 tests passing |
+| 单元 / 集成 / domain / source-scan 测试 | 1916 tests passing |
 | custom domain | tavern preset 通过 domain-agnostic 验证 |
 | facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
 | seeded RNG | 核心运行时路径支持 seeded simulation 基线（非全路径确定性重放） |
