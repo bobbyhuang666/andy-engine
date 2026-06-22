@@ -136,6 +136,9 @@ class AndyWorld {
       }
     }
 
+    // ─── EffectCommitter（复用，减少 GC 压力）───
+    this.effectCommitter = new EffectCommitter({ world: this, agents: this.agents });
+
     // ─── 调度器内部状态 ───
     this._scheduledEvents = [];
     this._tickCallbacks = [];
@@ -174,7 +177,8 @@ class AndyWorld {
     this.environment.weather = weather;
     this.environment.weatherChangedAt = new Date(this.clock.time);
     const agentIds = [...this.agents.keys()];
-    this.eventDispatcher.generateEnvironmentEvent(weather, agentIds);
+    const draft = this.eventDispatcher.generateEnvironmentEvent(weather, agentIds);
+    this.eventDispatcher.createEvent(draft);
   }
 
   /** @private */
@@ -361,6 +365,9 @@ class AndyWorld {
     this.socialGraph.tick(minutesElapsed / 60);
 
     // ─── Phase 7: EVENT_DISPATCH ───
+    // Tick-generated events (encounter, random, environment, scheduled) are
+    // created only here. External world APIs (setWeather) may enqueue
+    // immediate events outside this phase.
     const scheduledNow = this._processScheduledEvents();
     allNewEvents.push(...scheduledNow);
 
@@ -396,8 +403,7 @@ class AndyWorld {
             factStore: this.factStore,
             domain: this.domain,
           });
-          const committer = new EffectCommitter({ world: this, agents: this.agents });
-          committer.commit({ deltas: consequences });
+          this.effectCommitter.commit({ deltas: consequences });
 
           memoryUpdateCount += consequences.filter(d => d.type === 'memory').length;
           locationUpdateCount += consequences.filter(d => d.type === 'locationMeaning').length;
@@ -531,6 +537,9 @@ class AndyWorld {
    */
   _applyEncounterEffects(dispatched) {
     const deltas = [];
+    // Deduplicate relationship deltas: A→B and B→A refer to the same
+    // bidirectional Relationship object, so only one recordInteraction per pair.
+    const seenRelPairs = new Set();
 
     for (const event of dispatched) {
       if (event.type !== 'social' || !event.effects) continue;
@@ -539,6 +548,9 @@ class AndyWorld {
         if (effect.type === 'relationship' && effect.delta) {
           const d = effect.delta;
           if (typeof d.target === 'string' && typeof d.valence === 'number') {
+            const pairKey = [effect.target, d.target].sort().join('_');
+            if (seenRelPairs.has(pairKey)) continue;
+            seenRelPairs.add(pairKey);
             deltas.push(new RelationshipDelta(effect.target, {
               targetAgentId: d.target,
               interactionType: 'encounter',
@@ -562,8 +574,7 @@ class AndyWorld {
     }
 
     if (deltas.length > 0) {
-      const committer = new EffectCommitter({ world: this, agents: this.agents });
-      committer.commit({ deltas });
+      this.effectCommitter.commit({ deltas });
     }
 
     return deltas.length;
@@ -633,8 +644,7 @@ class AndyWorld {
     const pending = [];
     for (const event of this._scheduledEvents) {
       if (new Date(event.scheduledFor) <= now) {
-        const created = this.eventDispatcher.createEvent(event);
-        ready.push(created);
+        ready.push(event);
       } else {
         pending.push(event);
       }

@@ -2,30 +2,38 @@
  * NeedsSystem.native.js — Native-backed NeedsSystem wrapper
  *
  * Drop-in replacement for NeedsSystem.js using Rust via napi-rs.
- * Falls back to pure JS if native module unavailable or ANDY_USE_NATIVE!=1.
+ * Uses src/shared/nativeLoader.js for ANDY_USE_NATIVE semantics.
  */
 
 const { ANDY_DEFAULTS } = require('../../config/defaults');
 const cfg = ANDY_DEFAULTS.needs;
 const { getDefaultDomain } = require('../../domain/DomainRegistry');
+const { loadNativeModule } = require('../../shared/nativeLoader');
 
-// 从 domain 获取 NEED_DRIVE_STATES
 const defaultDomain = getDefaultDomain();
 const NEED_DRIVE_STATES = defaultDomain.needDriveStates || {};
 
 let _NativeCtor = null;
-let _loadAttempted = false;
+let _loadResult = null;
 
 function _ensureNative() {
-  if (_loadAttempted) return !!_NativeCtor;
-  _loadAttempted = true;
-  try {
-    const native = require('../../native');
-    _NativeCtor = native.NeedsSystemJs;
-    return true;
-  } catch (_) {
-    return false;
+  if (_loadResult) return _loadResult.available;
+  _loadResult = loadNativeModule();
+  if (_loadResult.available) {
+    _NativeCtor = _loadResult.native.NeedsSystemJs;
+    if (!_NativeCtor) {
+      const err = new Error(
+        '[andy-engine] native module loaded but NeedsSystemJs export is missing'
+      );
+      if (_loadResult.mode === 'required') throw err;
+      if (_loadResult.mode === 'optional') {
+        console.warn(`[andy-engine] ${err.message}; falling back to JS.`);
+        _loadResult.available = false;
+        return false;
+      }
+    }
   }
+  return _loadResult.available;
 }
 
 class NeedsSystemNative {
@@ -76,7 +84,6 @@ class NeedsSystemNative {
     this.needs = savedState ? { ...savedState.needs } : {
       hunger: 0.8, energy: 0.9, social: 0.6, comfort: 0.7, stimulation: 0.5,
     };
-    // Sync _decayRates immediately (tests access it after construction)
     this._syncFromNative();
   }
 
@@ -91,7 +98,6 @@ class NeedsSystemNative {
     this._syncFromNative();
   }
 
-  // Read-only queries: compute from JS mirror (.needs may be mutated externally)
   getDrive() {
     let maxUrgency = 0;
     let urgentNeed = null;
@@ -150,7 +156,8 @@ class NeedsSystemNative {
 // Export: conditionally use native or pure JS
 // ═══════════════════════════════════════════
 
-const useNative = process.env.ANDY_USE_NATIVE === '1' && _ensureNative();
+_ensureNative();
+const useNative = _loadResult && _loadResult.available;
 
 if (useNative) {
   module.exports = NeedsSystemNative;

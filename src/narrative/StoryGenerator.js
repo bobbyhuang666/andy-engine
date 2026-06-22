@@ -104,38 +104,41 @@ class StoryGenerator {
    * @param {string} agentId - 目标 agent
    * @returns {Story|null} 故事对象，无事发生时返回 null
    */
-  generateFromTick(tickResult, agentId = 'bobby') {
+  generateFromTick(tickResult, agentId = 'bobby', options = {}) {
     if (!tickResult || !tickResult.phase?.agentThink?.results) return null;
 
     const agentResult = tickResult.phase.agentThink.results[agentId];
     if (!agentResult) return null;
 
+    const { rng, simTime } = options;
+    const timestamp = simTime ? simTime.getTime() : Date.now();
     const stories = [];
 
     // 1. 状态变化
     if (agentResult.stateChanged) {
-      stories.push(this._stateChangeStory(agentResult, tickResult));
+      stories.push(this._stateChangeStory(agentResult, tickResult, rng));
     }
 
     // 2. 社交互动
     if (agentResult.interaction) {
-      stories.push(this._socialStory(agentResult.interaction, tickResult));
+      stories.push(this._socialStory(agentResult.interaction, tickResult, rng));
     }
 
     // 3. 情绪极端
-    const emotionStory = this._emotionExtremeStory(agentResult);
+    const emotionStory = this._emotionExtremeStory(agentResult, rng);
     if (emotionStory) stories.push(emotionStory);
 
     // 4. 心智游荡
     if (agentResult.mindWander) {
-      stories.push(this._mindWanderStory(agentResult.mindWander));
+      stories.push(this._mindWanderStory(agentResult.mindWander, rng));
     }
 
     // 5. 无事发生（低概率生成平淡故事，避免空白）
-    if (stories.length === 0 && Math.random() < 0.1) {
+    const quietChance = rng ? rng.next() : Math.random();
+    if (stories.length === 0 && quietChance < 0.1) {
       stories.push({
         category: 'daily_life',
-        content: pickRandom(TEMPLATES.quiet),
+        content: pickRandom(TEMPLATES.quiet, rng),
         emotionTag: 'neutral',
         importance: 0.2,
       });
@@ -145,7 +148,7 @@ class StoryGenerator {
     return stories.map(s => ({
       ...s,
       tick: tickResult.tickNumber,
-      timestamp: Date.now(),
+      timestamp,
       agentId,
       source: 'simulation',
     }));
@@ -159,7 +162,9 @@ class StoryGenerator {
    * @param {number} tick - 当前 tick
    * @returns {Story}
    */
-  generateFromSignal(storyText, emotionEffect, tick) {
+  generateFromSignal(storyText, emotionEffect, tick, options = {}) {
+    const { simTime } = options;
+    const timestamp = simTime ? simTime.getTime() : Date.now();
     // 根据情绪变化确定标签和重要性
     let emotionTag = 'neutral';
     let importance = 0.5;
@@ -182,7 +187,7 @@ class StoryGenerator {
 
     return {
       tick,
-      timestamp: Date.now(),
+      timestamp,
       agentId: 'bobby',
       category: 'conversation',
       content: storyText,
@@ -196,11 +201,11 @@ class StoryGenerator {
   // 内部：各类故事生成
   // ═══════════════════════════════════════════
 
-  _stateChangeStory(agentResult, tickResult) {
+  _stateChangeStory(agentResult, tickResult, rng) {
     const oldState = STATE_NAMES[agentResult.previousState] || agentResult.previousState || '休息';
     const newState = STATE_NAMES[agentResult.newState] || agentResult.newState || '休息';
 
-    const content = pickRandom(TEMPLATES.stateChange)
+    const content = pickRandom(TEMPLATES.stateChange, rng)
       .replace('{old}', oldState)
       .replace('{new}', newState);
 
@@ -212,13 +217,13 @@ class StoryGenerator {
     };
   }
 
-  _socialStory(interaction, tickResult) {
+  _socialStory(interaction, tickResult, rng) {
     const name = interaction.otherAgentName || interaction.otherAgent || '某个人';
     const location = LOCATION_NAMES[interaction.location] || '';
 
     let content;
     if (location) {
-      content = pickRandom(TEMPLATES.social)
+      content = pickRandom(TEMPLATES.social, rng)
         .replace('{name}', name)
         .replace('{location}', location);
     } else {
@@ -233,7 +238,7 @@ class StoryGenerator {
     };
   }
 
-  _emotionExtremeStory(agentResult) {
+  _emotionExtremeStory(agentResult, rng) {
     if (!agentResult.emotion) return null;
 
     const emotion = agentResult.emotion;
@@ -242,7 +247,7 @@ class StoryGenerator {
     if (valence > 0.35) {
       return {
         category: 'emotion',
-        content: pickRandom(TEMPLATES.emotionHigh),
+        content: pickRandom(TEMPLATES.emotionHigh, rng),
         emotionTag: 'happy',
         importance: 0.6 + Math.min(valence - 0.35, 0.3),
       };
@@ -251,7 +256,7 @@ class StoryGenerator {
     if (valence < -0.35) {
       return {
         category: 'emotion',
-        content: pickRandom(TEMPLATES.emotionLow),
+        content: pickRandom(TEMPLATES.emotionLow, rng),
         emotionTag: 'sad',
         importance: 0.6 + Math.min(Math.abs(valence) - 0.35, 0.3),
       };
@@ -260,9 +265,9 @@ class StoryGenerator {
     return null;
   }
 
-  _mindWanderStory(mindWander) {
+  _mindWanderStory(mindWander, rng) {
     const thought = mindWander.content || '一些事情';
-    const content = pickRandom(TEMPLATES.mindWander).replace('{thought}', thought);
+    const content = pickRandom(TEMPLATES.mindWander, rng).replace('{thought}', thought);
 
     let emotionTag = 'neutral';
     if (mindWander.type === 'worry') emotionTag = 'sad';
@@ -296,8 +301,9 @@ class StoryGenerator {
 // 工具函数
 // ═══════════════════════════════════════════
 
-function pickRandom(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
+function pickRandom(arr, rng) {
+  const r = rng ? rng.next() : Math.random();
+  return arr[Math.floor(r * arr.length)];
 }
 
 module.exports = { StoryGenerator };

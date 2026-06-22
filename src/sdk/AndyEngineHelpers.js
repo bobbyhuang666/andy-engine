@@ -45,15 +45,13 @@ function computeEmpathy(agent, relationship) {
   const relationshipFactor = 1 / (1 + Math.exp(-(relationship - 25) / 15));
 
   // 人格因子：宜人性直接影响共情
-  const personalityFactor = agent.personality
-    ? agent.personality.ocean.agreeableness
-    : 0.5;
+  const personalityFactor = agent.personality?.ocean?.agreeableness ?? 0.5;
 
   // 状态因子：自顾不暇时没精力共情
   let stateFactor = 1.0;
   if (agent.socialEnergy < 0.3) stateFactor *= 0.5;
   if (agent.emotion && agent.emotion.getValence() < -0.15) stateFactor *= 0.6;
-  if (agent.needs && agent.needs.needs.energy < 0.3) stateFactor *= 0.7;
+  if (agent.needs?.needs?.energy < 0.3) stateFactor *= 0.7;
 
   return Math.min(1, relationshipFactor * personalityFactor * stateFactor);
 }
@@ -82,7 +80,10 @@ function buildNarrative(agent, options = {}) {
       if (rawEffect && rawEffect.effect && Object.keys(rawEffect.effect).length > 0) {
         const empathyScale = computeEmpathy(agent, relationship);
         if (empathyScale > 0.05) {
-          emotionBackup = { ...agent.emotion.current };
+          emotionBackup = {
+            current: { ...agent.emotion.current },
+            mood: { ...agent.emotion.mood },
+          };
           agent.emotion.applyEffect(rawEffect.effect, empathyScale);
         }
       }
@@ -96,11 +97,12 @@ function buildNarrative(agent, options = {}) {
     narrative = agent.toNarrative();
   } catch (e) {
     narrative = '';
-  }
-
-  // 还原情绪（共情是临时的）
-  if (emotionBackup) {
-    Object.assign(agent.emotion.current, emotionBackup);
+  } finally {
+    // 还原情绪（共情是临时的），确保即使 toNarrative 抛异常也还原
+    if (emotionBackup) {
+      Object.assign(agent.emotion.current, emotionBackup.current);
+      Object.assign(agent.emotion.mood, emotionBackup.mood);
+    }
   }
 
   return narrative;

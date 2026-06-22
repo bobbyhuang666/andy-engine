@@ -758,6 +758,36 @@ function checkFactEmitterEventFallback() {
   return violations;
 }
 
+// --- src/ must not require root index.js ---
+
+function checkSrcReverseIndexJs() {
+  const violations = [];
+  const srcDir = path.join(ROOT, 'src');
+  const files = getJsFiles(srcDir);
+
+  // Pattern for dynamic requires: require(path.resolve(..., 'index')) or require(path.join(..., 'index'))
+  const dynamicIndexPattern = /require\s*\(\s*(path\.resolve|path\.join)\s*\([^)]*['"]index['"]\s*\)/;
+
+  for (const file of files) {
+    const content = readFileSync(file, 'utf-8');
+    const relFile = getRelativePath(file);
+
+    // Check for require('../../index') or require('../../../index')
+    if (/require\(['"]\.\.\/(\.\.\/)*index['"]\)/.test(content)) {
+      // src/sdk/AndyEngine.js is a known thin re-export — allowed
+      if (relFile === 'src/sdk/AndyEngine.js') continue;
+      violations.push({ file: relFile, reason: 'src/ must not require root index.js — use canonical src/ module or dependency injection' });
+    }
+
+    // Check for dynamic requires of root index.js via path.resolve/path.join
+    if (dynamicIndexPattern.test(content)) {
+      violations.push({ file: relFile, reason: 'src/ must not dynamically require root index.js via path.resolve/path.join — use dependency injection' });
+    }
+  }
+
+  return violations;
+}
+
 // --- Main ---
 
 function main() {
@@ -895,6 +925,18 @@ function main() {
     totalViolations += indexJsViolations.length;
   } else {
     console.log('✓ index.js imports: clean (no old top-level wrappers)');
+  }
+
+  // 10c. src/ must not require root index.js
+  const srcReverseIndexViolations = checkSrcReverseIndexJs();
+  if (srcReverseIndexViolations.length > 0) {
+    console.log('❌ src/ reverse index.js violations (src/ requires root index.js):');
+    for (const v of srcReverseIndexViolations) {
+      console.log(`  ${v.file}: ${v.reason}`);
+    }
+    totalViolations += srcReverseIndexViolations.length;
+  } else {
+    console.log('✓ src/ reverse index.js: clean (no src/ → root index.js)');
   }
 
   // 11. Old top-level implementation growth check

@@ -315,7 +315,7 @@ describe('store/ 向后兼容性', () => {
     expect(mod.createMemoryStore).toBeDefined();
   });
 
-  it('require("andy-engine/store/serialization") 有效', async () => {
+  it('internal src/store/Serialization module 有效 (非 public export)', async () => {
     const mod = await import('../../src/store/Serialization.js');
     expect(mod.Serialization).toBeDefined();
     expect(mod.ENVELOPE_VERSION).toBe('0.2.0');

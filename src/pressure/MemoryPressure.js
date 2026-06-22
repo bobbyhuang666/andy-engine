@@ -13,9 +13,11 @@ class MemoryPressure {
   /**
    * @param {Object} agentSnapshot - agent 状态快照（只读）
    * @param {Object[]} agentSnapshot.memories - memories 数组
+   * @param {Object} [options]
+   * @param {Date|string} [options.simTime] - simulation time (falls back to Date.now())
    * @returns {Object} pressure - { negative, positive, recency, total }
    */
-  static compute(agentSnapshot) {
+  static compute(agentSnapshot, options = {}) {
     if (!agentSnapshot || !agentSnapshot.memories || agentSnapshot.memories.length === 0) {
       return { negative: 0, positive: 0, recency: 0, total: 0 };
     }
@@ -26,7 +28,7 @@ class MemoryPressure {
     let recencySum = 0;
     let count = 0;
 
-    const now = Date.now();
+    const now = options.simTime ? new Date(options.simTime).getTime() : Date.now();
 
     for (const mem of memories) {
       if (!mem) continue;
@@ -68,10 +70,12 @@ class MemoryPressure {
    * 计算是否有显著负面记忆（压力超过阈值）
    * @param {Object} agentSnapshot
    * @param {number} [threshold=0.3]
+   * @param {Object} [options]
+   * @param {Date|string} [options.simTime] - simulation time
    * @returns {boolean}
    */
-  static hasSignificantNegativeMemory(agentSnapshot, threshold = 0.3) {
-    const pressure = MemoryPressure.compute(agentSnapshot);
+  static hasSignificantNegativeMemory(agentSnapshot, threshold = 0.3, options = {}) {
+    const pressure = MemoryPressure.compute(agentSnapshot, options);
     return pressure.negative > threshold;
   }
 }

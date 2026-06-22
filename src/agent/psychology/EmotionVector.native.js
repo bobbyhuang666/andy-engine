@@ -2,7 +2,7 @@
  * EmotionVector.native.js — Native-backed EmotionVector wrapper
  *
  * Drop-in replacement for EmotionVector.js using Rust via napi-rs.
- * Falls back to pure JS if native module unavailable or ANDY_USE_NATIVE!=1.
+ * Uses src/shared/nativeLoader.js for ANDY_USE_NATIVE semantics.
  *
  * Usage: replace `require('./EmotionVector')` with `require('./EmotionVector.native')`
  * or set ANDY_USE_NATIVE=1 and modify imports.
@@ -18,21 +18,30 @@
  */
 
 const { EMOTION_DIMENSIONS, CO_ACTIVATION, EMOTION_OPPOSITES, ANDY_DEFAULTS } = require('../../config/defaults');
+const { loadNativeModule } = require('../../shared/nativeLoader');
 const cfg = ANDY_DEFAULTS.emotion;
 
 let _NativeCtor = null;
-let _loadAttempted = false;
+let _loadResult = null;
 
 function _ensureNative() {
-  if (_loadAttempted) return !!_NativeCtor;
-  _loadAttempted = true;
-  try {
-    const native = require('../../native');
-    _NativeCtor = native.EmotionVectorJs;
-    return true;
-  } catch (_) {
-    return false;
+  if (_loadResult) return _loadResult.available;
+  _loadResult = loadNativeModule();
+  if (_loadResult.available) {
+    _NativeCtor = _loadResult.native.EmotionVectorJs;
+    if (!_NativeCtor) {
+      const err = new Error(
+        '[andy-engine] native module loaded but EmotionVectorJs export is missing'
+      );
+      if (_loadResult.mode === 'required') throw err;
+      if (_loadResult.mode === 'optional') {
+        console.warn(`[andy-engine] ${err.message}; falling back to JS.`);
+        _loadResult.available = false;
+        return false;
+      }
+    }
   }
+  return _loadResult.available;
 }
 
 /**
@@ -113,12 +122,10 @@ class EmotionVectorNative {
   tick(hoursElapsed, hourOfDay, contagionInputs = null) {
     const inBuf = this._packState();
     if (contagionInputs && typeof contagionInputs === 'object') {
-      // Binary contagion path: 25x faster than JSON
       const cBuf = this._packContagion(contagionInputs);
       const outBuf = this._ev.tickBinaryFull(inBuf, cBuf, hoursElapsed || 0, hourOfDay || 0);
       this._unpackResult(outBuf);
     } else {
-      // No contagion: pure binary path
       const outBuf = this._ev.tickBinary(inBuf, hoursElapsed || 0, hourOfDay || 0, null);
       this._unpackResult(outBuf);
     }
@@ -132,13 +139,11 @@ class EmotionVectorNative {
     this._unpackResult(outBuf);
   }
 
-  /** Pack effects object { dimName: delta } into binary buffer of (dimIndex, delta) pairs */
   _packEffects(effects) {
     if (!effects || typeof effects !== 'object') return Buffer.alloc(0);
     const entries = Object.entries(effects);
     if (entries.length === 0) return Buffer.alloc(0);
     const dims = this._dimIdx || EMOTION_DIMENSIONS;
-    // Pre-allocate lookup map once
     if (!this._dimNameToIdx) {
       this._dimNameToIdx = {};
       for (let i = 0; i < dims.length; i++) this._dimNameToIdx[dims[i]] = i;
@@ -154,9 +159,7 @@ class EmotionVectorNative {
     return buf;
   }
 
-  /** Pack current[30] + stress into a pre-allocated Float64Array */
   _packState() {
-    // Pre-allocate once, reuse every tick
     if (!this._packBuf) {
       this._packBuf = new Float64Array(31);
       this._dimIdx = EMOTION_DIMENSIONS;
@@ -165,11 +168,9 @@ class EmotionVectorNative {
     const dims = this._dimIdx;
     for (let i = 0; i < dims.length; i++) arr[i] = this.current[dims[i]] || 0;
     arr[30] = this.stress;
-    // Return Buffer view over the same memory (napi expects Buffer/Uint8Array)
     return Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength);
   }
 
-  /** Pack contagion data into binary buffer (32 doubles per neighbor) */
   _packContagion(contagionInputs) {
     const entries = Object.values(contagionInputs);
     if (entries.length === 0) return null;
@@ -187,9 +188,7 @@ class EmotionVectorNative {
     return buf;
   }
 
-  /** Unpack binary result: current[30] + mood[30] + baseline[30] + stress[1] + pink[16] = 107 doubles */
   _unpackResult(buf) {
-    // Create Float64Array view over the result buffer (zero-copy)
     const arr = new Float64Array(buf.buffer, buf.byteOffset, buf.byteLength / 8);
     const dims = EMOTION_DIMENSIONS;
     let off = 0;
@@ -205,7 +204,6 @@ class EmotionVectorNative {
     this._ev.setStress(this.stress);
   }
 
-  // Read-only queries: compute from JS mirror (.current may be mutated externally)
   getValence() {
     const positive = ['joy', 'contentment', 'satisfaction', 'excitement', 'calm',
                       'hope', 'love', 'pride', 'gratitude', 'relief', 'triumph', 'amusement'];
@@ -320,9 +318,6 @@ class EmotionVectorNative {
     };
   }
 
-  // ─── Internal methods for test compatibility ───
-  // These operate on the JS mirror and match the JS EmotionVector algorithms.
-
   _timeDecay(dt) {
     const lambda = this.personality.behavior.emotionDecayRate || cfg.decayLambda;
     const hedonicAdaptFactor = 1.2;
@@ -400,7 +395,8 @@ class EmotionVectorNative {
 // Export: conditionally use native or pure JS
 // ═══════════════════════════════════════════
 
-const useNative = process.env.ANDY_USE_NATIVE === '1' && _ensureNative();
+_ensureNative();
+const useNative = _loadResult && _loadResult.available;
 
 if (useNative) {
   module.exports = EmotionVectorNative;

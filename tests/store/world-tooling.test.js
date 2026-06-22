@@ -5,6 +5,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import AndyEngine from '../../index.js';
 import { compile } from '../../src/store/world/compiler.js';
 import { migrateWorldState } from '../../src/store/world/migration.js';
 import { validateWorldState, CURRENT_SCHEMA_VERSION } from '../../src/store/world/validator.js';
@@ -44,26 +45,26 @@ describe('World Compiler', () => {
   };
 
   it('成功编译合法的 World Spec', () => {
-    const result = compile(validSpec);
+    const result = compile(validSpec, null, AndyEngine);
 
     expect(result.state).not.toBeNull();
     expect(result.errors).toHaveLength(0);
   });
 
   it('编译输出的 schemaVersion 为最新版本', () => {
-    const result = compile(validSpec);
+    const result = compile(validSpec, null, AndyEngine);
 
     expect(result.state.schemaVersion).toBe(CURRENT_SCHEMA_VERSION);
   });
 
   it('编译输出的 tickCount 为 0', () => {
-    const result = compile(validSpec);
+    const result = compile(validSpec, null, AndyEngine);
 
     expect(result.state.worldClock.tickCount).toBe(0);
   });
 
   it('编译输出通过 validateWorldState 校验', () => {
-    const result = compile(validSpec);
+    const result = compile(validSpec, null, AndyEngine);
 
     const validation = validateWorldState(result.state);
     expect(validation.valid).toBe(true);
@@ -71,7 +72,7 @@ describe('World Compiler', () => {
   });
 
   it('编译输出包含正确的 characters', () => {
-    const result = compile(validSpec);
+    const result = compile(validSpec, null, AndyEngine);
 
     expect(result.state.characters).toHaveLength(2);
     const maya = result.state.characters.find(c => c.id === 'maya');
@@ -81,7 +82,7 @@ describe('World Compiler', () => {
   });
 
   it('编译输出包含 runtimeSnapshot', () => {
-    const result = compile(validSpec);
+    const result = compile(validSpec, null, AndyEngine);
 
     expect(result.state.runtimeSnapshot).toBeDefined();
     expect(typeof result.state.runtimeSnapshot).toBe('object');
@@ -89,8 +90,8 @@ describe('World Compiler', () => {
   });
 
   it('编译出的 State 能恢复为引擎并执行 tick', () => {
-    const result = compile(validSpec);
-    const engine = fromWorldState(result.state);
+    const result = compile(validSpec, null, AndyEngine);
+    const engine = fromWorldState(result.state, {}, AndyEngine);
 
     expect(() => {
       engine.tick();
@@ -100,8 +101,8 @@ describe('World Compiler', () => {
   });
 
   it('编译出的引擎恢复后角色存在', () => {
-    const result = compile(validSpec);
-    const engine = fromWorldState(result.state);
+    const result = compile(validSpec, null, AndyEngine);
+    const engine = fromWorldState(result.state, {}, AndyEngine);
 
     const maya = engine.getAgent('maya');
     expect(maya).toBeDefined();
@@ -114,7 +115,7 @@ describe('World Compiler', () => {
       // 缺少 domainRef, worldName, characters
     };
 
-    const result = compile(invalidSpec);
+    const result = compile(invalidSpec, null, AndyEngine);
     expect(result.state).toBeNull();
     expect(result.errors.length).toBeGreaterThan(0);
   });
@@ -125,7 +126,7 @@ describe('World Compiler', () => {
       schemaVersion: '99.99.99',
     };
 
-    const result = compile(invalidSpec);
+    const result = compile(invalidSpec, null, AndyEngine);
     expect(result.state).toBeNull();
     expect(result.errors.some(e => e.path === 'schemaVersion')).toBe(true);
   });
@@ -140,7 +141,7 @@ describe('World Compiler', () => {
       ],
     };
 
-    const result = compile(minimalSpec);
+    const result = compile(minimalSpec, null, AndyEngine);
     expect(result.state).not.toBeNull();
     expect(result.state.worldClock.tickCount).toBe(0);
   });
@@ -155,7 +156,7 @@ describe('World Compiler', () => {
       ],
     };
 
-    const result = compile(spec);
+    const result = compile(spec, null, AndyEngine);
     expect(result.state).toBeNull();
     expect(result.errors.some(e => e.path === 'domainRef' && e.message.includes('必须传入 domainConfig'))).toBe(true);
   });
@@ -171,7 +172,7 @@ describe('World Compiler', () => {
     };
     const fakeDomain = { id: 'campus' };
 
-    const result = compile(spec, fakeDomain);
+    const result = compile(spec, fakeDomain, AndyEngine);
     expect(result.state).toBeNull();
     expect(result.errors.some(e => e.path === 'domainRef' && e.message.includes('不匹配'))).toBe(true);
   });
@@ -398,7 +399,7 @@ describe('Migration Pipeline', () => {
     const { state } = migrateWorldState(createV0State());
 
     // 迁移后的 domainRef 为 'campus'（旧版均为 campus domain），无需显式传入 domainConfig
-    const engine = fromWorldState(state);
+    const engine = fromWorldState(state, {}, AndyEngine);
 
     expect(() => {
       engine.tick();

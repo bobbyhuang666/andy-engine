@@ -27,6 +27,7 @@ class AndyBridge {
   constructor(options = {}) {
     this.andy = options.andy;
     this.agentId = options.agentId || 'bobby';
+    this._rng = options.rng || null;
 
     // 核心模块
     this.signalBuffer = new EmotionSignalBuffer();
@@ -101,6 +102,8 @@ class AndyBridge {
    */
   onTick(tickResult) {
     const stories = [];
+    const simTime = this.store.virtualTime ? new Date(this.store.virtualTime) : undefined;
+    const options = { rng: this._rng, simTime };
 
     // 1. 消费情绪信号缓冲 → 注入 Bobby agent
     const signal = this.signalBuffer.consume();
@@ -110,12 +113,13 @@ class AndyBridge {
         signal.storyText,
         signal.mergedEffect,
         this.store.tickCount,
+        options,
       );
       if (signalStory) stories.push(signalStory);
     }
 
     // 2. 从 tick 结果生成故事
-    const tickStories = this.storyGenerator.generateFromTick(tickResult, this.agentId);
+    const tickStories = this.storyGenerator.generateFromTick(tickResult, this.agentId, options);
     if (tickStories) stories.push(...tickStories);
 
     // 3. 交给 SimulationStore（缓冲 + 定期持久化）

@@ -29,6 +29,7 @@
   },
   "files": [
     "index.js",
+    "index.d.ts",
     "agent/",
     "store/",
     "sdk/",
@@ -36,6 +37,7 @@
     "domain/",
     "presets/",
     "src/",
+    "native/",
     "examples/",
     "docs/DOMAIN.md",
     "README.md",
@@ -69,7 +71,10 @@
     "vitest": "^4.1.7"
   },
   "exports": {
-    ".": "./index.js",
+    ".": {
+      "types": "./index.d.ts",
+      "require": "./index.js"
+    },
     "./sdk": "./sdk/index.js",
     "./domain": "./domain/index.js",
     "./domain/validate": "./src/domain/validateDomain.js",
@@ -80,5 +85,5 @@
     "./presets/campus": "./presets/campus/index.js",
     "./presets/tavern": "./presets/tavern/index.js"
   },
-  "types": "src/sdk/types.d.ts"
+  "types": "index.d.ts"
 }

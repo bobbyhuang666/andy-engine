@@ -17,8 +17,8 @@ describe('Package Boundary', () => {
       expect(pkg.version).toBe('2.0.0-alpha.1');
     });
 
-    it('types points to src/sdk/types.d.ts', () => {
-      expect(pkg.types).toBe('src/sdk/types.d.ts');
+    it('types points to index.d.ts', () => {
+      expect(pkg.types).toBe('index.d.ts');
     });
 
     it('main points to index.js', () => {
@@ -26,17 +26,22 @@ describe('Package Boundary', () => {
     });
 
     it('exports are complete', () => {
-      expect(pkg.exports['.']).toBe('./index.js');
+      expect(pkg.exports['.'].require).toBe('./index.js');
       expect(pkg.exports['./sdk']).toBe('./sdk/index.js');
       expect(pkg.exports['./domain']).toBe('./domain/index.js');
+      expect(pkg.exports['./domain/validate']).toBe('./src/domain/validateDomain.js');
+      expect(pkg.exports['./domain/registry']).toBe('./src/domain/DomainRegistry.js');
+      expect(pkg.exports['./facts']).toBe('./facts/index.js');
       expect(pkg.exports['./store']).toBe('./store/index.js');
+      expect(pkg.exports['./config/defaults']).toBe('./src/config/defaults.js');
       expect(pkg.exports['./presets/tavern']).toBe('./presets/tavern/index.js');
       expect(pkg.exports['./presets/campus']).toBe('./presets/campus/index.js');
     });
 
     it('all exports point to existing files', () => {
       for (const [key, value] of Object.entries(pkg.exports)) {
-        const filePath = path.join(process.cwd(), value);
+        const entry = typeof value === 'string' ? value : (value.require || value.types);
+        const filePath = path.join(process.cwd(), entry);
         expect(existsSync(filePath)).toBe(true);
       }
     });
@@ -73,8 +78,9 @@ describe('Package Boundary', () => {
   });
 
   describe('required files exist', () => {
-    const requiredFiles = [
+      const requiredFiles = [
       'index.js',
+      'index.d.ts',
       'sdk/types.d.ts',
       'domain/index.js',
       'src/domain/validateDomain.js',
@@ -146,10 +152,31 @@ describe('Package Boundary', () => {
       expect(mod.validateDomain).toBeDefined();
     });
 
+    it('require("andy-engine/domain/validate") works', async () => {
+      const mod = await import('../src/domain/validateDomain.js');
+      expect(mod.validateDomain).toBeDefined();
+    });
+
+    it('require("andy-engine/domain/registry") works', async () => {
+      const mod = await import('../src/domain/DomainRegistry.js');
+      expect(mod.DomainRegistry).toBeDefined();
+    });
+
+    it('require("andy-engine/facts") works', async () => {
+      const mod = await import('../facts/index.js');
+      expect(mod.WorldFactStore).toBeDefined();
+      expect(mod.FactProvider).toBeDefined();
+    });
+
     it('require("andy-engine/store") works', async () => {
       const mod = await import('../store/index.js');
       expect(mod.createStore).toBeDefined();
       expect(mod.createMemoryStore).toBeDefined();
+    });
+
+    it('require("andy-engine/config/defaults") works', async () => {
+      const mod = await import('../src/config/defaults.js');
+      expect(mod.ANDY_DEFAULTS).toBeDefined();
     });
 
     it('require("andy-engine/presets/campus") works', async () => {
