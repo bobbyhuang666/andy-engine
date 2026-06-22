@@ -35,15 +35,17 @@ class PressureContext {
    * @param {Object} context.world - world 状态快照
    * @param {Object} context.agent - agent 状态快照
    * @param {Object[]} context.events - 最近事件列表
+   * @param {Date|string} [context.simTime] - simulation time
    * @returns {PressureContext}
    */
   static fromSnapshot(context) {
-    const { world, agent, events } = context;
+    const { world, agent, events, simTime } = context;
+    const memOptions = simTime ? { simTime } : {};
 
     return new PressureContext({
       worldPressure: WorldPressure.compute({ world, agent, events }),
       needPressure: NeedPressure.compute(agent),
-      memoryPressure: MemoryPressure.compute(agent),
+      memoryPressure: MemoryPressure.compute(agent, memOptions),
       relationshipPressure: RelationshipPressure.compute(agent),
       locationPressure: LocationPressure.compute(agent),
     });

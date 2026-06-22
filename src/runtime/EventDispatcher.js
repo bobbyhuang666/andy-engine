@@ -257,7 +257,7 @@ class EventDispatcher {
       }
     }
 
-    const event = this.createEvent({
+    const event = {
       type: 'social',
       scope: 'local',
       participants: [agentA, agentB],
@@ -277,7 +277,7 @@ class EventDispatcher {
         }},
         ...gossipEffects,
       ],
-    });
+    };
 
     // 记录去重键
     this._recentEncounterPairs.add(pairKey);
@@ -314,14 +314,14 @@ class EventDispatcher {
       }
     }
 
-    return this.createEvent({
+    return {
       type: 'weather',
       scope: 'public',
       participants: [],
       observers: affectedAgentIds,
       content: weatherEvent.content,
       effects,
-    });
+    };
   }
 
   /**
@@ -381,7 +381,7 @@ class EventDispatcher {
     const updatedRecent = [...recent, chosen.content].slice(-8);
     this._recentContentByAgent.set(agentId, updatedRecent);
 
-    return this.createEvent({
+    return {
       type: 'random',
       scope: 'local',
       participants: [agentId],
@@ -389,7 +389,7 @@ class EventDispatcher {
       effects: [
         { target: agentId, type: 'emotion', delta: chosen.delta },
       ],
-    });
+    };
   }
 
   // ═══════════════════════════════════════════

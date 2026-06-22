@@ -675,3 +675,41 @@ describe('Stage 20: index.js uses canonical imports', () => {
     expect(violations).toEqual([]);
   });
 });
+
+describe('Architecture: src/ must not require root index.js', () => {
+  const ALLOWED_EXCEPTIONS = ['src/sdk/AndyEngine.js'];
+
+  it('src/ files do not require root index.js (except thin re-exports)', () => {
+    const violations = [];
+    const srcDir = path.join(ROOT, 'src');
+    const files = getJsFiles(srcDir);
+
+    for (const file of files) {
+      const relFile = rel(file);
+      const content = readFileSync(file, 'utf-8');
+
+      if (/require\(['"]\.\.\/(\.\.\/)*index['"]\)/.test(content)) {
+        if (ALLOWED_EXCEPTIONS.includes(relFile)) continue;
+        violations.push(`${relFile}: src/ must not require root index.js`);
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+
+  it('src/ files do not dynamically require root index.js via path.resolve/path.join', () => {
+    const violations = [];
+    const srcDir = path.join(ROOT, 'src');
+    const files = getJsFiles(srcDir);
+    const dynamicIndexPattern = /require\s*\(\s*(path\.resolve|path\.join)\s*\([^)]*['"]index['"]\s*\)/;
+
+    for (const file of files) {
+      const relFile = rel(file);
+      const content = readFileSync(file, 'utf-8');
+
+      if (dynamicIndexPattern.test(content)) {
+        violations.push(`${relFile}: src/ must not dynamically require root index.js`);
+      }
+    }
+    expect(violations).toEqual([]);
+  });
+});

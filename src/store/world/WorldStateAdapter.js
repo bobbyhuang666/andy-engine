@@ -76,7 +76,7 @@ function toWorldState(engine, worldId) {
  * @returns {Object} AndyEngine 实例
  * @throws {Error} domainRef 不匹配时抛出错误
  */
-function fromWorldState(worldState, config = {}) {
+function fromWorldState(worldState, config = {}, engineConstructor = null) {
   // 恢复安全性校验：domainRef 一致性
   if (config.domain) {
     if (config.domain.id !== worldState.domainRef) {
@@ -95,11 +95,12 @@ function fromWorldState(worldState, config = {}) {
     startTime: worldState.worldClock ? new Date(worldState.worldClock.time) : undefined,
   };
 
-  // 动态加载 AndyEngine（避免循环依赖）
-  const AndyEngine = require('../../../index');
+  if (typeof engineConstructor !== 'function') {
+    throw new Error('WorldStateAdapter.fromWorldState() requires an engineConstructor parameter. Pass the AndyEngine class from the public facade layer.');
+  }
 
   // 使用原始快照恢复引擎
-  return new AndyEngine(engineConfig, originalSnapshot);
+  return new engineConstructor(engineConfig, originalSnapshot);
 }
 
 module.exports = {

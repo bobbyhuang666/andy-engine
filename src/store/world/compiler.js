@@ -19,7 +19,7 @@ const { toWorldState } = require('./WorldStateAdapter');
  * @param {Object} [domainConfig] - Domain Config 对象（可选，但非 campus 时必须传入）
  * @returns {{ state: Object|null, errors: Array<{path: string, message: string}> }}
  */
-function compile(spec, domainConfig = null) {
+function compile(spec, domainConfig = null, engineConstructor = null) {
   // Step 1: 校验 World Spec
   const specResult = validateWorldSpec(spec);
   if (!specResult.valid) {
@@ -38,7 +38,10 @@ function compile(spec, domainConfig = null) {
   }
 
   // Step 3: 实例化空白引擎
-  const AndyEngine = require('../../../index');
+  if (typeof engineConstructor !== 'function') {
+    throw new Error('compile() requires an engineConstructor parameter. Pass the AndyEngine class from the public facade layer.');
+  }
+  const AndyEngine = engineConstructor;
   const engineConfig = {
     startTime: spec.parameters && spec.parameters.startTime
       ? new Date(spec.parameters.startTime)

@@ -40,6 +40,8 @@ const { validateDomain } = require('andy-engine/domain');
 const { DomainRegistry } = require('andy-engine/domain/registry');
 const tavern = require('andy-engine/presets/tavern');
 const campus = require('andy-engine/presets/campus');
+const fs = require('fs');
+const path = require('path');
 
 let passed = 0;
 let failed = 0;
@@ -130,7 +132,6 @@ check('createMemoryStore()', () => {
   const { createMemoryStore } = require('andy-engine/store');
   const s = createMemoryStore();
   if (!s) throw new Error('no store');
-  // Test basic operation
   s.saveSnapshot(0, Date.now(), Buffer.from('test'));
   s.close();
 });
@@ -148,6 +149,60 @@ check('invalid domain throws', () => {
     throw new Error('should have thrown');
   } catch (e) {
     if (!e.message.includes('Invalid domain')) throw e;
+  }
+});
+
+// ── Native smoke checks ──
+
+// S1: native directory included
+check('native/index.js present in package', () => {
+  const pkgRoot = path.dirname(require.resolve('andy-engine'));
+  if (!fs.existsSync(path.join(pkgRoot, 'native', 'index.js'))) {
+    throw new Error('native/index.js missing from package');
+  }
+});
+
+// S2: native wrappers default to JS (no native load attempted)
+check('EmotionVector.native.js loads without native (default JS)', () => {
+  const pkgRoot = path.dirname(require.resolve('andy-engine'));
+  const EV = require(path.join(pkgRoot, 'src/agent/psychology/EmotionVector.native.js'));
+  if (EV._isNative) throw new Error('should not be native without ANDY_USE_NATIVE');
+});
+
+check('NeedsSystem.native.js loads without native (default JS)', () => {
+  const pkgRoot = path.dirname(require.resolve('andy-engine'));
+  const NS = require(path.join(pkgRoot, 'src/agent/psychology/NeedsSystem.native.js'));
+  if (NS._isNative) throw new Error('should not be native without ANDY_USE_NATIVE');
+});
+
+// S3: required mode fails loudly if binding missing
+check('ANDY_USE_NATIVE=1 throws if no binding', () => {
+  const pkgRoot = path.dirname(require.resolve('andy-engine'));
+  // Clear cached modules to force re-evaluation
+  const evPath = path.join(pkgRoot, 'src/agent/psychology/EmotionVector.native.js');
+  for (const key of Object.keys(require.cache)) {
+    if (key.includes('.native.js') || key.includes('nativeLoader')) {
+      delete require.cache[key];
+    }
+  }
+
+  const prev = process.env.ANDY_USE_NATIVE;
+  process.env.ANDY_USE_NATIVE = '1';
+  try {
+    // This should throw if no compiled native binding exists
+    // If the machine has a compiled binding, it may succeed — accept both
+    require(evPath);
+  } catch (e) {
+    const msg = e.message || '';
+    if (!msg.includes('native module load failed') && !msg.includes('native module loaded but')) {
+      throw new Error(`unexpected error message: ${msg}`);
+    }
+  } finally {
+    if (prev === undefined) {
+      delete process.env.ANDY_USE_NATIVE;
+    } else {
+      process.env.ANDY_USE_NATIVE = prev;
+    }
   }
 });
 

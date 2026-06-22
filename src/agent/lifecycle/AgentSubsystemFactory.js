@@ -8,16 +8,13 @@
  */
 
 const Personality = require('../psychology/Personality');
-const EmotionVector = process.env.ANDY_USE_NATIVE === '1'
-  ? require('../psychology/EmotionVector.native')
-  : require('../psychology/EmotionVector');
+// Always use .native wrappers — nativeLoader handles disabled/required/optional
+const EmotionVector = require('../psychology/EmotionVector.native');
 const { StateMachine } = require('../psychology/StateMachine');
 const PersonalMemory = require('../memory/PersonalMemory');
 const Schedule = require('../schedule/Schedule');
 const ProceduralMemory = require('../memory/ProceduralMemory');
-const NeedsSystem = process.env.ANDY_USE_NATIVE === '1'
-  ? require('../psychology/NeedsSystem.native')
-  : require('../psychology/NeedsSystem');
+const NeedsSystem = require('../psychology/NeedsSystem.native');
 const EmotionRegulation = require('../psychology/EmotionRegulation');
 const IntrinsicMotivation = require('../psychology/IntrinsicMotivation');
 const { BehaviorField } = require('../psychology/BehaviorField');

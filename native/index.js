@@ -1,5 +1,5 @@
 // Auto-generated napi-rs loader
-const { existsSync, readFileSync } = require('fs')
+const { existsSync } = require('fs')
 const { join } = require('path')
 
 const { platform, arch } = process
@@ -17,7 +17,11 @@ function loadBinding() {
     return require(localPath)
   }
 
-  throw new Error(`Failed to load native binding: ${name} not found in ${__dirname}`)
+  throw new Error(
+    `Failed to load native binding: ${name} not found in ${__dirname}. ` +
+    `Searched: ${localPath}. ` +
+    `Build the native module under native/ or unset ANDY_USE_NATIVE`
+  )
 }
 
 try {
@@ -27,7 +31,12 @@ try {
 }
 
 if (!nativeBinding) {
-  throw new Error(`Failed to load andy-core native module.\n${loadError}`)
+  throw new Error(
+    `[andy-engine] Failed to load andy-core native module for ${platform}/${arch}.\n` +
+    `${loadError}\n` +
+    `If you set ANDY_USE_NATIVE=1, a compiled native binding is required. ` +
+    `Build native/ or unset ANDY_USE_NATIVE to use the JS implementation.`
+  )
 }
 
 module.exports = nativeBinding

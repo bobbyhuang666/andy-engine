@@ -239,12 +239,17 @@ function applyActionStateDeltas(agent, stateDeltas, env) {
 
   // Commit all deltas through EffectCommitter
   if (deltas.length > 0) {
-    const agents = new Map([[agent.id, agent]]);
-    const committer = new EffectCommitter({
-      world: { time: env.simTime || null },
-      agents,
-    });
-    committer.commit(new EffectResult({ event: {}, deltas, reasonTrace: {} }));
+    // Reuse agent-cached committer to reduce GC pressure; update world ref for current simTime
+    if (!agent._effectCommitter) {
+      const agents = new Map([[agent.id, agent]]);
+      agent._effectCommitter = new EffectCommitter({
+        world: { time: env.simTime || null },
+        agents,
+      });
+    } else {
+      agent._effectCommitter.world.time = env.simTime || null;
+    }
+    agent._effectCommitter.commit(new EffectResult({ event: {}, deltas, reasonTrace: {} }));
   }
 }
 

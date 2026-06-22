@@ -31,6 +31,8 @@ __pycache__/
 
 # Build artifacts
 native/target/
+native/**/*.rlib
+native/**/*.dSYM
 *.node
 
 # Config

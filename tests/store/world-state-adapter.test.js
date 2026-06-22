@@ -158,9 +158,7 @@ describe('WorldStateAdapter.fromWorldState', () => {
     engine.tick();
 
     const worldState = toWorldState(engine, 'world_test_101');
-    const restoredEngine = fromWorldState(worldState);
-
-    // 恢复后能继续执行 tick
+    const restoredEngine = fromWorldState(worldState, {}, AndyEngine);
     expect(() => {
       restoredEngine.tick();
       restoredEngine.tick();
@@ -175,7 +173,7 @@ describe('WorldStateAdapter.fromWorldState', () => {
     }
 
     const worldState = toWorldState(engine, 'world_test_102');
-    const restoredEngine = fromWorldState(worldState);
+    const restoredEngine = fromWorldState(worldState, {}, AndyEngine);
 
     // 恢复后继续运行
     for (let i = 0; i < 5; i++) {
@@ -199,7 +197,7 @@ describe('WorldStateAdapter.fromWorldState', () => {
     engine.tick();
 
     const worldState = toWorldState(engine, 'world_test_103');
-    const restoredEngine = fromWorldState(worldState);
+    const restoredEngine = fromWorldState(worldState, {}, AndyEngine);
 
     const maya = restoredEngine.getAgent('maya');
     expect(maya).toBeDefined();
@@ -217,7 +215,7 @@ describe('WorldStateAdapter.fromWorldState', () => {
     const worldState = toWorldState(engine, 'world_test_104');
     const originalTime = worldState.worldClock.time;
 
-    const restoredEngine = fromWorldState(worldState);
+    const restoredEngine = fromWorldState(worldState, {}, AndyEngine);
     const restoredTime = restoredEngine.world.time.toISOString();
 
     // 时间应该一致（允许毫秒级差异）
@@ -233,7 +231,7 @@ describe('WorldStateAdapter.fromWorldState', () => {
     expect(validateWorldState(state1).valid).toBe(true);
 
     // 恢复
-    const restored = fromWorldState(state1);
+    const restored = fromWorldState(state1, {}, AndyEngine);
 
     // 继续运行
     for (let i = 0; i < 3; i++) restored.tick();
@@ -262,7 +260,7 @@ describe('WorldStateAdapter 边界情况', () => {
     expect(validateWorldState(worldState).valid).toBe(true);
     expect(worldState.characters).toHaveLength(0);
 
-    const restored = fromWorldState(worldState);
+    const restored = fromWorldState(worldState, {}, AndyEngine);
     expect(() => restored.tick()).not.toThrow();
     expect(restored.getAllAgents()).toHaveLength(0);
   });
@@ -296,7 +294,7 @@ describe('WorldStateAdapter 恢复安全性', () => {
     const fakeDomain = { id: 'tavern' };
 
     expect(() => {
-      fromWorldState(worldState, { domain: fakeDomain });
+      fromWorldState(worldState, { domain: fakeDomain }, AndyEngine);
     }).toThrow(/不匹配/);
   });
 
@@ -320,7 +318,7 @@ describe('WorldStateAdapter 恢复安全性', () => {
     };
 
     expect(() => {
-      fromWorldState(worldState);
+      fromWorldState(worldState, {}, AndyEngine);
     }).toThrow(/必须在 config.domain 中传入/);
   });
 
@@ -331,7 +329,7 @@ describe('WorldStateAdapter 恢复安全性', () => {
     const worldState = toWorldState(engine, 'world_test_303');
 
     expect(() => {
-      fromWorldState(worldState);
+      fromWorldState(worldState, {}, AndyEngine);
     }).not.toThrow();
   });
 });
