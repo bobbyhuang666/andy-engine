@@ -23,6 +23,7 @@ class AutoTick {
     this.maxCatchupTicks = Math.max(1, options.maxCatchupTicks || 288);
     this.chatTickMin = Math.max(0, options.chatTickMin ?? 1);
     this.chatTickMax = Math.max(this.chatTickMin, options.chatTickMax ?? 3);
+    this._rng = options.rng || Math.random;
 
     this._lastMessageTime = null;
     this._lastSimTime = null;
@@ -50,7 +51,7 @@ class AutoTick {
 
     // 对话中：每条消息推进 1-3 tick
     if (elapsedMinutes < 5) {
-      const ticks = this.chatTickMin + Math.floor(Math.random() * (this.chatTickMax - this.chatTickMin + 1));
+      const ticks = this.chatTickMin + Math.floor(this._rng() * (this.chatTickMax - this.chatTickMin + 1));
       this._lastMessageTime = now;
       return ticks;
     }
