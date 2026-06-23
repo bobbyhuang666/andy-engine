@@ -22,6 +22,9 @@ run_check() {
   echo ""
 }
 
+# 0. Release clean check (macOS metadata)
+run_check "release-clean" "bash scripts/check-release-clean.sh"
+
 # 1. npm test
 run_check "npm test" "npm test"
 
