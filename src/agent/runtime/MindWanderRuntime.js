@@ -16,7 +16,7 @@ function mindWander(agent) {
   const valence = agent.emotion.getValence();
   const stress = agent.emotion.stress || 0;
 
-  const sp = agent._domain && agent._domain.semanticProfile;
+  const sp = agent.domain && agent.domain.semanticProfile;
   const mwSp = sp && sp.mindWander;
 
   // Mood-congruent retrieval
@@ -154,7 +154,7 @@ function mindWander(agent) {
 function timeAgoLabel(agent, date) {
   if (!date) return '';
   const hours = (agent.memory._simTime - date.getTime()) / (1000 * 60 * 60);
-  const sp = agent._domain && agent._domain.semanticProfile;
+  const sp = agent.domain && agent.domain.semanticProfile;
   const tl = sp && sp.mindWander && sp.mindWander.timeLabels;
   if (hours < 1) return (tl && tl.justNow) || '刚刚';
   if (hours < 24) return (tl && tl.hoursAgo) ? tl.hoursAgo(Math.floor(hours)) : `${Math.floor(hours)}小时前`;

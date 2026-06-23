@@ -146,9 +146,17 @@ Files that correctly use `this._rng ? this._rng.next() : Math.random()` or equiv
 
 `src/sdk/NarrativeBuilder.js` uses fragile string matching on Chinese text output from upstream modules (NeedsSystem, EmotionVector, WorldContext). Any format change in upstream `toPromptString()` methods will silently break prompt generation. This should be replaced with structured data access.
 
-### SDK presentation RNG debt: EmotionSignalBuffer
+### SDK presentation RNG debt: EmotionSignalBuffer (RESOLVED)
 
-`src/sdk/EmotionSignalBuffer.js` (lines 98, 105, 112) uses bare `Math.random()` without the seeded RNG fallback pattern used everywhere else in `src/`. Lines 34, 60 use bare `Date.now()` without simTime integration. This module needs RNG injection and simTime support.
+`src/sdk/EmotionSignalBuffer.js` now supports optional `rng` and `now` injection:
+
+- Constructor accepts `{ rng, now }` options
+- `rng` must have `.next()` method for deterministic variant selection
+- `now` must be a function returning timestamp number
+- Falls back to `Math.random()` / `Date.now()` when not provided
+- Backward compatible: `simTime` object still supported (converted to `now` function internally)
+
+SDK presentation determinism is best-effort, not part of core seeded replay claim.
 
 ### Personality restore semantic debt
 

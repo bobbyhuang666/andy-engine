@@ -192,7 +192,7 @@ describe('Phase 5: EffectCommitter', () => {
       needs: { needs: { energy: 0.5, hunger: 0.5 } },
       emotion: { applyEffect: vi.fn() },
       memory: { addExperience: vi.fn() },
-      _socialGraphRef: {
+      socialGraph: {
         hasAgent: (id) => id === 'a1' || id === 'a2',
         getOrCreateRelationship: () => ({ recordInteraction: vi.fn() }),
       },
@@ -297,7 +297,7 @@ describe('Phase 5: EffectCommitter', () => {
     const world = makeMockWorld();
     const committer = new EffectCommitter({ world, agents });
     const relMock = { recordInteraction: vi.fn() };
-    agents.get('a1')._socialGraphRef.getOrCreateRelationship = () => relMock;
+    agents.get('a1').socialGraph.getOrCreateRelationship = () => relMock;
 
     committer.commit(new EffectResult({
       event: {},
@@ -312,7 +312,7 @@ describe('Phase 5: EffectCommitter', () => {
     const world = makeMockWorld();
     const committer = new EffectCommitter({ world, agents });
     const relMock = { recordInteraction: vi.fn() };
-    agents.get('a1')._socialGraphRef.getOrCreateRelationship = () => relMock;
+    agents.get('a1').socialGraph.getOrCreateRelationship = () => relMock;
 
     committer.commit(new EffectResult({
       event: {},

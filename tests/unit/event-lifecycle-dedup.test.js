@@ -32,10 +32,10 @@ function createMockAgent(id, position, socialGraph) {
     tick: () => ({ newEvents: [], regionChanged: false }),
     getStatus: () => ({ id }),
     toJSON: () => ({ id }),
-    setSocialGraph: (sg) => { agent._socialGraphRef = sg; },
+    setSocialGraph: (sg) => { agent.socialGraph = sg; },
   };
   if (socialGraph) {
-    agent._socialGraphRef = socialGraph;
+    agent.socialGraph = socialGraph;
   }
   return agent;
 }

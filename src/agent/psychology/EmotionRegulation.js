@@ -332,7 +332,7 @@ class EmotionRegulation {
       // 注意部署的本质：将注意力转向正面线索
       // 这里通过情绪一致性偏差的反转来实现
       // （正常是 mood-congruent recall，注意部署是 mood-incongruent recall）
-      const domain = agent._domain;
+      const domain = agent.domain;
       const erConfig = domain && domain.emotionRegulationConfig;
       const positiveKeywords = (erConfig && erConfig.positiveMemoryKeywords)
         || (domain && domain.semanticProfile && domain.semanticProfile.emotionRegulationKeywords && domain.semanticProfile.emotionRegulationKeywords.positiveMemory)

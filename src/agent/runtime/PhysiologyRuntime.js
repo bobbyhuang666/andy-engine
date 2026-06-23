@@ -86,7 +86,7 @@ function updateHealth(agent, hoursElapsed, env) {
   }
 
   if (env.weather === 'cold' || env.weather === 'rain') {
-    const outdoorRegions = agent._domain ? (agent._domain.placeTypes.outdoor || []) : ['运动场', '小镇广场', '公园', '路上', '回家路上'];
+    const outdoorRegions = agent.domain ? (agent.domain.placeTypes.outdoor || []) : ['运动场', '小镇广场', '公园', '路上', '回家路上'];
     const isOutdoor = outdoorRegions.includes(agent.position);
 
     if (env.weather === 'cold') {
@@ -160,11 +160,11 @@ function updateSocialEnergy(agent, hoursElapsed) {
   if (isSocial) {
     const intensity = Math.min(1, sociality / 0.8);
     agent.socialEnergy = Math.max(0,
-      agent.socialEnergy - agent._behavior.socialEnergyDrain * hoursElapsed * 0.1 * intensity
+      agent.socialEnergy - agent.behaviorParams.socialEnergyDrain * hoursElapsed * 0.1 * intensity
     );
   } else {
     agent.socialEnergy = Math.min(1,
-      agent.socialEnergy + agent._behavior.socialEnergyRecharge * hoursElapsed * 0.05
+      agent.socialEnergy + agent.behaviorParams.socialEnergyRecharge * hoursElapsed * 0.05
     );
   }
 }

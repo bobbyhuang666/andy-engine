@@ -23,9 +23,9 @@ function toNarrative(agent, externalState = null) {
   const info = agent.stateMachine.getInfo(agent.memory._simTime || null);
   const elapsedMin = info.elapsed || 0;
 
-  const narrativeTemplates = agent._domain ? agent._domain.narrativeTemplates : {};
+  const narrativeTemplates = agent.domain ? agent.domain.narrativeTemplates : {};
   const statePositionMap = narrativeTemplates.statePositionMap || {};
-  const sp = agent._domain && agent._domain.semanticProfile;
+  const sp = agent.domain && agent.domain.semanticProfile;
   const narrativeSp = sp && sp.narrativeModifiers;
 
   let stateDesc;
@@ -41,7 +41,7 @@ function toNarrative(agent, externalState = null) {
 
   // 2. Behavior quality (stayed too long → restless)
   const activeCategories = ['active', 'quiet'];
-  const stateDef = agent._domain ? agent._domain.states[rawState] : null;
+  const stateDef = agent.domain ? agent.domain.states[rawState] : null;
   const isActiveCategory = stateDef && activeCategories.includes(stateDef.category);
   if (elapsedMin > 60 && isActiveCategory) {
     parts.push((narrativeSp && narrativeSp.needPhrases && narrativeSp.needPhrases.restless) || '但有点坐不住');
@@ -103,7 +103,7 @@ function toNarrative(agent, externalState = null) {
       const snippet = mem.content.length > 20 ? mem.content.slice(0, 20) + '...' : mem.content;
       if (!snippet.includes(rawState) && !snippet.includes(rawPos)) {
         const timeLabel = hoursAgo < 0.5 ? '刚才' : hoursAgo < 2 ? '不久前' : '';
-        const safeSnippet = applyForbiddenTerms(snippet, agent._domain);
+        const safeSnippet = applyForbiddenTerms(snippet, agent.domain);
         parts.push(`${timeLabel}${safeSnippet}`);
         break;
       }
@@ -160,7 +160,7 @@ function toNarrative(agent, externalState = null) {
     }
   }
 
-  return applyForbiddenTerms(narrative, agent._domain);
+  return applyForbiddenTerms(narrative, agent.domain);
 }
 
 module.exports = { toNarrative };

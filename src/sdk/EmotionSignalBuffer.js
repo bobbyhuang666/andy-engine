@@ -17,7 +17,8 @@ class EmotionSignalBuffer {
   /**
    * @param {Object} [options]
    * @param {Object} [options.rng] - 可选的 seeded RNG（需有 .next() 方法）
-   * @param {Object} [options.simTime] - 可选的模拟时间源（需有 .getTime() 方法）
+   * @param {Function} [options.now] - 可选的时间戳提供函数（返回 timestamp number）
+   * @param {Object} [options.simTime] - 已废弃：可选的模拟时间源（需有 .getTime() 方法）
    */
   constructor(options = {}) {
     /** @type {Array<{ timestamp: number, text: string, result: Object }>} */
@@ -27,7 +28,16 @@ class EmotionSignalBuffer {
     this.lastConsumeTime = 0;
 
     this._rng = options.rng || null;
-    this._simTime = options.simTime || null;
+
+    // 支持新的 now 函数接口和旧的 simTime 对象接口
+    if (options.now) {
+      this._now = options.now;
+    } else if (options.simTime) {
+      // 向后兼容：将 simTime.getTime() 包装为 now 函数
+      this._now = () => options.simTime.getTime();
+    } else {
+      this._now = null;
+    }
   }
 
   /**
@@ -39,7 +49,7 @@ class EmotionSignalBuffer {
     const result = EmotionEffectClassifier.classify(text);
 
     this.pending.push({
-      timestamp: this._simTime ? this._simTime.getTime() : Date.now(),
+      timestamp: this._now ? this._now() : Date.now(),
       text,       // 仅在缓冲中暂存，消费后丢弃
       result,
     });
@@ -65,7 +75,7 @@ class EmotionSignalBuffer {
       EmotionEffectClassifier.classifyBatch(messages);
 
     const messageCount = this.pending.length;
-    this.lastConsumeTime = this._simTime ? this._simTime.getTime() : Date.now();
+    this.lastConsumeTime = this._now ? this._now() : Date.now();
 
     // 清空缓冲
     this.pending = [];

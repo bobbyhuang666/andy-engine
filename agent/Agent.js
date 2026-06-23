@@ -289,6 +289,21 @@ class Agent {
     };
   }
 
+  /** 获取 domain 配置（只读） */
+  get domain() {
+    return this._domain;
+  }
+
+  /** 获取社交图谱引用（只读） */
+  get socialGraph() {
+    return this._socialGraphRef;
+  }
+
+  /** 获取行为参数（只读） */
+  get behaviorParams() {
+    return this._behavior;
+  }
+
   /** 获取 Agent 的完整状态描述 */
   getStatus() {
     return {

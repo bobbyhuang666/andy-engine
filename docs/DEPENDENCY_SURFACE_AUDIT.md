@@ -1,6 +1,6 @@
 # Dependency Surface Audit
 
-> Audit date: 2026-06-22
+> Audit date: 2026-06-22 (updated 2026-06-23 post-release verification)
 > Scope: `dependencies` in package.json
 
 ---
@@ -131,3 +131,24 @@
 2. Add `"overrides": { "vite": "^8.0.16" }` to package.json to force a patched version.
 
 Neither option affects published or packed artifacts.
+
+---
+
+## Post-Release Verification (v2.0.0, 2026-06-23)
+
+| Check | Result |
+|---|---|
+| `npm audit` | 1 high (vite, dev-only, Windows-only) |
+| `npm audit --omit=dev` | 0 vulnerabilities |
+| Runtime deps in packed package | 0 (only optionalDependencies) |
+| `better-sqlite3` in optionalDependencies | ✅ |
+| `express` in devDependencies | ✅ |
+| `ws` removed | ✅ |
+| No devDependencies in packed runtime | ✅ (verified by `npm pack --dry-run`) |
+| LICENSE file | ✅ AGPL-3.0-only (standard FSF text) |
+| README Commercial Licensing section | ✅ present |
+| Fresh install (clean dir) | ✅ 39 packages, 0 vulnerabilities |
+| Consumer import test | ✅ 14/14 public paths |
+| Consumer typecheck | ✅ passed |
+
+**Conclusion**: No runtime dependency or security blockers. The vite advisory is dev-only, Windows-only, and does not affect the packed package.

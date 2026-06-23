@@ -38,7 +38,7 @@ class Appraisal {
    */
   static evaluate(event, agent) {
     // 从 domain 取配置
-    const domain = agent._domain || getDefaultDomain();
+    const domain = agent.domain || getDefaultDomain();
     const appraisalConfig = domain.appraisalConfig;
 
     const dims = {
@@ -288,7 +288,7 @@ class Appraisal {
       const otherId = event.participants.find(id => id !== agent.id);
       if (otherId) {
         // 检查关系强度
-        const rel = agent._socialGraphRef?.getRelationship(agent.id, otherId);
+        const rel = agent.socialGraph?.getRelationship(agent.id, otherId);
         const strength = rel ? rel.strength : 0;
         return {
           agent: otherId,

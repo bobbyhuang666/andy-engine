@@ -63,8 +63,8 @@ function buildActionContext(agent, env) {
       arousal: agent.emotion.getArousal(),
     },
     memories: agent.memory.memories.slice(-10),
-    relationships: agent._socialGraphRef
-      ? agent._socialGraphRef.getRelationships(agent.id)
+    relationships: agent.socialGraph
+      ? agent.socialGraph.getRelationships(agent.id)
       : [],
     goals: [],
     worldPressure: null,
@@ -77,7 +77,7 @@ function buildActionContext(agent, env) {
       dayOfWeek: env.dayOfWeek,
       weather: env.weather,
     },
-    domain: agent._domain,
+    domain: agent.domain,
     rng: agent._rng,
   };
 }
@@ -225,8 +225,8 @@ function applyActionStateDeltas(agent, stateDeltas, env) {
   // 4. Location delta (position change)
   if (stateDeltas.location && stateDeltas.location.to) {
     const target = stateDeltas.location.to;
-    const valid = agent._domain && typeof agent._domain.hasRegion === 'function'
-      ? agent._domain.hasRegion(target)
+    const valid = agent.domain && typeof agent.domain.hasRegion === 'function'
+      ? agent.domain.hasRegion(target)
       : false;
     if (valid && target !== agent.position) {
       deltas.push(new PositionDelta(agent.id, {
@@ -241,12 +241,12 @@ function applyActionStateDeltas(agent, stateDeltas, env) {
   if (stateDeltas.relationship && stateDeltas.relationship.targetAgentId) {
     const rel = stateDeltas.relationship;
     if (
-      agent._socialGraphRef &&
+      agent.socialGraph &&
       typeof rel.targetAgentId === 'string' &&
       rel.targetAgentId !== agent.id &&
-      typeof agent._socialGraphRef.hasAgent === 'function' &&
-      agent._socialGraphRef.hasAgent(agent.id) &&
-      agent._socialGraphRef.hasAgent(rel.targetAgentId)
+      typeof agent.socialGraph.hasAgent === 'function' &&
+      agent.socialGraph.hasAgent(agent.id) &&
+      agent.socialGraph.hasAgent(rel.targetAgentId)
     ) {
       deltas.push(new RelationshipDelta(agent.id, {
         targetAgentId: rel.targetAgentId,

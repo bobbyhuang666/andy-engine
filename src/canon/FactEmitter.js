@@ -233,9 +233,11 @@ class FactEmitter {
     const facts = [];
     const now = this._getSimTime();
 
-    const agents = socialGraph._adjacency || new Map();
-    for (const [agentId, rels] of agents) {
-      for (const [otherId, rel] of rels) {
+    const agentIds = socialGraph.getAllAgentIds ? socialGraph.getAllAgentIds() : [];
+    for (const agentId of agentIds) {
+      const rels = socialGraph.getRelationships(agentId);
+      for (const rel of rels) {
+        const otherId = rel.getOther(agentId);
         if (agentId > otherId) continue;
 
         const fact = createRelationshipFact({

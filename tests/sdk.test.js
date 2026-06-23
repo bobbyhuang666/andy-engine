@@ -742,4 +742,25 @@ describe('EmotionSignalBuffer 确定性卫生 (A4.4)', () => {
     expect(rA).not.toBeNull();
     expect(rB).not.toBeNull();
   });
+
+  it('now 函数用于 push 时间戳和 consume 的 lastConsumeTime', () => {
+    const fixedTime = 5000000;
+    const now = () => fixedTime;
+    const buf = new EmotionSignalBuffer({ now });
+
+    buf.push('测试');
+    expect(buf.pending[0].timestamp).toBe(fixedTime);
+
+    buf.consume();
+    expect(buf.lastConsumeTime).toBe(fixedTime);
+  });
+
+  it('now 函数优先于 simTime', () => {
+    const nowTime = 6000000;
+    const simTime = { getTime: () => 5000000 };
+    const buf = new EmotionSignalBuffer({ now: () => nowTime, simTime });
+
+    buf.push('测试');
+    expect(buf.pending[0].timestamp).toBe(nowTime);
+  });
 });

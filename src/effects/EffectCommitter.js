@@ -134,7 +134,7 @@ class EffectCommitter {
     const agent = this.agents?.get?.(delta.agentId);
     if (!agent) return;
 
-    const graph = agent._socialGraphRef;
+    const graph = agent.socialGraph;
     if (!graph) return;
     if (typeof delta.targetAgentId !== 'string') return;
     if (delta.targetAgentId === delta.agentId) return;
@@ -160,7 +160,7 @@ class EffectCommitter {
     if (!agent) return;
     if (typeof delta.to !== 'string' || !delta.to) return;
 
-    const domain = agent._domain;
+    const domain = agent.domain;
     if (domain && typeof domain.hasRegion === 'function' && !domain.hasRegion(delta.to)) return;
 
     if (delta.to !== agent.position) {

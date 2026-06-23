@@ -95,6 +95,14 @@ class SocialGraph {
   }
 
   /**
+   * 获取所有 Agent ID 列表（只读快照）
+   * @returns {string[]}
+   */
+  getAllAgentIds() {
+    return [...this._adjacency.keys()];
+  }
+
+  /**
    * 获取某个 Agent 的强关系（朋友及以上）
    * @param {string} agentId
    * @returns {Relationship[]}

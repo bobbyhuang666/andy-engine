@@ -67,7 +67,7 @@ class ScheduleHandler {
         agent.position = needRegion;
       }
     } else if (imResult.drive && imResult.drive.urgency > 0.1) {
-      const timeRules = agent._domain ? agent._domain.timeRules : null;
+      const timeRules = agent.domain ? agent.domain.timeRules : null;
       const lateNight = timeRules?.periods?.lateNight;
       const nightStart = lateNight?.start ?? 22;
       const nightEnd = lateNight?.end ?? 6;
@@ -75,7 +75,7 @@ class ScheduleHandler {
         ? (env.hour >= nightStart || env.hour < nightEnd)
         : (env.hour >= nightStart && env.hour < nightEnd);
       const currentState = agent.stateMachine.currentState;
-      const stateDef = agent._domain ? agent._domain.states[currentState] : null;
+      const stateDef = agent.domain ? agent.domain.states[currentState] : null;
       const isSleeping = stateDef
         ? stateDef.category === 'sleep'
         : false;
@@ -132,7 +132,7 @@ class ScheduleHandler {
         const skipProb = emotionalDistress * 0.4 * (1 - agent.personality.ocean.conscientiousness * 0.5);
         if (agent._rand() < Math.min(0.5, skipProb)) {
           const activityName = activity.activity || '';
-          const workPlaces = agent._domain ? (agent._domain.placeTypes.work || []) : [];
+          const workPlaces = agent.domain ? (agent.domain.placeTypes.work || []) : [];
           const isWorker = workPlaces.some(place => activityName.includes(place));
           const skipType = isWorker ? 'skipWork' : 'skipClass';
           const altState = ScheduleHandler.getSkipAlternative(agent, skipType, hour);
@@ -142,14 +142,14 @@ class ScheduleHandler {
       }
 
       // 3. Social energy depleted → avoid social activities
-      if (agent.socialEnergy < 0.2 && agent._behavior.socialEnergyDrain > 0.5) {
+      if (agent.socialEnergy < 0.2 && agent.behaviorParams.socialEnergyDrain > 0.5) {
         if (agent._rand() > 0.3) {
           return { moved: false };
         }
       }
 
       // 4. Social event special handling
-      const socialRegions = agent._domain ? (agent._domain.placeTypes.social || []) : [];
+      const socialRegions = agent.domain ? (agent.domain.placeTypes.social || []) : [];
       if (socialRegions.includes(activity.region)) {
         if (agent.socialEnergy < 0.3 && valence < 0) {
           if (agent._rand() > 0.4) {
@@ -159,7 +159,7 @@ class ScheduleHandler {
       }
 
       // 5. Late night state → don't execute morning schedule
-      const lateNightStateDef = agent._domain ? agent._domain.states[agent.stateMachine.currentState] : null;
+      const lateNightStateDef = agent.domain ? agent.domain.states[agent.stateMachine.currentState] : null;
       const isLateNightState = lateNightStateDef
         ? (lateNightStateDef.category === 'lateNight' || lateNightStateDef.category === 'deviant')
         : false;
@@ -200,7 +200,7 @@ class ScheduleHandler {
    * @returns {string|null}
    */
   static getSkipAlternative(agent, skipType, hour) {
-    const skipBehavior = agent._domain ? agent._domain.skipBehavior : null;
+    const skipBehavior = agent.domain ? agent.domain.skipBehavior : null;
 
     if (skipBehavior && skipBehavior[skipType]) {
       const states = skipBehavior[skipType].states || [];
@@ -210,8 +210,8 @@ class ScheduleHandler {
     }
 
     // Domain-driven fallback: find states by category instead of hardcoded strings
-    if (agent._domain && agent._domain.states) {
-      const states = agent._domain.states;
+    if (agent.domain && agent.domain.states) {
+      const states = agent.domain.states;
       if (skipType === 'sick') {
         // Look for illness/sick category
         for (const [name, def] of Object.entries(states)) {
@@ -235,7 +235,7 @@ class ScheduleHandler {
    * @returns {string}
    */
   static getSkipRegion(agent, skipType, hour) {
-    const skipBehavior = agent._domain ? agent._domain.skipBehavior : null;
+    const skipBehavior = agent.domain ? agent.domain.skipBehavior : null;
 
     if (skipBehavior && skipBehavior[skipType]) {
       const regions = skipBehavior[skipType].regions || [];
@@ -255,7 +255,7 @@ class ScheduleHandler {
    * @returns {Object|null}
    */
   static generateSkipMemory(agent, skipType, env) {
-    const skipBehavior = agent._domain ? agent._domain.skipBehavior : null;
+    const skipBehavior = agent.domain ? agent.domain.skipBehavior : null;
     let contents;
 
     if (skipType === 'sick') {
@@ -299,13 +299,13 @@ class ScheduleHandler {
    * @returns {string|null}
    */
   static findNeedRegion(agent, need) {
-    const needRegionConfig = agent._domain ? agent._domain.needRegionConfig : null;
+    const needRegionConfig = agent.domain ? agent.domain.needRegionConfig : null;
 
     if (needRegionConfig && needRegionConfig[need]) {
       const config = needRegionConfig[need];
 
-      const isWorker = agent._domain && agent._domain.placeTypes.work &&
-        agent._domain.placeTypes.work.some(r => agent.schedule.entries.some(e => e.region === r));
+      const isWorker = agent.domain && agent.domain.placeTypes.work &&
+        agent.domain.placeTypes.work.some(r => agent.schedule.entries.some(e => e.region === r));
 
       if (config.any) return config.any;
       if (isWorker && config.worker) return config.worker;

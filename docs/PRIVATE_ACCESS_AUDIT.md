@@ -10,7 +10,7 @@
 
 | Risk | Count | Must fix before beta |
 |------|-------|---------------------|
-| HIGH | 7 patterns | Yes |
+| HIGH | 3 patterns | Yes |
 | MEDIUM | 5 patterns | Recommended |
 | LOW | 3 patterns | Optional |
 
@@ -19,6 +19,8 @@
 ## HIGH RISK — Must fix before beta
 
 ### H1. `agent._domain` (7+ files, 25+ access sites)
+
+**Status**: RESOLVED — `agent.domain` getter added in `agent/Agent.js`
 
 **Files and lines:**
 
@@ -44,6 +46,8 @@
 
 ### H2. `agent._socialGraphRef` (3 files, 8 access sites)
 
+**Status**: RESOLVED — `agent.socialGraph` getter added in `agent/Agent.js`
+
 **Files and lines:**
 
 | File | Lines | Purpose |
@@ -62,6 +66,8 @@
 
 ### H3. `socialGraph._adjacency` (1 external file)
 
+**Status**: RESOLVED — `socialGraph.getAllAgentIds()` method added in `src/social/SocialGraph.js`
+
 **Files and lines:**
 
 | File | Lines | Purpose |
@@ -77,6 +83,8 @@
 ---
 
 ### H4. `agent._behavior` (3 files, 4 access sites)
+
+**Status**: RESOLVED — `agent.behaviorParams` getter added in `agent/Agent.js`
 
 **Files and lines:**
 
