@@ -23,6 +23,8 @@ class NarrativeBuilder {
       conversationHistory = null,
       domain = null,
       affectFrame = null,
+      nearbyPeopleArray = null,
+      recentEventsArray = null,
     } = options;
 
     if (!worldContext) return '';
@@ -48,11 +50,28 @@ class NarrativeBuilder {
     const memory = NarrativeBuilder._buildMemory(worldContext.memoryContext);
     if (memory) sections.push(memory);
 
-    if (worldContext.nearbyPeople && worldContext.nearbyPeople !== '附近没有人') {
+    if (nearbyPeopleArray && nearbyPeopleArray.length > 0) {
+      const peopleText = nearbyPeopleArray
+        .map(p => typeof p === 'string' ? p : p.name || p.description || '')
+        .filter(Boolean)
+        .join('\n');
+      if (peopleText) {
+        sections.push(`# 你身边的人\n${peopleText}`);
+      }
+    } else if (worldContext.nearbyPeople && worldContext.nearbyPeople !== '附近没有人') {
       sections.push(`# 你身边的人\n${worldContext.nearbyPeople}`);
     }
 
-    if (worldContext.recentEvents && worldContext.recentEvents !== '没有特别的事情发生') {
+    if (recentEventsArray && recentEventsArray.length > 0) {
+      const eventsText = recentEventsArray
+        .map(e => typeof e === 'string' ? e : e.content || e.description || '')
+        .filter(Boolean)
+        .map(e => `- ${e}`)
+        .join('\n');
+      if (eventsText) {
+        sections.push(`# 最近的事\n${eventsText}`);
+      }
+    } else if (worldContext.recentEvents && worldContext.recentEvents !== '没有特别的事情发生') {
       const unique = [...new Set(worldContext.recentEvents.split('\n'))];
       sections.push(`# 最近的事\n${unique.join('\n')}`);
     }
