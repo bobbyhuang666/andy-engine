@@ -13,8 +13,8 @@ const pkg = JSON.parse(readFileSync(path.join(process.cwd(), 'package.json'), 'u
 
 describe('Package Boundary', () => {
   describe('package.json metadata', () => {
-    it('version is 2.0.0', () => {
-      expect(pkg.version).toBe('2.0.0');
+    it('version is 2.0.1', () => {
+      expect(pkg.version).toBe('2.0.1');
     });
 
     it('types points to index.d.ts', () => {

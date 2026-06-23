@@ -15,7 +15,7 @@
 
 const { EmotionSignalBuffer } = require('./EmotionSignalBuffer');
 const { StoryGenerator } = require('../narrative/StoryGenerator');
-const { SimulationStore } = require('../store');
+const { SimulationStore, MemoryStore } = require('../store');
 
 class AndyBridge {
   /**
@@ -23,6 +23,9 @@ class AndyBridge {
    * @param {Object} options.andy - Andy 引擎实例（World 或 Simulator）
    * @param {string} options.dbPath - SQLite 数据库路径
    * @param {number} options.snapshotInterval - 快照间隔 (ticks)
+   * @param {Object} options.persistence - 持久化配置
+   * @param {string} options.persistence.type - 'auto' | 'sqlite' | 'memory'
+   * @param {string} options.persistence.path - 数据库路径
    */
   constructor(options = {}) {
     this.andy = options.andy;
@@ -32,10 +35,39 @@ class AndyBridge {
     // 核心模块
     this.signalBuffer = new EmotionSignalBuffer({ rng: this._rng });
     this.storyGenerator = new StoryGenerator();
-    this.store = new SimulationStore({
-      dbPath: options.dbPath || ':memory:',
-      snapshotInterval: options.snapshotInterval ?? 12,
-    });
+
+    // 支持内存存储
+    const storeType = options.persistence?.type || 'auto';
+    const storePath = options.persistence?.path || options.dbPath || ':memory:';
+
+    if (storeType === 'memory') {
+      // 直接使用 MemoryStore，不需要 SimulationStore
+      this.store = new SimulationStore({
+        dbPath: ':memory:',
+        snapshotInterval: options.snapshotInterval ?? 12,
+      });
+      // 覆盖内部 db 为 MemoryStore
+      this.store.db = new MemoryStore();
+    } else {
+      // 尝试使用 SQLite，如果失败则回退到 MemoryStore
+      try {
+        this.store = new SimulationStore({
+          dbPath: storePath,
+          snapshotInterval: options.snapshotInterval ?? 12,
+        });
+      } catch (e) {
+        if (e.message && e.message.includes('better-sqlite3')) {
+          console.warn('SQLite not available, using memory store');
+          this.store = new SimulationStore({
+            dbPath: ':memory:',
+            snapshotInterval: options.snapshotInterval ?? 12,
+          });
+          this.store.db = new MemoryStore();
+        } else {
+          throw e;
+        }
+      }
+    }
 
     this._initialized = false;
   }

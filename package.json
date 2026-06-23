@@ -1,6 +1,6 @@
 {
   "name": "andy-engine",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "心理学驱动的多智能体社会模拟引擎 — 让 AI 角色拥有记忆、情绪、人格和社交关系",
   "main": "index.js",
   "scripts": {

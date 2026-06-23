@@ -14,6 +14,7 @@ const { SaveLoad } = require('./SaveLoad');
 const { SnapshotStore } = require('./SnapshotStore');
 const { MetaStore } = require('./MetaStore');
 const { SQLiteStore } = require('./SQLiteStore');
+const { MemoryStore } = require('./MemoryStore');
 const { SimulationStore } = require('./SimulationStore');
 const { StoryStore } = require('./StoryStore');
 const { toWorldState, fromWorldState } = require('./world/WorldStateAdapter');
@@ -27,15 +28,48 @@ const { migrateWorldState } = require('./world/migration');
  * @returns {SimulationStore}
  */
 function createStore(options = {}) {
-  return new SimulationStore(options);
+  const { type = 'auto', ...rest } = options;
+
+  if (type === 'memory') {
+    // 使用内存存储，但需要包装在 SimulationStore 中以保持接口一致
+    const store = new SimulationStore({ ...rest, dbPath: ':memory:' });
+    return store;
+  }
+
+  if (type === 'sqlite') {
+    return new SimulationStore({ ...rest, dbPath: rest.dbPath || ':memory:' });
+  }
+
+  // auto: 尝试 SQLite，失败则使用 MemoryStore
+  try {
+    return new SimulationStore({ ...rest, dbPath: rest.dbPath || ':memory:' });
+  } catch (e) {
+    if (e.message && e.message.includes('better-sqlite3')) {
+      console.warn('SQLite not available, using memory store');
+      // 创建一个使用 MemoryStore 的 SimulationStore
+      const store = new SimulationStore({ ...rest, dbPath: ':memory:' });
+      // 覆盖其内部 db 为 MemoryStore
+      store.db = new MemoryStore();
+      return store;
+    }
+    throw e;
+  }
 }
 
 /**
  * 创建内存 SQLiteStore（测试用）
- * @returns {SQLiteStore}
+ * @returns {SQLiteStore|MemoryStore}
  */
 function createMemoryStore() {
-  return new SQLiteStore(':memory:');
+  try {
+    return new SQLiteStore(':memory:');
+  } catch (e) {
+    if (e.message && e.message.includes('better-sqlite3')) {
+      console.warn('SQLite not available, using memory store');
+      return new MemoryStore();
+    }
+    throw e;
+  }
 }
 
 module.exports = {
@@ -45,6 +79,7 @@ module.exports = {
   SnapshotStore,
   MetaStore,
   SQLiteStore,
+  MemoryStore,
   SimulationStore,
   StoryStore,
   createStore,

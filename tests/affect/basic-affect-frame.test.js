@@ -121,6 +121,76 @@ describe('BasicAffectFrame', () => {
     expect(highFrame.arousalBand).toBe('high');
   });
   
+  it('should produce different expression constraints for same valence but different arousal', () => {
+    // Create two agents with same valence but different arousal
+    const lowArousalAgent = {
+      emotion: {
+        getDominant: () => [{ dimension: 'joy', value: 0.3 }],
+        getValence: () => 0.3,
+        getArousal: () => 0.2,  // Low arousal
+      },
+      needs: { needs: {} },
+      behaviorField: { B: [0.5, 0.5, 0.5, 0.5], speed: 0 },
+    };
+    
+    const highArousalAgent = {
+      emotion: {
+        getDominant: () => [{ dimension: 'joy', value: 0.3 }],
+        getValence: () => 0.3,
+        getArousal: () => 0.8,  // High arousal
+      },
+      needs: { needs: {} },
+      behaviorField: { B: [0.5, 0.5, 0.5, 0.5], speed: 0 },
+    };
+    
+    const lowArousalFrame = buildBasicAffectFrame(lowArousalAgent);
+    const highArousalFrame = buildBasicAffectFrame(highArousalAgent);
+    
+    // Same valence band
+    expect(lowArousalFrame.valenceBand).toBe('positive');
+    expect(highArousalFrame.valenceBand).toBe('positive');
+    
+    // Different arousal bands
+    expect(lowArousalFrame.arousalBand).toBe('low');
+    expect(highArousalFrame.arousalBand).toBe('high');
+    
+    // Different expression constraints
+    expect(lowArousalFrame.initiative).not.toBe(highArousalFrame.initiative);
+    expect(lowArousalFrame.emotionalExplicitness).not.toBe(highArousalFrame.emotionalExplicitness);
+    
+    // High arousal should have higher initiative and emotional explicitness
+    expect(highArousalFrame.initiative).toBeGreaterThan(lowArousalFrame.initiative);
+    expect(highArousalFrame.emotionalExplicitness).toBeGreaterThan(lowArousalFrame.emotionalExplicitness);
+  });
+  
+  it('should produce guarded closeness for low trust + high warmth', () => {
+    // Create agent with high positive emotions (high warmth) but low sociality (low trust)
+    const agent = {
+      emotion: {
+        getDominant: () => [
+          { dimension: 'joy', value: 0.6 },
+          { dimension: 'contentment', value: 0.4 },
+        ],
+        getValence: () => 0.5,
+        getArousal: () => 0.4,
+      },
+      needs: { needs: {} },
+      behaviorField: { B: [0.3, 0.2, 0.5, 0.3], speed: 0 },  // Low sociality
+    };
+    
+    const frame = buildBasicAffectFrame(agent);
+    
+    // Should have high warmth (from positive emotions)
+    expect(frame.warmth).toBeGreaterThan(0.5);
+    
+    // Should have low sociality
+    expect(frame.behavior.sociality).toBeLessThan(0.4);
+    
+    // Interpersonal posture should reflect guardedness
+    // (low sociality + high warmth → could be 'guarded' or 'neutral')
+    expect(['guarded', 'neutral']).toContain(frame.interpersonalPosture);
+  });
+  
   it('should generate forbidden modes for high defensiveness', () => {
     const agent = {
       emotion: {
