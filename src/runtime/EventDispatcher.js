@@ -52,6 +52,22 @@ class EventDispatcher {
     return this._rng ? this._rng.next() : Math.random();
   }
 
+  /**
+   * 设置模拟时间（由 AndyWorld 每 tick 调用）
+   * @param {Date} time
+   */
+  setSimTime(time) {
+    this._simTime = time;
+  }
+
+  /**
+   * 获取模拟时间
+   * @returns {Date|null}
+   */
+  getSimTime() {
+    return this._simTime;
+  }
+
   // ═══════════════════════════════════════════
   // 事件生成
   // ═══════════════════════════════════════════

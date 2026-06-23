@@ -85,14 +85,14 @@ function mindWander(agent) {
     ];
     thoughtCandidates.push({
       type: typeDaydream,
-      content: daydreamContents[Math.floor(agent._rand() * daydreamContents.length)],
+      content: daydreamContents[Math.floor(agent.rand() * daydreamContents.length)],
       weight: 0.8,
     });
   }
 
   // Weighted random selection
   const totalWeight = thoughtCandidates.reduce((sum, t) => sum + t.weight, 0);
-  let r = agent._rand() * totalWeight;
+  let r = agent.rand() * totalWeight;
   let thought = thoughtCandidates[0];
   for (const candidate of thoughtCandidates) {
     r -= candidate.weight;
@@ -141,7 +141,7 @@ function mindWander(agent) {
     type: 'mind_wander',
     thoughtType: thought.type,
     content: thought.content,
-    time: new Date(agent.memory._simTime || Date.now()).toISOString(),
+    time: new Date(agent.memory.getSimTime() || Date.now()).toISOString(),
   };
 }
 
@@ -153,7 +153,7 @@ function mindWander(agent) {
  */
 function timeAgoLabel(agent, date) {
   if (!date) return '';
-  const hours = (agent.memory._simTime - date.getTime()) / (1000 * 60 * 60);
+  const hours = (agent.memory.getSimTime() - date.getTime()) / (1000 * 60 * 60);
   const sp = agent.domain && agent.domain.semanticProfile;
   const tl = sp && sp.mindWander && sp.mindWander.timeLabels;
   if (hours < 1) return (tl && tl.justNow) || '刚刚';

@@ -104,6 +104,14 @@ class Agent {
     return this._rng ? this._rng.next() : Math.random();
   }
 
+  /**
+   * 获取随机数（公共接口）
+   * @returns {number} [0, 1) 范围的随机数
+   */
+  rand() {
+    return this._rand();
+  }
+
   // ═══════════════════════════════════════════
   // 核心 Tick 逻辑
   // ═══════════════════════════════════════════
@@ -309,7 +317,7 @@ class Agent {
     return {
       id: this.id,
       name: this.name,
-      state: this.stateMachine.getInfo(this.memory._simTime || null),
+      state: this.stateMachine.getInfo(this.memory.getSimTime() || null),
       behavior: this.behavior,
       position: this.position,
       emotion: this.emotion.toPromptString(),

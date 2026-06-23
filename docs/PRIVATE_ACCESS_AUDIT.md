@@ -8,11 +8,11 @@
 
 ## Summary
 
-| Risk | Count | Must fix before beta |
-|------|-------|---------------------|
-| HIGH | 3 patterns | Yes |
-| MEDIUM | 5 patterns | Recommended |
-| LOW | 3 patterns | Optional |
+| Risk | Count | Must fix before beta | Status |
+|------|-------|---------------------|--------|
+| HIGH | 7 patterns | Yes | All resolved |
+| MEDIUM | 5 patterns | Recommended | Pending |
+| LOW | 3 patterns | Optional | Pending |
 
 ---
 
@@ -104,6 +104,8 @@
 
 ### H5. `agent._rand` (3 files, 11 access sites)
 
+**Status**: RESOLVED — `agent.rand()` public method added in `agent/Agent.js`
+
 **Files and lines:**
 
 | File | Lines | Purpose |
@@ -122,6 +124,8 @@
 
 ### H6. `eventDispatcher._simTime` (1 external write)
 
+**Status**: RESOLVED — `eventDispatcher.setSimTime(time)` and `eventDispatcher.getSimTime()` methods added in `src/runtime/EventDispatcher.js`
+
 **Files and lines:**
 
 | File | Lines | Purpose |
@@ -137,6 +141,8 @@
 ---
 
 ### H7. `memory._simTime` (2 external files, 4 access sites)
+
+**Status**: RESOLVED — `memory.getSimTime()` method added in `src/agent/memory/PersonalMemory.js`
 
 **Files and lines:**
 

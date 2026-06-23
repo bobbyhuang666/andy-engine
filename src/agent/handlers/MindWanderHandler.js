@@ -19,7 +19,7 @@ class MindWanderHandler {
     const isQuiet = B[DIM_ACTIVITY] < 0.3 && B[DIM_FOCUS] < 0.3;
 
     if (isQuiet) {
-      if (agent._rand() < (ANDY_DEFAULTS.mindWander?.quietProbability || 0.25)) {
+      if (agent.rand() < (ANDY_DEFAULTS.mindWander?.quietProbability || 0.25)) {
         const thought = mindWander(agent);
         if (thought) {
           context.result.newEvents.push(thought);

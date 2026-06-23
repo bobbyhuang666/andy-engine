@@ -20,7 +20,7 @@ function toNarrative(agent, externalState = null) {
   // 1. Current behavior
   const rawState = agent.stateMachine.currentState;
   const rawPos = agent.position;
-  const info = agent.stateMachine.getInfo(agent.memory._simTime || null);
+  const info = agent.stateMachine.getInfo(agent.memory.getSimTime() || null);
   const elapsedMin = info.elapsed || 0;
 
   const narrativeTemplates = agent.domain ? agent.domain.narrativeTemplates : {};
@@ -94,7 +94,7 @@ function toNarrative(agent, externalState = null) {
   // 5. Recent memory (most recent meaningful event)
   const recentMemories = agent.memory.memories;
   if (recentMemories && recentMemories.length > 0) {
-    const simNow = agent.memory._simTime || Date.now();
+    const simNow = agent.memory.getSimTime() || Date.now();
     for (let i = recentMemories.length - 1; i >= Math.max(0, recentMemories.length - 5); i--) {
       const mem = recentMemories[i];
       if (!mem || !mem.content) continue;

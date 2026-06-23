@@ -353,7 +353,7 @@ class AndyWorld {
     result.phase.agentThink = { agentCount: this.agents.size, results: agentResults };
 
     // ─── Phase 5: INTERACTION ───
-    this.eventDispatcher._simTime = this.clock.time;
+    this.eventDispatcher.setSimTime(this.clock.time);
     let interactionEvents;
     if (this.spatial) {
       interactionEvents = this._evaluateSpatialInteractions(env);

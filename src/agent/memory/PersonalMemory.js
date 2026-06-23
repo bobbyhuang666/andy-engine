@@ -138,6 +138,14 @@ class PersonalMemory {
     this._simTime = simTime.getTime();
   }
 
+  /**
+   * 获取当前模拟时间（毫秒时间戳）
+   * @returns {number}
+   */
+  getSimTime() {
+    return this._simTime;
+  }
+
   // ═══════════════════════════════════════════
   // 记忆添加
   // ═══════════════════════════════════════════

@@ -114,7 +114,7 @@ class ScheduleHandler {
       // 1. Sick → take leave
       if (agent.health < 0.4) {
         const sickProb = (0.4 - agent.health) * 2 * (1 - agent.personality.ocean.conscientiousness * 0.3);
-        if (agent._rand() < Math.min(0.8, sickProb)) {
+        if (agent.rand() < Math.min(0.8, sickProb)) {
           const altState = ScheduleHandler.getSkipAlternative(agent, 'sick', hour);
           return { moved: true, region: agent.position, skipEvent: 'sick', altState };
         }
@@ -130,7 +130,7 @@ class ScheduleHandler {
 
       if (emotionalDistress > 0.15) {
         const skipProb = emotionalDistress * 0.4 * (1 - agent.personality.ocean.conscientiousness * 0.5);
-        if (agent._rand() < Math.min(0.5, skipProb)) {
+        if (agent.rand() < Math.min(0.5, skipProb)) {
           const activityName = activity.activity || '';
           const workPlaces = agent.domain ? (agent.domain.placeTypes.work || []) : [];
           const isWorker = workPlaces.some(place => activityName.includes(place));
@@ -143,7 +143,7 @@ class ScheduleHandler {
 
       // 3. Social energy depleted → avoid social activities
       if (agent.socialEnergy < 0.2 && agent.behaviorParams.socialEnergyDrain > 0.5) {
-        if (agent._rand() > 0.3) {
+        if (agent.rand() > 0.3) {
           return { moved: false };
         }
       }
@@ -152,7 +152,7 @@ class ScheduleHandler {
       const socialRegions = agent.domain ? (agent.domain.placeTypes.social || []) : [];
       if (socialRegions.includes(activity.region)) {
         if (agent.socialEnergy < 0.3 && valence < 0) {
-          if (agent._rand() > 0.4) {
+          if (agent.rand() > 0.4) {
             return { moved: false };
           }
         }
@@ -164,7 +164,7 @@ class ScheduleHandler {
         ? (lateNightStateDef.category === 'lateNight' || lateNightStateDef.category === 'deviant')
         : false;
       if (hour < 8 && isLateNightState) {
-        if (agent._rand() > 0.2) {
+        if (agent.rand() > 0.2) {
           return { moved: false };
         }
       }
@@ -205,7 +205,7 @@ class ScheduleHandler {
     if (skipBehavior && skipBehavior[skipType]) {
       const states = skipBehavior[skipType].states || [];
       if (states.length > 0) {
-        return states[Math.floor(agent._rand() * states.length)];
+        return states[Math.floor(agent.rand() * states.length)];
       }
     }
 
@@ -240,7 +240,7 @@ class ScheduleHandler {
     if (skipBehavior && skipBehavior[skipType]) {
       const regions = skipBehavior[skipType].regions || [];
       if (regions.length > 0) {
-        return regions[Math.floor(agent._rand() * regions.length)];
+        return regions[Math.floor(agent.rand() * regions.length)];
       }
     }
 
@@ -269,7 +269,7 @@ class ScheduleHandler {
 
     if (!contents || contents.length === 0) return null;
 
-    const content = contents[Math.floor(agent._rand() * contents.length)];
+    const content = contents[Math.floor(agent.rand() * contents.length)];
 
     return {
       content,
