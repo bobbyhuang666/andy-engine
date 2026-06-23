@@ -37,7 +37,15 @@ const NEED_SATISFACTION = defaultDomain.needSatisfactionMap;
 const NEED_DRIVE_STATES = defaultDomain.needDriveStates;
 
 // ─── 需求匮乏 → 4D 连续梯度目标 ───
-const NEED_GRADIENT_TARGETS = {
+/**
+ * Need Deprivation Gradient Targets
+ * 
+ * When a need is depleted (e.g., hunger < 0.3), this target defines
+ * the direction the behavior field should move toward.
+ * 
+ * Format: [activity, sociality, focus, expressiveness]
+ */
+const NEED_DEPRIVATION_GRADIENT_TARGETS = {
   hunger:      [0.35, 0.45, 0.20, 0.40],
   energy:      [0.08, 0.04, 0.05, 0.03],
   social:      [0.35, 0.85, 0.25, 0.80],
@@ -288,7 +296,7 @@ class NeedsSystem {
       if (value >= threshold) continue;
 
       const urgency = threshold - value;
-      const target = NEED_GRADIENT_TARGETS[need];
+      const target = NEED_DEPRIVATION_GRADIENT_TARGETS[need];
       if (!target) continue;
 
       drives.push({ need, urgency, gradient: [...target] });

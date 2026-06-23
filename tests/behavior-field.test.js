@@ -17,7 +17,7 @@ import {
   dist, getTimePenalty,
 } from '../src/agent/psychology/BehaviorLabeler.js';
 import {
-  BehaviorField, DEFAULTS, NEED_TARGETS, TIME_TARGETS,
+  BehaviorField, DEFAULTS, NEED_SATISFACTION_TARGETS, TIME_TARGETS,
 } from '../src/agent/psychology/BehaviorField.js';
 
 // ═══════════════════════════════════════════

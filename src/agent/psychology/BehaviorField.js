@@ -73,7 +73,15 @@ const DEFAULTS = {
 // ═══════════════════════════════════════════
 
 /** 需求满足的最优行为位置 */
-const NEED_TARGETS = {
+/**
+ * Need Satisfaction Targets
+ * 
+ * When a need is being satisfied (e.g., eating), this target defines
+ * the optimal behavior position.
+ * 
+ * Format: [activity, sociality, focus, expressiveness]
+ */
+const NEED_SATISFACTION_TARGETS = {
   hunger:      [0.35, 0.55, 0.08, 0.45],  // 吃饭：中活跃, 中高社交(餐厅有人), 极低专注, 中表达
   energy:      [0.08, 0.04, 0.02, 0.03],  // 休息：全面降低
   social:      [0.35, 0.85, 0.25, 0.80],  // 社交：高社交, 高表达
@@ -336,7 +344,7 @@ class BehaviorField {
    * @private
    */
   _addNeedsGradient(grad, needs, weight) {
-    for (const [need, target] of Object.entries(NEED_TARGETS)) {
+    for (const [need, target] of Object.entries(NEED_SATISFACTION_TARGETS)) {
       const value = needs[need];
       if (value === undefined) continue;
 
@@ -664,7 +672,7 @@ function _getTimeTarget(hour) {
 module.exports = {
   BehaviorField,
   DEFAULTS,
-  NEED_TARGETS,
+  NEED_SATISFACTION_TARGETS,
   EMOTION_TARGETS,
   TIME_TARGETS,
 };
