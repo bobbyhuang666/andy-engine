@@ -237,7 +237,19 @@ const QUIET_TYPES = new Set(['rest', 'observe', 'reflect']);
 const ACTIVE_TYPES = new Set(['work', 'explore', 'move']);
 
 function scoreHabit(candidate, context) {
-  return 0;
+  // Only score habit candidates
+  if (candidate.source !== 'habit') return 0;
+  
+  // Get confidence from metadata
+  const confidence = 
+    candidate.metadata?.confidence ?? 
+    candidate.confidence ?? 
+    candidate.habitStrength ?? 
+    0.5;
+  
+  // Clamp to reasonable range and scale
+  // Habit score should be meaningful but not dominate other dimensions
+  return Math.min(Math.max(confidence * 0.4, 0), 0.4);
 }
 
 function scoreGoal(candidate, context) {
