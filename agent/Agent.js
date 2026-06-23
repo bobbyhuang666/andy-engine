@@ -1,23 +1,16 @@
 /**
- * Compatibility adapter.
- * Canonical implementation: src/agent/AgentRuntime.js + src/agent/lifecycle/ + src/agent/runtime/ + src/agent/facade/
- * Reason retained: public API (index.js imports Agent), old test imports, Agent class wiring + tick delegation
- * Deletion condition: when all test imports migrate to src/agent/ and public API no longer exposes Agent directly
- */
-
-/**
- * Agent - 自主代理
+ * Agent — Public Compatibility Facade
  *
- * 核心约束：
- *   - Agent 不能直接修改其他 Agent 的内部状态
- *   - Agent 只能通过 Interaction 间接影响彼此
- *   - Agent 的行为受 personality 约束
+ * This is a PUBLIC COMPATIBILITY FACADE, not a temporary migration wrapper.
+ * Canonical implementation lives under src/agent/.
  *
- * 每个 tick 执行：
- *   1. 感知环境 → 更新内部状态
- *   2. 检查日程 → 决定当前应该做什么
- *   3. 情绪演化 → 基于环境 + 内部状态推移
- *   4. 返回动作（位置变化、状态变化、情绪变化等）
+ * Rules:
+ * - No domain logic may be added here
+ * - No direct state mutation (delegates to src/agent/)
+ * - No legacy private methods (perception, needs-to-emotion, shadow action)
+ * - Stable unless major version removes it
+ *
+ * @module agent/Agent
  */
 
 const AgentRuntime = require('../src/agent/AgentRuntime');
@@ -31,10 +24,9 @@ const { toNarrative: _toNarrativeImpl } = require('../src/agent/facade/AgentNarr
 const { recordExternalExperience: _recordExternalExperienceImpl } = require('../src/agent/facade/ExternalExperience');
 const { interact: _interactImpl, calculateInteractionValence: _calcValenceImpl, personalityCompatibility: _compatImpl } = require('../src/agent/facade/InteractionFacade');
 const { toJSON: _toJSONImpl } = require('../src/agent/facade/AgentSerializer');
-const { runShadowActionSelection, buildActionContext: _buildActionContextImpl, validateActionSelectionConfig } = require('../src/agent/runtime/ActionSelectionRuntime');
-const { perceiveEvents } = require('../src/agent/runtime/PerceptionRuntime');
+const { buildActionContext: _buildActionContextImpl, validateActionSelectionConfig } = require('../src/agent/runtime/ActionSelectionRuntime');
 const ScheduleHandler = require('../src/agent/handlers/ScheduleHandler');
-const { applyNeedsToEmotion, updateHealth, updateSocialEnergy } = require('../src/agent/runtime/PhysiologyRuntime');
+const { updateHealth, updateSocialEnergy } = require('../src/agent/runtime/PhysiologyRuntime');
 const { reflect } = require('../src/agent/runtime/ReflectionRuntime');
 const { mindWander } = require('../src/agent/runtime/MindWanderRuntime');
 
@@ -133,18 +125,8 @@ class Agent {
   // ═══════════════════════════════════════════
 
   /** @private */
-  _runShadowActionSelection(env) {
-    return runShadowActionSelection(this, env);
-  }
-
-  /** @private */
   _buildActionContext(env) {
     return _buildActionContextImpl(this, env);
-  }
-
-  /** @private */
-  _perceiveEvents(events) {
-    perceiveEvents(this, events);
   }
 
   /** @private */
@@ -170,11 +152,6 @@ class Agent {
   /** @private */
   _findNeedRegion(need) {
     return ScheduleHandler.findNeedRegion(this, need);
-  }
-
-  /** @private */
-  _applyNeedsToEmotion() {
-    applyNeedsToEmotion(this);
   }
 
   /** @private */

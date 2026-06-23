@@ -214,6 +214,18 @@ These files are NOT exported via `package.json` but are part of the public API s
 
 ---
 
+## agent/Agent.js
+
+- **Status**: compatibility facade (stable)
+- **Canonical implementation**: src/agent/AgentRuntime.js + src/agent/lifecycle/ + src/agent/runtime/ + src/agent/facade/
+- **Rules**:
+  - No domain logic
+  - No direct state mutation
+  - Delegates all work to src/agent/
+- **Removal condition**: Major version bump + all public API migrated
+
+---
+
 ## Internal Modules (NOT Exported)
 
 The following are explicitly NOT part of the public API and must NOT appear in `package.json` exports:

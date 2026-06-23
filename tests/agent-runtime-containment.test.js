@@ -24,14 +24,14 @@ describe('Agent Containment: Agent.js delegation', () => {
     expect(content).toContain('return _buildActionContextImpl(this, env)');
   });
 
-  it('Agent.js delegates _runShadowActionSelection to ActionSelectionRuntime', () => {
+  it('Agent.js imports buildActionContext from ActionSelectionRuntime', () => {
     const content = readFileSync(path.join(ROOT, 'agent', 'Agent.js'), 'utf-8');
-    expect(content).toContain('return runShadowActionSelection(this, env)');
+    expect(content).toContain("require('../src/agent/runtime/ActionSelectionRuntime')");
   });
 
-  it('Agent.js delegates _perceiveEvents to PerceptionRuntime', () => {
+  it('Agent.js does not define legacy _perceiveEvents method', () => {
     const content = readFileSync(path.join(ROOT, 'agent', 'Agent.js'), 'utf-8');
-    expect(content).toContain('perceiveEvents(this, events)');
+    expect(content).not.toMatch(/\b_perceiveEvents\b\s*\(/);
   });
 
   it('Agent.js delegates _checkSchedule to ScheduleHandler', () => {

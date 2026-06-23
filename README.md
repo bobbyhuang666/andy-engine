@@ -12,7 +12,7 @@ Actions become canonical events that affect memory, relationships, location mean
 
 LLMs only express what a character knows; they do not create world facts.
 
-> **Stable Release**: v2.0.0 — Foundation Stable Release.
+> **Release**: v2.0.1 alpha — Foundation-stage persistent agent runtime.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
@@ -68,6 +68,14 @@ The LLM is a rendering layer, not the source of truth.
 | Seeded RNG | Core runtime paths support seeded simulation baseline (not full deterministic replay) |
 | Perf-check | Benchmark / contagion profile regression checks pass |
 | Early subjective evaluation | Internal experiments suggest stronger character continuity and presence; not yet published as a standard benchmark |
+
+## Known Limitations
+
+1. E2E semantic tests are improving but not exhaustive
+2. Full AffectCompiler is not implemented (seam exists)
+3. Full deterministic replay is not claimed — seeded RNG provides baseline for core paths only
+4. External production users are not yet established
+5. Domain maturity varies by preset
 
 ---
 
@@ -131,7 +139,7 @@ Andy Engine v2 is the architecture-preview line that turns Andy from a character
 
 ### Foundation Stable Release (v2.0.0)
 
-This is a Foundation Stable Release. The public API surface, persistence contracts, domain configuration, and package installation are stable for downstream applications.
+This is a Foundation Stable Release. The public API surface, persistence contracts, domain configuration, and package installation are stable for downstream applications. Production use requires careful validation.
 
 The following remain experimental or deferred to v2.1/v3:
 
@@ -201,15 +209,40 @@ INFP vs ESTP: B-distance=0.101, speed ratio=1.50×
 
 ## Quick Start
 
+### Minimal Example
+
 ```bash
-# Run the demo
-cd demo/character-lab
+# Clone and install
+git clone https://github.com/your-username/andy-engine.git
+cd andy-engine
 npm install
-node server.js
-# → http://localhost:3456
+
+# Run quickstart
+node examples/minimal-persistent-character/quickstart.js
 ```
 
-**Default campus mode (backward compatible):**
+### Longitudinal Demo
+
+```bash
+# Run longitudinal demo (shows offline life)
+node examples/longitudinal-life-demo/demo.js
+```
+
+### SDK Usage
+
+```javascript
+const { Character } = require('andy-engine/sdk');
+
+const maya = new Character({
+  name: "Maya",
+  personality: "INFP",
+  backstory: ["A quiet librarian", "Loves stargazing"],
+});
+
+const reply = await maya.chat("I'm so tired today");
+```
+
+### Default Campus Mode (Backward Compatible)
 
 ```javascript
 const AndyEngine = require('andy-engine');
@@ -236,7 +269,7 @@ const agent = engine.getAgent('maya');
 console.log(agent.behavior);
 ```
 
-**Custom domain mode:**
+### Custom Domain Mode
 
 ```javascript
 const AndyEngine = require('andy-engine');
@@ -256,7 +289,7 @@ console.log(blacksmith.toNarrative());
 // "在铁匠铺，炉火熊熊。有点累了"
 ```
 
-**Facts & Grounding (experimental, opt-in):**
+### Facts & Grounding (Experimental, Opt-in)
 
 ```javascript
 const engine = new AndyEngine({
@@ -488,7 +521,7 @@ Andy Engine 维护一个共享的 **WorldCanon**：发生了什么、谁看到�
 
 LLM 只能表达角色知道的事，不能创造世界事实。
 
-> 状态：**v2.0.0 Foundation Stable Release**。
+> 状态：**v2.0.1 alpha** — 基础阶段的持久化 Agent 运行时。
 
 ---
 
@@ -577,7 +610,7 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 
 ### Foundation Stable Release (v2.0.0)
 
-这是 Foundation Stable Release。公共 API、持久化契约、领域配置和包安装对下游应用已稳定。
+这是 Foundation Stable Release。公共 API、持久化契约、领域配置和包安装对下游应用已稳定。生产使用需要谨慎验证。
 
 以下仍为实验性或推迟到 v2.1/v3：
 
@@ -666,6 +699,14 @@ Grounded Narrative（有事实边界的叙事）
 | seeded RNG | 核心运行时路径支持 seeded simulation 基线（非全路径确定性重放） |
 | perf-check | benchmark / contagion profile 回归检查通过 |
 | 早期主观评测 | 内部实验显示角色连续性和状态感更强，尚未作为公开 benchmark 发布 |
+
+## 已知限制
+
+1. E2E 语义测试持续改进中，尚未穷尽
+2. 完整的 AffectCompiler 尚未实现（seam 已存在）
+3. 不承诺完整的确定性重放 — seeded RNG 仅为核心路径提供基线
+4. 尚未有外部生产用户
+5. Domain 成熟度因 preset 而异
 
 ---
 
