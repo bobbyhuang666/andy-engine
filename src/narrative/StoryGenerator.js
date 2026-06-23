@@ -155,6 +155,20 @@ class StoryGenerator {
   }
 
   /**
+   * 从世界 tick 结果生成故事（别名，明确输入来源）
+   *
+   * This is an alias for generateFromTick() that makes it clear
+   * the input should come from AndyWorld.step() result.
+   *
+   * @param {Object} worldTickResult - AndyWorld.step() 返回的结果
+   * @param {string} agentId - 目标 agent
+   * @returns {Story|null} 故事对象，无事发生时返回 null
+   */
+  generateFromWorldTick(worldTickResult, agentId = 'default', options = {}) {
+    return this.generateFromTick(worldTickResult, agentId, options);
+  }
+
+  /**
    * 从情绪信号生成故事（用户对话后）
    *
    * @param {string} storyText - EmotionSignalBuffer 生成的脱敏故事
