@@ -147,9 +147,10 @@ class SQLiteStore {
 
   /**
    * 查询某 agent 最近的故事（按重要性降序 + 时间降序）
+   * @param {number} [now] - 当前时间戳（默认 Date.now()），支持传入 virtualTime
    */
-  getRecent(agentId, hours = 72, limit = 5) {
-    const cutoff = Date.now() - hours * 3600 * 1000;
+  getRecent(agentId, hours = 72, limit = 5, now) {
+    const cutoff = (now ?? Date.now()) - hours * 3600 * 1000;
 
     const stmt = this._prepare('getRecent', `
       SELECT tick, timestamp, agent_id as agentId, category, content,
@@ -165,9 +166,10 @@ class SQLiteStore {
 
   /**
    * 按情绪标签查询
+   * @param {number} [now] - 当前时间戳（默认 Date.now()），支持传入 virtualTime
    */
-  getByEmotion(agentId, emotionTag, hours = 168, limit = 10) {
-    const cutoff = Date.now() - hours * 3600 * 1000;
+  getByEmotion(agentId, emotionTag, hours = 168, limit = 10, now) {
+    const cutoff = (now ?? Date.now()) - hours * 3600 * 1000;
 
     const stmt = this._prepare('getByEmotion', `
       SELECT tick, timestamp, agent_id as agentId, category, content,
@@ -183,9 +185,10 @@ class SQLiteStore {
 
   /**
    * 衰减老故事 + 清理过期故事
+   * @param {number} [now] - 当前时间戳（默认 Date.now()），支持传入 virtualTime
    */
-  decay(decayFactor = 0.95, minImportance = 0.05, maxAgeDays = 30) {
-    const now = Date.now();
+  decay(decayFactor = 0.95, minImportance = 0.05, maxAgeDays = 30, now) {
+    now = now ?? Date.now();
     const weekAgo = now - 7 * 24 * 3600 * 1000;
     const maxAge = now - maxAgeDays * 24 * 3600 * 1000;
 
@@ -213,9 +216,10 @@ class SQLiteStore {
 
   /**
    * 故事统计
+   * @param {number} [now] - 当前时间戳（默认 Date.now()），支持传入 virtualTime
    */
-  stats(agentId) {
-    const now = Date.now();
+  stats(agentId, now) {
+    now = now ?? Date.now();
     const dayAgo = now - 24 * 3600 * 1000;
     const weekAgo = now - 7 * 24 * 3600 * 1000;
 

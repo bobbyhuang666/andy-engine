@@ -146,12 +146,15 @@ class SimulationStore {
    * @returns {Story[]}
    */
   getStoriesForAgent(agentId = 'default', hours = 72, limit = 5) {
+    // 使用 virtualTime 进行过滤，支持快进模拟
+    const now = this.virtualTime?.getTime() || Date.now();
+
     // 合并内存缓冲和数据库
     const buffered = this.storyBuffer
       .filter(s => s.agentId === agentId)
-      .filter(s => Date.now() - s.timestamp < hours * 3600 * 1000);
+      .filter(s => now - s.timestamp < hours * 3600 * 1000);
 
-    const persisted = this.db.getRecent(agentId, hours, limit);
+    const persisted = this.db.getRecent(agentId, hours, limit, now);
 
     // 合并去重（按 tick + content）
     const seen = new Set();
@@ -180,14 +183,16 @@ class SimulationStore {
    * 按情绪查询故事
    */
   getStoriesByEmotion(agentId, emotionTag, hours = 168, limit = 10) {
-    return this.db.getByEmotion(agentId, emotionTag, hours, limit);
+    const now = this.virtualTime?.getTime() || Date.now();
+    return this.db.getByEmotion(agentId, emotionTag, hours, limit, now);
   }
 
   /**
    * 获取统计信息
    */
   getStats(agentId) {
-    return this.db.stats(agentId);
+    const now = this.virtualTime?.getTime() || Date.now();
+    return this.db.stats(agentId, now);
   }
 
   // ═══════════════════════════════════════════
@@ -256,7 +261,8 @@ class SimulationStore {
 
   /** 衰减老故事 */
   _decayStories() {
-    this.db.decay(0.95, 0.05, 30);
+    const now = this.virtualTime?.getTime() || Date.now();
+    this.db.decay(0.95, 0.05, 30, now);
   }
 }
 
