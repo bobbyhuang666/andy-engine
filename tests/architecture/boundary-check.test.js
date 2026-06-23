@@ -2,7 +2,7 @@
  * Architecture Boundary Regression Tests
  *
  * Narrow tests that enforce the boundary rules documented in
- * docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md and related active docs.
+ * docs/archive/CLEAN_ARCHITECTURE_FINAL_AUDIT.md and related active docs.
  *
  * These tests prevent upper-layer concepts from entering core,
  * ensure deterministic paths remain deterministic, and verify
@@ -398,12 +398,12 @@ describe('Architecture: no core/ file may import facts/', () => {
 });
 
 describe('Architecture: boundary docs and script exist', () => {
-  it('docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md exists', () => {
-    expect(existsSync(path.join(ROOT, 'docs', 'CLEAN_ARCHITECTURE_FINAL_AUDIT.md'))).toBe(true);
+  it('docs/archive/CLEAN_ARCHITECTURE_FINAL_AUDIT.md exists', () => {
+    expect(existsSync(path.join(ROOT, 'docs', 'archive', 'CLEAN_ARCHITECTURE_FINAL_AUDIT.md'))).toBe(true);
   });
 
-  it('docs/LEGACY_REMOVAL_REPORT.md exists', () => {
-    expect(existsSync(path.join(ROOT, 'docs', 'LEGACY_REMOVAL_REPORT.md'))).toBe(true);
+  it('docs/archive/LEGACY_REMOVAL_REPORT.md exists', () => {
+    expect(existsSync(path.join(ROOT, 'docs', 'archive', 'LEGACY_REMOVAL_REPORT.md'))).toBe(true);
   });
 
   it('scripts/check-boundaries.js exists', () => {
@@ -413,7 +413,7 @@ describe('Architecture: boundary docs and script exist', () => {
 
 describe('Architecture: no-seed fallback is documented as intentional', () => {
   it('RNG_STRICTNESS_RFC.md documents Math.random fallback as current alpha boundary', () => {
-    const violationsPath = path.join(ROOT, 'docs', 'RNG_STRICTNESS_RFC.md');
+    const violationsPath = path.join(ROOT, 'docs', 'rfc', 'RNG_STRICTNESS_RFC.md');
     const content = readFileSync(violationsPath, 'utf-8');
     expect(content).toMatch(/Math\.random/i);
     expect(content).toMatch(/fallback/i);
