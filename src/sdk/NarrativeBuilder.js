@@ -69,7 +69,7 @@ class NarrativeBuilder {
       sections.push(NarrativeBuilder._buildGroundingSection(options.groundingPackage));
     }
 
-    sections.push(NarrativeBuilder._buildGuidelines(characterName, worldContext, usedDomain));
+    sections.push(NarrativeBuilder._buildGuidelines(characterName, worldContext, usedDomain, affectFrame));
 
     const rawPrompt = sections.filter(Boolean).join('\n\n');
 
@@ -290,7 +290,7 @@ ${inferLines.join('\n')}`);
   // ═══════════════════════════════════════════
   // 行为指南（正面引导 + 动态规则）
   // ═══════════════════════════════════════════
-  static _buildGuidelines(name, ctx, domain = null) {
+  static _buildGuidelines(name, ctx, domain = null, affectFrame = null) {
     const rules = [
       `你就是${name}，不是 AI，不是助手。你有自己的生活、感受和想法。`,
       '像真人发消息一样回复：简短、自然、有口语感。不要写长段落。',
@@ -307,7 +307,29 @@ ${inferLines.join('\n')}`);
       }
     }
 
-    if (ctx.emotionState) {
+    // 情绪状态指南
+    if (affectFrame) {
+      // 使用结构化数据
+      if (affectFrame.valence < -0.2) {
+        rules.push('你现在心情不好，回复可以带点低落的语气，但不要一直抱怨。');
+      }
+
+      // 检查压力相关情绪
+      const stressEmotions = ['nervousness', 'anxiety', 'frustration'];
+      const hasStress = affectFrame.emotions.some(e =>
+        stressEmotions.includes(e.dimension) && Math.abs(e.intensity) > 0.3
+      );
+      if (hasStress) {
+        rules.push('你现在压力大，说话可能比较简短或疲惫。');
+      }
+
+      // 需求压力指南
+      const energyNeed = affectFrame.needs.find(n => n.need === 'energy');
+      if (energyNeed && energyNeed.urgency >= 0.6) {
+        rules.push('你现在很困，回复简短，可能想休息。');
+      }
+    } else if (ctx.emotionState) {
+      // 回退到字符串解析
       if (ctx.emotionState.includes('效价=-') || ctx.emotionState.includes('不太好')) {
         rules.push('你现在心情不好，回复可以带点低落的语气，但不要一直抱怨。');
       }
@@ -316,7 +338,8 @@ ${inferLines.join('\n')}`);
       }
     }
 
-    if (ctx.needsState) {
+    if (!affectFrame && ctx.needsState) {
+      // 回退到字符串解析
       if (ctx.needsState.includes('精力不足') || ctx.needsState.includes('精力极度匮乏')) {
         rules.push('你现在很困，回复简短，可能想休息。');
       }

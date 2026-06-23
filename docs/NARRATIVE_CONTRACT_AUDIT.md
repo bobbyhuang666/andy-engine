@@ -391,6 +391,54 @@ NarrativeBuilder consumes **5 categories of pre-formatted strings** from upstrea
 
 ---
 
+## AffectFrame Integration (Batch 4)
+
+### Resolved String Parsing Debts
+
+The following P0/P1 string parsing debts have been resolved with AffectFrame structured input:
+
+| # | Dependency | Priority | Resolution |
+|---|------------|----------|------------|
+| 2.1 | Needs label matching | P0 | Resolved — `affectFrame.needs` used for energy/hunger urgency |
+| 3.1 | Emotion scene regex extraction | P0 | Resolved — `affectFrame.emotions` used for emotion scene |
+| 3.2 | Emotion `.replace()` chain | P0 | Resolved — `affectFrame.emotions` used for emotion scene |
+| 4.1 | Negative valence `效价=-` | P0 | Resolved — `affectFrame.valence < 0` used |
+| 4.2 | `不太好` mood detection | P1 | Resolved — `affectFrame.valence < -0.2` used |
+| 4.3 | Stress detection | P1 | Resolved — `affectFrame.emotions` checked for stress-related emotions |
+
+### Remaining String Parsing Debts
+
+The following debts remain (not addressed in this batch):
+
+| # | Dependency | Priority | Reason |
+|---|------------|----------|--------|
+| 5.1 | Memory tag stripping | P1 | Memory structured input not yet implemented |
+| 6.1 | ForbiddenTerms regex | P0* | Requires ForbiddenTerms.js changes |
+| 7.1 | `附近没有人` sentinel | P1 | Sentinel string changes not yet implemented |
+| 7.2 | `没有特别的事情发生` sentinel | P1 | Sentinel string changes not yet implemented |
+
+*Priority is within Narrative Contract Audit only; not a current release blocker.*
+
+### How It Works
+
+When `affectFrame` is provided to `NarrativeBuilder.buildSystemPrompt()`:
+
+1. `_buildCurrentState()` uses `affectFrame.needs` for needs urgency
+2. `_buildCurrentState()` uses `affectFrame.emotions` for emotion scene
+3. `_buildGuidelines()` uses `affectFrame.valence` for mood detection
+4. `_buildGuidelines()` uses `affectFrame.needs` for fatigue detection
+5. `_buildGuidelines()` uses `affectFrame.emotions` for stress detection
+
+When `affectFrame` is not provided, the old string parsing paths are used for backward compatibility.
+
+### Design Principle
+
+**Engine owns affect state. LLM owns wording.**
+
+The engine is the single source of truth for *what* a character feels. The LLM decides *how* a character expresses those feelings in natural language.
+
+---
+
 ## Appendix: Upstream Source Map
 
 | String producer | File | Method | Consumer in NarrativeBuilder |

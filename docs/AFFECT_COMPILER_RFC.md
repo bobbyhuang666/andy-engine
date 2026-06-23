@@ -601,3 +601,29 @@ This RFC is successful if:
 4. Type surface in `index.d.ts` declares `AffectFrame` as `@experimental`, signaling consumers that the shape may evolve.
 
 **Recommended next step:** When AffectCompiler is implemented, promote `AffectFrame` from experimental to stable and add missing fields (`socialEnergy`, `behaviorDynamics`, `regulation`, trend data) to both the implementation and the type declaration.
+
+---
+
+## 14. Compatibility Note (Batch 4)
+
+Basic AffectFrame structured input exists in `src/shared/AffectFrame.js`. This is a seam, not a full AffectCompiler.
+
+**What is present:**
+- Basic emotion extraction (Top-K by `|intensity| >= 0.1`)
+- Valence/arousal from `EmotionVector.getValence()`/`getArousal()`
+- Need urgency from `NeedsSystem.needs`
+- Behavior vector snapshot
+- Behavior speed
+
+**What is NOT present (deferred to AffectCompiler):**
+- Trend detection (no history buffer yet)
+- Social energy (no SocialGraph access yet)
+- Regulation state (no EmotionRegulation access yet)
+- Stability computation (currently hardcoded 0.5)
+- Memory pressure contribution
+
+**Integration status:**
+- `NarrativeBuilder.buildSystemPrompt()` accepts `affectFrame` option
+- When `affectFrame` is provided, structured data is used for needs, emotions, and guidelines
+- When `affectFrame` is not provided, old string parsing paths are used for backward compatibility
+- Full AffectCompiler implementation is still deferred to v2.1/v3
