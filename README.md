@@ -303,6 +303,42 @@ See [`docs/DOMAIN.md`](docs/DOMAIN.md) for full schema reference.
 
 ---
 
+## Demos
+
+### Longitudinal Life Demo
+
+Demonstrates Andy Engine's "persistent life" capability:
+
+```bash
+node examples/longitudinal-life-demo/demo.js
+```
+
+**What it shows:**
+- User leaves for 24 hours
+- Character continues living in the background
+- Events happen, relationships change, memories form
+- When user returns, character responds based on real events
+
+**Key features demonstrated:**
+- Persistent world (continues ticking)
+- Character continuity (state evolves over time)
+- Epistemic boundary (character only knows what it experienced)
+- Relationship evolution (based on interactions)
+- Narrative grounded in reality (no fabrication)
+
+### Character Lab Demo
+
+Interactive web demo:
+
+```bash
+cd demo/character-lab
+npm install
+node server.js
+# → http://localhost:3456
+```
+
+---
+
 
 ## SDK
 
