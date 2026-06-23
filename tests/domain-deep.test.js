@@ -316,7 +316,7 @@ describe('Domain-Agnostic 深度测试', () => {
     it('minimal domain missing semanticCategories: 不崩，走 neutral fallback', () => {
       const ed = new EventDispatcher({ eventTemplates: {}, placeTypes: {} });
       const evt = ed.createEvent({ type: 'social', content: '聊了几句' });
-      expect(evt.semanticCategory).toBe('社交互动'); // typeMap fallback from defaults
+      expect(evt.semanticCategory).toBe('social_interaction'); // typeMap fallback from defaults
     });
   });
 

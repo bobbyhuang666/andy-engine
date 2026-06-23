@@ -472,6 +472,95 @@ describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
     }
   });
 
+  // ─── Phase E: Chinese Fallback Template Detection ───
+
+  const CHINESE_FALLBACK_ALLOWED_FILES = [
+    'src/agent/facade/AgentNarrative.js',
+    'src/agent/runtime/MindWanderRuntime.js',
+    'src/runtime/EventDispatcher.js',
+    'src/agent/psychology/Appraisal.js',
+    'src/agent/psychology/BehaviorLabeler.js',
+    'src/agent/psychology/EmotionRegulation.js',
+    'src/agent/psychology/EmotionVector.js',
+    'src/agent/psychology/IntrinsicMotivation.js',
+    'src/agent/runtime/PhysiologyRuntime.js',
+  ];
+
+  function scanFileForChineseFallback(filePath) {
+    const content = readFileSync(filePath, 'utf-8');
+    const lines = content.split('\n');
+    const violations = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const trimmed = line.trim();
+      if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) continue;
+
+      // Match: ... || '中文...' or ... || "中文..." or ... || `中文...`
+      const fallbackRegex = /\|\|\s*['"`]([^'"`]*[\u4e00-\u9fff][^'"`]*)['"`]/g;
+      let match;
+      while ((match = fallbackRegex.exec(line)) !== null) {
+        violations.push({ line: i + 1, value: match[1].slice(0, 30) });
+      }
+
+      // Match: || ['中文', ...] array fallback
+      const arrayFallbackRegex = /\|\|\s*\[([^\]]*[\u4e00-\u9fff][^\]]*)\]/g;
+      while ((match = arrayFallbackRegex.exec(line)) !== null) {
+        violations.push({ line: i + 1, value: `[${match[1].slice(0, 40)}]` });
+      }
+
+      // Match: { name: '中文', ... } object fallback
+      const objectFallbackRegex = /\|\s*\{\s*name:\s*['"`]([\u4e00-\u9fff]+)['"`]/g;
+      while ((match = objectFallbackRegex.exec(line)) !== null) {
+        violations.push({ line: i + 1, value: `{ name: '${match[1]}' }` });
+      }
+
+      // Match: ternary false branch with Chinese array: ... : ['中文', ...]
+      const ternaryArrayRegex = /:\s*\[([^\]]*[\u4e00-\u9fff][^\]]*)\]/g;
+      while ((match = ternaryArrayRegex.exec(line)) !== null) {
+        violations.push({ line: i + 1, value: `:[${match[1].slice(0, 40)}]` });
+      }
+    }
+
+    return violations;
+  }
+
+  it('src/runtime/ 和 src/agent/ 不应包含中文 fallback 模板（Phase E）', () => {
+    const violations = [];
+    const rootDir = process.cwd();
+    const scanDirs = ['src/runtime', 'src/agent'];
+
+    for (const dir of scanDirs) {
+      const fullDir = path.join(rootDir, dir);
+      const files = getJsFiles(fullDir);
+
+      for (const file of files) {
+        const relativePath = path.relative(rootDir, file);
+        if (relativePath.includes('.native.js')) continue;
+        if (relativePath.includes('__tests__/')) continue;
+        if (CHINESE_FALLBACK_ALLOWED_FILES.includes(relativePath)) continue;
+
+        const fileViolations = scanFileForChineseFallback(file);
+        if (fileViolations.length > 0) {
+          violations.push({ file: relativePath, violations: fileViolations });
+        }
+      }
+    }
+
+    if (violations.length > 0) {
+      const msg = violations.map(({ file, violations: v }) => {
+        const details = v.map(x => `L${x.line}:"${x.value}"`).join(', ');
+        return `  ${file}: ${details}`;
+      }).join('\n');
+
+      expect.fail(
+        `以下 src/runtime|agent 文件包含中文 fallback 模板:\n${msg}\n\n` +
+        '核心运行时应通过 domain.semanticProfile 获取文本，不应硬编码中文 fallback。\n' +
+        '例外文件请添加到 CHINESE_FALLBACK_ALLOWED_FILES 或 docs/DOMAIN_COMPATIBILITY_EXCEPTIONS.md'
+      );
+    }
+  });
+
   it('src/ 中不应有新增的 bobby 字符串（允许的 deprecated alias 除外，见 docs/DOMAIN_COMPATIBILITY_EXCEPTIONS.md）', () => {
     const rootDir = process.cwd();
     const srcDir = path.join(rootDir, 'src');

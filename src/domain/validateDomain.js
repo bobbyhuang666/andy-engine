@@ -292,6 +292,39 @@ function validateDomain(domain, options = {}) {
     }
   }
 
+  // ─── semanticProfile ───
+  if (domain.semanticProfile) {
+    if (typeof domain.semanticProfile !== 'object') {
+      addError('semanticProfile', '必须是对象');
+    } else {
+      const profile = domain.semanticProfile;
+
+      if (profile.language !== undefined && typeof profile.language !== 'string') {
+        addError('semanticProfile.language', '必须是字符串');
+      }
+
+      if (profile.mindWander !== undefined && typeof profile.mindWander !== 'object') {
+        addError('semanticProfile.mindWander', '必须是对象');
+      }
+
+      if (profile.narrativeModifiers !== undefined && typeof profile.narrativeModifiers !== 'object') {
+        addError('semanticProfile.narrativeModifiers', '必须是对象');
+      }
+
+      if (profile.emotionKeywords !== undefined && typeof profile.emotionKeywords !== 'object') {
+        addError('semanticProfile.emotionKeywords', '必须是对象');
+      }
+
+      if (profile.emotionRegulationKeywords !== undefined && typeof profile.emotionRegulationKeywords !== 'object') {
+        addError('semanticProfile.emotionRegulationKeywords', '必须是对象');
+      }
+
+      if (profile.defaultSemanticCategories !== undefined && typeof profile.defaultSemanticCategories !== 'object') {
+        addError('semanticProfile.defaultSemanticCategories', '必须是对象');
+      }
+    }
+  }
+
   return _result(errors, warnings, throwOnError);
 }
 

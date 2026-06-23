@@ -344,7 +344,7 @@ describe('CanonEventPipeline', () => {
     });
 
     it('记忆包含情绪标签', () => {
-      const event = makeEvent({ content: '小明很高兴地和小红聊天' });
+      const event = makeEvent({ content: 'xiaoming was very happy chatting with xiaohong' });
       const agents = makeAgents();
       const result = pipeline.processEvent(event, agents);
 
@@ -375,7 +375,7 @@ describe('CanonEventPipeline', () => {
     });
 
     it('识别休息类事件的地点意义', () => {
-      const event = makeEvent({ content: '小明在图书馆休息' });
+      const event = makeEvent({ content: 'xiaoming took a rest at the library' });
       const agents = makeAgents();
       const result = pipeline.processEvent(event, agents);
 
@@ -385,7 +385,7 @@ describe('CanonEventPipeline', () => {
     });
 
     it('识别工作类事件的地点意义', () => {
-      const event = makeEvent({ content: '小明在图书馆专注工作' });
+      const event = makeEvent({ content: 'xiaoming focused on work at the library' });
       const agents = makeAgents();
       const result = pipeline.processEvent(event, agents);
 
@@ -394,7 +394,7 @@ describe('CanonEventPipeline', () => {
     });
 
     it('识别社交类事件的地点意义', () => {
-      const event = makeEvent({ content: '小明和小红在图书馆聊天' });
+      const event = makeEvent({ content: 'xiaoming and xiaohong chatted at the library' });
       const agents = makeAgents();
       const result = pipeline.processEvent(event, agents);
 
@@ -403,7 +403,7 @@ describe('CanonEventPipeline', () => {
     });
 
     it('识别运动类事件的地点意义', () => {
-      const event = makeEvent({ content: '小明在操场运动', location: '操场' });
+      const event = makeEvent({ content: 'xiaoming did exercise at the field', location: '操场' });
       const agents = makeAgents();
       const result = pipeline.processEvent(event, agents);
 
@@ -412,7 +412,7 @@ describe('CanonEventPipeline', () => {
     });
 
     it('识别餐饮类事件的地点意义', () => {
-      const event = makeEvent({ content: '小明在餐厅吃饭', location: '餐厅' });
+      const event = makeEvent({ content: 'xiaoming ate lunch at the cafeteria', location: '餐厅' });
       const agents = makeAgents();
       const result = pipeline.processEvent(event, agents);
 
@@ -441,9 +441,9 @@ describe('CanonEventPipeline', () => {
     it('累积地点意义（同一地点多次事件）', () => {
       const agents = makeAgents();
 
-      const r1 = pipeline.processEvent(makeEvent({ content: '小明在图书馆专注工作' }), agents);
+      const r1 = pipeline.processEvent(makeEvent({ content: 'xiaoming focused on work at the library' }), agents);
       applyEventConsequences({ fact: r1.fact, agents, factStore });
-      const r2 = pipeline.processEvent(makeEvent({ content: '小红在图书馆专注工作' }), agents);
+      const r2 = pipeline.processEvent(makeEvent({ content: 'xiaohong focused on work at the library' }), agents);
       applyEventConsequences({ fact: r2.fact, agents, factStore });
 
       const meaning = factStore.getLocationMeaning('图书馆');
@@ -452,7 +452,7 @@ describe('CanonEventPipeline', () => {
     });
 
     it('情绪标签: happy', () => {
-      const event = makeEvent({ content: '小明很高兴' });
+      const event = makeEvent({ content: 'xiaoming felt happy' });
       const agents = makeAgents();
       const result = pipeline.processEvent(event, agents);
 
@@ -462,7 +462,7 @@ describe('CanonEventPipeline', () => {
     });
 
     it('情绪标签: sad', () => {
-      const event = makeEvent({ content: '小明很难过' });
+      const event = makeEvent({ content: 'xiaoming felt sad' });
       const agents = makeAgents();
       const result = pipeline.processEvent(event, agents);
 
@@ -472,7 +472,7 @@ describe('CanonEventPipeline', () => {
     });
 
     it('情绪标签: angry', () => {
-      const event = makeEvent({ content: '小明生气了' });
+      const event = makeEvent({ content: 'xiaoming was angry' });
       const agents = makeAgents();
       const result = pipeline.processEvent(event, agents);
 
@@ -482,7 +482,7 @@ describe('CanonEventPipeline', () => {
     });
 
     it('情绪标签: fear', () => {
-      const event = makeEvent({ content: '小明感到害怕' });
+      const event = makeEvent({ content: 'xiaoming felt afraid' });
       const agents = makeAgents();
       const result = pipeline.processEvent(event, agents);
 
@@ -558,7 +558,7 @@ describe('CanonEventPipeline', () => {
   describe('集成', () => {
     it('完整管线：事件→事实→知识→记忆→地点意义', () => {
       const event = makeEvent({
-        content: '小明和小红在图书馆高兴地聊天',
+        content: 'xiaoming and xiaohong had a happy chat at the library',
         participants: ['xiaoming', 'xiaohong'],
         observers: [],
         scope: FactScope.PUBLIC,

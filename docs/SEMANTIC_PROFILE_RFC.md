@@ -1,131 +1,149 @@
-# RFC: Semantic Profile Extraction
+# Semantic Profile — Implementation Reference
 
-**Status:** Proposed
+**Status:** Implemented
 **Created:** 2026-06-22
+**Updated:** 2026-06-23
 
 ---
 
-## Problem
+## Overview
 
-`src/config/defaults.js` contains Chinese keyword rules in three locations:
-
-1. **`eventConsequenceRules.eventMeaningRules`** — maps Chinese keywords to meaning types (rest, work, social, etc.)
-2. **`eventConsequenceRules.emotionKeywords`** — maps Chinese keywords to emotion dimensions
-3. **`eventConsequenceRules.tendencyRules`** — maps Chinese keywords to BehaviorField deltas
-4. **`SEMANTIC_EVENT_CATEGORIES.keywordMap`** — maps Chinese keywords to semantic event categories
-5. **`SEMANTIC_EVENT_CATEGORIES.typeMap`** / `stateCategoryMap` — Chinese category labels
-
-This means the engine has a **Chinese semantic profile baked into core defaults**, violating the language-agnostic principle. Any domain using a different language must override these rules manually.
+`semanticProfile` is a domain-level configuration that provides language-specific resources for the engine's semantic processing. It allows each domain to define its own language, keywords, and labels without hardcoding language-specific content in core.
 
 ---
 
-## Current State
-
-| Location | Content | Language |
-|---|---|---|
-| `defaults.js:239-244` | `eventMeaningRules` | Chinese |
-| `defaults.js:246-252` | `emotionKeywords` | Chinese |
-| `defaults.js:254-259` | `tendencyRules` | Chinese |
-| `defaults.js:380-396` | `SEMANTIC_EVENT_CATEGORIES.keywordMap` | Chinese |
-| `defaults.js:366-412` | `typeMap`, `stateCategoryMap` labels | Chinese |
-
-This is the **current default semantic profile** — functional but not language-agnostic.
-
----
-
-## Proposed Solution
-
-### Target Architecture
+## Actual Fields
 
 ```
 domain.semanticProfile
-  ├── eventMeaningRules
-  ├── emotionKeywords
-  ├── tendencyRules
-  └── semanticEventCategories
+  ├── language                          # string, e.g. 'zh-CN', 'en'
+  ├── mindWander                        # object
+  │   ├── negativeKeywords              # string[]
+  │   ├── positiveKeywords              # string[]
+  │   ├── thoughtTypes                  # object { recall, rumination, nostalgia, worry, daydream }
+  │   ├── daydreamContents              # string[]
+  │   └── timeLabels                    # object { justNow, hoursAgo, daysAgo, weeksAgo }
+  ├── narrativeModifiers                # object
+  │   ├── emotionLabels                 # object { sadness, loneliness, frustration, ... }
+  │   ├── needPhrases                   # object { veryTired, tired, veryHungry, hungry, restless }
+  │   └── cognitivePhrases              # object { highStress, distracted, wantsSocial, thinking, unwell }
+  ├── behaviorModifiers                 # object
+  │   ├── distracted                    # string
+  │   ├── lonely                        # string
+  │   ├── lazy                          # string
+  │   └── verbMap                       # object
+  ├── emotionKeywords                   # object { happy, sad, angry, fear, surprise, disgust }
+  ├── emotionRegulationKeywords         # object
+  │   └── positiveMemory                # string[]
+  ├── eventDefaults                     # object
+  │   ├── defaultSemanticCategory       # string
+  │   ├── gossipSuffix                  # string
+  │   └── gossipVerb                    # string
+  ├── socialNormKeywords                # object
+  │   ├── positive                      # string[]
+  │   └── negative                      # string[]
+  └── defaultSemanticCategories         # object
+      ├── typeMap                       # object { social, weather, state_change, ... }
+      ├── keywordMap                    # object { 'category': ['keyword1', 'keyword2', ...] }
+      ├── eventMeaningRules             # array [{ keywords, meaningType, weight }]
+      └── stateCategoryMap              # object { active, social, quiet, rest, ... }
 ```
-
-Each domain preset owns its semantic profile. Core defaults provide a neutral/English fallback.
 
 ---
 
-## Migration Phases
+## Merge Rules
 
-### Phase A: Extract Chinese Keywords
+`DomainRegistry` provides `mergeSemanticProfile(defaults)` for merging domain profile with core defaults.
 
-Move all Chinese keyword rules from `src/config/defaults.js` into `presets/campus/semanticProfile.js`.
+**Algorithm (`_deepMergeSemantic`):**
 
-```
-presets/campus/semanticProfile.js
-  eventMeaningRules       ← from defaults.js:239-244
-  emotionKeywords         ← from defaults.js:246-252
-  tendencyRules           ← from defaults.js:254-259
-  semanticEventCategories ← from defaults.js:363-413
-```
+1. For each key in `base` (defaults):
+   - If `override` (domain) does not have the key → use `base` value
+   - If both are plain objects → recursive merge
+   - Otherwise → use `override` value
+2. For each key in `override` not in `base` → add to result
 
-### Phase B: Add `domain.semanticProfile` Field
-
-Extend domain config schema:
+**Example:**
 
 ```js
-{
-  name: 'campus',
+const domain = {
   semanticProfile: {
-    eventMeaningRules: [...],
-    emotionKeywords: {...},
-    tendencyRules: [...],
-    semanticEventCategories: {...},
+    language: 'en',
+    emotionKeywords: { happy: ['happy', 'glad'] },
   },
-  // ... existing domain fields
-}
+};
+
+const defaults = {
+  language: 'zh-CN',
+  emotionKeywords: { happy: ['开心', '高兴'], sad: ['难过'] },
+};
+
+const merged = registry.mergeSemanticProfile(defaults);
+// Result:
+// {
+//   language: 'en',                    // domain wins
+//   emotionKeywords: {
+//     happy: ['happy', 'glad'],        // domain wins (array = leaf, no merge)
+//     sad: ['难过'],                    // from defaults
+//   },
+// }
 ```
 
-Runtime merges `domain.semanticProfile` over core defaults.
-
-### Phase C: Language-Neutral Core Defaults
-
-Replace Chinese keywords in `src/config/defaults.js` with English or neutral identifiers:
-
-```js
-eventMeaningRules: [
-  { keywords: ['rest', 'sleep', 'nap', 'relax'], meaningType: 'rest', weight: 0.3 },
-  { keywords: ['work', 'study', 'research', 'focus', 'task'], meaningType: 'work', weight: 0.3 },
-  // ...
-]
-```
-
-Chinese campus behavior preserved via `presets/campus/semanticProfile.js`.
-
-### Phase D: Test Custom Domain Profile
-
-Add integration test: create a custom domain with a non-Chinese semantic profile, verify the engine uses it correctly.
+**Key behaviors:**
+- Domain values always take priority over defaults
+- Nested objects are merged recursively
+- Arrays are treated as leaf values (no element merging)
+- Missing keys fall back to defaults
 
 ---
 
-## Constraints
+## Fallback Rules
 
-1. **Do NOT** add more language-specific keywords to core defaults.
-2. **Do NOT** change existing runtime behavior — this is a documentation/planning RFC only.
-3. **Do NOT** implement the migration in this RFC.
-4. Existing campus preset behavior must be preserved after migration.
+1. **`domain.semanticProfile` exists** → use it directly
+2. **`domain.semanticProfile` is undefined** → `getSemanticProfile()` returns `{}`
+3. **`mergeSemanticProfile(defaults)` called** → domain values override defaults; missing keys from defaults fill gaps
+4. **No campus fallback** — custom domains do NOT inherit campus Chinese keywords automatically
 
 ---
 
-## Files Affected (Future)
+## Current Presets
 
-| File | Change |
-|---|---|
-| `src/config/defaults.js` | Replace Chinese keywords with English/neutral |
-| `presets/campus/semanticProfile.js` | New — receives Chinese keywords |
-| `presets/campus/index.js` | Import and attach semanticProfile |
-| `src/config/domainSchema.js` | Add `semanticProfile` field validation |
-| `src/runtime/AndyWorld.js` | Merge domain.semanticProfile over defaults |
-| `tests/integration/semanticProfile.test.js` | New — custom domain profile test |
+| Preset | Language | Notes |
+|--------|----------|-------|
+| `presets/campus` | `zh-CN` | Full Chinese semantic profile |
+| `presets/tavern` | `zh-CN` | Full Chinese semantic profile (tavern-themed keywords) |
+
+---
+
+## Validation
+
+`validateDomain` checks semanticProfile structure:
+
+- `semanticProfile` must be object (if provided)
+- `semanticProfile.language` must be string
+- `semanticProfile.mindWander` must be object
+- `semanticProfile.narrativeModifiers` must be object
+- `semanticProfile.emotionKeywords` must be object
+- `semanticProfile.emotionRegulationKeywords` must be object
+- `semanticProfile.defaultSemanticCategories` must be object
+
+---
+
+## Files
+
+| File | Role |
+|------|------|
+| `src/domain/DomainRegistry.js:264-323` | `semanticProfile` getter, `getSemanticProfile()`, `mergeSemanticProfile()` |
+| `src/domain/validateDomain.js:295-326` | Validation rules |
+| `presets/campus/index.js:706-840` | Campus semantic profile |
+| `presets/tavern/index.js:452-562` | Tavern semantic profile |
+| `tests/unit/semanticProfile-merge.test.js` | Merge logic tests |
+| `tests/integration/semanticProfile.test.js` | Integration tests |
 
 ---
 
 ## References
 
-- `src/config/defaults.js` — current Chinese keyword definitions
 - `docs/DOMAIN.md` — domain system documentation
 - `presets/campus/` — campus domain preset
+- `presets/tavern/` — tavern domain preset

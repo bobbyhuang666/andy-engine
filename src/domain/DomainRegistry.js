@@ -263,6 +263,65 @@ class DomainRegistry {
 
   get semanticProfile() { return this.domain.semanticProfile; }
 
+  /**
+   * 获取语义配置（安全访问）
+   * @returns {Object}
+   */
+  getSemanticProfile() {
+    return this.semanticProfile || {};
+  }
+
+  /**
+   * 合并语义配置（domain 优先，defaults 补充）
+   * 对嵌套对象进行深度合并，确保 domain 只覆盖已定义的键
+   * @param {Object} defaults - 默认语义配置
+   * @returns {Object}
+   */
+  mergeSemanticProfile(defaults = {}) {
+    const profile = this.semanticProfile || {};
+    return this._deepMergeSemantic(defaults, profile);
+  }
+
+  /**
+   * 深度合并语义配置（内部方法）
+   * domain 值优先，defaults 补充缺失的键
+   * @param {Object} base - 基础配置（defaults）
+   * @param {Object} override - 覆盖配置（domain）
+   * @returns {Object}
+   */
+  _deepMergeSemantic(base, override) {
+    const result = {};
+
+    // 先复制 base 的所有键
+    for (const key of Object.keys(base)) {
+      const baseVal = base[key];
+      const overrideVal = override[key];
+
+      if (overrideVal === undefined) {
+        // domain 没有这个键，使用 defaults
+        result[key] = baseVal;
+      } else if (
+        baseVal !== null && typeof baseVal === 'object' && !Array.isArray(baseVal) &&
+        overrideVal !== null && typeof overrideVal === 'object' && !Array.isArray(overrideVal)
+      ) {
+        // 两边都是对象，递归合并
+        result[key] = this._deepMergeSemantic(baseVal, overrideVal);
+      } else {
+        // domain 有这个键，优先使用 domain 的值
+        result[key] = overrideVal;
+      }
+    }
+
+    // 添加 override 中有但 base 中没有的键
+    for (const key of Object.keys(override)) {
+      if (!(key in base)) {
+        result[key] = override[key];
+      }
+    }
+
+    return result;
+  }
+
   // ═══════════════════════════════════════════
   // 禁止词
   // ═══════════════════════════════════════════

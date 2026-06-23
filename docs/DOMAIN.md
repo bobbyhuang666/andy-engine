@@ -155,6 +155,70 @@ eventTemplates: {
 | `intrinsicMotivationConfig.domainRegionMap` | `Object` | Activity → region mapping |
 | `intrinsicMotivationConfig.explorationStates` | `string[]` | States for exploration |
 
+### Semantic Profile
+
+Language-specific resources for semantic processing. Each domain defines its own.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `semanticProfile.language` | `string` | Language code (e.g. `'zh-CN'`, `'en'`) |
+| `semanticProfile.mindWander` | `Object` | Mind wander keywords and templates |
+| `semanticProfile.narrativeModifiers` | `Object` | Emotion/need/cognitive phrase labels |
+| `semanticProfile.behaviorModifiers` | `Object` | Behavior description labels |
+| `semanticProfile.emotionKeywords` | `Object` | Emotion dimension → keyword list |
+| `semanticProfile.emotionRegulationKeywords` | `Object` | Regulation strategy keywords |
+| `semanticProfile.eventDefaults` | `Object` | Default category and gossip templates |
+| `semanticProfile.socialNormKeywords` | `Object` | Positive/negative social norm keywords |
+| `semanticProfile.defaultSemanticCategories` | `Object` | Type/keyword/category mappings |
+
+**Merge behavior:** When `mergeSemanticProfile(defaults)` is called, domain values override defaults. Nested objects merge recursively; arrays replace entirely. See `docs/SEMANTIC_PROFILE_RFC.md` for details.
+
+**Example:**
+
+```javascript
+semanticProfile: {
+  language: 'en',
+  emotionKeywords: {
+    happy: ['happy', 'glad', 'joyful'],
+    sad: ['sad', 'sorrowful', 'melancholy'],
+  },
+  narrativeModifiers: {
+    emotionLabels: {
+      sadness: 'feeling down',
+      joy: 'in good spirits',
+    },
+    needPhrases: {
+      veryTired: 'exhausted',
+      tired: 'a bit tired',
+    },
+  },
+  eventDefaults: {
+    defaultSemanticCategory: 'daily life',
+    gossipSuffix: 'also mentioned',
+    gossipVerb: 'said',
+  },
+  defaultSemanticCategories: {
+    typeMap: {
+      social: 'social interaction',
+      weather: 'weather',
+      general: 'daily life',
+    },
+    keywordMap: {
+      'social interaction': ['chat', 'friend', 'meet'],
+    },
+    eventMeaningRules: [
+      { keywords: ['rest', 'sleep', 'relax'], meaningType: 'rest', weight: 0.3 },
+      { keywords: ['work', 'study', 'focus'], meaningType: 'work', weight: 0.3 },
+    ],
+    stateCategoryMap: {
+      active: 'work',
+      social: 'social interaction',
+      rest: 'rest',
+    },
+  },
+}
+```
+
 ### Skip Behavior
 
 | Field | Type | Description |

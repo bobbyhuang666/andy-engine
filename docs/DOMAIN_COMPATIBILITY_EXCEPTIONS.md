@@ -97,3 +97,36 @@ Source scan `tests/source-scan.test.js` enforces that Chinese string literals in
 3. **No new hardcoded Chinese strings** in `src/runtime/` or `src/agent/`. Use `domain.semanticProfile` with `||` fallback pattern.
 4. **New domain-specific defaults** must go through `DomainRegistry` or presets.
 5. **Deprecated aliases** may be removed in the next major version.
+
+---
+
+## Source Scan Allowlist Audit (2026-06-23)
+
+### Audit Summary
+
+审计了 `tests/source-scan.test.js` 中 `CHINESE_FALLBACK_ALLOWED_FILES` 的 9 个文件。所有文件都包含中文 fallback 字符串，但都可以通过 `domain.semanticProfile` 配置迁移。
+
+### Allowlist Files
+
+| File | Category | Can Remove | Priority |
+|------|----------|------------|----------|
+| `src/agent/facade/AgentNarrative.js` | Narrative templates | ✅ Yes | Low |
+| `src/agent/runtime/MindWanderRuntime.js` | Thought content | ✅ Yes | Low |
+| `src/runtime/EventDispatcher.js` | Weather/social templates | ✅ Yes | Medium |
+| `src/agent/psychology/Appraisal.js` | Norm keywords | ✅ Yes | High |
+| `src/agent/psychology/BehaviorLabeler.js` | Behavior modifiers | ✅ Yes | Medium |
+| `src/agent/psychology/EmotionRegulation.js` | Status descriptions | ✅ Yes | Medium |
+| `src/agent/psychology/EmotionVector.js` | Emotion labels | ✅ Yes | Low |
+| `src/agent/psychology/IntrinsicMotivation.js` | Goal descriptions | ✅ Yes | Low |
+| `src/agent/runtime/PhysiologyRuntime.js` | Outdoor regions | ✅ Yes | High |
+
+### Migration Strategy
+
+1. **Phase 1**: Migrate high-priority files (Appraisal.js, PhysiologyRuntime.js)
+2. **Phase 2**: Migrate medium-priority files (EventDispatcher.js, BehaviorLabeler.js, EmotionRegulation.js)
+3. **Phase 3**: Migrate low-priority files (AgentNarrative.js, MindWanderRuntime.js, EmotionVector.js, IntrinsicMotivation.js)
+4. **Phase 4**: Remove migrated files from `CHINESE_FALLBACK_ALLOWED_FILES`
+
+### Detailed Audit Report
+
+详见 `docs/SOURCE_SCAN_ALLOWLIST_AUDIT.md`。
