@@ -41,6 +41,29 @@ class WorldFactStore {
 
     /** @type {number} 确定性 ID 计数器 */
     this._nextId = 0;
+
+    /** @type {Date|null} 模拟时间 */
+    this._simTime = null;
+  }
+
+  // ═══════════════════════════════════════════
+  // 时间管理
+  // ═══════════════════════════════════════════
+
+  /**
+   * 设置模拟时间
+   * @param {Date|string|number} time - 模拟时间
+   */
+  setSimTime(time) {
+    this._simTime = time instanceof Date ? time : new Date(time);
+  }
+
+  /**
+   * 获取模拟时间
+   * @returns {Date|null}
+   */
+  getSimTime() {
+    return this._simTime;
   }
 
   // ═══════════════════════════════════════════

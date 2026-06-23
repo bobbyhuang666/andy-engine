@@ -318,6 +318,11 @@ class AndyWorld {
       this.factEmitter.emitStaticFacts(this.domain);
       this.factEmitter.emitAgentStateFacts(this.agents);
     }
+    
+    // Sync simTime to factStore
+    if (this.factStore) {
+      this.factStore.setSimTime(this.clock.time);
+    }
 
     // ─── Phase 4: AGENT_THINK ───
     const context = new RuntimeContext({
