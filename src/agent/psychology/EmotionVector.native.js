@@ -19,6 +19,7 @@
 
 const { EMOTION_DIMENSIONS, CO_ACTIVATION, EMOTION_OPPOSITES, ANDY_DEFAULTS } = require('../../config/defaults');
 const { loadNativeModule } = require('../../shared/nativeLoader');
+const { diagnostics } = require('../../shared/Diagnostics');
 const cfg = ANDY_DEFAULTS.emotion;
 
 let _NativeCtor = null;
@@ -35,7 +36,7 @@ function _ensureNative() {
       );
       if (_loadResult.mode === 'required') throw err;
       if (_loadResult.mode === 'optional') {
-        console.warn(`[andy-engine] ${err.message}; falling back to JS.`);
+        diagnostics.warnOnce('emotionvector:missing-export', `${err.message}; falling back to JS.`);
         _loadResult.available = false;
         return false;
       }

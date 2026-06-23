@@ -19,6 +19,7 @@
  */
 
 const { SQLiteStore } = require('./SQLiteStore');
+const { diagnostics } = require('../shared/Diagnostics');
 
 class SimulationStore {
   /**
@@ -81,7 +82,6 @@ class SimulationStore {
     const snapshot = this.db.loadLatest();
     if (snapshot && onRestore) {
       onRestore(snapshot.data);
-      console.log(`[SimulationStore] 从快照恢复: tick=${snapshot.tick}, time=${new Date(snapshot.virtualTime).toISOString()}`);
     }
 
     // 加载故事缓冲
@@ -212,8 +212,6 @@ class SimulationStore {
   async shutdown() {
     if (!this.db) return;
 
-    console.log('[SimulationStore] 关闭中...');
-
     // 1. 刷出故事缓冲
     this._flushStories();
 
@@ -229,8 +227,6 @@ class SimulationStore {
     // 4. 关闭数据库
     this.db.close();
     this.db = null;
-
-    console.log(`[SimulationStore] 已关闭. tick=${this.tickCount}`);
   }
 
   // ═══════════════════════════════════════════
@@ -242,10 +238,7 @@ class SimulationStore {
     if (this.storyBuffer.length === 0) return;
 
     const stories = this.storyBuffer.splice(0); // 取出并清空缓冲
-    const count = this.db.saveStories(stories);
-    if (count > 0) {
-      console.log(`[SimulationStore] 写入 ${count} 条故事`);
-    }
+    this.db.saveStories(stories);
   }
 
   /** 保存当前快照 */
@@ -257,16 +250,13 @@ class SimulationStore {
       this.db.saveSnapshot(this.tickCount, this.virtualTime?.getTime() || Date.now(), data);
       this.db.prune(this.snapshotKeepCount);
     } catch (e) {
-      console.error('[SnapshotStore] 保存快照失败:', e.message);
+      diagnostics.collect({ type: 'snapshot-save-failed', error: e.message });
     }
   }
 
   /** 衰减老故事 */
   _decayStories() {
-    const result = this.db.decay(0.95, 0.05, 30);
-    if (result.decayed > 0 || result.deleted > 0) {
-      console.log(`[SimulationStore] 故事衰减: ${result.decayed} 条降低, ${result.deleted} 条删除`);
-    }
+    this.db.decay(0.95, 0.05, 30);
   }
 }
 

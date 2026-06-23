@@ -9,6 +9,7 @@ const { ANDY_DEFAULTS } = require('../../config/defaults');
 const cfg = ANDY_DEFAULTS.needs;
 const { getDefaultDomain } = require('../../domain/DomainRegistry');
 const { loadNativeModule } = require('../../shared/nativeLoader');
+const { diagnostics } = require('../../shared/Diagnostics');
 
 const defaultDomain = getDefaultDomain();
 const NEED_DRIVE_STATES = defaultDomain.needDriveStates || {};
@@ -27,7 +28,7 @@ function _ensureNative() {
       );
       if (_loadResult.mode === 'required') throw err;
       if (_loadResult.mode === 'optional') {
-        console.warn(`[andy-engine] ${err.message}; falling back to JS.`);
+        diagnostics.warnOnce('needssystem:missing-export', `${err.message}; falling back to JS.`);
         _loadResult.available = false;
         return false;
       }

@@ -5,6 +5,7 @@
  */
 
 const path = require('path');
+const { diagnostics } = require('./Diagnostics');
 
 const NATIVE_MODE = { DISABLED: 'disabled', REQUIRED: 'required', OPTIONAL: 'optional' };
 
@@ -13,8 +14,9 @@ const _warnedOptionalPaths = new Set();
 function warnOnceOptional(nativePath, errorMsg) {
   if (_warnedOptionalPaths.has(nativePath)) return;
   _warnedOptionalPaths.add(nativePath);
-  console.warn(
-    `[andy-engine] native module load failed at ${nativePath}; falling back to JS. ${errorMsg}`
+  diagnostics.warnOnce(
+    `native:${nativePath}`,
+    `native module load failed at ${nativePath}; falling back to JS. ${errorMsg}`
   );
 }
 

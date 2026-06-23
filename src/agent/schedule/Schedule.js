@@ -5,6 +5,8 @@
  * 日程决定了 Agent 在不同时间应该出现在哪个区域、做什么
  */
 
+const { diagnostics } = require('../../shared/Diagnostics');
+
 class Schedule {
   /**
    * @param {Object} config
@@ -235,7 +237,7 @@ class Schedule {
 
     const factory = presets[preset];
     if (!factory) {
-      console.warn(`未知的日程预设: "${preset}"，使用空日程。可选: ${Object.keys(presets).join(', ')}`);
+      diagnostics.warnOnce(`schedule:unknown-preset:${preset}`, `未知的日程预设: "${preset}"，使用空日程。可选: ${Object.keys(presets).join(', ')}`);
       return new Schedule({});
     }
     return factory();
