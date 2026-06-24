@@ -3,13 +3,17 @@ set -e
 
 echo "=== Fresh Consumer Matrix ==="
 
+# Get project root directory (where this script is located)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
 # Create temp directory
 TEMP_DIR=$(mktemp -d)
 cd "$TEMP_DIR"
 
 # Pack the package
 echo "1. Packing package..."
-cd /Users/huangweijie/Desktop/andy-engine
+cd "$PROJECT_ROOT"
 npm pack --pack-destination "$TEMP_DIR"
 TARBALL=$(ls "$TEMP_DIR"/andy-engine-*.tgz)
 cd "$TEMP_DIR"
