@@ -38,6 +38,7 @@ const {
   buildNarrative,
   buildWorldContext,
 } = require('./src/sdk/AndyEngineHelpers');
+const { compile } = require('./src/agent/psychology/AffectCompiler');
 
 class AndyEngine {
   /**
@@ -276,7 +277,14 @@ class AndyEngine {
   getWorldContext(agentId) {
     const agent = this.world.getAgent(agentId);
     if (!agent) return null;
-    return buildWorldContext(this, agent, agentId);
+    const affectFrame = compile({
+      emotion: agent.emotion,
+      needs: agent.needs,
+      behaviorField: agent.behaviorField,
+      socialGraph: agent.socialGraph,
+      memory: agent.memory,
+    });
+    return buildWorldContext(this, agent, agentId, affectFrame);
   }
 
   // ═══════════════════════════════════════════
@@ -304,12 +312,24 @@ class AndyEngine {
       this.world.knowledgeStore
     );
 
-    return provider.getGroundingPackage(agentId, {
+    const grounding = provider.getGroundingPackage(agentId, {
       time: this.world.time,
       ...options,
       currentRegion: options.currentRegion || (agent ? agent.position : null),
       agent,
     });
+
+    if (agent) {
+      grounding.affectFrame = compile({
+        emotion: agent.emotion,
+        needs: agent.needs,
+        behaviorField: agent.behaviorField,
+        socialGraph: agent.socialGraph,
+        memory: agent.memory,
+      });
+    }
+
+    return grounding;
   }
 
   /**

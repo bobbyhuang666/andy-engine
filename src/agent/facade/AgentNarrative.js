@@ -7,6 +7,7 @@
 
 const { DIM_FOCUS, DIM_SOCIALITY } = require('../psychology/BehaviorLabeler');
 const { applyForbiddenTerms } = require('../../domain/ForbiddenTerms');
+const { compile } = require('../psychology/AffectCompiler');
 
 /**
  * Generate narrative text from agent state.
@@ -16,6 +17,15 @@ const { applyForbiddenTerms } = require('../../domain/ForbiddenTerms');
  */
 function toNarrative(agent, externalState = null) {
   const parts = [];
+
+  // Compile AffectFrame
+  const affectFrame = compile({
+    emotion: agent.emotion,
+    needs: agent.needs,
+    behaviorField: agent.behaviorField,
+    socialGraph: agent.socialGraph,
+    memory: agent.memory,
+  });
 
   // 1. Current behavior
   const rawState = agent.stateMachine.currentState;
@@ -62,28 +72,34 @@ function toNarrative(agent, externalState = null) {
   }
 
   // 4. Emotion tone (only when significantly off-neutral)
-  const valence = agent.emotion.getValence();
-  const dominant = agent.emotion.getDominant(2);
   const emotionLabels = (narrativeSp && narrativeSp.emotionLabels) || {};
-  if (valence < -0.08) {
-    const topNeg = dominant.find(d => d.value < 0);
-    if (topNeg) {
+  if (affectFrame.valenceBand === 'negative') {
+    const topNegSrc = affectFrame.sourceSignals.emotion.find(e => {
+      const val = parseFloat(e.split(':')[1]);
+      return val < 0;
+    });
+    if (topNegSrc) {
+      const dim = topNegSrc.split(':')[0];
       const negLabels = {
         sadness: '心情不太好', loneliness: '有点孤独', frustration: '有点烦',
         nervousness: '有点焦虑', boredom: '好无聊', anger: '有点烦躁',
         fear: '有点不安',
       };
-      const label = emotionLabels[topNeg.dimension] || negLabels[topNeg.dimension] || null;
+      const label = emotionLabels[dim] || negLabels[dim] || null;
       if (label) parts.push(label);
     }
-  } else if (valence > 0.08) {
-    const topPos = dominant.find(d => d.value > 0);
-    if (topPos) {
+  } else if (affectFrame.valenceBand === 'positive') {
+    const topPosSrc = affectFrame.sourceSignals.emotion.find(e => {
+      const val = parseFloat(e.split(':')[1]);
+      return val > 0;
+    });
+    if (topPosSrc) {
+      const dim = topPosSrc.split(':')[0];
       const posLabels = {
         joy: '心情还不错', contentment: '挺满足的', excitement: '有点兴奋',
         calm: '挺平静的', hope: '有点期待',
       };
-      const label = emotionLabels[topPos.dimension] || posLabels[topPos.dimension] || null;
+      const label = emotionLabels[dim] || posLabels[dim] || null;
       if (label) parts.push(label);
     }
   }

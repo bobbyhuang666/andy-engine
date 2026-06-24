@@ -69,13 +69,27 @@ The LLM is a rendering layer, not the source of truth.
 | Perf-check | Benchmark / contagion profile regression checks pass |
 | Early subjective evaluation | Internal experiments suggest stronger character continuity and presence; not yet published as a standard benchmark |
 
+## AffectCompiler
+
+Andy Engine includes a basic AffectCompiler that converts internal psychological state into structured expression constraints.
+
+**Key principle**: Engine owns state, LLM owns wording only.
+
+The AffectCompiler produces an AffectFrame with:
+- Valence/arousal bands
+- Interpersonal posture
+- Expression constraints (warmth, directness, initiative, defensiveness)
+- Visible micro behaviors
+- Forbidden expression modes
+
+This ensures the LLM receives expression constraints, not raw psychology data.
+
 ## Known Limitations
 
 1. E2E semantic tests are improving but not exhaustive
-2. Full AffectCompiler is not implemented (seam exists)
-3. Full deterministic replay is not claimed — seeded RNG provides baseline for core paths only
-4. External production users are not yet established
-5. Domain maturity varies by preset
+2. Full deterministic replay is not claimed — seeded RNG provides baseline for core paths only
+3. External production users are not yet established
+4. Domain maturity varies by preset
 
 ---
 
@@ -147,7 +161,7 @@ The following remain experimental or deferred to v2.1/v3:
 - `FactConsistencyChecker` is regex-based and experimental
 - `WorldObject` is modeled but not fully integrated into `Agent.tick`
 - StoryArc runtime is paused
-- AffectCompiler implementation (seam exists, compiler deferred)
+- AffectCompiler basic implementation (v0.2)
 - npm publish not executed unless explicitly approved
 
 ---
@@ -618,7 +632,7 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 - `FactConsistencyChecker` 基于正则表达式，是实验性的
 - `WorldObject` 已建模但尚未完全集成到 `Agent.tick`
 - StoryArc 运行时已暂停
-- AffectCompiler 实现（seam 已存在，编译器推迟）
+- AffectCompiler 基础实现（v0.2）
 - npm publish 未执行，除非明确批准
 
 ---
@@ -700,13 +714,27 @@ Grounded Narrative（有事实边界的叙事）
 | perf-check | benchmark / contagion profile 回归检查通过 |
 | 早期主观评测 | 内部实验显示角色连续性和状态感更强，尚未作为公开 benchmark 发布 |
 
+## AffectCompiler
+
+Andy Engine 包含一个基础的 AffectCompiler，将内部心理状态转换为结构化的表达约束。
+
+**核心原则**：引擎拥有状态，LLM 只负责措辞。
+
+AffectCompiler 生成 AffectFrame，包含：
+- 效价/唤醒度区间
+- 人际姿态
+- 表达约束（温暖度、直接度、主动性、防御性）
+- 可见微行为
+- 禁止表达模式
+
+这确保 LLM 接收到的是表达约束，而非原始心理数据。
+
 ## 已知限制
 
 1. E2E 语义测试持续改进中，尚未穷尽
-2. 完整的 AffectCompiler 尚未实现（seam 已存在）
-3. 不承诺完整的确定性重放 — seeded RNG 仅为核心路径提供基线
-4. 尚未有外部生产用户
-5. Domain 成熟度因 preset 而异
+2. 不承诺完整的确定性重放 — seeded RNG 仅为核心路径提供基线
+3. 尚未有外部生产用户
+4. Domain 成熟度因 preset 而异
 
 ---
 

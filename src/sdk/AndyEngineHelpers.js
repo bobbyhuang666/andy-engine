@@ -122,9 +122,10 @@ function buildNarrative(agent, options = {}) {
  * @param {AndyEngine} engine - 引擎实例
  * @param {Agent} agent - 角色实例
  * @param {string} agentId - 角色 ID
+ * @param {Object} [affectFrame] - 预编译的 AffectFrame（从 index.js 传入）
  * @returns {Object}
  */
-function buildWorldContext(engine, agent, agentId) {
+function buildWorldContext(engine, agent, agentId, affectFrame) {
   // 最近可感知事件
   const recentEvents = engine.world.eventDispatcher.eventLog.slice(-20);
   const perceivedEvents = engine.world.eventDispatcher.filterEventsForAgent(
@@ -199,7 +200,7 @@ function buildWorldContext(engine, agent, agentId) {
     recentEvents: eventTexts || '没有特别的事情发生',
     lastAppraisal,
     nearbyPeople: nearbyPeople || '附近没有人',
-    emotionState: agent.emotion.toPromptString(),
+    affectFrame: affectFrame || null,
     needsState: agent.needs ? agent.needs.toPromptString() : '',
     emotionRegulation: agent.emotionRegulation ? agent.emotionRegulation.toPromptString() : '',
     memoryContext: agent.memory.toPromptString(5),

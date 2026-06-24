@@ -172,8 +172,8 @@ describe('AndyEngine 集成测试', () => {
       expect(typeof ctx.recentEvents).toBe('string');
     });
 
-    it('应该有情绪状态字符串', () => {
-      expect(typeof ctx.emotionState).toBe('string');
+    it('应该有情绪状态对象', () => {
+      expect(typeof ctx.affectFrame).toBe('object');
     });
 
     it('应该有记忆上下文字符串', () => {
@@ -242,7 +242,7 @@ describe('AndyEngine 集成测试', () => {
       expect(typeof ctx.recentEvents).toBe('string');
       expect(typeof ctx.lastAppraisal).toBe('string');
       expect(typeof ctx.nearbyPeople).toBe('string');
-      expect(typeof ctx.emotionState).toBe('string');
+      expect(typeof ctx.affectFrame).toBe('object');
       expect(typeof ctx.needsState).toBe('string');
       expect(typeof ctx.emotionRegulation).toBe('string');
       expect(typeof ctx.memoryContext).toBe('string');

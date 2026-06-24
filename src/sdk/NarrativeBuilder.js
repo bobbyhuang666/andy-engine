@@ -189,20 +189,6 @@ class NarrativeBuilder {
         parts.push(`你的内心平静而微妙，${all[0]}`);
         if (all.length > 1) parts[parts.length - 1] += `与${all[1]}并存`;
       }
-    } else if (ctx.emotionState) {
-      const sceneMatch = ctx.emotionState.match(/^(.*?)（效价/);
-      if (sceneMatch && sceneMatch[1]) {
-        let emotion = sceneMatch[1].trim()
-          .replace(/^你的?情绪/, '')
-          .replace(/^你的?内心/, '')
-          .replace(/^你/, '')
-          .replace(/^的/, '')
-          .replace(/^平静而微妙,?\s*/, '')
-          .replace(/有点(.+?)与有点(.+?)并存/, '有些$1，也有些$2')
-          .replace(/的暖意/, '的温暖')
-          .replace(/的阴影/, '');
-        if (emotion.length > 2) parts.push(emotion);
-      }
     }
 
     // 健康
@@ -346,14 +332,6 @@ ${inferLines.join('\n')}`);
       const energyNeed = affectFrame.needs.find(n => n.need === 'energy');
       if (energyNeed && energyNeed.urgency >= 0.6) {
         rules.push('你现在很困，回复简短，可能想休息。');
-      }
-    } else if (ctx.emotionState) {
-      // 回退到字符串解析
-      if (ctx.emotionState.includes('效价=-') || ctx.emotionState.includes('不太好')) {
-        rules.push('你现在心情不好，回复可以带点低落的语气，但不要一直抱怨。');
-      }
-      if (ctx.emotionState.includes('压力')) {
-        rules.push('你现在压力大，说话可能比较简短或疲惫。');
       }
     }
 
