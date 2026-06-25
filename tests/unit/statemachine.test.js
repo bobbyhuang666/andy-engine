@@ -7,13 +7,14 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { StateMachine, STATES } from '../../src/agent/psychology/StateMachine.js';
+import { getDefaultDomain } from '../../src/domain/DomainRegistry.js';
 
 describe('StateMachine 模块', () => {
   describe('基础功能', () => {
     let sm;
 
     beforeAll(() => {
-      sm = new StateMachine('在图书馆');
+      sm = new StateMachine('在图书馆', null, getDefaultDomain());
     });
 
     it('初始状态应该正确', () => {

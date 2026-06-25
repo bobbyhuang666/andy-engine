@@ -5,6 +5,9 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Character, Andy, NarrativeBuilder, LLMAdapter, ConversationLog, AutoTick, create } from '../sdk/index.js';
 import { EmotionSignalBuffer } from '../src/sdk/EmotionSignalBuffer.js';
+import { getDefaultDomain } from '../src/domain/DomainRegistry.js';
+
+const campusDomain = getDefaultDomain();
 
 // Mock LLM：返回固定回复，不实际调用 API
 const mockLLM = async (messages) => {
@@ -122,6 +125,7 @@ describe('NarrativeBuilder', () => {
 
     const ctx = engine.getWorldContext('test');
     const prompt = NarrativeBuilder.buildSystemPrompt(ctx, {
+      domain: campusDomain,
       characterName: 'TestChar',
       backstory: ['喜欢读书'],
     });
@@ -314,7 +318,7 @@ describe('NarrativeBuilder 各种状态', () => {
       personalityAnchor: '你性格内向。',
       health: 90,
     };
-    const prompt = NarrativeBuilder.buildSystemPrompt(ctx, { characterName: 'Test' });
+    const prompt = NarrativeBuilder.buildSystemPrompt(ctx, { characterName: 'Test', domain: campusDomain });
     expect(prompt).toContain('深夜');
     expect(prompt).toContain('眼皮重得抬不起来');
     expect(prompt).toContain('你现在很困');
@@ -329,7 +333,7 @@ describe('NarrativeBuilder 各种状态', () => {
       personalityAnchor: '你性格外向。',
       health: 100,
     };
-    const prompt = NarrativeBuilder.buildSystemPrompt(ctx, { characterName: 'Test' });
+    const prompt = NarrativeBuilder.buildSystemPrompt(ctx, { characterName: 'Test', domain: campusDomain });
     expect(prompt).toContain('下午');
     expect(prompt).toContain('春天');
     expect(prompt).toContain('在运动场');
@@ -345,7 +349,7 @@ describe('NarrativeBuilder 各种状态', () => {
       hour: 12, weather: 'sunny', season: 'summer',
       recentEvents: '- 太阳太晒了\n- 太阳太晒了\n- 食堂人很多',
     };
-    const prompt = NarrativeBuilder.buildSystemPrompt(ctx, { characterName: 'T' });
+    const prompt = NarrativeBuilder.buildSystemPrompt(ctx, { characterName: 'T', domain: campusDomain });
     const recentSection = prompt.match(/# 最近的事\n([\s\S]*?)(?=\n#|$)/);
     expect(recentSection).toBeTruthy();
     expect(recentSection[1].split('\n').filter(l => l.includes('太阳太晒了')).length).toBe(1);

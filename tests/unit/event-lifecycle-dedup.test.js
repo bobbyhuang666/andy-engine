@@ -15,6 +15,9 @@ import AndyWorld from '../../src/runtime/AndyWorld.js';
 import EventDispatcher from '../../src/runtime/EventDispatcher.js';
 import SocialGraph from '../../src/social/SocialGraph.js';
 import { RNG } from '../../src/shared/rng.js';
+import { getDefaultDomain } from '../../src/domain/DomainRegistry.js';
+
+const campusDomain = getDefaultDomain();
 
 function createMockAgent(id, position, socialGraph) {
   const agent = {
@@ -44,7 +47,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
   describe('generateEncounterEvent returns draft (not in pendingEvents)', () => {
     it('does not push to pendingEvents', () => {
       const rng = new RNG(42);
-      const dispatcher = new EventDispatcher(null, rng);
+      const dispatcher = new EventDispatcher(campusDomain, rng);
       const socialGraph = new SocialGraph();
       socialGraph.addAgent('a');
       socialGraph.addAgent('b');
@@ -73,7 +76,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
   describe('generateRandomEvent returns draft (not in pendingEvents)', () => {
     it('does not push to pendingEvents', () => {
       const rng = new RNG(1);
-      const dispatcher = new EventDispatcher(null, rng);
+      const dispatcher = new EventDispatcher(campusDomain, rng);
       // Force random event probability
       const originalRand = dispatcher._rand.bind(dispatcher);
       let callCount = 0;
@@ -92,7 +95,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
 
   describe('generateEnvironmentEvent returns draft (not in pendingEvents)', () => {
     it('does not push to pendingEvents', () => {
-      const dispatcher = new EventDispatcher();
+      const dispatcher = new EventDispatcher(campusDomain);
       const draft = dispatcher.generateEnvironmentEvent('rain', ['a', 'b']);
       expect(draft).not.toBeNull();
       expect(draft.type).toBe('weather');
@@ -105,7 +108,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
       const rng = new RNG(42);
       const world = new AndyWorld({
         startTime: new Date('2024-06-15T10:00:00'),
-      }, null, null, rng);
+      }, null, campusDomain, rng);
 
       const agentA = createMockAgent('alice', '广场', world.socialGraph);
       const agentB = createMockAgent('bob', '广场', world.socialGraph);
@@ -136,7 +139,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
       const rng = new RNG(42);
       const world = new AndyWorld({
         startTime: new Date('2024-06-15T10:00:00'),
-      }, null, null, rng);
+      }, null, campusDomain, rng);
 
       const agentA = createMockAgent('alice', '广场', world.socialGraph);
       const agentB = createMockAgent('bob', '广场', world.socialGraph);
@@ -178,7 +181,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
       const world = new AndyWorld({
         startTime: new Date('2024-06-15T10:00:00'),
         enableFacts: true,
-      }, null, null, rng);
+      }, null, campusDomain, rng);
 
       const agentA = createMockAgent('alice', '广场', world.socialGraph);
       const agentB = createMockAgent('bob', '广场', world.socialGraph);
@@ -222,7 +225,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
       const rng = new RNG(1);
       const world = new AndyWorld({
         startTime: new Date('2024-06-15T10:00:00'),
-      }, null, null, rng);
+      }, null, campusDomain, rng);
 
       world.addAgent(createMockAgent('a', '广场', world.socialGraph));
 
@@ -247,7 +250,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
   describe('pendingEvents not double-populated', () => {
     it('generate*Event returns draft but does not populate pendingEvents', () => {
       const rng = new RNG(42);
-      const dispatcher = new EventDispatcher(null, rng);
+      const dispatcher = new EventDispatcher(campusDomain, rng);
 
       // Before any generate calls, pendingEvents is empty
       expect(dispatcher.pendingEvents).toHaveLength(0);
@@ -299,7 +302,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
     it('weather event appears in pendingEvents immediately (not in next dispatch)', () => {
       const world = new AndyWorld({
         startTime: new Date('2024-06-15T10:00:00'),
-      });
+      }, null, campusDomain);
       world.addAgent(createMockAgent('a', '广场', world.socialGraph));
 
       world.setWeather('rain');
@@ -319,7 +322,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
     it('scheduled events created exactly once in eventLog', () => {
       const world = new AndyWorld({
         startTime: new Date('2024-06-15T10:00:00'),
-      });
+      }, null, campusDomain);
 
       world.scheduleEvent({ type: 'test_event', content: 'hello' }, 0);
 

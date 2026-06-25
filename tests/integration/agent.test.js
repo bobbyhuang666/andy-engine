@@ -7,7 +7,10 @@
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import Agent from '../../agent/Agent.js';
-import Schedule from '../../src/agent/schedule/Schedule.js';
+import campusSchedules from '../../presets/campus/schedules.js';
+import { getDefaultDomain } from '../../src/domain/DomainRegistry.js';
+
+const campusDomain = getDefaultDomain();
 
 describe('Agent 完整创建', () => {
   let agent;
@@ -17,11 +20,12 @@ describe('Agent 完整创建', () => {
       id: 'bobby',
       name: 'Bobby',
       personality: { mbti: 'INFP' },
-      schedule: Schedule.createStudentSchedule().toJSON(),
+      schedule: campusSchedules.createStudentSchedule().toJSON(),
       seedMemories: [
         { content: '喜欢吃泡面', category: 'food' },
       ],
       initialPosition: '图书馆',
+      domain: campusDomain,
     });
   });
 
@@ -71,7 +75,7 @@ describe('Agent 完整创建', () => {
     it('应该保持位置', () => {
       const json = agent.toJSON();
       const restored = new Agent(
-        { id: 'bobby', name: 'Bobby', schedule: json.schedule },
+        { id: 'bobby', name: 'Bobby', schedule: json.schedule, domain: campusDomain },
         json
       );
       expect(restored.position).toBe('图书馆');
@@ -80,7 +84,7 @@ describe('Agent 完整创建', () => {
     it('应该保持人格', () => {
       const json = agent.toJSON();
       const restored = new Agent(
-        { id: 'bobby', name: 'Bobby', schedule: json.schedule },
+        { id: 'bobby', name: 'Bobby', schedule: json.schedule, domain: campusDomain },
         json
       );
       expect(restored.personality.mbti).toBe('INFP');

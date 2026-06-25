@@ -7,6 +7,9 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import PersonalMemory from '../../src/agent/memory/PersonalMemory.js';
+import { getDefaultDomain } from '../../src/domain/DomainRegistry.js';
+
+const campusDomain = getDefaultDomain();
 
 describe('PersonalMemory 模块', () => {
   let mem;
@@ -16,7 +19,7 @@ describe('PersonalMemory 模块', () => {
     mem = new PersonalMemory('test_agent', [
       { content: '喜欢吃泡面', category: 'food', emotionTag: 'happy' },
       { content: '经常失眠', category: 'sleep', emotionTag: 'sad' },
-    ]);
+    ], null, campusDomain);
 
     mockEmotion = {
       getArousal: () => 0.5,
@@ -96,8 +99,8 @@ describe('PersonalMemory 模块', () => {
     });
 
     it('相同 event sequence 应产生相同 memory id', () => {
-      const mem1 = new PersonalMemory('agent_a', []);
-      const mem2 = new PersonalMemory('agent_a', []);
+      const mem1 = new PersonalMemory('agent_a', [], null, campusDomain);
+      const mem2 = new PersonalMemory('agent_a', [], null, campusDomain);
 
       mem1.addExperience({ id: 'evt_1', type: 'test', content: 'event 1' }, mockEmotion);
       mem1.addExperience({ id: 'evt_2', type: 'test', content: 'event 2' }, mockEmotion);
@@ -113,7 +116,7 @@ describe('PersonalMemory 模块', () => {
       mem.addExperience({ id: 'evt_1', type: 'test', content: 'event 1' }, mockEmotion);
       const saved = mem.toJSON();
 
-      const restored = new PersonalMemory('test_agent', [], saved);
+      const restored = new PersonalMemory('test_agent', [], saved, campusDomain);
       restored.addExperience({ id: 'evt_2', type: 'test', content: 'event 2' }, mockEmotion);
 
       const ids = restored.memories.map(m => m.id);
@@ -131,7 +134,7 @@ describe('PersonalMemory 模块', () => {
           lastAccessed: new Date('2026-01-01T00:00:00Z').toISOString(),
           presentations: [],
         },
-      ]);
+      ], campusDomain);
 
       const next = restored.addExperience({ id: 'evt_next', type: 'test', content: 'next event' }, mockEmotion);
       expect(next.id).toBe('mem_agent_sparse_10');
@@ -142,7 +145,7 @@ describe('PersonalMemory 模块', () => {
         { content: 'seed 1' },
         { content: 'seed 2' },
         { content: 'seed 3' },
-      ]);
+      ], null, campusDomain);
 
       memWithSeeds.addExperience({ id: 'evt_1', type: 'test', content: 'new event' }, mockEmotion);
       const lastMem = memWithSeeds.memories[memWithSeeds.memories.length - 1];
@@ -151,7 +154,7 @@ describe('PersonalMemory 模块', () => {
     });
 
     it('setSimTime 前 addExperience 仍生成合法时间戳', () => {
-      const memWithoutSimTime = new PersonalMemory('agent_time', []);
+      const memWithoutSimTime = new PersonalMemory('agent_time', [], null, campusDomain);
       const created = memWithoutSimTime.addExperience({ id: 'evt_1', type: 'test', content: 'event' }, mockEmotion);
 
       expect(created.timestamp).toBeInstanceOf(Date);

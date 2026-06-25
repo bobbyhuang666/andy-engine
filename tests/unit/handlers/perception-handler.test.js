@@ -3,7 +3,8 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import Agent from '../../../agent/Agent.js';
-import Schedule from '../../../src/agent/schedule/Schedule.js';
+import campusSchedules from '../../../presets/campus/schedules.js';
+import { getDefaultDomain } from '../../../src/domain/DomainRegistry.js';
 import PerceptionHandler from '../../../src/agent/handlers/PerceptionHandler.js';
 
 function createAgent(overrides = {}) {
@@ -11,7 +12,8 @@ function createAgent(overrides = {}) {
     id: 'test',
     name: 'Test',
     personality: { mbti: 'INFP' },
-    schedule: Schedule.createStudentSchedule().toJSON(),
+    schedule: campusSchedules.createStudentSchedule().toJSON(),
+    domain: getDefaultDomain(),
     ...overrides,
   });
 }

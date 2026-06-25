@@ -19,6 +19,9 @@ import {
 import {
   BehaviorField, DEFAULTS, NEED_SATISFACTION_TARGETS, TIME_TARGETS,
 } from '../src/agent/psychology/BehaviorField.js';
+import { getDefaultDomain } from '../src/domain/DomainRegistry.js';
+
+const campusDomain = getDefaultDomain();
 
 // ═══════════════════════════════════════════
 // Mock Personality
@@ -215,7 +218,7 @@ describe('BehaviorField', () => {
   let field;
 
   beforeEach(() => {
-    field = new BehaviorField(mockPersonality());
+    field = new BehaviorField(mockPersonality(), null, {}, campusDomain);
   });
 
   describe('初始化', () => {
@@ -232,7 +235,7 @@ describe('BehaviorField', () => {
 
     it('从保存状态恢复', () => {
       const saved = { B: [0.5, 0.3, 0.6, 0.2], velocity: [0.1, 0, 0, 0], _lastLabel: '在图书馆', _tickCount: 10 };
-      const restored = BehaviorField.fromJSON(saved, mockPersonality());
+      const restored = BehaviorField.fromJSON(saved, mockPersonality(), campusDomain);
       expect(restored.B[0]).toBe(0.5);
       expect(restored.label).toBe('在图书馆');
     });
@@ -385,22 +388,22 @@ describe('BehaviorField', () => {
 
   describe('人格调制', () => {
     it('高神经质 → 高摩擦（更慢的行为变化）', () => {
-      const neuroticField = new BehaviorField(mockPersonality({ neuroticism: 0.9 }));
-      const stableField = new BehaviorField(mockPersonality({ neuroticism: 0.1 }));
+      const neuroticField = new BehaviorField(mockPersonality({ neuroticism: 0.9 }), null, {}, campusDomain);
+      const stableField = new BehaviorField(mockPersonality({ neuroticism: 0.1 }), null, {}, campusDomain);
 
       expect(neuroticField.gamma).toBeGreaterThan(stableField.gamma);
     });
 
     it('高外向性 → 高噪声（更随机的行为）', () => {
-      const extrovertField = new BehaviorField(mockPersonality({ extraversion: 0.9 }));
-      const introvertField = new BehaviorField(mockPersonality({ extraversion: 0.1 }));
+      const extrovertField = new BehaviorField(mockPersonality({ extraversion: 0.9 }), null, {}, campusDomain);
+      const introvertField = new BehaviorField(mockPersonality({ extraversion: 0.1 }), null, {}, campusDomain);
 
       expect(extrovertField.sigma).toBeGreaterThan(introvertField.sigma);
     });
 
     it('高尽责性 → 日程权重更高', () => {
-      const conscientiousField = new BehaviorField(mockPersonality({ conscientiousness: 0.9 }));
-      const lazyField = new BehaviorField(mockPersonality({ conscientiousness: 0.1 }));
+      const conscientiousField = new BehaviorField(mockPersonality({ conscientiousness: 0.9 }), null, {}, campusDomain);
+      const lazyField = new BehaviorField(mockPersonality({ conscientiousness: 0.1 }), null, {}, campusDomain);
 
       expect(conscientiousField._weightModifiers.schedule).toBeGreaterThan(lazyField._weightModifiers.schedule);
     });
@@ -450,7 +453,7 @@ describe('BehaviorField', () => {
       for (let i = 0; i < 20; i++) field.tick(defaultSignals());
 
       const json = field.toJSON();
-      const restored = BehaviorField.fromJSON(json, mockPersonality());
+      const restored = BehaviorField.fromJSON(json, mockPersonality(), campusDomain);
 
       for (let d = 0; d < DIMS; d++) {
         expect(restored.B[d]).toBeCloseTo(field.B[d], 6);
@@ -502,7 +505,7 @@ describe('BehaviorField', () => {
 
 describe('集成：全天模拟', () => {
   it('一天的行为标签在时间上合理', () => {
-    const field = new BehaviorField(mockPersonality());
+    const field = new BehaviorField(mockPersonality(), null, {}, campusDomain);
 
     // 模拟一天的信号序列
     const dayPhases = [
@@ -542,8 +545,8 @@ describe('集成：全天模拟', () => {
   });
 
   it('不同人格在同一情境下产生不同行为', () => {
-    const introvert = new BehaviorField(mockPersonality({ extraversion: 0.1, neuroticism: 0.7 }));
-    const extrovert = new BehaviorField(mockPersonality({ extraversion: 0.9, neuroticism: 0.2 }));
+    const introvert = new BehaviorField(mockPersonality({ extraversion: 0.1, neuroticism: 0.7 }), null, {}, campusDomain);
+    const extrovert = new BehaviorField(mockPersonality({ extraversion: 0.9, neuroticism: 0.2 }), null, {}, campusDomain);
 
     const socialSignals = defaultSignals({
       needs: { hunger: 0.7, energy: 0.7, social: 0.1, comfort: 0.6, stimulation: 0.5 },
@@ -593,7 +596,7 @@ describe('Phase 1: NeedsSystem 连续梯度', () => {
 
   function createNeeds(oceanOverrides = {}, needOverrides = {}) {
     const p = new Personality({ mbti: 'INFP', ocean: oceanOverrides });
-    const ns = new NeedsSystem(p);
+    const ns = new NeedsSystem(p, null, campusDomain);
     Object.assign(ns.needs, needOverrides);
     return ns;
   }
@@ -684,7 +687,7 @@ describe('Phase 1: IntrinsicMotivation 连续梯度', () => {
 
   it('高好奇心时 drive 包含 gradientVector', () => {
     const p = new Personality({ mbti: 'ENFP' });
-    const im = new IntrinsicMotivation(p);
+    const im = new IntrinsicMotivation(p, null, campusDomain);
     im.curiosity = 0.8; // 高于阈值 0.25
 
     const result = im.tick({
@@ -700,7 +703,7 @@ describe('Phase 1: IntrinsicMotivation 连续梯度', () => {
 
   it('低好奇心时 drive 为 null', () => {
     const p = new Personality({ mbti: 'ISTJ' });
-    const im = new IntrinsicMotivation(p);
+    const im = new IntrinsicMotivation(p, null, campusDomain);
     im.curiosity = 0.1; // 低于阈值
 
     const result = im.tick({
@@ -767,7 +770,7 @@ describe('Phase 1: BehaviorField 接收真实引擎信号', () => {
     for (let i = 0; i < 20; i++) engine.tick();
 
     const agent = engine.getAgent('test');
-    const field = new BehaviorField(agent.personality);
+    const field = new BehaviorField(agent.personality, null, {}, campusDomain);
     const env = {
       hour: 14, dayOfWeek: 3, weather: 'sunny',
       simTime: new Date('2025-06-01T14:00:00'),

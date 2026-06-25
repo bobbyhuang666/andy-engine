@@ -164,11 +164,15 @@ describe('AndyEngine RNG 注入', () => {
     expect(engine.world.rng).toBe(rng);
   });
 
-  it('不提供 seed 时 rng 为 null', () => {
+  it('不提供 seed 时 world 恒持自动种子 RNG', () => {
     const engine = new AndyEngine();
 
+    // facade 仍可选注入：未提供 seed 时 engine.rng 为 null（向后兼容，不变）
     expect(engine.rng).toBeNull();
-    expect(engine.world.rng).toBeNull();
+    // 但 world 恒持 RNG（RFC RNG_STRICTNESS：unseeded mode 内部自动种子）
+    // （ESM/CJS 双模块下 toBeInstanceOf 不可靠，改用 duck-type）
+    expect(engine.world.rng).not.toBeNull();
+    expect(typeof engine.world.rng.next).toBe('function');
   });
 
   it('相同 seed 产生相同的 RNG 序列', () => {
@@ -383,12 +387,13 @@ describe('RNG Snapshot/Restore', () => {
     expect(rng1Continued).toBe(rng2Continued);
   });
 
-  it('无 seed 时 toJSON 不包含 rngState', () => {
+  it('无 seed 时 toJSON 仍包含 rngState（world 恒持 RNG）', () => {
     const engine = new AndyEngine({
       startTime: new Date('2026-09-01T08:00:00Z'),
     });
 
     const json = engine.toJSON();
-    expect(json.rngState).toBeUndefined();
+    // world 恒持 RNG（unseeded 自动种子），故 rngState 恒存在
+    expect(json.rngState).toBeDefined();
   });
 });

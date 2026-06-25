@@ -149,17 +149,25 @@ require('andy-engine/presets/tavern') → presets/tavern/index.js
 - **File**: `store/index.js`
 - **Status**: stable
 - **Canonical src**: `src/store/index.js`
-- **Main exports**:
+- **Main exports** (re-exported in full from canonical `src/store/index.js`):
   - `Serialization` — module
   - `ENVELOPE_VERSION` — string
   - `SaveLoad` — class
   - `SnapshotStore` — class (interface)
   - `MetaStore` — class (interface)
   - `SQLiteStore` — class
+  - `MemoryStore` — class
   - `SimulationStore` — class
   - `StoryStore` — class
   - `createStore(options?)` — function
   - `createMemoryStore()` — function
+  - `toWorldState(engine, worldId)` — function
+  - `fromWorldState(worldState, config?, engineConstructor?)` — function
+  - `validateWorldSpec(spec)` — function
+  - `validateWorldState(state)` — function
+  - `CURRENT_SCHEMA_VERSION` — string (`'0.1.0'`)
+  - `compile(spec, domainConfig?, engineConstructor?)` — function
+  - `migrateWorldState(oldState)` — function
 - **Allowed consumers**: external apps, store tests, `test_store.js`
 - **Breaking-change policy**: major version bump only.
 - **Smoke test coverage**: `scripts/smoke-pack.sh` — `createMemoryStore()`, `saveSnapshot`, `close`
@@ -253,6 +261,19 @@ The following are explicitly NOT part of the public API and must NOT appear in `
 | `effects/*` | Retired top-level implementation path (not exported; no files on disk) |
 | `social/*` | Retired top-level implementation path (not exported; no files on disk) |
 | `spatial/*` | Retired top-level implementation path (not exported; no files on disk) |
+
+---
+
+## TypeScript Support (Alpha)
+
+`package.json` exports 为 `.` 与 `./sdk` 提供 `types` 子键(指向 `index.d.ts` / `sdk/index.d.ts`)。
+其余 8 个 subpath(`./domain`、`./domain/validate`、`./domain/registry`、`./facts`、`./store`、`./config/defaults`、`./presets/campus`、`./presets/tavern`)是纯 JavaScript,**未提供独立 `.d.ts`**。
+
+这是 Foundation Alpha 阶段的已知限制。TS 消费者:
+- 从 `.` 或 `./sdk` 导入时获得类型声明。
+- 从其余 subpath 导入时,TS 会回退到 JS 推断或 root `index.d.ts`(不精确)。
+
+未来 GA 阶段会为每个 subpath 补 `.d.ts`。在此之前,纯 JS subpath 的类型支持不构成契约承诺。
 
 ---
 

@@ -15,6 +15,9 @@ import RuntimeConfig from '../../src/runtime/RuntimeConfig.js';
 import RuntimeContext from '../../src/runtime/RuntimeContext.js';
 import AndyWorld from '../../src/runtime/AndyWorld.js';
 import { ANDY_DEFAULTS } from '../../src/config/defaults.js';
+import { getDefaultDomain } from '../../src/domain/DomainRegistry.js';
+
+const campusDomain = getDefaultDomain();
 
 // ─── WorldClock ───
 
@@ -115,7 +118,7 @@ describe('RuntimeContext', () => {
   let world;
 
   beforeEach(() => {
-    world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
+    world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
   });
 
   it('聚合 world/clock/config/domain/rng', () => {
@@ -130,7 +133,8 @@ describe('RuntimeContext', () => {
     expect(context.clock).toBe(world.clock);
     expect(context.config).toBe(world.runtimeConfig);
     expect(context.domain).toBe(world.domain);
-    expect(context.rng).toBeNull();
+    // world 恒持 RNG（unseeded 自动种子），context.rng 即 world.rng
+    expect(context.rng).toBe(world.rng);
   });
 
   it('simTime 代理 clock.time', () => {
@@ -177,7 +181,7 @@ describe('RuntimeContext', () => {
 describe('AndyWorld (runtime)', () => {
   describe('构造函数', () => {
     it('初始化时钟', () => {
-      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
+      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
       expect(world.clock.advance).toBeDefined();
       expect(world.clock.time.getHours()).toBe(10);
       expect(world.clock.tickCount).toBe(0);
@@ -187,24 +191,24 @@ describe('AndyWorld (runtime)', () => {
       const world = new AndyWorld({
         startTime: new Date('2024-06-15T10:00:00'),
         weather: 'rain',
-      });
+      }, null, campusDomain);
       expect(world.environment.weather).toBe('rain');
       expect(world.environment.timeOfDay).toBe('morning');
     });
 
     it('初始化空 Agent 集合', () => {
-      const world = new AndyWorld();
+      const world = new AndyWorld({}, null, campusDomain);
       expect(world.agents.size).toBe(0);
     });
 
     it('初始化社交图谱和事件分发器', () => {
-      const world = new AndyWorld();
+      const world = new AndyWorld({}, null, campusDomain);
       expect(world.socialGraph).toBeDefined();
       expect(world.eventDispatcher).toBeDefined();
     });
 
     it('time/tickCount 兼容性属性代理到 clock', () => {
-      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
+      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
       expect(world.time).toBe(world.clock.time);
       expect(world.tickCount).toBe(0);
       world.time = new Date('2024-06-15T12:00:00');
@@ -219,7 +223,7 @@ describe('AndyWorld (runtime)', () => {
       world = new AndyWorld({
         startTime: new Date('2024-06-15T10:00:00'),
         seed: 42,
-      });
+      }, null, campusDomain);
     });
 
     it('推进时钟', () => {
@@ -253,7 +257,7 @@ describe('AndyWorld (runtime)', () => {
       // 推进到 14:00
       world = new AndyWorld({
         startTime: new Date('2024-06-15T13:55:00'),
-      });
+      }, null, campusDomain);
       world.step(); // 14:00
       expect(world.environment.timeOfDay).toBe('afternoon');
     });
@@ -266,7 +270,7 @@ describe('AndyWorld (runtime)', () => {
 
   describe('Agent 管理', () => {
     it('addAgent 注册 Agent', () => {
-      const world = new AndyWorld();
+      const world = new AndyWorld({}, null, campusDomain);
       const mockAgent = {
         id: 'test',
         position: '校园广场',
@@ -278,7 +282,7 @@ describe('AndyWorld (runtime)', () => {
     });
 
     it('getAllAgents 返回所有 Agent', () => {
-      const world = new AndyWorld();
+      const world = new AndyWorld({}, null, campusDomain);
       world.addAgent({ id: 'a', position: 'p1', setSocialGraph: null });
       world.addAgent({ id: 'b', position: 'p2', setSocialGraph: null });
       expect(world.getAllAgents().length).toBe(2);
@@ -287,7 +291,7 @@ describe('AndyWorld (runtime)', () => {
 
   describe('事件调度', () => {
     it('scheduleEvent 添加延迟事件', () => {
-      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
+      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
       world.scheduleEvent({ type: 'test_event' }, 60000);
       expect(world._scheduledEvents.length).toBe(1);
     });
@@ -295,7 +299,7 @@ describe('AndyWorld (runtime)', () => {
 
   describe('回调', () => {
     it('onTick 注册回调，在 step() 中执行', () => {
-      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
+      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
       let called = false;
       world.onTick(() => { called = true; });
       world.step();
@@ -305,7 +309,7 @@ describe('AndyWorld (runtime)', () => {
 
   describe('getStats()', () => {
     it('返回统计信息', () => {
-      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
+      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
       world.step();
       const stats = world.getStats();
       expect(stats.tickCount).toBe(1);
@@ -317,7 +321,7 @@ describe('AndyWorld (runtime)', () => {
 
   describe('快照 & 序列化', () => {
     it('snapshot() 返回世界快照', () => {
-      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
+      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
       const snap = world.snapshot();
       expect(snap.time).toBeDefined();
       expect(snap.tickCount).toBe(0);
@@ -326,7 +330,7 @@ describe('AndyWorld (runtime)', () => {
     });
 
     it('toJSON() 包含 time/tickCount/environment', () => {
-      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
+      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
       const json = world.toJSON();
       expect(json.time).toBeDefined();
       expect(json.tickCount).toBe(0);
@@ -342,7 +346,7 @@ describe('向后兼容性', () => {
     const CoreAndyWorld = await import('../../src/runtime/AndyWorld.js');
     expect(CoreAndyWorld.default).toBeDefined();
     // 应该是同一个类
-    const world = new CoreAndyWorld.default({ startTime: new Date('2024-06-15T10:00:00') });
+    const world = new CoreAndyWorld.default({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
     expect(world.clock).toBeDefined();
     expect(world.step).toBeDefined();
   });
@@ -352,7 +356,7 @@ describe('向后兼容性', () => {
     const world = new CoreAndyWorld({
       startTime: new Date('2024-06-15T10:00:00'),
       seed: 42,
-    });
+    }, null, campusDomain);
     const result = world.step();
     expect(result.tickNumber).toBe(1);
     expect(world.clock.tickCount).toBe(1);
@@ -360,7 +364,7 @@ describe('向后兼容性', () => {
 
   it('AndyWorld.getStats() returns stats', async () => {
     const CoreAndyWorld = (await import('../../src/runtime/AndyWorld.js')).default;
-    const world = new CoreAndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
+    const world = new CoreAndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
     world.step();
     const stats = world.getStats();
     expect(stats.tickCount).toBe(1);
@@ -368,14 +372,14 @@ describe('向后兼容性', () => {
 
   it('AndyWorld.scheduleEvent works', async () => {
     const CoreAndyWorld = (await import('../../src/runtime/AndyWorld.js')).default;
-    const world = new CoreAndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
+    const world = new CoreAndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
     world.scheduleEvent({ type: 'test' }, 60000);
     expect(world._scheduledEvents.length).toBe(1);
   });
 
   it('AndyWorld.onTick works', async () => {
     const CoreAndyWorld = (await import('../../src/runtime/AndyWorld.js')).default;
-    const world = new CoreAndyWorld({ startTime: new Date('2024-06-15T10:00:00') });
+    const world = new CoreAndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
     let called = false;
     world.onTick(() => { called = true; });
     world.step();

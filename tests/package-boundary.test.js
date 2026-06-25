@@ -305,6 +305,32 @@ describe('Package Boundary', () => {
       const hasSpatialExport = exportKeys.some(k => k.includes('spatial/'));
       expect(hasSpatialExport).toBe(false);
     });
+
+    // Wave 1b governance: src/ ships in the package (facades require it) but
+    // src/ visibility ≠ supported surface. The exports map must NOT contain a
+    // wildcard (`*`) or any `./src/*` key, otherwise deep-imports into src/
+    // internals would silently become public API. AGENTS.md + PUBLIC_API_CONTRACT.md
+    // define the supported surface; this test guards the structural enforcement.
+    it('exports map has no wildcard or ./src/* key (src/ visible ≠ supported)', () => {
+      const exportKeys = Object.keys(pkg.exports);
+      expect(exportKeys.includes('*'), 'exports must not contain "*" wildcard').toBe(false);
+      expect(
+        exportKeys.some(k => k.startsWith('./src/') || k === './src'),
+        'exports must not expose ./src/* paths directly'
+      ).toBe(false);
+
+      // Only 3 approved subpaths resolve into src/ (intentionally public):
+      //   ./domain/validate, ./domain/registry, ./config/defaults
+      const approvedSrcSubpaths = ['./domain/validate', './domain/registry', './config/defaults'];
+      for (const [key, entry] of Object.entries(pkg.exports)) {
+        const target = typeof entry === 'string' ? entry : (entry && (entry.require || entry.default));
+        if (!target) continue;
+        const resolvesIntoSrc = /\/src\//.test(target);
+        if (resolvesIntoSrc && !approvedSrcSubpaths.includes(key)) {
+          throw new Error(`${key} resolves into src/ (${target}) but is not in the approved list`);
+        }
+      }
+    });
   });
 
   describe('compatibility wrappers retired', () => {

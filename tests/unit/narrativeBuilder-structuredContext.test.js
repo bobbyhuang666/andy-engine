@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import NarrativeBuilder from '../../src/sdk/NarrativeBuilder.js';
+import { getDefaultDomain } from '../../src/domain/DomainRegistry.js';
+
+const campusDomain = getDefaultDomain();
 
 describe('NarrativeBuilder Structured Context', () => {
   it('old sentinel string path still works', () => {
@@ -14,6 +17,7 @@ describe('NarrativeBuilder Structured Context', () => {
     };
     
     const prompt = NarrativeBuilder.buildSystemPrompt(worldContext, {
+      domain: campusDomain,
       characterName: '测试角色',
     });
     
@@ -34,6 +38,7 @@ describe('NarrativeBuilder Structured Context', () => {
     };
     
     const prompt = NarrativeBuilder.buildSystemPrompt(worldContext, {
+      domain: campusDomain,
       characterName: '测试角色',
     });
     
@@ -56,6 +61,7 @@ describe('NarrativeBuilder Structured Context', () => {
     ];
     
     const prompt = NarrativeBuilder.buildSystemPrompt(worldContext, {
+      domain: campusDomain,
       characterName: '测试角色',
       nearbyPeopleArray,
     });
@@ -80,6 +86,7 @@ describe('NarrativeBuilder Structured Context', () => {
     ];
     
     const prompt = NarrativeBuilder.buildSystemPrompt(worldContext, {
+      domain: campusDomain,
       characterName: '测试角色',
       recentEventsArray,
     });
@@ -104,6 +111,7 @@ describe('NarrativeBuilder Structured Context', () => {
     const recentEventsArray = [{ content: '新事件' }];
     
     const prompt = NarrativeBuilder.buildSystemPrompt(worldContext, {
+      domain: campusDomain,
       characterName: '测试角色',
       nearbyPeopleArray,
       recentEventsArray,
@@ -127,10 +135,12 @@ describe('NarrativeBuilder Structured Context', () => {
     };
     
     const prompt1 = NarrativeBuilder.buildSystemPrompt(worldContext, {
+      domain: campusDomain,
       characterName: '测试角色',
     });
     
     const prompt2 = NarrativeBuilder.buildSystemPrompt(worldContext, {
+      domain: campusDomain,
       characterName: '测试角色',
       nearbyPeopleArray: [],
       recentEventsArray: [],

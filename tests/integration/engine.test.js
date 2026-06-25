@@ -7,7 +7,7 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import AndyEngine from '../../index.js';
-import Schedule from '../../src/agent/schedule/Schedule.js';
+import campusSchedules from '../../presets/campus/schedules.js';
 
 describe('AndyEngine 集成测试', () => {
   let engine;
@@ -25,14 +25,14 @@ describe('AndyEngine 集成测试', () => {
         id: 'bobby',
         name: 'Bobby',
         personality: { mbti: 'INFP' },
-        schedule: Schedule.createStudentSchedule().toJSON(),
+        schedule: campusSchedules.createStudentSchedule().toJSON(),
         initialPosition: '校园广场',
       },
       {
         id: 'xiaoming',
         name: '小明',
         personality: { mbti: 'ENFP' },
-        schedule: Schedule.createStudentSchedule({
+        schedule: campusSchedules.createStudentSchedule({
           morningClass: 9,
           workDays: [2, 4],
         }).toJSON(),
@@ -42,7 +42,7 @@ describe('AndyEngine 集成测试', () => {
         id: 'xiaohong',
         name: '小红',
         personality: { mbti: 'ISFJ' },
-        schedule: Schedule.createStudentSchedule({
+        schedule: campusSchedules.createStudentSchedule({
           morningClass: 8,
           workDays: [1, 3, 5],
         }).toJSON(),

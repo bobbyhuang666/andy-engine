@@ -8,6 +8,9 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
+import { getDefaultDomain } from '../src/domain/DomainRegistry.js';
+
+const campusDomain = getDefaultDomain();
 
 const ROOT = process.cwd();
 
@@ -143,6 +146,7 @@ describe('Agent Containment: constructor behavior preserved', () => {
       name: 'Test',
       personality: { mbti: 'ISFJ' },
       schedule: {},
+      domain: campusDomain,
     });
     expect(agent.id).toBe('test-fresh');
     expect(agent.personality).toBeDefined();
@@ -166,6 +170,7 @@ describe('Agent Containment: constructor behavior preserved', () => {
       name: 'Test',
       personality: { mbti: 'ENFP' },
       schedule: {},
+      domain: campusDomain,
       initialState: '在休息',
     });
     // behaviorField should have been centered
@@ -199,6 +204,7 @@ describe('Agent Containment: serialize → restore → tick smoke', () => {
       name: 'Roundtrip',
       personality: { mbti: 'ENFJ' },
       schedule: {},
+      domain: campusDomain,
     });
     for (let i = 0; i < 5; i++) {
       agent1.tick({ hour: 10 + i, dayOfWeek: 1, minutesElapsed: 5, simTime: new Date() });
@@ -215,6 +221,7 @@ describe('Agent Containment: serialize → restore → tick smoke', () => {
       id: 'roundtrip-test',
       name: 'Roundtrip',
       schedule: {},
+      domain: campusDomain,
     }, json);
 
     // 4. Verify subsystems restored
@@ -238,6 +245,7 @@ describe('Agent Containment: serialize → restore → tick smoke', () => {
       name: 'Trace',
       personality: { mbti: 'INTP' },
       schedule: {},
+      domain: campusDomain,
     });
     agent1._actionTraceHistory = [{ test: true }];
     const json = agent1.toJSON();
@@ -247,6 +255,7 @@ describe('Agent Containment: serialize → restore → tick smoke', () => {
       id: 'trace-test',
       name: 'Trace',
       schedule: {},
+      domain: campusDomain,
     }, json);
     expect(agent2._actionTraceHistory).toEqual([{ test: true }]);
   });
@@ -259,11 +268,12 @@ describe('Agent Containment: serialize → restore → tick smoke', () => {
       name: 'Shape',
       personality: { mbti: 'ESFP' },
       schedule: {},
+      domain: campusDomain,
     });
     agent1.tick({ hour: 10, dayOfWeek: 1, minutesElapsed: 5, simTime: new Date() });
     const json1 = agent1.toJSON();
 
-    const agent2 = new Agent({ id: 'shape-test', name: 'Shape', schedule: {} }, json1);
+    const agent2 = new Agent({ id: 'shape-test', name: 'Shape', schedule: {}, domain: campusDomain }, json1);
     const json2 = agent2.toJSON();
 
     // Both should have same keys
@@ -294,12 +304,14 @@ describe('Agent Containment: serialize → restore → tick smoke', () => {
       name: 'ScheduleRestore',
       personality: { mbti: 'ISTJ' },
       schedule,
+      domain: campusDomain,
     });
     const json = agent1.toJSON();
 
     const agent2 = new Agent({
       id: 'schedule-restore-test',
       name: 'ScheduleRestore',
+      domain: campusDomain,
     }, json);
 
     expect(agent2.schedule.entries).toHaveLength(1);
@@ -316,6 +328,7 @@ describe('Agent Containment: runtime behavior preserved', () => {
       name: 'Test',
       personality: { mbti: 'ISFJ' },
       schedule: {},
+      domain: campusDomain,
     });
     const result = agent.tick({ hour: 10, dayOfWeek: 1, minutesElapsed: 5, simTime: new Date() });
     expect(result).toBeDefined();
@@ -334,6 +347,7 @@ describe('Agent Containment: runtime behavior preserved', () => {
       name: 'Test',
       personality: { mbti: 'ENTP' },
       schedule: {},
+      domain: campusDomain,
     });
     const signals = agent.buildBehaviorSignals({ hour: 10, dayOfWeek: 1, weather: 'sunny' });
     expect(signals.emotion).toBeDefined();
@@ -351,6 +365,7 @@ describe('Agent Containment: runtime behavior preserved', () => {
       name: 'Test',
       personality: { mbti: 'ISTJ' },
       schedule: {},
+      domain: campusDomain,
     });
     const status = agent.getStatus();
     expect(status.id).toBe('status-test');
@@ -366,6 +381,7 @@ describe('Agent Containment: runtime behavior preserved', () => {
       name: 'Test',
       personality: { mbti: 'INFJ' },
       schedule: {},
+      domain: campusDomain,
     });
     agent.tick({ hour: 14, dayOfWeek: 3, minutesElapsed: 5, simTime: new Date() });
     const narrative = agent.toNarrative();
@@ -379,6 +395,7 @@ describe('Agent Containment: runtime behavior preserved', () => {
       name: 'Test',
       personality: { mbti: 'INTJ' },
       schedule: {},
+      domain: campusDomain,
     });
     const mem = agent.recordExternalExperience({ content: 'had lunch with friend' });
     expect(mem === null || typeof mem === 'object').toBe(true);
@@ -391,12 +408,14 @@ describe('Agent Containment: runtime behavior preserved', () => {
       name: 'Alice',
       personality: { mbti: 'ENFP' },
       schedule: {},
+      domain: campusDomain,
     });
     const agent2 = new Agent({
       id: 'interact-b',
       name: 'Bob',
       personality: { mbti: 'ISTJ' },
       schedule: {},
+      domain: campusDomain,
     });
     const result = agent1.interact(agent2, 'talk');
     expect(result).toBeDefined();

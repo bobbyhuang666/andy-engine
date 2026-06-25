@@ -204,7 +204,7 @@ describe('向后兼容性', () => {
     }).not.toThrow();
   });
 
-  it('无 seed 时 agent.rng 为 null', () => {
+  it('无 seed 时 agent 仍由 world 注入 RNG', () => {
     const engine = new AndyEngine({
       startTime: new Date('2026-09-01T08:00:00Z'),
     });
@@ -217,7 +217,8 @@ describe('向后兼容性', () => {
     });
 
     const agent = engine.getAgent('maya');
-    expect(agent._rng).toBeNull();
+    // world 恒持 RNG（unseeded 自动种子），addAgent 注入到 agent
+    expect(agent._rng).toBe(engine.world.rng);
   });
 
   it('有 seed 时 agent.rng 被挂载', () => {

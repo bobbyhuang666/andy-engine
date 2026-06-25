@@ -24,7 +24,7 @@ describe('Backward Compatibility: Legacy API', () => {
       mbti: 'INFP',
       schedule: 'student',
     });
-    // campus preset 使用 legacy Schedule.resolvePreset，entries 可能为空
+    // campus 'student' 经 domain.roleArchetypes 解析(Wave 3c:resolvePreset 不再处理字符串),entries 为空(archetype 为 options 对象)
     expect(agent).toBeDefined();
     expect(agent.id).toBe('test');
   });

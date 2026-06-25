@@ -9,12 +9,15 @@ import Personality from '../src/agent/psychology/Personality.js';
 import EmotionVector from '../src/agent/psychology/EmotionVector.js';
 import NeedsSystem from '../src/agent/psychology/NeedsSystem.js';
 import { BehaviorField } from '../src/agent/psychology/BehaviorField.js';
+import { getDefaultDomain } from '../src/domain/DomainRegistry.js';
+
+const campusDomain = getDefaultDomain();
 
 function createMockAgent() {
   const personality = new Personality({ mbti: 'INFP' });
   const emotion = new EmotionVector(personality);
-  const needs = new NeedsSystem(personality);
-  const behaviorField = new BehaviorField(personality);
+  const needs = new NeedsSystem(personality, null, campusDomain);
+  const behaviorField = new BehaviorField(personality, null, {}, campusDomain);
 
   emotion.applyEffect({ joy: 0.3, sadness: -0.1 });
 
@@ -111,6 +114,7 @@ describe('NarrativeBuilder with affectFrame seam (A4.2)', () => {
       emotionState: agent.emotion.toPromptString(),
     };
     const result = NarrativeBuilder.buildSystemPrompt(worldContext, {
+      domain: campusDomain,
       characterName: 'Maya',
     });
     expect(typeof result).toBe('string');
@@ -127,6 +131,7 @@ describe('NarrativeBuilder with affectFrame seam (A4.2)', () => {
       currentRegion: '图书馆',
     };
     const result = NarrativeBuilder.buildSystemPrompt(worldContext, {
+      domain: campusDomain,
       characterName: 'Maya',
       affectFrame,
     });
@@ -144,10 +149,12 @@ describe('NarrativeBuilder with affectFrame seam (A4.2)', () => {
       currentRegion: '图书馆',
     };
     const withFrame = NarrativeBuilder.buildSystemPrompt(worldContext, {
+      domain: campusDomain,
       characterName: 'Maya',
       affectFrame,
     });
     const withoutFrame = NarrativeBuilder.buildSystemPrompt(worldContext, {
+      domain: campusDomain,
       characterName: 'Maya',
       needsState: agent.needs.toPromptString(),
       emotionState: agent.emotion.toPromptString(),

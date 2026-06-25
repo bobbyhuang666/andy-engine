@@ -184,7 +184,8 @@ Stable World Envelope 是跨版本稳定的公共契约。Migration Pipeline 和
 **关键约束：**
 - `runtimeSnapshot` 的内部结构**不是公共契约**
 - Validator **只做 `typeof === 'object'` 校验**，不解析内部细节
-- Stable Envelope validator does not inspect runtimeSnapshot. Stable Envelope migration does not define runtimeSnapshot internals. Runtime snapshot compatibility/migration is a future engine-owned concern outside core tick runtime.
+- **v1+ 迁移**(已有 Stable Envelope 的版本间):runtimeSnapshot 是 opaque payload,migration 只深拷贝、不解析、不重写内部结构。Runtime snapshot compatibility/migration is a future engine-owned concern outside core tick runtime.
+- **v0→v1 迁移例外**(无 Envelope → 有 Envelope):v0 是 pre-envelope 的扁平 `AndyEngine.toJSON()` 输出,无结构化 runtimeSnapshot。`migrateV0ToV1` 必须从 v0 扁平字段(time/tickCount/environment/agents/socialGraph/events)重组并补齐 v1 runtimeSnapshot 的 engine 期望字段(含 events 的 participants/observers/effects 等)。这是「无结构 → 有结构」的构造,非 opacity 违规。
 - `runtimeSnapshot` 的格式由生成它的 Runtime 版本决定
 
 **候选结构（illustrative example，非正式 schema）：**
@@ -232,10 +233,11 @@ Migration Pipeline **只转换 Stable World Envelope**：
 - 转换字段格式（如 `stateVersion` → `schemaVersion`）
 - 修正引用一致性（如确保 `relationships` 中的角色 ID 存在）
 
-Migration Pipeline **不定义 runtimeSnapshot 内部结构**：
-- Stable Envelope migration does not define runtimeSnapshot internals
-- Runtime snapshot compatibility/migration is a future engine-owned concern outside core tick runtime
-- If `runtimeSnapshot` format is incompatible with current Runtime, Runtime reports error at load time
+**runtimeSnapshot 处理(按迁移路径区分)**：
+
+- **v1+ 迁移**(已有 Envelope 的版本间):runtimeSnapshot 是 opaque payload。Migration 只深拷贝、不解析、不重写内部结构。Runtime snapshot compatibility/migration is a future engine-owned concern outside core tick runtime. If `runtimeSnapshot` format is incompatible with current Runtime, Runtime reports error at load time.
+
+- **v0→v1 迁移**(无 Envelope → 有 Envelope,构造例外):v0 是 pre-envelope 的扁平 `AndyEngine.toJSON()` 输出。`migrateV0ToV1` 必须从 v0 扁平字段重组并补齐 v1 runtimeSnapshot 的 engine 期望字段(含 events 的 participants/observers/effects/scope 等),否则 engine 加载 v0 存档会因字段缺失而崩。这是「无结构 → 有结构」的必要构造,不违反 v1+ 的 opacity 契约。
 
 ### 5.3 转换后验证
 

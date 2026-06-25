@@ -7,6 +7,7 @@ import { MemoryCandidateProvider, MAX_MEMORY_CANDIDATES } from '../../src/action
 import { CandidateProviderManager } from '../../src/action/providers/CandidateProviderManager.js';
 import campusDomain from '../../presets/campus/index.js';
 import tavernDomain from '../../presets/tavern/index.js';
+import { getDefaultDomain } from '../../src/domain/DomainRegistry.js';
 
 function makeMemory(overrides = {}) {
   return {
@@ -28,6 +29,7 @@ function makeMemory(overrides = {}) {
 function makeContext(overrides = {}) {
   return {
     memories: [],
+    domain: getDefaultDomain(),
     ...overrides,
   };
 }

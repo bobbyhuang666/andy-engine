@@ -3,6 +3,9 @@ import { NarrativeBuilder, LLMAdapter, ConversationLog } from '../sdk/index.js';
 import { EmotionSignalBuffer } from '../src/sdk/EmotionSignalBuffer.js';
 import { AndyBridge } from '../src/sdk/AndyBridge.js';
 import { DomainRegistry } from '../src/domain/DomainRegistry.js';
+import { getDefaultDomain } from '../src/domain/DomainRegistry.js';
+
+const campusDomain = getDefaultDomain();
 
 describe('EmotionSignalBuffer (A4.5)', () => {
   it('push() returns classification result', () => {
@@ -128,6 +131,7 @@ describe('NarrativeBuilder (A4.5)', () => {
     };
     const prompt = NarrativeBuilder.buildSystemPrompt(ctx, {
       characterName: 'Test',
+      domain: campusDomain,
       groundingPackage,
     });
     expect(prompt).toContain('事实约束');

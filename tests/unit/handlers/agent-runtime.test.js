@@ -5,7 +5,8 @@
  */
 import { describe, it, expect, beforeEach } from 'vitest';
 import Agent from '../../../agent/Agent.js';
-import Schedule from '../../../src/agent/schedule/Schedule.js';
+import campusSchedules from '../../../presets/campus/schedules.js';
+import { getDefaultDomain } from '../../../src/domain/DomainRegistry.js';
 import AgentRuntime from '../../../src/agent/AgentRuntime.js';
 
 function createAgent(overrides = {}) {
@@ -13,10 +14,11 @@ function createAgent(overrides = {}) {
     id: 'test',
     name: 'Test',
     personality: { mbti: 'INFP' },
-    schedule: Schedule.createStudentSchedule().toJSON(),
+    schedule: campusSchedules.createStudentSchedule().toJSON(),
     seedMemories: [
       { content: '喜欢看书', category: 'hobby', importance: 0.7 },
     ],
+    domain: getDefaultDomain(),
     ...overrides,
   });
 }
@@ -175,7 +177,7 @@ describe('AgentRuntime', () => {
       runtime.tick(makeEnv(), [], null);
       const json = agent.toJSON();
       const restored = new Agent(
-        { id: 'test', name: 'Test', schedule: json.schedule },
+        { id: 'test', name: 'Test', schedule: json.schedule, domain: getDefaultDomain() },
         json
       );
       expect(restored.id).toBe('test');

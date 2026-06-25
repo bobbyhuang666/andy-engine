@@ -207,6 +207,87 @@ savedState.knowledgeStore → KnowledgeStore.fromJSON(savedState.knowledgeStore,
 
 ---
 
+## Bidirectional Round-Trip Contract (Wave 4)
+
+Every persistable type that produces a `toJSON()` payload MUST also provide a
+`static fromJSON(json)` so that `toJSON() → fromJSON(json) → toJSON()` yields a
+deep-equal result.  This section records the Wave 4 completion state.
+
+### Bidirectional persistable types
+
+| Type | File | Round-trip |
+|------|------|------------|
+| `Relationship` | `src/social/Relationship.js` | ✅ `fromJSON` delegates to ctor savedState |
+| `SocialGraph` | `src/social/SocialGraph.js` | ✅ edges array → ctor |
+| `EmotionVector` (+`.native`) | `src/agent/psychology/EmotionVector(.native).js` | ✅ |
+| `NeedsSystem` (+`.native`) | `src/agent/psychology/NeedsSystem(.native).js` | ✅ |
+| `EmotionRegulation` | `src/agent/psychology/EmotionRegulation.js` | ✅ |
+| `IntrinsicMotivation` | `src/agent/psychology/IntrinsicMotivation.js` | ✅ |
+| `StateMachine` | `src/agent/psychology/StateMachine.js` | ✅ |
+| `PersonalMemory` | `src/agent/memory/PersonalMemory.js` | ✅ memories array → ctor |
+| `ProceduralMemory` | `src/agent/memory/ProceduralMemory.js` | ✅ |
+| `Schedule` | `src/agent/schedule/Schedule.js` | ✅ json used as both config + savedState so `entries` round-trips |
+| `EventDispatcher` | `src/runtime/EventDispatcher.js` | ✅ rebuilds eventLog (truncated to last 100, matching `toJSON`) |
+| `Personality` | `src/agent/psychology/Personality.js` | ✅ MBTI + OCEAN + emotionBaseline + driftWindow round-trips |
+| `BehaviorField` | `src/agent/psychology/BehaviorField.js` | ✅ B / velocity / _prevB / _lastLabel round-trips (explicit `personality` + `domain` deps) |
+| `AutoTick` | `src/sdk/AutoTick.js` | 持久化于 Character/Andy.save;有 fromJSON+toJSON(待补 round-trip 测试) |
+| `ConversationLog` | `src/sdk/ConversationLog.js` | 持久化于 Character/Andy.save;有 fromJSON+toJSON(待补 round-trip 测试) |
+
+**Dependency-bearing types** (`EmotionVector`, `NeedsSystem`, `EmotionRegulation`,
+`IntrinsicMotivation`, `PersonalMemory`, `StateMachine`, `Schedule`,
+`EventDispatcher`) accept their runtime deps (`personality` / `domain` / `rng` /
+`agentId`) as optional trailing arguments.  When omitted, `fromJSON` constructs a
+minimal stub so the call shape `Type.fromJSON(j)` still round-trips — this is the
+shape the Wave 4 round-trip tests assert.  The production restore path passes the
+real dependencies (see "Typed reconstruction path" below).
+
+### Exempt types (intentionally one-way)
+
+| Type | Reason |
+|------|--------|
+| 8 Deltas (`StateDelta`, `EmotionDelta`, `RelationshipDelta`, `MemoryDelta`, `LocationMeaningDelta`, `PositionDelta`, `NeedDelta`, `FutureTendencyDelta`) | Ephemeral effect payloads; consumed by `EffectCommitter` within a tick, never independently persisted. |
+| `ActionCandidate`, `ReasonTrace`, `SelectedAction` | Plain JSON data objects (value types); no encapsulated state to reconstruct. |
+| `FactFormatter.toJSON` | Serialization helper for facts, not itself a persisted type. |
+| `AndyBridge`, `WorldStateAdapter`, `migration.js` | Serialization infrastructure / envelope adapters (not persisted domain types). |
+| `AgentSerializer` | One-way serialization **producer only** (a module exporting `toJSON(agent)`, not a class). Agent reconstruction is owned by `AgentSubsystemFactory.restoreSubsystems()` (see below), so a symmetric `fromJSON` is not added. |
+| `FutureTendencyTracker` | 有 `toJSON`/`fromJSON`,但 `Agent.toJSON` 不持久化 futureTendency(行为趋势在 tick 中即时计算,不跨会话存储)。列为 exempt,非独立持久化类型。 |
+| `WorldClock` | 有 `toJSON`/`fromJSON`,但作为 `AndyWorld` 内部组件,其状态(time/tickCount)经 `AndyWorld.toJSON` 顶层字段持久化,不作为独立类型 round-trip。 |
+| `WorldObject` | 有 `toJSON`/`fromJSON`,但标记 experimental(未集成入 Agent.tick),不作为支持面持久化类型。 |
+
+### Typed reconstruction path
+
+`Serialization.deserialize()` remains an **envelope-layer** operation: it
+validates the envelope (`version` / `runtimeSnapshot`) and returns the opaque
+runtime snapshot.  It deliberately does **not** call any type `fromJSON`.
+
+Typed reconstruction is performed by the existing load path, where each type's
+**constructor accepts the `toJSON` output as a `savedState` argument**:
+
+```
+AndyWorld(savedState)          → restores clock, environment, socialGraph,
+                                 eventDispatcher, factStore, knowledgeStore
+                                 via ctor savedState / existing fromJSON
+AgentSubsystemFactory
+  .restoreSubsystems(savedState) → Personality.fromJSON + ctor(savedState) for
+                                  emotion / stateMachine / memory / needs /
+                                  emotionRegulation / intrinsicMotivation /
+                                  schedule / behaviorField
+```
+
+The new `static fromJSON` methods mirror these constructor-savedState paths (they
+delegate to the same constructors), so `fromJSON` and the production load path
+share one source of truth.  This keeps the Stable World Envelope unchanged — no
+load-flow behavior was modified to "make deserialize call fromJSON".
+
+### Verification
+
+Round-trip tests live in `tests/unit/serialization-roundtrip.test.js` and assert
+`expect(Type.fromJSON(obj.toJSON()).toJSON()).to.deep.equal(obj.toJSON())` for
+every bidirectional type, including non-trivial post-tick / post-interaction
+state and the explicit-dependency restore path for psychology subsystems.
+
+---
+
 ## Store API Surface
 
 **Public export path**: `require('andy-engine/store')`
@@ -224,6 +305,15 @@ savedState.knowledgeStore → KnowledgeStore.fromJSON(savedState.knowledgeStore,
 | `StoryStore` | class (interface) | Abstract story store interface |
 | `createStore(options?)` | function | Create SimulationStore (SQLite) |
 | `createMemoryStore()` | function | Create in-memory SQLiteStore (for testing) |
+| `toWorldState(engine, worldId)` | function | Export engine to Stable World Envelope (`WorldStateAdapter`) |
+| `fromWorldState(state, config, ctor)` | function | Restore engine from Stable World Envelope (`WorldStateAdapter`) |
+| `validateWorldSpec(spec)` | function | Validate a full world spec (compile-time authoring) |
+| `validateWorldState(state)` | function | Validate a Stable World Envelope (runtime load) |
+| `CURRENT_SCHEMA_VERSION` | string | Current Stable World Envelope schema version (`'0.1.0'`) |
+| `compile(spec, domainConfig?)` | function | Compile a world spec into a runnable WorldState |
+| `migrateWorldState(oldState)` | function | Migrate an older World State to the current schema version |
+
+> 完整 store 导出面以 `docs/PUBLIC_API_CONTRACT.md` 为权威(18 项),本表为序列化相关条目的语义说明。
 
 **SaveLoad flow**:
 ```

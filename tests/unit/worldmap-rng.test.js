@@ -60,7 +60,7 @@ describe('WorldMap RNG determinism', () => {
     }
   });
 
-  it('no seed → falls back to Math.random without crashing', () => {
+  it('no seed → ctor auto-seeds RNG(0) without crashing', () => {
     const map = new WorldMap({ width: 500, height: 500, regions });
     expect(() => {
       for (let j = 0; j < 50; j++) {
@@ -71,13 +71,11 @@ describe('WorldMap RNG determinism', () => {
     }).not.toThrow();
   });
 
-  it('source scan: all Math.random() in WorldMap have rng fallback', () => {
+  it('source scan: no Math.random() remains in WorldMap (rng injected per RFC)', () => {
     const require = createRequire(import.meta.url);
     const src = readFileSync(require.resolve('../../src/spatial/WorldMap.js'), 'utf8');
     const allRandom = src.match(/Math\.random\(\)/g) || [];
-    const withFallback = src.match(/this\._rng \? this\._rng\.next\(\) : Math\.random\(\)/g) || [];
-    const bareRandom = allRandom.length - withFallback.length;
-    expect(bareRandom).toBe(0);
-    expect(allRandom.length).toBeGreaterThanOrEqual(3);
+    // RFC RNG_STRICTNESS Wave 2：核心模拟路径 Math.random 归零，rng 由 ctor 注入
+    expect(allRandom.length).toBe(0);
   });
 });

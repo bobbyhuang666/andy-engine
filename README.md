@@ -151,9 +151,9 @@ Andy Engine v2 is the architecture-preview line that turns Andy from a character
 - WorldCanon facts system: `WorldFactStore`, `CanonEventPipeline`, `KnowledgeStore`, `FactProvider`
 - Grounded narrative package and `FactConsistencyChecker`
 
-### Foundation Stable Release (v2.0.0)
+### Foundation Alpha (v2.0.1)
 
-This is a Foundation Stable Release. The public API surface, persistence contracts, domain configuration, and package installation are stable for downstream applications. Production use requires careful validation.
+This is a Foundation-stage alpha release. The public API surface, persistence contracts, domain configuration, and package installation are stable for downstream applications, but the package is still in alpha polish. Production use requires careful validation.
 
 The following remain experimental or deferred to v2.1/v3:
 
@@ -622,9 +622,9 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 - WorldCanon 事实系统：`WorldFactStore`、`CanonEventPipeline`、`KnowledgeStore`、`FactProvider`
 - Grounded 叙事包和 `FactConsistencyChecker`
 
-### Foundation Stable Release (v2.0.0)
+### Foundation Alpha (v2.0.1)
 
-这是 Foundation Stable Release。公共 API、持久化契约、领域配置和包安装对下游应用已稳定。生产使用需要谨慎验证。
+这是基础阶段的 alpha 发布。公共 API、持久化契约、领域配置和包安装对下游应用已稳定，但包仍处于 alpha 磨合期。生产使用需要谨慎验证。
 
 以下仍为实验性或推迟到 v2.1/v3：
 
@@ -901,14 +901,21 @@ const reply = await maya.chat("我今天好累");
 const { createStore } = require('./store');
 
 const store = createStore({ dbPath: './data/andy.db' });
-store.saveSnapshot(engine.toJSON());
 
-// 之后恢复
-const data = store.loadLatest();
-const engine2 = AndyEngine.fromJSON(data);
+// 启动时初始化(自动从存档恢复,注册快照序列化回调)
+await store.init({
+  onSnapshot: () => engine.toJSON(),        // 序列化当前世界状态
+  onRestore: (data) => { /* 从快照恢复 */ }, // 反序列化并应用
+});
+
+// tick 循环中:每 N tick 自动保存快照 + 故事
+engine.onTick((result) => store.onTick(result, []));
+
+// 关闭时:刷出缓冲 + 保存最终快照 + 关闭数据库
+await store.shutdown();
 ```
 
-持久化层使用 SQLite（WAL 模式），支持故事存储、世界快照和元数据。详见 `store/` 目录。
+持久化层使用 SQLite（WAL 模式），支持故事存储、世界快照和元数据。`SimulationStore` 管理 snapshot/story/meta 三层;`createStore()` 是便捷工厂。详见 `store/` 目录与 `docs/SERIALIZATION_CONTRACT.md`。
 
 ---
 
