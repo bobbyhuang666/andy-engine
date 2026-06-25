@@ -1,0 +1,266 @@
+/**
+ * Wave 4 — Serialization round-trip contract tests.
+ *
+ * For every persistable type that gained a `static fromJSON`, verify the
+ * strict round-trip property:
+ *
+ *     const j = obj.toJSON();
+ *     const obj2 = Type.fromJSON(j);
+ *     expect(obj2.toJSON()).to.deep.equal(j);
+ *
+ * The psychology subsystems accept optional deps (personality / domain / rng);
+ * when omitted, fromJSON constructs a minimal stub so the call shape
+ * `Type.fromJSON(j)` still round-trips.  A second assertion passes the real
+ * Personality to confirm the production restore path also round-trips.
+ */
+
+import { describe, it, expect } from 'vitest';
+import Personality from '../../src/agent/psychology/Personality.js';
+import SocialGraph from '../../src/social/SocialGraph.js';
+import Relationship from '../../src/social/Relationship.js';
+import EmotionVector from '../../src/agent/psychology/EmotionVector.native.js';
+import NeedsSystem from '../../src/agent/psychology/NeedsSystem.native.js';
+import EmotionRegulation from '../../src/agent/psychology/EmotionRegulation.js';
+import IntrinsicMotivation from '../../src/agent/psychology/IntrinsicMotivation.js';
+import { StateMachine } from '../../src/agent/psychology/StateMachine.js';
+import PersonalMemory from '../../src/agent/memory/PersonalMemory.js';
+import ProceduralMemory from '../../src/agent/memory/ProceduralMemory.js';
+import Schedule from '../../src/agent/schedule/Schedule.js';
+import EventDispatcher from '../../src/runtime/EventDispatcher.js';
+import { BehaviorField } from '../../src/agent/psychology/BehaviorField.js';
+import { getDefaultDomain } from '../../src/domain/DomainRegistry.js';
+
+const campusDomain = getDefaultDomain();
+
+const T0 = new Date('2026-06-01T08:00:00Z');
+const T1 = new Date('2026-06-01T10:00:00Z');
+const T2 = new Date('2026-06-02T12:00:00Z');
+
+function roundTrip(Type, obj, ...fromJSONArgs) {
+  const j = obj.toJSON();
+  const restored = Type.fromJSON(j, ...fromJSONArgs);
+  expect(restored.toJSON()).to.deep.equal(j);
+  return restored;
+}
+
+describe('Wave 4 — serialization round-trip', () => {
+  const personality = new Personality({ mbti: 'ENTP' });
+
+  // ── Relationship ──────────────────────────────────────────────
+  describe('Relationship', () => {
+    it('round-trips after recorded interactions', () => {
+      const rel = new Relationship('alice', 'bob');
+      rel.recordInteraction('talk', 0.6, '聊天', T1);
+      rel.recordInteraction('help', 0.8, '帮忙搬书', T2);
+      rel.recordInteraction('conflict', -0.4, '争执', T2);
+      roundTrip(Relationship, rel);
+    });
+
+    it('round-trips a fresh relationship', () => {
+      roundTrip(Relationship, new Relationship('x', 'y'));
+    });
+  });
+
+  // ── SocialGraph ───────────────────────────────────────────────
+  describe('SocialGraph', () => {
+    it('round-trips a graph with multiple edges', () => {
+      const g = new SocialGraph();
+      const ab = g.getOrCreateRelationship('alice', 'bob');
+      ab.recordInteraction('talk', 0.5, 'hi', T1);
+      const ac = g.getOrCreateRelationship('alice', 'carol');
+      ac.recordInteraction('help', 0.7, '帮忙', T2);
+      roundTrip(SocialGraph, g);
+    });
+
+    it('round-trips an empty graph', () => {
+      roundTrip(SocialGraph, new SocialGraph());
+    });
+  });
+
+  // ── EmotionVector ─────────────────────────────────────────────
+  describe('EmotionVector', () => {
+    it('round-trips after tick (stub personality)', () => {
+      const ev = new EmotionVector(personality);
+      ev.tick(2, 14);
+      roundTrip(EmotionVector, ev);
+    });
+
+    it('round-trips with explicit personality (restore path)', () => {
+      const ev = new EmotionVector(personality);
+      ev.tick(1.5, 9);
+      const j = ev.toJSON();
+      const restored = EmotionVector.fromJSON(j, personality);
+      expect(restored.toJSON()).to.deep.equal(j);
+    });
+  });
+
+ // ── NeedsSystem ───────────────────────────────────────────────
+ describe('NeedsSystem', () => {
+   it('round-trips after tick (stub personality)', () => {
+      const ns = new NeedsSystem(personality, null, campusDomain);
+      ns.tick(3, 'working', '工作区');
+      roundTrip(NeedsSystem, ns, null, campusDomain);
+    });
+
+    it('round-trips with explicit personality (restore path)', () => {
+      const ns = new NeedsSystem(personality, null, campusDomain);
+      ns.tick(5, 'resting', '住处');
+      const j = ns.toJSON();
+      const restored = NeedsSystem.fromJSON(j, personality, campusDomain);
+      expect(restored.toJSON()).to.deep.equal(j);
+    });
+ });
+
+  // ── EmotionRegulation ─────────────────────────────────────────
+  describe('EmotionRegulation', () => {
+    it('round-trips with depleted resource + reappraisal history', () => {
+      const er = new EmotionRegulation(personality);
+      er._regulationResource = 0.35;
+      er._regulationCount = 4;
+      er._regulationTickCounter = 12;
+      er._reappraisalHistory = [
+        { strategy: 'reappraisal', valenceBefore: -0.5, valenceAfter: -0.2, time: T1.toISOString() },
+        { strategy: 'attentionDeployment', valenceBefore: -0.3, valenceAfter: 0.1, time: T2.toISOString() },
+      ];
+      roundTrip(EmotionRegulation, er);
+    });
+  });
+
+  // ── IntrinsicMotivation ───────────────────────────────────────
+  describe('IntrinsicMotivation', () => {
+    it('round-trips with goals, familiarity and exploration history', () => {
+      const im = new IntrinsicMotivation(personality, null, campusDomain);
+      im.curiosity = 0.82;
+      im.familiarity = { 工作区: 0.6, 图书馆: 0.2 };
+      im.activeGoals = [
+        { id: 1, type: 'explore', target: '图书馆', createdAt: T1.toISOString() },
+        { id: 2, type: 'mastery', target: '工作区', createdAt: T2.toISOString() },
+      ];
+      im.completedGoals = [{ id: 0, type: 'explore', target: '食堂', completedAt: T0.toISOString() }];
+      im.competence = { 工作区: 0.45, 食堂: 0.1 };
+      im.explorationHistory = [
+        { position: '图书馆', time: T1.toISOString() },
+        { position: '工作区', time: T2.toISOString() },
+      ];
+      im._ticksSinceGoal = 7;
+      im._lastGoalId = 2;
+      roundTrip(IntrinsicMotivation, im, null, campusDomain);
+    });
+  });
+
+  // ── StateMachine ───────────────────────────────────────────────
+  describe('StateMachine', () => {
+    it('round-trips with current state and history', () => {
+      const sm = new StateMachine('working', null, campusDomain);
+      sm.history = [
+        { from: 'resting', to: 'working', time: T1.toISOString() },
+        { from: 'working', to: 'eating', time: T2.toISOString() },
+      ];
+      roundTrip(StateMachine, sm, campusDomain);
+    });
+  });
+
+  // ── PersonalMemory ─────────────────────────────────────────────
+  describe('PersonalMemory', () => {
+    it('round-trips seed + dynamic memories (full field set)', () => {
+      const pm = new PersonalMemory('agent1', [
+        { content: '童年回忆', category: 'background', importance: 0.9, emotionTag: 'nostalgia' },
+      ], null, campusDomain);
+      pm.setSimTime(T1);
+      pm.addExperience(
+        { id: 'evt_5', content: '与 Bob 聊天', type: 'social', participants: ['Bob'], location: '咖啡馆' },
+        { current: { joy: 0.6, arousal: 0.4 }, getArousal: () => 0.4, getValence: () => 0.3 },
+      );
+      // ensure deterministic access metadata on a memory
+      pm.memories[0].accessCount = 3;
+      pm.memories[0].presentations = [T0, T1];
+      roundTrip(PersonalMemory, pm, 'agent1', campusDomain);
+    });
+
+    it('round-trips with only the default agentId (stub)', () => {
+      const pm = new PersonalMemory('agent1', [{ content: 'x' }], null, campusDomain);
+      const j = pm.toJSON();
+      expect(PersonalMemory.fromJSON(j, 'agent1', campusDomain).toJSON()).to.deep.equal(j);
+    });
+  });
+
+  // ── ProceduralMemory ──────────────────────────────────────────
+  describe('ProceduralMemory', () => {
+    it('round-trips with detected patterns', () => {
+      const pm = new ProceduralMemory();
+      pm.setSimTime(T1);
+      const action = { hour: 8, dayOfWeek: 1, position: '工作区', state: 'working', valence: 0.3, region: '工作区' };
+      pm.recordAction(action);
+      pm.recordAction(action);
+      pm.recordAction(action);
+      // at least one pattern should have formed
+      expect(pm.patterns.size).toBeGreaterThan(0);
+      roundTrip(ProceduralMemory, pm);
+    });
+
+    it('round-trips an empty procedural memory', () => {
+      roundTrip(ProceduralMemory, new ProceduralMemory());
+    });
+  });
+
+  // ── Schedule ───────────────────────────────────────────────────
+  describe('Schedule', () => {
+    it('round-trips entries + runtime variations', () => {
+      const sched = new Schedule({
+        entries: [
+          { startHour: 8, endHour: 12, region: '工作区', activity: '工作', days: [1, 2, 3, 4, 5], probability: 0.9, noise: 20 },
+          { startHour: 19, endHour: 21, region: '食堂', activity: '吃饭', days: [0, 1, 2, 3, 4, 5, 6] },
+        ],
+      });
+      sched._todayVariations = { 0: { region: '工作区', duration: 240 }, 1: null };
+      sched._lastVariationDate = '2026-06-01';
+      roundTrip(Schedule, sched);
+    });
+  });
+
+  // ── EventDispatcher ───────────────────────────────────────────
+  describe('EventDispatcher', () => {
+    it('round-trips a dispatched event log', () => {
+      const ed = new EventDispatcher(campusDomain);
+      ed.setSimTime(new Date('2026-06-02T13:00:00Z'));
+      ed.createEvent({ type: 'encounter', scope: 'local', participants: ['alice', 'bob'], content: '偶遇', time: T1 });
+      ed.createEvent({ type: 'random', scope: 'public', participants: ['carol'], content: '天气变化', time: T2, effects: [{ target: 'carol', type: 'emotion', delta: 0.1 }] });
+      ed.dispatch();
+      expect(ed.eventLog.length).toBe(2);
+      roundTrip(EventDispatcher, ed, campusDomain);
+    });
+
+    it('round-trips an empty event log', () => {
+      roundTrip(EventDispatcher, new EventDispatcher(campusDomain), campusDomain);
+    });
+  });
+
+  // ── Personality (persisted in every agent; contract table previously omitted) ──
+  describe('Personality', () => {
+    it('round-trips an MBTI personality with OCEAN + baseline', () => {
+      const p = new Personality({ mbti: 'INTP', ocean: { openness: 0.8, neuroticism: 0.6 } });
+      roundTrip(Personality, p);
+    });
+
+    it('round-trips a default personality', () => {
+      roundTrip(Personality, new Personality({ mbti: 'ENFP' }));
+    });
+  });
+
+  // ── BehaviorField (persisted in every agent; contract table previously omitted) ──
+  describe('BehaviorField', () => {
+    it('round-trips after dynamics updates (explicit deps path)', () => {
+      const personality = new Personality({ mbti: 'ISTJ' });
+      const bf = new BehaviorField(personality, null, {}, campusDomain);
+      // advance a few ticks so B/velocity/_prevB are non-trivial
+      for (let i = 0; i < 5; i++) bf.tick({ environment: { hour: 8 } });
+      roundTrip(BehaviorField, bf, personality, campusDomain);
+    });
+
+    it('round-trips a fresh behavior field', () => {
+      const personality = new Personality({ mbti: 'ENFP' });
+      const bf = new BehaviorField(personality, null, {}, campusDomain);
+      roundTrip(BehaviorField, bf, personality, campusDomain);
+    });
+  });
+});
