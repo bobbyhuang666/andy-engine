@@ -25,6 +25,9 @@ import {
   createEventFact,
   createObservationFact,
   createMemoryFact,
+  createRuleFact,
+  createLocationMeaningFact,
+  createInvalidatedFact,
 } from '../../src/canon/FactSchema.js';
 
 // ═══════════════════════════════════════════
@@ -324,5 +327,91 @@ describe('validateTypeFields', () => {
     });
     expect(result.valid).toBe(true);
     expect(result.errors).toHaveLength(0);
+  });
+});
+
+// ═══════════════════════════════════════════
+// 补充工厂:Rule / LocationMeaning / Invalidated (Wave 5 batch 7)
+// ═══════════════════════════════════════════
+describe('createRuleFact', () => {
+  it('creates a rule fact with defaults for category/priority/active', () => {
+    const fact = createRuleFact({ ruleId: 'r1', description: 'no running' });
+    expect(fact.type).toBe(FactType.RULE);
+    expect(fact.ruleId).toBe('r1');
+    expect(fact.category).toBe('general');
+    expect(fact.priority).toBe(0.5);
+    expect(fact.active).toBe(true);
+  });
+  it('accepts explicit category/priority/active', () => {
+    const fact = createRuleFact({ ruleId: 'r1', description: 'd', category: 'safety', priority: 0.9, active: false });
+    expect(fact.category).toBe('safety');
+    expect(fact.priority).toBe(0.9);
+    expect(fact.active).toBe(false);
+  });
+});
+
+describe('createLocationMeaningFact', () => {
+  it('creates a location_meaning fact with reason default', () => {
+    const fact = createLocationMeaningFact({ location: '图书馆', meaningType: 'work', weight: 0.8 });
+    expect(fact.type).toBe(FactType.LOCATION_MEANING);
+    expect(fact.location).toBe('图书馆');
+    expect(fact.meaningType).toBe('work');
+    expect(fact.weight).toBe(0.8);
+    expect(fact.reason).toBe('');
+  });
+  it('accepts explicit reason', () => {
+    const fact = createLocationMeaningFact({ location: 'l', meaningType: 'rest', weight: 0.5, reason: 'tired' });
+    expect(fact.reason).toBe('tired');
+  });
+});
+
+describe('createInvalidatedFact', () => {
+  it('creates an invalidated fact with supersededBy default null', () => {
+    const fact = createInvalidatedFact({ originalFactId: 'f1', reason: 'obsolete' });
+    expect(fact.type).toBe(FactType.INVALIDATED);
+    expect(fact.originalFactId).toBe('f1');
+    expect(fact.reason).toBe('obsolete');
+    expect(fact.supersededBy).toBeNull();
+  });
+  it('accepts explicit supersededBy and confidence default 1.0', () => {
+    const fact = createInvalidatedFact({ originalFactId: 'f1', reason: 'r', supersededBy: 'f2' });
+    expect(fact.supersededBy).toBe('f2');
+    expect(fact.confidence).toBe(1.0);
+  });
+});
+
+describe('validateTypeFields — rule/location_meaning/invalidated branches', () => {
+  it('rule missing ruleId fails', () => {
+    const r = validateTypeFields({ type: FactType.RULE, description: 'd' });
+    expect(r.valid).toBe(false);
+    expect(r.errors.some(e => e.includes('ruleId'))).toBe(true);
+  });
+  it('rule missing description fails', () => {
+    const r = validateTypeFields({ type: FactType.RULE, ruleId: 'r1' });
+    expect(r.errors.some(e => e.includes('description'))).toBe(true);
+  });
+  it('valid rule passes', () => {
+    expect(validateTypeFields({ type: FactType.RULE, ruleId: 'r1', description: 'd' }).valid).toBe(true);
+  });
+  it('location_meaning missing location fails', () => {
+    expect(validateTypeFields({ type: FactType.LOCATION_MEANING, meaningType: 'work', weight: 0.5 }).valid).toBe(false);
+  });
+  it('location_meaning non-number weight fails', () => {
+    expect(validateTypeFields({ type: FactType.LOCATION_MEANING, location: 'l', meaningType: 'work', weight: 'high' }).valid).toBe(false);
+  });
+  it('valid location_meaning passes', () => {
+    expect(validateTypeFields({ type: FactType.LOCATION_MEANING, location: 'l', meaningType: 'work', weight: 0.5 }).valid).toBe(true);
+  });
+  it('invalidated missing originalFactId fails', () => {
+    expect(validateTypeFields({ type: FactType.INVALIDATED, reason: 'r' }).valid).toBe(false);
+  });
+  it('invalidated missing reason fails', () => {
+    expect(validateTypeFields({ type: FactType.INVALIDATED, originalFactId: 'f1' }).valid).toBe(false);
+  });
+  it('valid invalidated passes', () => {
+    expect(validateTypeFields({ type: FactType.INVALIDATED, originalFactId: 'f1', reason: 'r' }).valid).toBe(true);
+  });
+  it('unknown type passes with no type-specific errors', () => {
+    expect(validateTypeFields({ type: 'unknown_type' }).valid).toBe(true);
   });
 });

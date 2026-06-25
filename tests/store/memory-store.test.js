@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { MemoryStore } from '../../src/store/MemoryStore.js';
+// CJS require:与运行时同一模块实例,确保 v8 coverage 正确归因(ESM import 在 deps.inline 下漏归因)
+const { createRequire } = await import('node:module');
+const require = createRequire(import.meta.url);
+const { MemoryStore } = require('../../src/store/MemoryStore.js');
 
 describe('MemoryStore', () => {
   let store;

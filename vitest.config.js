@@ -24,6 +24,9 @@ export default defineConfig({
         'node_modules/',
         'tests/fixtures/',
         '*.config.js',
+        // native binding 包装层:在无编译 binding 的环境下整块不可达(走 require 纯 JS fallback),
+        // 属环境条件 dead code,排除出分母。若 native binding 可用,需在 binding 环境单独跑覆盖。
+        'src/agent/psychology/*.native.js',
       ],
       thresholds: {
         statements: 80,   // 语句覆盖率 80%
