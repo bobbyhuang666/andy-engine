@@ -31,6 +31,9 @@ const AutoTick = require('./AutoTick');
 const ConversationLog = require('./ConversationLog');
 const { diagnostics } = require('../shared/Diagnostics');
 
+// 默认 domain id（与 src/store/world/* 的 DEFAULT_DOMAIN_ID 同值，语义为「默认域」而非「特权 campus」）
+const DEFAULT_DOMAIN_ID = 'campus';
+
 class Character {
   /**
    * @param {Object} config
@@ -81,7 +84,7 @@ class Character {
     let scheduleConfig = config.schedule;
     if (scheduleConfig === undefined) {
       const domain = this._engine.domain;
-      if (domain.id === 'campus') {
+      if (domain.id === DEFAULT_DOMAIN_ID) {
         scheduleConfig = 'student';
       } else {
         // 尝试从 domain 的 roleArchetypes 取第一个，否则空 schedule
@@ -303,7 +306,7 @@ class Character {
       version: 1,
       id: this.id,
       name: this.name,
-      domainRef: this._engine.domain ? this._engine.domain.id : 'campus',
+      domainRef: this._engine.domain ? this._engine.domain.id : DEFAULT_DOMAIN_ID,
       backstory: this.backstory,
       scenario: this.scenario,
       engineState: this._engine.toJSON(),
@@ -340,10 +343,10 @@ class Character {
       }
     }
 
-    const domainRef = state.domainRef || 'campus';
-    if (domainRef !== 'campus') {
+    const domainRef = state.domainRef || DEFAULT_DOMAIN_ID;
+    if (domainRef !== DEFAULT_DOMAIN_ID) {
       if (!domainConfig) {
-        throw new Error(`非 campus domain "${domainRef}" 必须在 load 时传入对应的 domain 配置`);
+        throw new Error(`非 ${DEFAULT_DOMAIN_ID} domain "${domainRef}" 必须在 load 时传入对应的 domain 配置`);
       }
       if (domainConfig.id !== domainRef) {
         throw new Error(`domain 不匹配：期望 "${domainRef}"，但传入了 "${domainConfig.id}"`);

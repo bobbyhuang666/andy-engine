@@ -86,7 +86,7 @@ function updateHealth(agent, hoursElapsed, env) {
   }
 
   if (env.weather === 'cold' || env.weather === 'rain') {
-    const outdoorRegions = agent.domain ? (agent.domain.placeTypes.outdoor || []) : ['运动场', '小镇广场', '公园', '路上', '回家路上'];
+    const outdoorRegions = agent.domain ? (agent.domain.placeTypes.outdoor || []) : [];
     const isOutdoor = outdoorRegions.includes(agent.position);
 
     if (env.weather === 'cold') {

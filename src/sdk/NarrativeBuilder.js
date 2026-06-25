@@ -11,8 +11,10 @@
  */
 
 const { applyForbiddenTerms } = require('../domain/ForbiddenTerms');
-const { getDefaultDomain } = require('../domain/DomainRegistry');
 const FactFormatter = require('../narrative/FactFormatter');
+
+// 默认 domain id（与 src/store/world/* 的 DEFAULT_DOMAIN_ID 同值，语义为「默认域」而非「特权 campus」）
+const DEFAULT_DOMAIN_ID = 'campus';
 
 class NarrativeBuilder {
   static buildSystemPrompt(worldContext, options = {}) {
@@ -29,7 +31,8 @@ class NarrativeBuilder {
 
     if (!worldContext) return '';
 
-    const usedDomain = domain || getDefaultDomain();
+    if (!domain) throw new Error('NarrativeBuilder.buildSystemPrompt requires a domain config');
+    const usedDomain = domain;
     const narrativeTemplates = usedDomain.narrativeTemplates;
 
     const sections = [];
@@ -305,7 +308,7 @@ ${inferLines.join('\n')}`);
     ];
 
     // 只在非默认 domain 时添加世界观约束
-    if (domain && domain.id !== 'campus') {
+    if (domain && domain.id !== DEFAULT_DOMAIN_ID) {
       const forbiddenTerms = domain.forbiddenTerms || [];
       if (forbiddenTerms.length > 0) {
         rules.push(`【世界观约束】禁止提及以下词汇：${forbiddenTerms.join('、')}`);

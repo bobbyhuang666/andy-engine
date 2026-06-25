@@ -483,7 +483,6 @@ describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
     'src/agent/psychology/EmotionRegulation.js',
     'src/agent/psychology/EmotionVector.js',
     'src/agent/psychology/IntrinsicMotivation.js',
-    'src/agent/runtime/PhysiologyRuntime.js',
   ];
 
   function scanFileForChineseFallback(filePath) {
