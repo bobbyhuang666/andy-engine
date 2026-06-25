@@ -15,16 +15,23 @@ const { diagnostics } = require('../shared/Diagnostics');
 
 /**
  * 将简写背景文本转为种子记忆对象
+ *
  * @param {string[]} background
+ * @param {Date|number} [simTime] - 模拟时间(作为 seed-memory timestamp,消除 Date.now() 依赖;
+ *   见 docs/rfc/SEED_MEMORY_DETERMINISM_RFC.md)。省略时回退 Date.now()(向后兼容)。
  * @returns {Object[]}
  */
-function backgroundToMemories(background) {
+function backgroundToMemories(background, simTime) {
   if (!background || !Array.isArray(background)) return [];
+  // 显式 timestamp:让 PersonalMemory ctor 走 m.timestamp 分支而非 Date.now(),
+  // 使 seed-memory 时间戳由 simTime 决定,而非构造时刻的 wall-clock。
+  const timestamp = simTime instanceof Date ? simTime : (typeof simTime === 'number' ? new Date(simTime) : null);
   return background.map((text, i) => ({
     content: text,
     category: 'background',
     importance: Math.max(0.5, 1.0 - i * 0.05),
     emotionTag: 'neutral',
+    ...(timestamp ? { timestamp } : {}),
   }));
 }
 

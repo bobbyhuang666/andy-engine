@@ -144,7 +144,9 @@ class AndyEngine {
     }
 
     // 解析种子记忆（background 是简写）
-    const memories = seedMemories || backgroundToMemories(background);
+    // 传入 simTime 作为 seed-memory timestamp,消除 Date.now() wall-clock 依赖
+    // (见 docs/rfc/SEED_MEMORY_DETERMINISM_RFC.md 方案 B)
+    const memories = seedMemories || backgroundToMemories(background, this.world.clock.time);
 
     // 解析日程（支持预设名）
     let scheduleConfig;
@@ -155,8 +157,15 @@ class AndyEngine {
         // 直接使用 archetype 构造 Schedule，不走 resolvePreset
         scheduleConfig = new Schedule(archetype).toJSON();
       } else if (this.domain.id === 'campus') {
-        // 只有 campus domain 才 fallback 到旧 preset
-        scheduleConfig = Schedule.resolvePreset(schedule).toJSON();
+        // campus domain fallback:由 preset 模块解析 campus 预设名(core 不内置 campus role 名)
+        const campusSchedules = require('./presets/campus/schedules');
+        const factory = {
+          student: campusSchedules.createStudentSchedule,
+          worker: campusSchedules.createWorkerSchedule,
+          freelancer: campusSchedules.createFreelancerSchedule,
+          home: campusSchedules.createHomeSchedule,
+        }[schedule];
+        scheduleConfig = factory ? factory().toJSON() : {};
       } else {
         // custom domain 找不到时使用空 schedule，不 fallback 到 campus
         scheduleConfig = {};
