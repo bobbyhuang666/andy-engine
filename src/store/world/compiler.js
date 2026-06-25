@@ -12,6 +12,8 @@
 const { validateWorldSpec, validateWorldState, CURRENT_SCHEMA_VERSION } = require('./validator');
 const { toWorldState } = require('./WorldStateAdapter');
 
+const DEFAULT_DOMAIN_ID = 'campus';
+
 /**
  * 将 World Spec 编译为初始 World State
  *
@@ -28,8 +30,8 @@ function compile(spec, domainConfig = null, engineConstructor = null) {
 
   // Step 2: domainRef 强一致性校验
   const errors = [];
-  if (spec.domainRef !== 'campus' && !domainConfig) {
-    errors.push({ path: 'domainRef', message: `非 campus domain "${spec.domainRef}" 必须传入 domainConfig` });
+  if (spec.domainRef !== DEFAULT_DOMAIN_ID && !domainConfig) {
+    errors.push({ path: 'domainRef', message: `非 ${DEFAULT_DOMAIN_ID} domain "${spec.domainRef}" 必须传入 domainConfig` });
     return { state: null, errors };
   }
   if (domainConfig && domainConfig.id !== spec.domainRef) {

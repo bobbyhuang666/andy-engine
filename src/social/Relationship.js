@@ -239,6 +239,15 @@ class Relationship {
       history: this.history.slice(-20),
     };
   }
+
+  /**
+   * 从 toJSON 输出反序列化为 Relationship 实例。
+   * @param {Object} json - toJSON() 产出
+   * @returns {Relationship}
+   */
+  static fromJSON(json) {
+    return new Relationship(json.agentA, json.agentB, json);
+  }
 }
 
 module.exports = Relationship;

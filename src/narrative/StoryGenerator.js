@@ -133,8 +133,9 @@ class StoryGenerator {
       stories.push(this._mindWanderStory(agentResult.mindWander, rng));
     }
 
-    // 5. 无事发生（低概率生成平淡故事，避免空白）
-    const quietChance = rng ? rng.next() : Math.random();
+   // 5. 无事发生（低概率生成平淡故事，避免空白）
+    // RFC RNG_STRICTNESS 豁免：叙事多样性路径，非模拟核心路径；无 ctor rng 时回退 Math.random 可接受。
+   const quietChance = rng ? rng.next() : Math.random();
     if (stories.length === 0 && quietChance < 0.1) {
       stories.push({
         category: 'daily_life',
@@ -316,6 +317,7 @@ class StoryGenerator {
 // ═══════════════════════════════════════════
 
 function pickRandom(arr, rng) {
+  // RFC RNG_STRICTNESS 豁免：叙事工具函数，非模拟核心路径；回退 Math.random 可接受。
   const r = rng ? rng.next() : Math.random();
   return arr[Math.floor(r * arr.length)];
 }

@@ -1,6 +1,6 @@
 # AGENTS.md — Andy Engine AI Agent 工作指南
 
-> 本文件是当前代码库的**活文档**。如果你要在 Andy Engine 上工作，先读这里，再读 `README.md`、`docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md` 和 `docs/PUBLIC_API_CONTRACT.md`。
+> 本文件是当前代码库的**活文档**。如果你要在 Andy Engine 上工作，先读这里，再读 `README.md`、`docs/archive/CLEAN_ARCHITECTURE_FINAL_AUDIT.md` 和 `docs/PUBLIC_API_CONTRACT.md`。
 
 ---
 
@@ -234,7 +234,7 @@ world.factStore.addFact(...)
 agent.position = ...
 ```
 
-已有 legacy 写回路径请参考 `docs/STATE_WRITEBACK_OWNERSHIP.md`，不要扩大。
+已有 legacy 写回路径请参考 `docs/archive/STATE_WRITEBACK_OWNERSHIP.md`，不要扩大。
 
 ---
 
@@ -277,7 +277,7 @@ npm run perf:check
 
 ```text
 README.md
-docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md
+docs/archive/CLEAN_ARCHITECTURE_FINAL_AUDIT.md
 docs/PUBLIC_API_CONTRACT.md
 docs/LEGACY_REMOVAL_REPORT.md
 docs/DOMAIN.md

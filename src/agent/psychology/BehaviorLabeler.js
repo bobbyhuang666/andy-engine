@@ -31,10 +31,8 @@ const DIMS = 4;
 // 向后兼容：默认 STATE_CENTERS（从 campus domain 取）
 // 新代码应使用 BehaviorLabeler.create(domain) 创建 domain-aware 实例
 // ═══════════════════════════════════════════
-const defaultDomain = getDefaultDomain();
-const STATE_CENTERS = defaultDomain.stateCenters;
-const STATE_NAMES = defaultDomain.getStateNames();
-const STATE_VECTORS = defaultDomain.getStateVectors();
+// STATE_CENTERS / STATE_NAMES / STATE_VECTORS 不再在模块顶层求值——
+// 改为模块底部的惰性 getter 导出，消除模块级 getDefaultDomain() 硬绑定（Wave 3b-0）。
 
 // ═══════════════════════════════════════════
 // 时间约束势能：根据小时惩罚不合理的高活跃/高社交行为
@@ -99,6 +97,10 @@ class BehaviorLabeler {
    * @returns {{ primary: string, secondary: string|null, confidence: number }}
    */
   static project(B, options = {}) {
+    const defaultDomain = getDefaultDomain();
+    const stateVectors = defaultDomain.getStateVectors();
+    const stateNames = defaultDomain.getStateNames();
+
     if (!B || B.length < DIMS) {
       const fallbackLabel = defaultDomain.fallback.unknownState
         || defaultDomain.fallback.defaultState
@@ -113,19 +115,19 @@ class BehaviorLabeler {
     // 从 defaultDomain 获取 labelTimePenalties
     const labelTimePenalties = defaultDomain.labelTimePenalties || {};
     const distances = [];
-    for (let i = 0; i < STATE_VECTORS.length; i++) {
-      let d = dist(B, STATE_VECTORS[i]);
+    for (let i = 0; i < stateVectors.length; i++) {
+      let d = dist(B, stateVectors[i]);
 
       // 时间惩罚：不合理的状态在距离上加罚
       if (hour !== undefined) {
-        const rule = labelTimePenalties[STATE_NAMES[i]];
+        const rule = labelTimePenalties[stateNames[i]];
         if (rule && !rule.hours.includes(hour)) {
           d += rule.penalty;
         }
       }
 
       distances.push({
-        name: STATE_NAMES[i],
+        name: stateNames[i],
         dist: d,
       });
     }
@@ -168,8 +170,8 @@ class BehaviorLabeler {
   static describe(B, options = {}) {
     const { primary, secondary, confidence } = BehaviorLabeler.project(B, options);
 
-    // 从 defaultDomain 获取配置
-    const domain = defaultDomain;
+    // 从默认 domain 获取配置（惰性求值，Wave 3b-0）
+    const domain = getDefaultDomain();
 
     // 基础描述
     let desc = primary;
@@ -205,7 +207,7 @@ class BehaviorLabeler {
    * @returns {Object} { stateName: [activity, sociality, focus, expressiveness] }
    */
   static getStateCenters() {
-    return { ...STATE_CENTERS };
+    return { ...getDefaultDomain().stateCenters };
   }
 }
 
@@ -355,9 +357,6 @@ const LABEL_TIME_PENALTIES = {};
 
 module.exports = {
   BehaviorLabeler,
-  STATE_CENTERS,
-  STATE_NAMES,
-  STATE_VECTORS,
   DIM_ACTIVITY,
   DIM_SOCIALITY,
   DIM_FOCUS,
@@ -367,3 +366,18 @@ module.exports = {
   distSq,
   getTimePenalty,
 };
+
+// STATE_CENTERS / STATE_NAMES / STATE_VECTORS 惰性导出：
+// 首次访问时才调用 getDefaultDomain()，消除模块级硬绑定（Wave 3b-0）。
+Object.defineProperty(module.exports, 'STATE_CENTERS', {
+  enumerable: true,
+  get() { return getDefaultDomain().stateCenters; },
+});
+Object.defineProperty(module.exports, 'STATE_NAMES', {
+  enumerable: true,
+  get() { return getDefaultDomain().getStateNames(); },
+});
+Object.defineProperty(module.exports, 'STATE_VECTORS', {
+  enumerable: true,
+  get() { return getDefaultDomain().getStateVectors(); },
+});

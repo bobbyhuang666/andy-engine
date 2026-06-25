@@ -112,7 +112,9 @@ class EmotionSignalBuffer {
         '被人关心了，心里暖暖的',
         '有人嘘寒问暖，心情好了一点',
       ];
-      // SDK 层故事文案随机选择，不影响模拟状态，故意非确定性以增加多样性
+      // SDK 层故事文案随机选择，不影响模拟状态，故意非确定性以增加多样性。
+      // RFC RNG_STRICTNESS 豁免：非模拟核心路径（叙事多样性），回退 Math.random 可接受。
+      // 下方 praise/comfort 分支同此豁免。
       story = variants[Math.floor((this._rng ? this._rng.next() : Math.random()) * variants.length)];
     } else if (intent === 'praise') {
       const variants = [

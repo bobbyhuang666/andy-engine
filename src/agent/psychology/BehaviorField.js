@@ -32,8 +32,8 @@ const {
   BehaviorLabeler, DIM_ACTIVITY, DIM_SOCIALITY, DIM_FOCUS, DIM_EXPRESSIVENESS,
   DIMS, dist, getTimePenalty,
 } = require('./BehaviorLabeler');
-const { getDefaultDomain } = require('../../domain/DomainRegistry');
 
+const { RNG } = require('../../shared/rng');
 // ═══════════════════════════════════════════
 // 默认动力学参数
 // ═══════════════════════════════════════════
@@ -116,8 +116,9 @@ class BehaviorField {
    */
   constructor(personality, savedState = null, config = {}, domain = null, rng = null) {
     this.cfg = { ...DEFAULTS, ...config };
-    this.domain = domain || getDefaultDomain();
-    this._rng = rng;
+    if (!domain) throw new Error('BehaviorField requires a domain config');
+    this.domain = domain;
+    this._rng = rng || new RNG(0);
     this._labeler = BehaviorLabeler.create(this.domain);
     this._stateCenters = this.domain.stateCenters;
 
@@ -605,8 +606,9 @@ class BehaviorField {
     };
   }
 
-  static fromJSON(data, personality) {
-    return new BehaviorField(personality, data);
+  static fromJSON(data, personality, domain) {
+    if (!domain) throw new Error('BehaviorField.fromJSON requires a domain config');
+    return new BehaviorField(personality, data, {}, domain);
   }
 }
 
@@ -616,7 +618,8 @@ class BehaviorField {
 
 /** Box-Muller 高斯随机数 */
 function _gaussianRandom(rng = null) {
-  const rand = rng ? rng.next.bind(rng) : Math.random;
+  // 模拟路径由 BehaviorField._rng（AndyWorld 注入的 seeded 流）传入；构造期 RNG(0) 兜底保证非空
+  const rand = rng.next.bind(rng);
   const u1 = Math.max(1e-10, rand());
   const u2 = rand();
   return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);

@@ -11,6 +11,8 @@
 
 const { CURRENT_SCHEMA_VERSION } = require('./validator');
 
+const DEFAULT_DOMAIN_ID = 'campus';
+
 /**
  * 将旧版本 World State 迁移到当前版本
  *
@@ -124,7 +126,7 @@ function migrateV0ToV1(oldState) {
   return {
     schemaVersion: CURRENT_SCHEMA_VERSION,
     worldId: worldId,
-    domainRef: 'campus',
+    domainRef: DEFAULT_DOMAIN_ID,
     worldClock: {
       time: oldState.time || new Date().toISOString(),
       tickCount: oldState.tickCount || 0,

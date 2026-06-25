@@ -15,12 +15,13 @@
 
 const { ANDY_DEFAULTS, SEMANTIC_EVENT_CATEGORIES } = require('../config/defaults');
 const cfg = ANDY_DEFAULTS.events;
-const { getDefaultDomain } = require('../domain/DomainRegistry');
 
+const { RNG } = require('../shared/rng');
 class EventDispatcher {
   constructor(domain = null, rng = null) {
-    this.domain = domain || getDefaultDomain();
-    this._rng = rng;
+    if (!domain) throw new Error('EventDispatcher requires a domain config');
+    this.domain = domain;
+    this._rng = rng || new RNG(0);
 
     /** @type {Object[]} 有序事件日志 */
     this.eventLog = [];
@@ -34,8 +35,8 @@ class EventDispatcher {
     this._recentContentByAgent = new Map();
     /** @type {Set<string>} 最近的交互对键（每 tick 清理） */
     this._recentEncounterPairs = new Set();
-    /** @type {Date|null} 模拟时间（由 Simulator 每 tick 注入） */
-    this._simTime = null;
+    /** @type {Date} 模拟时间（ctor 预置避免首 tick 前空指针；每 tick 由 setSimTime 覆盖） */
+    this._simTime = new Date();
 
     // 从 domain 取事件模板
     this._regionEvents = this.domain.eventTemplates.regionEvents || {};
@@ -45,11 +46,11 @@ class EventDispatcher {
   }
 
   /**
-   * 获取随机数（路由到 RNG 或回退 Math.random）
+   * 获取随机数（路由到注入的 RNG；构造期恒持 RNG(0) 兜底，模拟路径由 AndyWorld 注入 seeded 流）
    * @private
    */
   _rand() {
-    return this._rng ? this._rng.next() : Math.random();
+    return this._rng.next();
   }
 
   /**
@@ -499,8 +500,8 @@ class EventDispatcher {
    * @private
    */
   _cleanupOldEvents() {
-    // 使用模拟时间而非 Date.now()，否则快速模拟时事件永远不被清理
-    const now = this._simTime ? this._simTime.getTime() : Date.now();
+    // 使用模拟时间（每 tick 由 setSimTime 注入；ctor 预置保证非空）
+    const now = this._simTime.getTime();
     const cutoff = now - cfg.eventLifespan * 60 * 1000;
 
     // 找到第一个未过期的事件索引（eventLog 按时间有序）
@@ -566,6 +567,26 @@ class EventDispatcher {
         semanticCategory: e.semanticCategory,
       })),
     };
+  }
+
+  /**
+   * 从 toJSON 输出反序列化为 EventDispatcher 实例。
+   * toJSON 只持久化最近 100 条 eventLog；_nextId / eventIndex 等运行期结构不持久化
+   *（与 AndyWorld 既有的 eventLog 回填路径一致）。
+   * 恢复路径中应传入真实 domain / rng；省略时回退默认域，仅供 round-trip / 测试。
+   * @param {Object} json - toJSON() 产出（{ eventLog }）
+   * @param {Object} [domain] - DomainRegistry 实例
+   * @param {Object} [rng] - RNG 实例
+   * @returns {EventDispatcher}
+   */
+  static fromJSON(json, domain = null, rng = null) {
+    const ed = new EventDispatcher(domain, rng);
+    if (json && Array.isArray(json.eventLog)) {
+      for (const evt of json.eventLog) {
+        ed.eventLog.push(evt);
+      }
+    }
+    return ed;
   }
 }
 

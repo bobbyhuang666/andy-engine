@@ -272,6 +272,15 @@ class ProceduralMemory {
     }
     return { patterns };
   }
+
+  /**
+   * 从 toJSON 输出反序列化为 ProceduralMemory 实例。
+   * @param {Object} json - toJSON() 产出（{ patterns }）
+   * @returns {ProceduralMemory}
+   */
+  static fromJSON(json) {
+    return new ProceduralMemory(json);
+  }
 }
 
 module.exports = ProceduralMemory;

@@ -1,11 +1,13 @@
 /**
- * Campus Schedule Presets — pure configuration factories
+ * Campus Schedule Presets — configuration + Schedule instance factories
  *
- * Returns plain config objects `{ entries: [...] }`.
- * No dependency on Agent or Schedule class.
+ * `create*ScheduleConfig` 返回纯配置对象 `{ entries: [...] }`。
+ * `create*Schedule` 在其基础上返回 `Schedule` 实例(Wave 3c 从 core Schedule.js 迁入)。
  *
- * Legacy compatibility wrappers in agent/Schedule.js call these lazily.
+ * 依赖方向:preset 可依赖 src/Schedule(具体域 → 通用机制),反向不可以。
  */
+
+const Schedule = require('../../src/agent/schedule/Schedule');
 
 function createStudentScheduleConfig(options = {}) {
   const {
@@ -97,9 +99,37 @@ function createHomeScheduleConfig(options = {}) {
   };
 }
 
+
+// ═══════════════════════════════════════════
+// Schedule instance factories (migrated from core Schedule.js — Wave 3c)
+//
+// Core Schedule 类不再内置 campus 预设;这些工厂由 preset 模块提供,
+// 调用方(入口层 / 测试 / 脚本)按需引用。preset 可依赖 src,反向不可以。
+// ═══════════════════════════════════════════
+
+function createStudentSchedule(options = {}) {
+  return new Schedule(createStudentScheduleConfig(options));
+}
+
+function createWorkerSchedule(options = {}) {
+  return new Schedule(createWorkerScheduleConfig(options));
+}
+
+function createFreelancerSchedule(options = {}) {
+  return new Schedule(createFreelancerScheduleConfig(options));
+}
+
+function createHomeSchedule(options = {}) {
+  return new Schedule(createHomeScheduleConfig(options));
+}
+
 module.exports = {
   createStudentScheduleConfig,
   createWorkerScheduleConfig,
   createFreelancerScheduleConfig,
   createHomeScheduleConfig,
+  createStudentSchedule,
+  createWorkerSchedule,
+  createFreelancerSchedule,
+  createHomeSchedule,
 };

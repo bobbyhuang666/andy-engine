@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "title": "Domain Purity 扫描结果",
+    "规则": "src/ 文件中不得出现任何具体世界语义（campus、tavern、Oak Town 等）",
+    "扫描方式": "rg \"'campus'\" src/ --type js -n   +   rg \"require\('.*presets\" src/ --type js -n",
+    "扫描时间": "2026-06-25T05:22:34+08:00",
+    "src文件总数": 149,
+    "违反总数": 14,
+    "涉及文件数": 8
+  },
+  "items": [
+    {
+      "index": 1,
+      "file": "src/domain/DomainRegistry.js",
+      "line": 10,
+      "code": "const campusDomain = require('../../presets/campus');",
+      "reason": "DomainRegistry 自身硬编码 presets/campus 路径",
+      "P等级": "P0"
+    },
+    {
+      "index": 2,
+      "file": "src/agent/schedule/Schedule.js",
+      "line": 182,
+      "code": "Schedule._campusSchedulesCache = require('../../../presets/campus/schedules');",
+      "reason": "Schedule 在 core runtime 中硬编码 presets/campus/schedules 路径",
+      "P等级": "P0"
+    },
+    {
+      "index": 3,
+      "file": "src/store/world/migration.js",
+      "line": 127,
+      "code": "domainRef: 'campus',",
+      "reason": "migration 硬编码默认 domainRef 为 campus",
+      "P等级": "P1"
+    },
+    {
+      "index": 4,
+      "file": "src/store/world/compiler.js",
+      "line": 31,
+      "code": "if (spec.domainRef !== 'campus' && !domainConfig) {",
+      "reason": "compiler 特判 campus 做不同逻辑分支",
+      "P等级": "P1"
+    },
+    {
+      "index": 5,
+      "file": "src/store/world/WorldStateAdapter.js",
+      "line": 85,
+      "code": "} else if (worldState.domainRef !== 'campus') {",
+      "reason": "WorldStateAdapter 特判 campus 做不同逻辑分支",
+      "P等级": "P1"
+    },
+    {
+      "index": 6,
+      "file": "src/sdk/Character.js",
+      "line": 84,
+      "code": "if (domain.id === 'campus') {",
+      "reason": "sdk/Character 对 campus 做特判逻辑",
+      "P等级": "P1"
+    },
+    {
+      "index": 7,
+      "file": "src/sdk/Character.js",
+      "line": 306,
+      "code": "domainRef: this._engine.domain ? this._engine.domain.id : 'campus',",
+      "reason": "sdk/Character 序列化时默认 domainRef 为 campus",
+      "P等级": "P1"
+    },
+    {
+      "index": 8,
+      "file": "src/sdk/Character.js",
+      "line": 343,
+      "code": "const domainRef = state.domainRef || 'campus';",
+      "reason": "sdk/Character 反序列化 fallback 默认 campus",
+      "P等级": "P1"
+    },
+    {
+      "index": 9,
+      "file": "src/sdk/Character.js",
+      "line": 344,
+      "code": "if (domainRef !== 'campus') {",
+      "reason": "sdk/Character 特判 campus 做不同逻辑分支",
+      "P等级": "P1"
+    },
+    {
+      "index": 10,
+      "file": "src/sdk/Andy.js",
+      "line": 159,
+      "code": "domainRef: this._engine.domain ? this._engine.domain.id : 'campus',",
+      "reason": "sdk/Andy 序列化时默认 domainRef 为 campus",
+      "P等级": "P1"
+    },
+    {
+      "index": 11,
+      "file": "src/sdk/Andy.js",
+      "line": 180,
+      "code": "const domainRef = state.domainRef || 'campus';",
+      "reason": "sdk/Andy 反序列化 fallback 默认 campus",
+      "P等级": "P1"
+    },
+    {
+      "index": 12,
+      "file": "src/sdk/Andy.js",
+      "line": 181,
+      "code": "if (domainRef !== 'campus') {",
+      "reason": "sdk/Andy 特判 campus 做不同逻辑分支",
+      "P等级": "P1"
+    },
+    {
+      "index": 13,
+      "file": "src/sdk/NarrativeBuilder.js",
+      "line": 308,
+      "code": "if (domain && domain.id !== 'campus') {",
+      "reason": "NarrativeBuilder 特判 campus 做不同逻辑分支",
+      "P等级": "P1"
+    }
+  ]
+}

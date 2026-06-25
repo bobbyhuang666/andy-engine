@@ -13,6 +13,8 @@
 
 const { CURRENT_SCHEMA_VERSION } = require('./validator');
 
+const DEFAULT_DOMAIN_ID = 'campus';
+
 /**
  * 从 AndyEngine 实例导出 World State（Stable Envelope 格式）
  *
@@ -82,8 +84,8 @@ function fromWorldState(worldState, config = {}, engineConstructor = null) {
     if (config.domain.id !== worldState.domainRef) {
       throw new Error(`domainRef 不匹配：config.domain.id="${config.domain.id}"，worldState.domainRef="${worldState.domainRef}"`);
     }
-  } else if (worldState.domainRef !== 'campus') {
-    throw new Error(`非 campus domain "${worldState.domainRef}" 必须在 config.domain 中传入对应的 Domain Config`);
+  } else if (worldState.domainRef !== DEFAULT_DOMAIN_ID) {
+    throw new Error(`非 ${DEFAULT_DOMAIN_ID} domain "${worldState.domainRef}" 必须在 config.domain 中传入对应的 Domain Config`);
   }
 
   // 从 runtimeSnapshot 解包原始快照

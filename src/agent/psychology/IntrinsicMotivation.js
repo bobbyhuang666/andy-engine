@@ -30,8 +30,8 @@
  */
 
 const { ANDY_DEFAULTS } = require('../../config/defaults');
-const { getDefaultDomain } = require('../../domain/DomainRegistry');
 
+const { RNG } = require('../../shared/rng');
 class IntrinsicMotivation {
   /**
    * @param {Object} personality - Personality 实例
@@ -43,8 +43,9 @@ class IntrinsicMotivation {
     const cfg = ANDY_DEFAULTS.intrinsicMotivation;
     const behavior = personality.behavior;
 
-    this.domain = domain || getDefaultDomain();
-    this._rng = rng;
+    if (!domain) throw new Error('IntrinsicMotivation requires a domain config');
+    this.domain = domain;
+    this._rng = rng || new RNG(0);
     this._imConfig = this.domain.intrinsicMotivationConfig;
 
     if (savedState) {
@@ -177,23 +178,23 @@ class IntrinsicMotivation {
     if (!this.familiarity[position]) {
       this.familiarity[position] = {
         visits: 0,
-        lastVisit: simTime ? simTime.getTime() : Date.now(),
+        lastVisit: simTime.getTime(),
         totalTime: 0,
       };
     }
 
     const fam = this.familiarity[position];
     fam.visits++;
-    fam.lastVisit = simTime ? simTime.getTime() : Date.now();
+    fam.lastVisit = simTime.getTime();
     fam.totalTime += hoursElapsed;
 
     // 记录探索历史
     if (this.explorationHistory.length === 0 ||
         this.explorationHistory[this.explorationHistory.length - 1].region !== position) {
       this.explorationHistory.push({
-        region: position,
-        time: simTime ? simTime.getTime() : Date.now(),
-      });
+       region: position,
+        time: simTime.getTime(),
+     });
       if (this.explorationHistory.length > 50) {
         this.explorationHistory = this.explorationHistory.slice(-50);
       }
@@ -297,7 +298,7 @@ class IntrinsicMotivation {
 
     // 生成概率被人格调制
     const generationProb = 0.3 * this._explorationDrive;
-    if ((this._rng ? this._rng.next() : Math.random()) > generationProb) return;
+    if (this._rng.next() > generationProb) return;
 
     // 选择目标类型
     const goalType = this._selectGoalType(position);
@@ -315,7 +316,7 @@ class IntrinsicMotivation {
    * @private
    */
   _selectGoalType(position) {
-    const r = this._rng ? this._rng.next() : Math.random();
+    const r = this._rng.next();
 
     // 好奇驱动：去没去过/很少去的地方
     if (r < 0.5) return 'explore_new';
@@ -334,7 +335,7 @@ class IntrinsicMotivation {
   _generateGoal(goalType, position, hour, simTime) {
     this._lastGoalId++;
     const id = this._lastGoalId;
-    const now = simTime ? simTime.getTime() : Date.now();
+    const now = simTime.getTime();
     const validRegions = new Set(this.domain.regions);
 
     switch (goalType) {
@@ -456,7 +457,7 @@ class IntrinsicMotivation {
    */
   _findForgottenRegion(currentPosition, simTime) {
     const regions = this.domain.regions;
-    const now = simTime ? simTime.getTime() : Date.now();
+    const now = simTime.getTime();
     let bestRegion = null;
     let longestGap = 0;
 
@@ -485,7 +486,7 @@ class IntrinsicMotivation {
    * @private
    */
   _updateGoals(position, state, simTime) {
-    const now = simTime ? simTime.getTime() : Date.now();
+    const now = simTime.getTime();
 
     for (let i = this.activeGoals.length - 1; i >= 0; i--) {
       const goal = this.activeGoals[i];
@@ -790,6 +791,20 @@ class IntrinsicMotivation {
       _ticksSinceGoal: this._ticksSinceGoal,
       _lastGoalId: this._lastGoalId,
     };
+  }
+
+  /**
+   * 从 toJSON 输出反序列化为 IntrinsicMotivation 实例。
+   * 恢复路径中应传入真实 Personality / Domain / RNG；省略时构造桩，仅供 round-trip / 测试。
+   * @param {Object} json - toJSON() 产出
+   * @param {Object} [personality] - Personality 实例
+   * @param {Object} [domain] - DomainRegistry 实例
+   * @param {Object} [rng] - RNG 实例
+   * @returns {IntrinsicMotivation}
+   */
+  static fromJSON(json, personality = null, domain = null, rng = null) {
+    const p = personality || { behavior: { noveltySeeking: 0.5, competenceMotivation: 0.5, explorationDrive: 0.5 } };
+    return new IntrinsicMotivation(p, json, domain, rng);
   }
 }
 

@@ -16,7 +16,6 @@ const SpatialEngine = require('../spatial/SpatialEngine');
 const SocialGraph = require('../social/SocialGraph');
 const EventDispatcher = require('./EventDispatcher');
 const { ANDY_DEFAULTS, EMOTION_DIMENSIONS } = require('../config/defaults');
-const { getDefaultDomain } = require('../domain/DomainRegistry');
 const { WorldFactStore, CanonEventPipeline, FactEmitter } = require('../canon');
 const { KnowledgeStore } = require('../knowledge');
 const { applyEventConsequences } = require('../effects/EventEffectPipeline');
@@ -24,6 +23,7 @@ const { EffectCommitter } = require('../effects/EffectCommitter');
 const { RelationshipDelta } = require('../effects/RelationshipDelta');
 const { MemoryDelta } = require('../effects/MemoryDelta');
 const { diagnostics } = require('../shared/Diagnostics');
+const { RNG } = require('../shared/rng');
 
 class AndyWorld {
   /**
@@ -34,9 +34,18 @@ class AndyWorld {
    */
   constructor(config = {}, savedState = null, domain = null, rng = null) {
     // ─── Domain & RNG ───
-    this.domain = domain || getDefaultDomain();
-    this.rng = rng;
-    if (savedState && savedState.rngState !== undefined && this.rng) {
+    if (!domain) throw new Error('AndyWorld requires a domain config');
+    this.domain = domain;
+    // RFC RNG_STRICTNESS: Engine 恒持 RNG 实例。上游未传时内部生成种子，
+    // 使核心模拟路径不再出现 `? Math.random()` 回退。此处的 Math.random
+    // 是 unseeded mode 的种子生成，是核心路径唯一可接受的 Math.random。
+    if (rng) {
+      this.rng = rng;
+    } else {
+      const autoSeed = (Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0;
+      this.rng = new RNG(autoSeed);
+    }
+    if (savedState && savedState.rngState !== undefined) {
       this.rng.setState(savedState.rngState);
     }
 
@@ -152,6 +161,19 @@ class AndyWorld {
   // ═══════════════════════════════════════════
 
   addAgent(agent) {
+    // RNG 所有权链注入（RFC）：上游（index.js/Agent facade）未传 rng 时，
+    // agent 及其心理学子系统的 _rng 为 null（子系统构造期会用 RNG(0) 兜底
+    // 以支持独立测试）。此处用 world 恒持的 RNG 覆盖，确保模拟路径所有
+    // 随机源共享同一 seeded 流。seeded 模式下 agent._rng 已为引擎种子，跳过。
+    if (!agent._rng && this.rng) {
+      agent._rng = this.rng;
+      for (const sub of [
+        agent.emotion, agent.memory, agent.emotionRegulation,
+        agent.intrinsicMotivation, agent.schedule, agent.behaviorField,
+      ]) {
+        if (sub) sub._rng = this.rng;
+      }
+    }
     this.agents.set(agent.id, agent);
     this.socialGraph.addAgent(agent.id);
     this.regions.place(agent.id, agent.position);
@@ -201,9 +223,9 @@ class AndyWorld {
       winter: { sunny: 0.2, rain: 0.15, cold: 0.55, hot: 0.1 },
     };
     const probs = transitions[season] || transitions.spring;
-    const rand0 = this.rng ? this.rng.next() : Math.random();
+    const rand0 = this.rng.next();
     if (rand0 < 0.4) return;
-    const rand = this.rng ? this.rng.next() : Math.random();
+    const rand = this.rng.next();
     let cumulative = 0;
     let newWeather = current;
     for (const [weather, prob] of Object.entries(probs)) {
@@ -244,7 +266,7 @@ class AndyWorld {
       if (c) {
         defs.push({ name, ...c });
       } else {
-        const rand = this.rng ? this.rng.next.bind(this.rng) : Math.random;
+        const rand = this.rng.next.bind(this.rng);
         defs.push({
           name, shape: 'rect',
           x: rand() * 400 + 50, y: rand() * 400 + 50,
@@ -505,7 +527,7 @@ class AndyWorld {
     }
 
     for (const encounter of spatialResult.encounters) {
-      if ((this.rng ? this.rng.next() : Math.random()) > encounter.probability) continue;
+      if (this.rng.next() > encounter.probability) continue;
       const event = this.eventDispatcher.generateEncounterEvent(
         encounter.agentA, encounter.agentB,
         encounter.regionA || 'unknown',

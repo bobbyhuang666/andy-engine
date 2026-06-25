@@ -11,8 +11,7 @@ const { getDefaultDomain } = require('../../domain/DomainRegistry');
 const { loadNativeModule } = require('../../shared/nativeLoader');
 const { diagnostics } = require('../../shared/Diagnostics');
 
-const defaultDomain = getDefaultDomain();
-const NEED_DRIVE_STATES = defaultDomain.needDriveStates || {};
+// 不在模块顶层调用 getDefaultDomain()——改为惰性求值（Wave 3b-0）。
 
 let _NativeCtor = null;
 let _loadResult = null;
@@ -100,6 +99,7 @@ class NeedsSystemNative {
   }
 
   getDrive() {
+    const NEED_DRIVE_STATES = getDefaultDomain().needDriveStates || {};
     let maxUrgency = 0;
     let urgentNeed = null;
     for (const [need, value] of Object.entries(this.needs)) {
@@ -150,6 +150,18 @@ class NeedsSystemNative {
       needs: { ...this.needs },
       _decayRates: this._decayRates ? { ...this._decayRates } : {},
     };
+  }
+
+  /**
+   * 从 toJSON 输出反序列化为 NeedsSystemNative 实例（native 路径）。
+   * 恢复路径中应传入真实 Personality；省略时用 ocean 桩，仅供 round-trip / 测试。
+   * @param {Object} json - toJSON() 产出
+   * @param {Object} [personality] - Personality 实例
+   * @returns {NeedsSystemNative}
+   */
+  static fromJSON(json, personality = null) {
+    const p = personality || { ocean: { neuroticism: 0.5, extraversion: 0.5, openness: 0.5 } };
+    return new NeedsSystemNative(p, json);
   }
 }
 

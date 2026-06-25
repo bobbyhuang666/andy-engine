@@ -52,9 +52,8 @@ function createSubsystems(config, agentId, domain, rng) {
   // Apply initialState center if provided
   const initState = config.initialState;
   if (initState) {
-    const { getDefaultDomain } = require('../../domain/DomainRegistry');
-    const resolvedDomain = domain || getDefaultDomain();
-    const center = resolvedDomain.stateCenters[initState];
+    if (!domain) throw new Error('createSubsystems requires a domain config');
+    const center = domain.stateCenters[initState];
     if (center) {
       behaviorField.B = [...center];
       behaviorField._lastLabel = initState;

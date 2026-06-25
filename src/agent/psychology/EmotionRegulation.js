@@ -33,6 +33,7 @@
 
 const { ANDY_DEFAULTS } = require('../../config/defaults');
 
+const { RNG } = require('../../shared/rng');
 class EmotionRegulation {
   /**
    * @param {Object} personality - Personality 实例
@@ -41,7 +42,7 @@ class EmotionRegulation {
    */
   constructor(personality, savedState = null, rng = null) {
     this.personality = personality;
-    this._rng = rng;
+    this._rng = rng || new RNG(0);
     const ocean = personality.ocean;
 
     // ─── 策略偏好（基于人格特质）───
@@ -208,7 +209,7 @@ class EmotionRegulation {
 
     // 加入少量随机性（人格并非完全决定策略选择）
     for (const key of Object.keys(utilities)) {
-      utilities[key] *= (0.8 + (this._rng ? this._rng.next() : Math.random()) * 0.4);
+      utilities[key] *= (0.8 + this._rng.next() * 0.4);
     }
 
     // 选择最高效用的策略
@@ -437,6 +438,19 @@ class EmotionRegulation {
       _regulationTickCounter: this._regulationTickCounter,
       _reappraisalHistory: this._reappraisalHistory.slice(-10),
     };
+  }
+
+  /**
+   * 从 toJSON 输出反序列化为 EmotionRegulation 实例。
+   * 恢复路径中应传入真实 Personality 与 RNG；省略时构造桩，仅供 round-trip / 测试。
+   * @param {Object} json - toJSON() 产出
+   * @param {Object} [personality] - Personality 实例
+   * @param {Object} [rng] - RNG 实例
+   * @returns {EmotionRegulation}
+   */
+  static fromJSON(json, personality = null, rng = null) {
+    const p = personality || { ocean: { neuroticism: 0.5, extraversion: 0.5, openness: 0.5, conscientiousness: 0.5, agreeableness: 0.5 } };
+    return new EmotionRegulation(p, json, rng);
   }
 }
 

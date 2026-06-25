@@ -26,7 +26,6 @@
  */
 
 const { ANDY_DEFAULTS } = require('../../config/defaults');
-const { getDefaultDomain } = require('../../domain/DomainRegistry');
 
 class Appraisal {
   /**
@@ -38,7 +37,8 @@ class Appraisal {
    */
   static evaluate(event, agent) {
     // 从 domain 取配置
-    const domain = agent.domain || getDefaultDomain();
+    if (!agent.domain) throw new Error('Appraisal.evaluate requires agent.domain');
+    const domain = agent.domain;
     const appraisalConfig = domain.appraisalConfig;
 
     const dims = {

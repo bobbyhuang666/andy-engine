@@ -20,6 +20,7 @@
 const { EMOTION_DIMENSIONS, CO_ACTIVATION, EMOTION_OPPOSITES, ANDY_DEFAULTS } = require('../../config/defaults');
 const cfg = ANDY_DEFAULTS.emotion;
 
+const { RNG } = require('../../shared/rng');
 const POSITIVE_DIMS = new Set(['joy', 'contentment', 'satisfaction', 'excitement',
   'calm', 'hope', 'love', 'pride', 'gratitude', 'relief', 'triumph', 'amusement']);
 const NEGATIVE_DIMS = new Set(['sadness', 'anger', 'fear', 'disgust',
@@ -34,7 +35,7 @@ class EmotionVector {
    */
   constructor(personality, savedState = null, rng = null) {
     this.personality = personality;
-    this._rng = rng;
+    this._rng = rng || new RNG(0);
     this.baseline = { ...personality.emotionBaseline };
 
     if (savedState) {
@@ -233,7 +234,7 @@ class EmotionVector {
   _pinkNoiseDrift() {
     const amp = cfg.noiseAmplitude;
     const n = this._pinkNoiseState.length;
-    const rand = this._rng ? this._rng.next.bind(this._rng) : Math.random;
+    const rand = this._rng.next.bind(this._rng);
 
     // 白噪声源
     const white = (rand() * 2 - 1) * amp;
@@ -730,6 +731,20 @@ class EmotionVector {
       stress: this.stress,
       _pinkNoiseState: [...this._pinkNoiseState],
     };
+  }
+
+  /**
+   * 从 toJSON 输出反序列化为 EmotionVector 实例。
+   * 恢复路径中应传入真实 Personality 与 RNG；省略时用 baseline 构造桩人格，
+   * 仅供 round-trip / 测试场景使用（toJSON 不序列化人格派生字段）。
+   * @param {Object} json - toJSON() 产出
+   * @param {Object} [personality] - Personality 实例
+   * @param {Object} [rng] - RNG 实例
+   * @returns {EmotionVector}
+   */
+  static fromJSON(json, personality = null, rng = null) {
+    const p = personality || { emotionBaseline: (json && json.baseline) || {} };
+    return new EmotionVector(p, json, rng);
   }
 }
 

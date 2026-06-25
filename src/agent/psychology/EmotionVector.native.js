@@ -319,6 +319,18 @@ class EmotionVectorNative {
     };
   }
 
+  /**
+   * 从 toJSON 输出反序列化为 EmotionVectorNative 实例（native 路径）。
+   * 恢复路径中应传入真实 Personality；省略时用 baseline + behavior 桩，仅供 round-trip / 测试。
+   * @param {Object} json - toJSON() 产出
+   * @param {Object} [personality] - Personality 实例
+   * @returns {EmotionVectorNative}
+   */
+  static fromJSON(json, personality = null) {
+    const p = personality || { emotionBaseline: (json && json.baseline) || {}, behavior: {} };
+    return new EmotionVectorNative(p, json);
+  }
+
   _timeDecay(dt) {
     const lambda = this.personality.behavior.emotionDecayRate || cfg.decayLambda;
     const hedonicAdaptFactor = 1.2;

@@ -15,8 +15,8 @@
 
 const { ANDY_DEFAULTS, SEMANTIC_EVENT_CATEGORIES } = require('../../config/defaults');
 const cfg = ANDY_DEFAULTS.memory;
-const { getDefaultDomain } = require('../../domain/DomainRegistry');
 
+const { RNG } = require('../../shared/rng');
 function nextDynamicMemoryId(agentId, memories = []) {
   const escapedAgentId = String(agentId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(`^mem_${escapedAgentId}_(\\d+)$`);
@@ -37,8 +37,9 @@ class PersonalMemory {
    */
   constructor(agentId, seedMemories = [], savedMemories = null, domain = null, rng = null) {
     this.agentId = agentId;
-    this.domain = domain || getDefaultDomain();
-    this._rng = rng;
+    if (!domain) throw new Error('PersonalMemory requires a domain config');
+    this.domain = domain;
+    this._rng = rng || new RNG(0);
 
     // 从 domain 取语义分类
     this._semanticCategories = this.domain.memoryTemplates.semanticCategories || SEMANTIC_EVENT_CATEGORIES;
@@ -750,7 +751,8 @@ class PersonalMemory {
    * @returns {string}
    */
   toPromptString(limit = 8) {
-    const now = this._simTime || Date.now();
+    // _simTime 由 ctor 初始化为时间戳，且每 tick 由 setSimTime 更新，恒非空
+    const now = this._simTime;
 
     // 时间+情绪加权排序（实验二结论）
     const scored = this.memories
@@ -996,7 +998,7 @@ class PersonalMemory {
 
   /** @private */
   _logisticNoise(scale) {
-    const u = Math.max(0.001, Math.min(0.999, this._rng ? this._rng.next() : Math.random()));
+    const u = Math.max(0.001, Math.min(0.999, this._rng.next()));
     return scale * Math.log(u / (1 - u));
   }
 
@@ -1030,6 +1032,20 @@ class PersonalMemory {
       emotionSnapshot: m.emotionSnapshot,
       semanticCategory: m.semanticCategory || null,
     }));
+  }
+
+  /**
+   * 从 toJSON 输出反序列化为 PersonalMemory 实例。
+   * toJSON 只序列化 memories 数组；appraisalBiases 由 Agent 层单独序列化/恢复，故此处不处理。
+   * 恢复路径中应传入真实 agentId / domain / rng；省略时用桩值，仅供 round-trip / 测试。
+   * @param {Object} json - toJSON() 产出（memories 数组）
+   * @param {string} [agentId] - 所属 Agent ID
+   * @param {Object} [domain] - DomainRegistry 实例
+   * @param {Object} [rng] - RNG 实例
+   * @returns {PersonalMemory}
+   */
+  static fromJSON(json, agentId = 'restored', domain = null, rng = null) {
+    return new PersonalMemory(agentId, [], json, domain, rng);
   }
 
   /**

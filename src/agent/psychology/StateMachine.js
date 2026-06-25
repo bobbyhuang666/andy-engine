@@ -11,8 +11,7 @@
 const { getDefaultDomain } = require('../../domain/DomainRegistry');
 
 // 向后兼容：默认 STATES（从 campus domain 取）
-const defaultDomain = getDefaultDomain();
-const STATES = defaultDomain.states;
+// 不在模块顶层调用 getDefaultDomain()——改为惰性求值，消除模块级硬绑定（Wave 3b-0）。
 
 // ═══════════════════════════════════════════
 // 轻量状态追踪器
@@ -23,8 +22,9 @@ class StateMachine {
    * @param {Object} [savedState] - 恢复状态
    * @param {Object} [domain] - DomainRegistry 实例
    */
-  constructor(initialState = null, savedState = null, domain = null) {
-    this.domain = domain || defaultDomain;
+ constructor(initialState = null, savedState = null, domain = null) {
+    if (!domain) throw new Error('StateMachine requires a domain config');
+    this.domain = domain;
     this._states = this.domain.states;
 
     if (savedState) {
@@ -63,6 +63,24 @@ class StateMachine {
       history: this.history.slice(-10),
     };
   }
+
+  /**
+   * 从 toJSON 输出反序列化为 StateMachine 实例。
+   * @param {Object} json - toJSON() 产出
+   * @param {Object} [domain] - DomainRegistry 实例
+   * @returns {StateMachine}
+   */
+  static fromJSON(json, domain = null) {
+    return new StateMachine(null, json, domain);
+  }
 }
 
-module.exports = { StateMachine, STATES };
+module.exports = { StateMachine };
+
+// STATES 惰性导出：首次访问时才调用 getDefaultDomain()，消除模块级硬绑定（Wave 3b-0）。
+Object.defineProperty(module.exports, 'STATES', {
+  enumerable: true,
+  get() {
+    return getDefaultDomain().states;
+  },
+});

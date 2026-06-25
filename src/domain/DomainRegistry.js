@@ -7,7 +7,6 @@
  *   3. provide safe getters/fallbacks — 提供安全的访问接口
  */
 
-const campusDomain = require('../../presets/campus');
 const { validateDomain } = require('./validateDomain');
 
 class DomainRegistry {
@@ -20,7 +19,8 @@ class DomainRegistry {
   constructor(domainConfig = null, options = {}) {
     const { validate = true, strict = false } = options;
 
-    this.domain = domainConfig || campusDomain;
+    const campusDomain = domainConfig || require('../../presets/campus');
+    this.domain = campusDomain;
 
     // 校验（非默认 domain 时强制校验）
     if (validate && domainConfig) {

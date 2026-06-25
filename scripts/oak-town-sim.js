@@ -16,6 +16,7 @@ const path = require('path');
 const fs = require('fs');
 const AndyEngine = require('../index');
 const Schedule = require('../src/agent/schedule/Schedule');
+const campusSchedules = require('../presets/campus/schedules');
 
 // ═══════════════════════════════════════════
 // 一、橡木镇 15 角色定义
@@ -81,7 +82,14 @@ const TAVERN_PATRONS = ['blacksmith_liu', 'mayor_zhou', 'hunter_zhao', 'merchant
 function getScheduleForAgent(agentId) {
   const agentDef = AGENTS.find(a => a.id === agentId);
   const preset = agentDef.schedule;
-  const schedule = Schedule.resolvePreset(preset);
+  // Wave 3c: campus schedule 工厂已迁出 core Schedule 类,改由 preset 模块解析
+  const factory = {
+    student: campusSchedules.createStudentSchedule,
+    worker: campusSchedules.createWorkerSchedule,
+    freelancer: campusSchedules.createFreelancerSchedule,
+    home: campusSchedules.createHomeSchedule,
+  }[preset];
+  const schedule = factory ? factory() : new Schedule({});
 
   // 风险 2：为酒馆常客追加晚间条目
   if (TAVERN_PATRONS.includes(agentId)) {

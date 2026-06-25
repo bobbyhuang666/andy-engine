@@ -12,7 +12,6 @@
 
 const { CandidateProvider } = require('./CandidateProvider');
 const { ActionCandidate } = require('../ActionCandidate');
-const { getDefaultDomain } = require('../../domain/DomainRegistry');
 
 const MAX_MEMORY_CANDIDATES = 2;
 
@@ -70,9 +69,9 @@ class MemoryCandidateProvider extends CandidateProvider {
   }
 
   _getSemanticCategoryMap(domain) {
-    const domainObj = domain || getDefaultDomain();
-    return (domainObj && domainObj.actionCandidateMappings && domainObj.actionCandidateMappings.memorySemanticCategoryActionMap)
-      ? domainObj.actionCandidateMappings.memorySemanticCategoryActionMap
+    if (!domain) throw new Error('MemoryCandidateProvider._getSemanticCategoryMap requires a domain config');
+    return (domain.actionCandidateMappings && domain.actionCandidateMappings.memorySemanticCategoryActionMap)
+      ? domain.actionCandidateMappings.memorySemanticCategoryActionMap
       : DEFAULT_SEMANTIC_ACTION_MAP;
   }
 }

@@ -7,9 +7,10 @@
  * 设计：
  *   - 区域可以是矩形、圆形、多边形
  *   - 每个区域有中心点（agent 移动目标）和边界
- *   - 区域间可定义路径距离（非欧几里得）
- */
+*   - 区域间可定义路径距离（非欧几里得）
+*/
 
+const { RNG } = require('../shared/rng');
 class WorldMap {
   /**
    * @param {Object} options
@@ -20,7 +21,7 @@ class WorldMap {
   constructor({ width = 1000, height = 1000, regions = [], rng = null }) {
     this.width = width;
     this.height = height;
-    this._rng = rng || null;
+    this._rng = rng || new RNG(0);
 
     /** @type {Map<string, RegionDef>} */
     this.regions = new Map();
@@ -41,10 +42,10 @@ class WorldMap {
     const region = this.regions.get(regionName);
     if (!region) {
       // 未知区域：返回世界中心随机偏移
-      return {
-        x: this.width / 2 + ((this._rng ? this._rng.next() : Math.random()) - 0.5) * 50,
-        y: this.height / 2 + ((this._rng ? this._rng.next() : Math.random()) - 0.5) * 50,
-      };
+     return {
+        x: this.width / 2 + (this._rng.next() - 0.5) * 50,
+        y: this.height / 2 + (this._rng.next() - 0.5) * 50,
+     };
     }
     return region.randomPoint();
   }
@@ -113,7 +114,7 @@ class RegionDef {
     this.indoor = def.indoor !== false;
     this.capacity = def.capacity || null;
     this.adjacentTo = [];
-    this._rng = rng;
+    this._rng = rng || new RNG(0);
 
     if (this.shape === 'rect') {
       this.x = def.x || 0;
@@ -158,7 +159,7 @@ class RegionDef {
    */
   randomPoint() {
     const padding = 2; // 2 米边距
-    const rand = () => this._rng ? this._rng.next() : Math.random();
+    const rand = () => this._rng.next();
     if (this.shape === 'rect') {
       return {
         x: this.x + padding + rand() * (this.w - padding * 2),

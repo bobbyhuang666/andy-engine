@@ -25,16 +25,6 @@
 
 const { ANDY_DEFAULTS } = require('../../config/defaults');
 const cfg = ANDY_DEFAULTS.needs;
-const { getDefaultDomain } = require('../../domain/DomainRegistry');
-
-// 默认 domain（向后兼容）
-const defaultDomain = getDefaultDomain();
-
-// ─── 需求 → 满足行为映射（从 domain 取）───
-const NEED_SATISFACTION = defaultDomain.needSatisfactionMap;
-
-// ─── 需求匮乏 → 目标状态映射（从 domain 取）───
-const NEED_DRIVE_STATES = defaultDomain.needDriveStates;
 
 // ─── 需求匮乏 → 4D 连续梯度目标 ───
 /**
@@ -69,7 +59,8 @@ class NeedsSystem {
    * @param {Object} [domain] - DomainRegistry 实例
    */
   constructor(personality, savedState = null, domain = null) {
-    this.domain = domain || defaultDomain;
+    if (!domain) throw new Error('NeedsSystem requires a domain config');
+    this.domain = domain;
 
     // 从 domain 获取需求满足映射
     this._needSatisfaction = this.domain.needSatisfactionMap;
@@ -343,6 +334,19 @@ class NeedsSystem {
       _decayRates: { ...this._decayRates },
       _recoveryMultipliers: { ...(this._recoveryMultipliers || {}) },
     };
+  }
+
+  /**
+   * 从 toJSON 输出反序列化为 NeedsSystem 实例。
+   * 恢复路径中应传入真实 Personality 与 Domain；省略时构造桩，仅供 round-trip / 测试。
+   * @param {Object} json - toJSON() 产出
+   * @param {Object} [personality] - Personality 实例
+   * @param {Object} [domain] - DomainRegistry 实例
+   * @returns {NeedsSystem}
+   */
+  static fromJSON(json, personality = null, domain = null) {
+    const p = personality || { ocean: { neuroticism: 0.5, extraversion: 0.5, openness: 0.5, conscientiousness: 0.5, agreeableness: 0.5 } };
+    return new NeedsSystem(p, json, domain);
   }
 }
 

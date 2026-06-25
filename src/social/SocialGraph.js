@@ -412,6 +412,15 @@ class SocialGraph {
   toJSON() {
     return this.snapshot().edges;
   }
+
+  /**
+   * 从 toJSON 输出反序列化为 SocialGraph 实例。
+   * @param {Object[]} json - toJSON() 产出的关系边数组
+   * @returns {SocialGraph}
+   */
+  static fromJSON(json) {
+    return new SocialGraph(json);
+  }
 }
 
 module.exports = SocialGraph;

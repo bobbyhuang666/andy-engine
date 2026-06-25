@@ -5,8 +5,7 @@
  * 日程决定了 Agent 在不同时间应该出现在哪个区域、做什么
  */
 
-const { diagnostics } = require('../../shared/Diagnostics');
-
+const { RNG } = require('../../shared/rng');
 class Schedule {
   /**
    * @param {Object} config
@@ -15,7 +14,7 @@ class Schedule {
    * @param {Object} [rng] - RNG 实例（可选）
    */
   constructor(config = {}, savedState = null, rng = null) {
-    this._rng = rng;
+    this._rng = rng || new RNG(0);
     this.entries = (config.entries || []).map(e => ({
       startHour: e.startHour ?? 0,
       endHour: e.endHour ?? 0,
@@ -110,7 +109,7 @@ class Schedule {
         const entry = this.entries[i];
         if (!entry.days.includes(tomorrowDay)) continue;
 
-        if ((this._rng ? this._rng.next() : Math.random()) > entry.probability) continue;
+        if (this._rng.next() > entry.probability) continue;
 
         const noiseHours = this._gaussianNoise(entry.noise) / 60;
         const tomorrowStart = Math.max(0, Math.min(24, entry.startHour + noiseHours));
@@ -141,7 +140,7 @@ class Schedule {
       const entry = this.entries[i];
 
       // 概率检查（模拟偶尔旷工）
-      if ((this._rng ? this._rng.next() : Math.random()) > entry.probability) {
+      if (this._rng.next() > entry.probability) {
         this._todayVariations[i] = null;
         continue;
       }
@@ -162,85 +161,30 @@ class Schedule {
    * @private
    */
   _gaussianNoise(stddev) {
-    const rand = this._rng ? this._rng.next.bind(this._rng) : Math.random;
+    const rand = this._rng.next.bind(this._rng);
     // Clamp u1 away from 0 to avoid log(0) = -Infinity
     const u1 = Math.max(0.0001, rand());
     const u2 = rand();
     return stddev * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
   }
 
-  // ═══════════════════════════════════════════
-  // 静态工厂方法 (deprecated compatibility wrappers)
-  // ═══════════════════════════════════════════
-  // Data lives in presets/campus/schedules.js.
-  // These wrappers lazily load that module and return Schedule instances.
-  // Custom domains should use domain.roleArchetypes instead.
-  // ═══════════════════════════════════════════
-
-  static _campusSchedules() {
-    if (!Schedule._campusSchedulesCache) {
-      Schedule._campusSchedulesCache = require('../../../presets/campus/schedules');
-    }
-    return Schedule._campusSchedulesCache;
-  }
-
   /**
-   * @deprecated Use domain.roleArchetypes or presets/campus/schedules directly
-   */
-  static createStudentSchedule(options = {}) {
-    const config = Schedule._campusSchedules().createStudentScheduleConfig(options);
-    return new Schedule(config);
-  }
-
-  /**
-   * @deprecated Use domain.roleArchetypes or presets/campus/schedules directly
-   */
-  static createWorkerSchedule(options = {}) {
-    const config = Schedule._campusSchedules().createWorkerScheduleConfig(options);
-    return new Schedule(config);
-  }
-
-  /**
-   * @deprecated Use domain.roleArchetypes or presets/campus/schedules directly
-   */
-  static createFreelancerSchedule(options = {}) {
-    const config = Schedule._campusSchedules().createFreelancerScheduleConfig(options);
-    return new Schedule(config);
-  }
-
-  /**
-   * @deprecated Use domain.roleArchetypes or presets/campus/schedules directly
-   */
-  static createHomeSchedule(options = {}) {
-    const config = Schedule._campusSchedules().createHomeScheduleConfig(options);
-    return new Schedule(config);
-  }
-
-  /**
-   * 从预设名称解析日程
+   * 从配置对象构造 Schedule。
    *
-   * @param {string|Object} preset - 预设名称 ('student'|'worker'|'freelancer'|'home') 或 Schedule 配置对象
-   * @param {Object} [options] - 预设参数
+   * Core 不再内置 campus 日程预设名解析 —— 字符串 preset 名属于具体域
+   * 语义,应由入口层 / preset 模块解析后传入 config 对象。
+   *
+   * @param {Object} preset - Schedule 配置对象 `{ entries: [...] }`
    * @returns {Schedule}
+   * @throws {Error} 当 preset 不是配置对象时(string preset 需调用方提供域工厂)
    */
-  static resolvePreset(preset, options = {}) {
+  static resolvePreset(preset) {
     if (typeof preset === 'object' && preset !== null) {
       return new Schedule(preset);
     }
-
-    const presets = {
-      student:    () => Schedule.createStudentSchedule(options),
-      worker:     () => Schedule.createWorkerSchedule(options),
-      freelancer: () => Schedule.createFreelancerSchedule(options),
-      home:       () => Schedule.createHomeSchedule(options),
-    };
-
-    const factory = presets[preset];
-    if (!factory) {
-      diagnostics.warnOnce(`schedule:unknown-preset:${preset}`, `未知的日程预设: "${preset}"，使用空日程。可选: ${Object.keys(presets).join(', ')}`);
-      return new Schedule({});
-    }
-    return factory();
+    throw new Error(
+      'Schedule.resolvePreset string preset requires domain-provided factory'
+    );
   }
 
   /**
@@ -252,6 +196,18 @@ class Schedule {
       _todayVariations: this._todayVariations,
       _lastVariationDate: this._lastVariationDate,
     };
+  }
+
+  /**
+   * 从 toJSON 输出反序列化为 Schedule 实例。
+   * toJSON 同时包含 entries 与运行期变体数据，fromJSON 将其同时作为 config 与 savedState 传入，
+   * 使 entries 与 _todayVariations / _lastVariationDate 均能还原。
+   * @param {Object} json - toJSON() 产出
+   * @param {Object} [rng] - RNG 实例
+   * @returns {Schedule}
+   */
+  static fromJSON(json, rng = null) {
+    return new Schedule(json, json, rng);
   }
 }
 
