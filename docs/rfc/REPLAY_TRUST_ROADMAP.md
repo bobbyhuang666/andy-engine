@@ -124,14 +124,41 @@ hash 算法：Node 内置 `crypto.createHash('sha256')`，输出 hex。每 tick 
 | L1 单 seed 单长度回放 | seed42 / 100ticks 通过 + per-tick hash 序列 | ✅ 已达（W3 含 tickHashes） |
 | L2 多 seed 回放 | ≥3 个 seed 各跑 100 ticks，hash 全匹配 | ✅ 已达（W5：seed 42/7/100 各自跨 run 一致 + seed 间不全等，证明 seed 参数化生效） |
 | L3 跨进程回放 | 同一 fixture 在不同进程启动回放， hash 全匹配 | ✅ 已达（W5：主进程 vs 子进程 spawn 一致 + 子进程间一致，证明无进程级非确定源，墙上时钟修复生效） |
-| L4 截断续跑 | 从 tick N 的快照续跑到 tick M，与全程回放的 tick M..M hash 一致 | ⬜ 降级 v2.2（W6 实测：toWorldState 丢失累积 memory，触及 Stable Envelope，待总规划师裁定修复波次） |
+| L4 截断续跑 | 从 tick N 的快照续跑到 tick M，与全程回放的 tick M..M hash 一致 | ⬜ 降级 v2.2（W6 已实测，未通过；不是未验证。降级原因已定位：toWorldState 丢失累积 memory，restore 后续跑从 tick 63 起漂移。总规划师裁定当前阶段不修复，记录为 v2.2 Persistence Fidelity 议题） |
 
-**审计 Q1 采纳 → W6 实测更新**：L4 原"不预降级"方向正确（底层 fromWorldState 已实现）。W6 实测发现 round-trip 有损：续跑段 tick 50-62 hash 一致，tick 63 起漂移。根因——`toWorldState()` 序列化丢失累积 memory（tick 50 运行时 maya 有 18 条 memory，envelope runtimeSnapshot.memory.memories 为空）。restore 无法还原未序列化 memory，续跑后行为逐步偏离。**L4 降级 v2.2**，触及 Stable Envelope，待总规划师裁定是否在后续波次修复 toWorldState 序列化。诊断证据见 `tests/unit/replay-trust-l4.test.js`（诊断测试通过，主测试 skip）。
+**审计 Q1 采纳 → W6 实测更新（总规划师已裁定）**：L4 原"不预降级"方向正确（底层 fromWorldState 已实现）。W6 实测发现 round-trip 有损：续跑段 tick 50-62 hash 一致，tick 63 起漂移。根因——`toWorldState()` 序列化丢失累积 memory（tick 50 运行时 maya 有 18 条 memory，envelope runtimeSnapshot.memory.memories 为空）。restore 无法还原未序列化 memory，续跑后行为逐步偏离。
+
+**W6 定稿结论**：L4 已实测，未通过；不是未验证。降级原因已定位。总规划师裁定当前阶段不修复 toWorldState 序列化（属 persistence fidelity / runtimeSnapshot restore 语义问题，需先有设计说明和迁移/兼容判断，见 §9 v2.2 议题）。诊断证据见 `tests/unit/replay-trust-l4.test.js`（诊断测试通过证明根因，主测试 skip）。
 
 ## 8. 审计裁定记录
 
-- **Q1（已采纳）**：L4 保留 v2.1，不预降级；实测有损再降。
+- **Q1（已采纳 → W6 定稿）**：L4 保留 v2.1，不预降级；实测有损再降。W6 实测有损，降级 v2.2。总规划师裁定当前阶段不修复，记录为 §9 v2.2 议题。
 - **Q2（已采纳）**：9 位量化精度保持不变。
 - **Q3（已采纳）**：`--accept-intentional` 仅跳过立即 fail，不跳过 changelog（§4 已写入）。
 - **S4（已记录）**：generationCommand 须对齐真实脚本（§3 已写入）。
 - **S5（已采纳）**：确定性边界声明作为 SERIALIZATION_CONTRACT 增补章节（§2 已写入）。
+
+## 9. v2.2 预留议题（不启动实现）
+
+### v2.2 Persistence Fidelity / L4 Resume Design
+
+> 状态：预留议题，当前阶段不执行。W6 已实测定位根因，待后续独立设计。
+
+**背景**：W6 实测 L4 截断续跑失败，根因 `toWorldState()` 序列化丢失累积 memory（tick 50 运行时 18 条 → envelope 0 条），restore 后续跑从 tick 63 起漂移。
+
+**v2.2 目标（仅设计判断，不实现）**：
+
+1. 判断 toWorldState memory 修复是否只是 `runtimeSnapshot` opaque payload 内部补全，还是触碰 Stable Envelope / public persistence contract。
+2. 明确是否需要：
+   - schemaVersion bump（当前 0.1.0）
+   - migration 路径（既有 fixture 更新）
+   - fixture 重新生成（`golden:regen`）
+   - 兼容策略（旧 fixture 能否加载，或强制重生）
+3. 给出 L4 恢复路线：修复序列化 → 取消 `tests/unit/replay-trust-l4.test.js` 主测试 skip → 验证续跑段 hash 一致 → L4 重达 v2.2。
+
+**不做什么（当前阶段）**：
+- 不改 toWorldState / fromWorldState restore 语义。
+- 不改 Stable Envelope schema。
+- 不为了让 L4 变绿绕过 hash 或调低测试标准。
+
+**触发条件**：本议题在 v2.2 阶段启动时，需先产出设计说明 + 迁移/兼容判断，经总规划师批准后方可实现。
