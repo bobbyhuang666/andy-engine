@@ -41,13 +41,14 @@ v2.2 修复 L4 截断续跑后，暴露三个 v2.3 方向。本阶段不扩功�
 - **验收**：npm test 161文件/2618测试 / test:domain / boundaries / smoke / perf 全过。
 - **价值**：给未来 memory 改动（含未来 compaction）提供 safety net，避免 v2.2 五层逐层挖的痛苦。
 
-## 5. W3 — Replay observability diagnostic hashes
+## 5. W3 — Replay observability diagnostic hashes（已完成）
 
-- **新增诊断 hash**：eventLogHash / memoryHash / agentStateHash。
-- **不进 release gate**，仅诊断工具。
-- **replay-diff 分层输出**：首分叉层直接指示根因层。
-- **不改变 tickHash 语义**。
-- **验收**：诊断脚本可执行 + 全量门控 + replay:diff（若改 replay tooling）。
+- **新增诊断 hash**：`computeEventLogHash` / `computeMemoryHash` / `computeAgentStateHash`（`src/store/world/tickHash.js`），复用 canonicalize。
+- **覆盖字段**：eventLogHash（id+type+content）/ memoryHash（ids+importance+accessCount）/ agentStateHash（emotion/behaviorField/needs/position）。
+- **不进 release gate**：仅工具库，供未来诊断脚本按需调用。replay-diff 保持 tickHash 比对（golden fixture 仅存 tickHashes，诊断 hash 实时计算）。
+- **不改变 tickHash 语义**：HASHED_FIELDS 不变，L4 主测试仍 pass。
+- **测试**：`tests/unit/diagnostic-hashes.test.js`（14 测试，验证输出格式/相同一致/不同变化/不依赖 _meta/三层独立）。
+- **验收**：npm test 162文件/2632测试 / test:domain / boundaries / smoke / perf 全过；replay:diff 100/100。
 
 ## 6. W4 — Snapshot compaction（不启动）
 

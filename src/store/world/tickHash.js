@@ -93,6 +93,71 @@ function computeTickHashSeries(ticks) {
     .map(t => computeTickHash(t.worldState, t.tick));
 }
 
+// ─── v2.3-W3 诊断 hash（不进 release gate，仅 replay-diff 诊断用）───
+// 复用 canonicalize（递归 key sort + 1e9 量化 + sha256），覆盖不同字段层。
+// 目标：replay-diff 分层输出，首分叉层指示根因层（v2.2 四轮诊断缩到一轮）。
+
+/**
+ * eventLog 诊断 hash：覆盖 event id 序列 + type + content
+ * @param {Object} worldState - Stable Envelope world state
+ * @returns {string} sha256 hex
+ */
+function computeEventLogHash(worldState) {
+  const snap = worldState.runtimeSnapshot || {};
+  const eventLog = (snap.events && snap.events.eventLog) || [];
+  const compact = eventLog.map(e => ({
+    id: e.id,
+    type: e.type,
+    content: e.content || '',
+  }));
+  const canonical = canonicalize(compact);
+  return crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
+}
+
+/**
+ * memory 诊断 hash：每 agent memory ids + importance + accessCount 摘要
+ * @param {Object} worldState - Stable Envelope world state
+ * @returns {string} sha256 hex
+ */
+function computeMemoryHash(worldState) {
+  const snap = worldState.runtimeSnapshot || {};
+  const agents = snap.agents || {};
+  const compact = {};
+  for (const [id, ag] of Object.entries(agents)) {
+    const mems = (ag.memory && (Array.isArray(ag.memory) ? ag.memory : ag.memory.memories)) || [];
+    compact[id] = mems.map(m => ({
+      id: m.id,
+      imp: m.importance,
+      acc: m.accessCount,
+    }));
+  }
+  const canonical = canonicalize(compact);
+  return crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
+}
+
+/**
+ * agentState 诊断 hash：emotion / behaviorField / needs 摘要
+ * @param {Object} worldState - Stable Envelope world state
+ * @returns {string} sha256 hex
+ */
+function computeAgentStateHash(worldState) {
+  const snap = worldState.runtimeSnapshot || {};
+  const agents = snap.agents || {};
+  const compact = {};
+  for (const [id, ag] of Object.entries(agents)) {
+    compact[id] = {
+      emotion: ag.emotion,
+      behB: ag.behaviorField,
+      needs: ag.needs,
+      position: ag.position,
+      socialEnergy: ag.socialEnergy,
+      health: ag.health,
+    };
+  }
+  const canonical = canonicalize(compact);
+  return crypto.createHash('sha256').update(JSON.stringify(canonical)).digest('hex');
+}
+
 module.exports = {
   computeTickHash,
   computeTickHashSeries,
@@ -100,4 +165,8 @@ module.exports = {
   extractHashedFields,
   HASHED_FIELDS,
   QUANT,
+  // v2.3-W3: 诊断 hash（不进 release gate，仅 replay-diff 诊断用）
+  computeEventLogHash,
+  computeMemoryHash,
+  computeAgentStateHash,
 };
