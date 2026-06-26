@@ -22,11 +22,7 @@ Foundation Alpha 阶段（单人开发）的发布与合入门禁准则。本 RF
 - 全局 coverage **不作为 Foundation Alpha 的 Release blocker**。
 - Coverage 作为 **trend metric + regression warning**：每次 release 记录当前 lines/statements/functions/branches 数值到 `docs/quality/coverage-trend.md`，若较上次 release 下降超过 3 个百分点（任意一项），发 warning，需在 release notes 说明原因。
 - 成熟版本（Foundation Beta 起）可重新评估是否将 coverage 提升为 Release blocker。届时单独发 RFC，不在本 RFC 内承诺阈值。
-- **v8 thresholds 处理（审计 B2）**：`vitest.config.js:31-36` 当前仍声明 thresholds（stmt 80 / branch 70 / func 85 / line 80），实测 `npx vitest run --coverage` 会因 functions 77.7% < 85、branches 68.0% < 70 而 fail（exit 1）。RFC 说"不阻塞"但 thresholds 仍 fail，构成内部矛盾。本 RFC 生效时须一并处理 thresholds，三选一：
-  - (a) 移除 thresholds；
-  - (b) 改为 warning 不 fail；
-  - (c) 声明 `--coverage` 不进任何 gate，仅产 trend 数据（届时 thresholds 应一并移除以避免误 fail）。
-  - **推荐 (c)**：`--coverage` 仅产 trend 数据写入 `docs/quality/coverage-trend.md`，thresholds 移除。该项为 R5 判定工具落地前的过渡措施。
+- **v8 thresholds 处理（审计 B2，方案 c 已落地）**：总规划师已确认采纳方案 (c)。W1 已执行：`vitest.config.js` 的 `coverage.thresholds` 块已移除；`package.json` `test:coverage` 修正为 `vitest run --coverage`（修正既有 watch-mode bug）；`npm run test:coverage` 现产出 coverage 报告且 exit 0，不再因阈值失败退出。coverage 数据进入 `docs/quality/coverage-trend.md` 供趋势追踪。W1 基线数值（v2.0.1）：stmts 80.56 / branches 68.46 / functions 77.96 / lines 82.48。
 
 ## 3. 五项 Release blocker
 
@@ -93,7 +89,7 @@ R5（模块清单审计）成本较高，留作 release 前一次性校验。若
 - **S2（裁定）**：两段式分层设计本身合理，真正问题是 B1（机制未实现），判定标准不变。
 - **S3（裁定）**：coverage 降为 trend metric 合理，方向不变。
 
-## 9. v0.3 后待总规划师确认的问题
+## 9. 后续待办
 
-- §2 的 thresholds 处理三选一，推荐 (c) 是否采纳；若采纳，移除 `vitest.config.js` thresholds 属代码改动，需单独立任务波次（不属本 RFC 范围）。
-- R5 判定工具实现属代码任务，本 RFC 仅定义标准与生效条件；工具落地后再回头验证"全守护状态"。
+- §2 thresholds 处理：**已落地**（W1，方案 c 已执行）。
+- R5 判定工具实现属 W2 任务，本 RFC 仅定义标准与生效条件；工具落地后再回头验证"全守护状态"。

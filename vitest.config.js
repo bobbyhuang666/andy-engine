@@ -28,12 +28,9 @@ export default defineConfig({
         // 属环境条件 dead code,排除出分母。若 native binding 可用,需在 binding 环境单独跑覆盖。
         'src/agent/psychology/*.native.js',
       ],
-      thresholds: {
-        statements: 80,   // 语句覆盖率 80%
-        branches: 70,     // 分支覆盖率 70%
-        functions: 85,    // 函数覆盖率 85%
-        lines: 80,        // 行覆盖率 80%
-      },
+      // thresholds 已移除 (W1, QUALITY_GATE_RFC v0.3 §2 方案 c):
+      // Foundation Alpha 阶段 coverage 仅作 trend metric,不作 release/merge blocker。
+      // 趋势数据写入 docs/quality/coverage-trend.md; 3pp 回归 warning 见 RFC §2。
     },
   },
 });

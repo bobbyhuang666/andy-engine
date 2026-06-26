@@ -6,7 +6,7 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest --coverage",
+    "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "test:domain": "vitest run tests/domain.test.js tests/domain-deep.test.js tests/domain-contract.test.js tests/source-scan.test.js tests/fallback-minimal.test.js",
     "test:compat": "vitest run tests/compatibility.test.js tests/package-boundary.test.js",
