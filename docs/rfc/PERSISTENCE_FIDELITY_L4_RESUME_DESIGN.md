@@ -1,12 +1,17 @@
 # Persistence Fidelity / L4 Resume Design RFC
 
-> 状态：v2.2 设计草案，待独立审计。仅文档，无实现。
+> 状态：v2.2 设计草案 v0.2，独立审计已审（B1/B2 required edits），总规划师裁决：实现继续暂停，先做 W0 精确诊断。仅文档，无实现。
 > 触及边界：**是**——本 RFC 判断的修复方向可能触及 Stable World Envelope / public persistence contract，需总规划师确认。
 > 来源：W6 L4 截断续跑降级 v2.2（REPLAY_TRUST_ROADMAP §7/§9），World Kernel Trust Phase 总规划师裁定当前不修复，先产出设计说明。
+> v0.2 变更（吸收审计 B1/B2）：根因表述降级为"待诊断确认"；补全同类风险审计（AndyWorld._scheduledEvents / WorldFactStore._nextId 对照 / 临时缓存排除）；新增 W0 精确诊断波次。
 
 ## 0. 摘要
 
-W6 原诊断"toWorldState 丢失累积 memory"**不成立**——v2.2 根因深挖发现 memory 序列化正常。真实根因是 **restore 语义不完整**：`EventDispatcher.toJSON()` 只持久化 `eventLog`，不持久化运行期结构（`pendingEvents` / `_nextId` / `eventIndex`），导致续跑行为渐变。本 RFC 判断修复是否触及 Stable Envelope，给出兼容策略与验收标准。
+W6 原诊断"toWorldState 丢失累积 memory"**不成立**——v2.2 根因深挖发现 memory 序列化正常（`engine.toJSON().agents.maya.memory` 是 array，18 条）。已定位一个真实缺陷：`EventDispatcher.toJSON()` 只持久化 `eventLog`，不持久化运行期结构（`pendingEvents` / `_nextId` / `eventIndex`）。
+
+**审计 B1 降级**：EventDispatcher 运行期结构未持久化是真实缺陷，但 **L4 tick 63 漂移精确根因待诊断确认**——因果链尚未证实（pendingEvents 缺失是否实际影响 L4 场景、是否为首个分叉源、是否还有其他未持久化 state 参与分叉，均需 W0 逐 tick 诊断）。
+
+本 RFC 在 W0 诊断完成前**不**做 schemaVersion bump、**不**扩 EventDispatcher.toJSON、**不**重生成 fixture。仅判断修复方向、给兼容策略草案、明确边界。
 
 ---
 
@@ -22,7 +27,7 @@ W6 原诊断"toWorldState 丢失累积 memory"**不成立**——v2.2 根因深�
 
 W6 诊断脚本 `tests/unit/replay-trust-l4.test.js` 的"诊断测试"基于错误前提——它断言 `envelope runtimeSnapshot.memory.memories 为空`，实际是路径错误导致读到 undefined。该诊断测试需在 v2.2 修正（取消基于错误前提的断言）。
 
-### 1.2 真实根因：restore 语义不完整
+### 1.2 已定位缺陷：EventDispatcher 运行期结构未持久化（L4 漂移精确根因待 W0 确认）
 
 L4 实测：续跑段 tick 50-62 hash 一致，tick 63（或 66，随环境微偏）起漂移。恢复点 tick 50 的 memory / RNG / agent 标量状态均一致，但续跑后行为渐变：
 
@@ -30,7 +35,7 @@ L4 实测：续跑段 tick 50-62 hash 一致，tick 63（或 66，随环境微�
 - emotion 微差（memory 差异触发不同 recall emotion delta）
 - tickHash（不含 memory）在多数 tick 一致，间歇性 mismatch
 
-根因定位（`src/runtime/EventDispatcher.js`）：
+已定位一个真实缺陷（`src/runtime/EventDispatcher.js`）：
 
 ```text
 EventDispatcher.toJSON() (line 563)
@@ -40,20 +45,30 @@ EventDispatcher.toJSON() (line 563)
     _nextId / eventIndex 等运行期结构不持久化"
 ```
 
-`pendingEvents`（line 29）在 `dispatch()`（line 425）中被清空。若 tick 流程末尾 pendingEvents 非空（有待下 tick dispatch 的 event），restore 后这些 pending 丢失，导致续跑首个 tick 行为偏移，进而 RNG 消耗路径分叉，memory 生成逐步偏离。
+`pendingEvents`（line 29）在 `dispatch()`（line 425）中被清空。**审计 B1 降级**：EventDispatcher 运行期结构未持久化是真实缺陷，但 **L4 tick 63 漂移精确根因待诊断确认**：
 
-### 1.3 为何 tick 63/66 才漂移（非 tick 51 即刻）
+- pendingEvents 缺失是否实际影响 L4 场景（恢复点 tick 50 末尾 pendingEvents 是否非空）？
+- 它是否是首个分叉源，还是其他未持久化 state 更早分叉？
+- 因果链（pendingEvents 缺失 → RNG 路径分叉 → memory 渐变 → hash 漂移）未经逐 tick 诊断证实。
 
-漂移是**累积性渐变**而非即刻断裂：
+以上问题需 W0 逐 tick dump full vs restored 状态诊断（见 §6.1）。在诊断完成前，本 RFC **不**断言 EventDispatcher 缺陷就是 L4 漂移根因。
 
-1. 恢复点 tick 50 状态一致（memory/RNG/agent 标量全等）。
+### 1.3 漂移现象的渐变性（现象描述，非根因结论）
+
+L4 漂移是**累积性渐变**而非即刻断裂（现象）：
+
+1. 恢复点 tick 50 状态一致（memory/RNG/agent 标量全等，已实测）。
 2. 续跑前若干 tick，pending 丢失的直接影响可能被 tickHash 字段过滤掩盖（HASHED_FIELDS = worldClock/characters/relationships/canonFacts/positions，不含 memory/eventLog 内部）。
-3. RNG 消耗路径因 pending 缺失而逐步偏移，累积到某 tick（~63-66）触发可见的 agent 状态分叉（position/emotion/behaviorField 漂移进入 hash 覆盖字段）。
-4. memory 差异（少 1 条）是 RNG 分叉的后果之一，非根因。
+3. RNG 消耗路径因 pending 缺失（假设性）逐步偏移，累积到某 tick（~63-66）触发可见的 agent 状态分叉（position/emotion/behaviorField 漂移进入 hash 覆盖字段）。
+4. memory 差异（少 1 条）可能是 RNG 分叉的后果之一，非根因——此点亦待 W0 证实。
 
-### 1.4 还有哪些状态可能同类丢失（同类风险审计）
+**注意**：以上是现象描述与假设，非根因结论。首个分叉 tick、分叉字段、触发路径均需 W0 逐 tick dump 确认。
 
-v2.2 深挖审计 `engine.toJSON()` 全字段，确认以下状态**已正确序列化**（非同类风险）：
+### 1.4 同类风险审计（B2 补全）
+
+审计范围：`engine.toJSON()`（含 `world.toJSON()` / `agent.toJSON()` / 各子系统 toJSON）的全部持久化字段，对照各子系统运行期实例字段，识别"实例存在但 toJSON 未输出"的运行期结构。
+
+**已正确序列化**（非同类风险，对照证据）：
 
 | state | 序列化 | 位置 |
 |---|---|---|
@@ -65,15 +80,27 @@ v2.2 深挖审计 `engine.toJSON()` 全字段，确认以下状态**已正确序
 | emotion.current | ✅ | `agents.maya.emotion` |
 | stateMachine.history | ✅ | `agents.maya.stateMachine.history` |
 | rngState | ✅ | top-level `rngState` |
+| WorldFactStore._nextId | ✅ 对照证据 | `src/canon/WorldFactStore.js:366` toJSON 含 nextId，`:378` fromJSON 恢复 |
+| factStore | ✅ | `data.factStore`（world.toJSON line 732） |
+| knowledgeStore | ✅ | `data.knowledgeStore`（world.toJSON line 735） |
 
-**同类风险**（运行期结构未持久化，需在 v2.2 修复时一并处理）：
+**同类风险**（运行期结构未持久化，待 W0 验证是否参与 L4 分叉）：
 
-| state | 序列化 | 风险 |
+| state | 序列化 | 风险 | 核实位置 |
+|---|---|---|---|
+| EventDispatcher.pendingEvents | ❌ 不持久化 | **高**：续跑首个 tick 丢失待 dispatch event（若恢复点末尾非空） | `src/runtime/EventDispatcher.js:29` 定义，`:563` toJSON 不含，`:425` dispatch 清空 |
+| EventDispatcher._nextId | ❌ 不持久化 | **中**：续跑后 event id 从 0 重新计数，可能与既有 eventLog id 冲突 | `src/runtime/EventDispatcher.js`，注释 `:574` 明确不持久化 |
+| EventDispatcher.eventIndex | ❌ 不持久化 | **中**：影响 event 检索索引 | 同上 |
+| AndyWorld._scheduledEvents | ❌ 不持久化 | **高**：调度事件队列丢失，续跑跳过已调度事件 | `src/runtime/AndyWorld.js:154` 定义，`:663` push，`:674` 处理，toJSON（`:717`）不含 |
+
+**明确排除**（每 tick 清空的临时缓存，非持久化对象，无需序列化）：
+
+| state | 排除理由 | 核实位置 |
 |---|---|---|
-| EventDispatcher.pendingEvents | ❌ 不持久化 | **高**：续跑首个 tick 丢失待 dispatch event |
-| EventDispatcher._nextId | ❌ 不持久化 | **中**：续跑后 event id 从 0 重新计数，可能与既有 eventLog id 冲突 |
-| EventDispatcher.eventIndex | ❌ 不持久化 | **中**：影响 event 检索索引 |
-| 其他可能的运行期缓存 | 待审 | 需在实现波次逐模块审计 |
+| EventDispatcher._recentContentByAgent | 每 tick dispatch 末尾 `.clear()`（line 428） | `src/runtime/EventDispatcher.js:35,428` |
+| EventDispatcher._recentEncounterPairs | 每 tick dispatch 末尾 `.clear()`（line 427） | `src/runtime/EventDispatcher.js:37,427` |
+
+**审计结论**：同类风险锁定为 4 项（EventDispatcher 3 字段 + AndyWorld._scheduledEvents），无"其他待审"留空。W0 诊断须验证这 4 项中哪些实际参与 L4 分叉。
 
 ---
 
@@ -135,7 +162,7 @@ eventIndex: 从 eventLog 重建
 
 **判断**：**允许，但需标记 fidelity level**。
 
-best-effort restore 意味着旧存档续跑**不保证 L4 一致性**（因 pendingEvents 丢失导致 RNG 路径分叉）。这是可接受的——旧存档本就是在 v2.1 schema 下生成，其续跑 fidelity 受限于生成时的序列化完整度。
+best-effort restore 意味着旧存档续跑**不保证 L4 一致性**（因运行期结构缺失，具体影响待 W0 确认）。这是可接受的——旧存档本就是在 v2.1 schema 下生成，其续跑 fidelity 受限于生成时的序列化完整度。
 
 ### 3.3 是否需要标记 fidelity level？
 
@@ -214,11 +241,26 @@ docs/quality/golden-corpus-changelog.md append:
 
 ---
 
-## 6. 实现波次建议（v2.2，不启动）
+## 6. 诊断波次（v2.2-W0，总规划师已批准启动）
 
-本 RFC 只设计，不启动实现。若总规划师批准，建议拆为：
+### v2.2-W0 Persistence Fidelity Root-Cause Diagnosis
 
-- **v2.2-W1**：EventDispatcher 持久化扩展（pendingEvents/_nextId/eventIndex）+ fromJSON 恢复 + 单元测试。
+> 状态：总规划师已批准启动（仅诊断，非实现）。
+> 边界：只允许诊断、dump、对比、写报告。不改 production code、不 bump schemaVersion、不改 Stable Envelope、不改 public API contract、不改 migration、不重生成 golden fixture、不把测试 skip/通过状态当目标。
+
+**W0 目标**：精确定位 L4 漂移根因，回答 7 个问题（见 W0 任务卡）。
+
+**W0 交付物**：`docs/current/PERSISTENCE_FIDELITY_ROOT_CAUSE_REPORT.md`（或等价诊断报告）。
+
+W0 任务卡单独输出（见本 RFC 提交后附件 `docs/waves/v2.2-W0-root-cause-diagnosis.md`）。
+
+---
+
+## 7. 实现波次建议（v2.2-W1+，W0 诊断确认后才讨论）
+
+本 RFC 当前**不**启动实现波次。W0 诊断完成并经审计确认根因后，才重新讨论是否进入实现。若届时批准，建议拆为：
+
+- **v2.2-W1**：根因对应的持久化扩展 + fromJSON 恢复 + 单元测试（具体字段视 W0 结论）。
 - **v2.2-W2**：schemaVersion bump 0.1.0→0.2.0 + migration（best-effort 补全）+ fidelityLevel。
 - **v2.2-W3**：L4 测试改写（取消 skip、移除错误前提、fidelity 断言）+ golden fixture 重生成 + changelog。
 - **v2.2-W4**：全量验收（npm test / replay:diff / aliveness:report D1 升级）。
@@ -227,10 +269,16 @@ docs/quality/golden-corpus-changelog.md append:
 
 ---
 
-## 7. 待独立审计的问题
+## 8. 待审计/总规划师裁定的问题（W0 诊断后回顾）
 
-1. schemaVersion bump 到 0.2.0（minor）是否合适，还是应 major（1.0.0）？当前 0.x.y 语义下，runtimeSnapshot 结构扩展算 minor 还是 major？
+1. schemaVersion bump 到 0.2.0（minor）是否合适，还是应 major（1.0.0）？当前 0.x.y 语义下，runtimeSnapshot 结构扩展算 minor 还是 major？（W0 确认根因后再定）
 2. fidelityLevel 放 runtimeSnapshot 内部还是 envelope 顶层？前者不触及 envelope schema，后者更可见但触及。
 3. best-effort restore 对旧存档续跑不保证 L4 一致性，是否需在 public API 文档明确声明？
 4. tickHash 的 HASHED_FIELDS 是否应纳入 eventLog 内部（当前不含）？若纳入，schemaVersion bump 会导致 tickHash 变化，需确认是否接受。
-5. W6 诊断测试基于错误前提，是否在 v2.2-W1 立即移除，还是等修复后一并改写？
+5. W6 错误诊断测试处理：暂不急着删除全部诊断测试，但必须停止引用错误结论。W0 完成后删除/改写 `memory.memories` 错误路径断言；可保留一个 regression test（memory 是 array，且 toWorldState/engine.toJSON 序列化正常）；新增真正根因对应的 regression test。
+
+---
+
+## 9. provenance 校正（审计 B5）
+
+独立审计报告写基线 HEAD 为 `531d70f`，但 v2.2 RFC 首版提交为 `2684b6d`。本次 v0.2 修订基于 `2684b6d`。后续报告/审计以本 RFC 实际 commit 为基线，避免 provenance 混乱。
