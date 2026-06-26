@@ -57,11 +57,11 @@ const DIMENSIONS = [
     id: 'D5',
     name: 'Grounded Narrative Faithfulness',
     standard: 'narrative regression corpus + violation tracking（不承诺语义完备）。',
-    entry: 'narrative regression corpus（待建，W8）',
+    entry: 'tests/unit/narrative-violation-corpus.test.js + tests/fixtures/narrative-violations/',
     owner: 'narrative 层',
-    // D5 特殊：corpus 未建为已定稿事实
-    special: 'Gap',
-    specialNote: 'corpus 未建（W8 待启动）。FactConsistencyChecker 当前为实验性/regex-based，仅作 violation 信号源。',
+    // D5: corpus 已建（W8），检出率 ≥80%，但 checker 仍实验性不达语义完备 → Warning
+    special: 'Warning (W8 corpus 已建)',
+    specialNote: 'corpus 首批 11 条覆盖 6 类，检出率 100% ≥80% 阈值（B3）。FactConsistencyChecker 当前为实验性/regex-based，仅作 violation 信号源，不达语义完备。误报率作为辅助信号，待 corpus 扩到 ≥30 后纳入 Warning 判定。',
   },
   {
     id: 'D6',
@@ -151,7 +151,13 @@ function findFileStatus(parsed, fileSubstring) {
 function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult) {
   // 特殊维度（已定稿事实）
   if (dim.special === 'L4 降级 v2.2') return 'Warning';
-  if (dim.special === 'Gap') return 'Gap';
+
+  // D5: corpus 已建（W8），检出率测试 pass 即 Warning（不达语义完备但 Gap 已消除）
+  if (dim.id === 'D5') {
+    const corpusStatus = findFileStatus(testParsed, 'narrative-violation-corpus');
+    if (corpusStatus === 'pass') return 'Warning';
+    return 'Gap';
+  }
 
   // D7: domain gate
   if (dim.id === 'D7') {

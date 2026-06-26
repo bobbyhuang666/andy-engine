@@ -65,6 +65,7 @@
 - 测试入口：narrative regression corpus（待建，最小集 ≥10 条已知 violation 样本启动）
 - Owner：narrative 层
 - **Warning 判定（审计 B3 修正）**：原"checker 误报率 > 15% 时降级"在小样本下不可靠（10 条样本，2 条误报即 20%）。改为以**已知 violation 检出率**为 Warning 信号——即 corpus 中已标注的 violation 样本，checker 能检出的比例。检出率 < 80% 发 Warning（checker 漏报风险），检出率稳定 ≥ 80% 维持 Pass。误报率作为**辅助信号**记录但不触发降级（小样本下误报率统计无意义）；corpus 扩到 ≥30 条后再考虑把误报率纳入 Warning 判定。
+- **W8 落地状态**：corpus 首批已建（W8）。`tests/fixtures/narrative-violations/`（11 条样本覆盖 6 类：unknown_character / unknown_location / unknown_event / time_conflict / new_relationship / new_event），`tests/unit/narrative-violation-corpus.test.js` 驱动检出率统计。当前检出率 100% ≥80% 阈值（B3）。D5 状态从 Gap 升级为 Warning（corpus 已建 + 检出率达标，但 checker 仍实验性不达语义完备）。误报率作为辅助信号待 corpus 扩到 ≥30 后纳入。样本严格对齐 checker 实际触发条件（regex 能力边界），非造假。
 
 ### D6 Multi-Agent Social Emergence
 

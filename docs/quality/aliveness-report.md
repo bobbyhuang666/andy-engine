@@ -1,15 +1,15 @@
 # Aliveness Report
 
-> 生成时间: 2026-06-26T04:44:37.931Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
+> 生成时间: 2026-06-26T05:05:13.077Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
 > ALIVENESS_BENCHMARK_RFC v0.3 §3 报告制度。每次 release 重新生成。
 
 ## 测试命令快照
 
 | 命令 | 退出码 | 关键输出 |
 |---|---|---|
-| npm test | 0 | Test Files  157 passed (157) / Tests  2574 passed | 2 skipped (2576) |
+| npm test | 0 | Test Files  158 passed (158) / Tests  2588 passed | 2 skipped (2590) |
 | npm run test:domain | 0 |  Test Files  5 passed (5) /       Tests  81 passed (81) |
-| npm run perf:check | 0 | 100 agents avg/tick                25.15     25.52   0.99x   ✓ PASS / 300 agents avg/tick               182.01    202.48    0.9x   ✓ PASS / fixed-clustered gather (ms)        36.76     33.87   1.09x   ✓ PASS / fixed-clustered cache (ms)          5.93      7.33   0.81x   ✓ PASS / runtime-clustered gather (ms)      31.31     34.85    0.9x   ✓ PASS / ✓ All performance checks passed |
+| npm run perf:check | 0 | 100 agents avg/tick                23.97     25.52   0.94x   ✓ PASS / 300 agents avg/tick               175.84    202.48   0.87x   ✓ PASS / fixed-clustered gather (ms)        34.35     33.87   1.01x   ✓ PASS / fixed-clustered cache (ms)          5.74      7.33   0.78x   ✓ PASS / runtime-clustered gather (ms)      31.23     34.85    0.9x   ✓ PASS / ✓ All performance checks passed |
 | npm run replay:diff | 0 | ticks: 100 | matched: 100 | mismatched: 0 |
 
 ## 七维度状态
@@ -44,13 +44,13 @@
 - **Owner**: effects 层
 - **测试输出引用**: tests/unit/effects/ 1/1 文件 pass
 
-### D5 Grounded Narrative Faithfulness — Gap
+### D5 Grounded Narrative Faithfulness — Warning
 
 - **标准**: narrative regression corpus + violation tracking（不承诺语义完备）。
-- **测试入口**: narrative regression corpus（待建，W8）
+- **测试入口**: tests/unit/narrative-violation-corpus.test.js + tests/fixtures/narrative-violations/
 - **Owner**: narrative 层
-- **特殊说明**: Gap — corpus 未建（W8 待启动）。FactConsistencyChecker 当前为实验性/regex-based，仅作 violation 信号源。
-- **测试输出引用**: (入口非单一测试文件，见测试命令快照)
+- **特殊说明**: Warning (W8 corpus 已建) — corpus 首批 11 条覆盖 6 类，检出率 100% ≥80% 阈值（B3）。FactConsistencyChecker 当前为实验性/regex-based，仅作 violation 信号源，不达语义完备。误报率作为辅助信号，待 corpus 扩到 ≥30 后纳入 Warning 判定。
+- **测试输出引用**: tests/unit/narrative-violation-corpus.test.js pass
 
 ### D6 Multi-Agent Social Emergence — Warning
 
