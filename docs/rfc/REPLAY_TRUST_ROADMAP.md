@@ -122,8 +122,8 @@ hash 算法：Node 内置 `crypto.createHash('sha256')`，输出 hex。每 tick 
 | 等级 | 标准 | 当前状态 |
 |---|---|---|
 | L1 单 seed 单长度回放 | seed42 / 100ticks 通过 + per-tick hash 序列 | ✅ 已达（W3 含 tickHashes） |
-| L2 多 seed 回放 | ≥3 个 seed 各跑 100 ticks，hash 全匹配 | ⬜ v2.1 目标 |
-| L3 跨进程回放 | 同一 fixture 在不同进程启动回放，hash 全匹配 | ⬜ v2.1 目标（依赖墙上时钟修复已就位） |
+| L2 多 seed 回放 | ≥3 个 seed 各跑 100 ticks，hash 全匹配 | ✅ 已达（W5：seed 42/7/100 各自跨 run 一致 + seed 间不全等，证明 seed 参数化生效） |
+| L3 跨进程回放 | 同一 fixture 在不同进程启动回放， hash 全匹配 | ✅ 已达（W5：主进程 vs 子进程 spawn 一致 + 子进程间一致，证明无进程级非确定源，墙上时钟修复生效） |
 | L4 截断续跑 | 从 tick N 的快照续跑到 tick M，与全程回放的 tick M..M hash 一致 | ⬜ v2.1 目标 |
 
 **审计 Q1 采纳**：L4 保留 v2.1 目标，不预降级。理由：`WorldStateAdapter.fromWorldState()` 已实现（`src/store/world/WorldStateAdapter.js`），22 个可持久化类型有 `static fromJSON`、18 个 round-trip 断言已过，续跑底层能力已就位。原 §7 末段"若 schema 阻塞则降级 v2.2"的担忧在实际代码中未发现阻塞，故改为：**先在 v2.1 做实测验证，若实测发现 round-trip 有损再降级 v2.2 并在 RFC 记录**，不预先降级。
