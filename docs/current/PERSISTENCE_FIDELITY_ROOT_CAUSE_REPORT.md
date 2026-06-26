@@ -66,7 +66,7 @@ dump tick 47-49（恢复点前）+ tick 50：`scheduledLen` 全程 = 0。**_sche
 **真实传导链（未完全闭合）**：
 
 - `addExperience`（`PersonalMemory.js:183`）将 `eventId: event.id` 存入 memory。event id 冲突使 memory.eventId 指向与 full 不同的事件。
-- 审计建议的 `getEventChain` 路径经核实**未被调用**（grep 全仓无调用点），非传导路径。
+- 审计建议的 `getEventChain` 路径经核实真实方法名为 `getCausalChain`（`EventDispatcher.js:473`），**未被任何 production tick 流程或测试调用**（grep 全仓无调用点），非传导路径。
 - 真实传导更可能在 eventLog 内部检索/去重/event 处理顺序，但**未完全定位**。
 
 **漂移渐进性（实测，审计修正时间点）**：
