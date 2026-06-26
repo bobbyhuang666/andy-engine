@@ -26,12 +26,12 @@ v2.2 修复 L4 截断续跑后，暴露三个 v2.3 方向。本阶段不扩功�
 | W3 | Replay observability diagnostic hashes | 否 | W2 safety net 建立后 |
 | W4 | Snapshot compaction | — | **不启动**（未来单独 RFC） |
 
-## 3. W1 — Memory simTime consistency
+## 3. W1 — Memory simTime consistency（已完成）
 
 - **修复**：`PersonalMemory._simTime` 初值 `Date.now()` → `0`（与 ProceduralMemory 一致）。
-- **理由**：消除构造到 setSimTime 间的墙上时钟渗漏（line 97 createdAt / line 172-174 seed memory timestamp 用 _simTime）。
-- **characterization test**：setSimTime 前行为 deterministic（_simTime=0），setSimTime 后使用 sim time。
-- **验收**：npm test / test:domain / check:boundaries / smoke:pack / perf:check + L4 主测试仍 pass（_simTime 不进 tickHash，但改初值可能影响 seed memory timestamp，需验证 golden fixture drift）。
+- **characterization test**：`tests/unit/memory-simtime-consistency.test.js`（5 测试，锁定 setSimTime 前 deterministic + setSimTime 后用 sim time + 恢复后重置）。
+- **验收**：npm test 159文件/2600测试 / test:domain / boundaries / smoke / perf 全过；replay:diff 100/100（无 golden drift，seed memory 由 backgroundToMemories 传 simTime 不受初值影响）；L4 主测试仍 pass。
+- **边界**：未触及 Stable Envelope / schemaVersion / public API / release gate。
 
 ## 4. W2 — Memory characterization tests
 

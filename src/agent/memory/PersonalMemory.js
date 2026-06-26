@@ -46,7 +46,10 @@ class PersonalMemory {
 
     this._tickCache = new Map();
     this._tickCacheTick = -1;
-    this._simTime = Date.now();
+    // v2.3-W1: deterministic 初值（与 ProceduralMemory 一致），消除构造到 setSimTime
+    // 间的墙上时钟渗漏（line 97 createdAt / line 172-174 seed memory timestamp）。
+    // setSimTime（每 tick 由 AgentRuntime.tick 调用）覆盖为 sim time。
+    this._simTime = 0;
     const restoredMemories = savedMemories ? (Array.isArray(savedMemories) ? savedMemories : (savedMemories.memories || [])) : [];
     this._nextMemId = nextDynamicMemoryId(agentId, restoredMemories);
     this.appraisalBiases = [];
