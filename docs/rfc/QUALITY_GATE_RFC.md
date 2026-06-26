@@ -69,11 +69,12 @@ R5（模块清单审计）成本较高，留作 release 前一次性校验。若
 - **弱守护**：有 import 路径但 coverage 0%（warning，记录到 `docs/quality/module-guard-manifest.md`）
 - **未守护**：source-scan 找不到任何 import 路径 → **Release blocker**，必须在 release 前补测试或明确删除该模块。
 
-**审计 B1 修正（v0.3）**：R5 判定机制尚未实现——`tests/source-scan.test.js` 当前只做 campus terms / banned API / deterministic API / semantic profile / chinese fallback / bobby 六类扫描，**不含** §6 描述的 module-guard import 路径判定；`docs/quality/module-guard-manifest.md` 亦未创建。因此：
+**审计 B1 修正（v0.3）→ W2 落地后更新**：R5 主判定工具已落地（W2）。`scripts/module-guard-scan.js` 实现两段式判定的主判定（source-scan + test-manifest，递归可达性图）；`tests/module-guard.test.js` 驱动扫描并断言未守护模块不超过已知 Gap 白名单；`docs/quality/module-guard-manifest.md` 生成全量守护清单。
 
-- R5 作为 Release blocker 的**生效条件是 §6 判定工具先落地**；在工具落地前，R5 不得作为可执行 blocker 调用。
-- 已知具体事实仅：上一阶段曾未守护的 `src/effects/PositionDelta.js` 已补直接测试入口（`tests/unit/effects/position-delta.test.js`）。
-- "全守护状态"待 §6 工具落地后验证，**本草案不断言**。
+- 主判定已落地：147 模块全量判定，125 直接守护 / 21 间接守护 / 0 弱守护 / 1 已知 Gap。
+- 辅助判定（coverage 0% 弱守护）依赖 coverage artifact 按需生成，当前未跑 `test:coverage` 时该档不触发。
+- **已知 Gap**：`src/sdk/AndyTownAdapter.js`（Andy Town 外部服务适配层，非 Engine 逻辑，AGENTS.md 禁止 Engine Core 实现 Andy Town；文件未被任何 export/import 使用，属清理候选，本波次不动因超出写入边界）。Gap 原因记录于 `tests/module-guard.test.js` KNOWN_GAPS 白名单。
+- R5 仍**不立即作为可执行 release blocker 调用**——工具刚落地，先观察稳定性；正式作为 blocker 调用需后续波次确认扫描器在各 PR 场景下不误报/漏报。
 
 ## 7. 不做的事
 
