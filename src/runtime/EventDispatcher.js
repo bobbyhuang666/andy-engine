@@ -559,6 +559,14 @@ class EventDispatcher {
 
   /**
    * 序列化
+   *
+   * W1: 持久化 _nextId（event id 计数器）。此前只持久化 eventLog，restore 后 _nextId 重置为 0，
+   * 续跑首 tick event id 与既有 eventLog 冲突，导致 L4 截断续跑漂移
+   * （见 docs/current/PERSISTENCE_FIDELITY_ROOT_CAUSE_REPORT.md）。
+   *
+   * pendingEvents 在 dispatch 末尾清空（恢复点末尾通常为空，W0 证实），不持久化——
+   * 持久化会在 restore 后重复 dispatch 触发 memory 重复生成（W1 实测引入新分叉）。
+   * eventIndex 是 dispatch 时由 eventLog 重建的 Map 缓存，不持久化（fromJSON 主动重建）。
    */
   toJSON() {
     return {
@@ -566,15 +574,19 @@ class EventDispatcher {
         ...e,
         semanticCategory: e.semanticCategory,
       })),
+      _nextId: this._nextId,
     };
   }
 
   /**
    * 从 toJSON 输出反序列化为 EventDispatcher 实例。
-   * toJSON 只持久化最近 100 条 eventLog；_nextId / eventIndex 等运行期结构不持久化
-   *（与 AndyWorld 既有的 eventLog 回填路径一致）。
-   * 恢复路径中应传入真实 domain / rng；省略时回退默认域，仅供 round-trip / 测试。
-   * @param {Object} json - toJSON() 产出（{ eventLog }）
+   *
+   * W1: 恢复 _nextId。旧存档（0.1.0，无 _nextId 字段）走 best-effort 推算——
+   * 从 eventLog 最大 evt_<n> 推算 _nextId，避免续跑 event id 与既有冲突。
+   * eventIndex 由 eventLog 主动重建（dispatch 路径会 set，fromJSON 亦补建）。
+   * pendingEvents 不恢复（保持空，dispatch 末尾清空语义）。
+   *
+   * @param {Object} json - toJSON() 产出
    * @param {Object} [domain] - DomainRegistry 实例
    * @param {Object} [rng] - RNG 实例
    * @returns {EventDispatcher}
@@ -584,7 +596,21 @@ class EventDispatcher {
     if (json && Array.isArray(json.eventLog)) {
       for (const evt of json.eventLog) {
         ed.eventLog.push(evt);
+        // W1: 主动重建 eventIndex 缓存（此前依赖 dispatch 路径 set）
+        ed.eventIndex.set(evt.id, evt);
       }
+    }
+    // W1: 恢复 _nextId。优先用持久化值；缺字段（旧存档 0.1.0）时 best-effort 推算。
+    if (json && typeof json._nextId === 'number') {
+      ed._nextId = json._nextId;
+    } else if (ed.eventLog.length > 0) {
+      // best-effort: 从 eventLog 最大数字 id 推算（id 格式 evt_<n>）
+      let maxN = -1;
+      for (const evt of ed.eventLog) {
+        const m = /^evt_(\d+)$/.exec(evt.id || '');
+        if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
+      }
+      ed._nextId = maxN >= 0 ? maxN + 1 : 0;
     }
     return ed;
   }

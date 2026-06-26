@@ -823,10 +823,12 @@ class PersonalMemory {
     memory.accessCount++;
     memory.importance = Math.min(1, memory.importance + cfg.importanceBoostOnAccess);
 
-    // 只保留最近 20 次访问时间
-    if (memory.presentations.length > 20) {
-      memory.presentations = memory.presentations.slice(-20);
-    }
+    // W1: 移除运行时 presentations.slice(-20) 截断。
+    // 此前截断与 accessCount 累计不同步（accessCount 不截断，presentations 截断），
+    // 破坏 restore fidelity——_baseLevelActivation 遍历 presentations 计算，
+    // 截断后 full 与 restored 的访问历史语义不一致，导致 L4 漂移。
+    // 与 toJSON 层 presentations 完整持久化一致，保留完整访问历史。
+    // 未来若担心 payload/内存膨胀，另开 v2.3 memory compaction RFC。
   }
 
   /** @private */
@@ -1025,12 +1027,19 @@ class PersonalMemory {
       importance: m.importance,
       timestamp: m.timestamp.toISOString(),
       lastAccessed: m.lastAccessed.toISOString(),
-      presentations: m.presentations.slice(-20).map(t => t.toISOString()),
+      // W1: 完整持久化 presentations（此前 slice(-20) 截断破坏 restore fidelity，
+      // _baseLevelActivation 遍历 presentations 计算，截断后 baseLevel 改变导致 L4 漂移）。
+      // 未来若担心 payload 膨胀，另开压缩/摘要设计，当前不得用截断破坏 L4。
+      presentations: m.presentations.map(t => t.toISOString()),
       accessCount: m.accessCount,
       associations: m.associations,
       eventId: m.eventId,
       emotionSnapshot: m.emotionSnapshot,
       semanticCategory: m.semanticCategory || null,
+      // W1: 持久化 appraisal（认知评价元数据，用于反思和 _memorySimilarity 合并决策）。
+      // 此前未持久化，restore 后 null，_memorySimilarity 跳过 appraisal 分量，
+      // similarity 分数不同导致 consolidate 合并 pair 不同，L4 漂移（W0f 根因）。
+      appraisal: m.appraisal || null,
     }));
   }
 

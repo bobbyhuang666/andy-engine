@@ -22,3 +22,4 @@
 | date | commit | fixture | ticks | 原因 | 审阅人 |
 |---|---|---|---|---|---|
 | 2026-06-26 | b34b7fe | tests/fixtures/golden-campus-seed42-100ticks.json | 0-99 | W3 首版生成（含 _meta + tickHashes 升级，seed42/100ticks 基线） | W3 |
+| 2026-06-26 | W1 | tests/fixtures/golden-campus-seed42-100ticks.json | 0-99 | W1 runtimeSnapshot 持久化扩展（EventDispatcher._nextId + Agent._ticksSinceReflection/_ticksSinceDriftCheck + PersonalMemory.presentations 完整 + memory.appraisal）intentional drift，replay-diff 100/100 tickHash 一致 | W1 |

@@ -4,22 +4,12 @@
  * L4 语义：从 tick N 的快照续跑到 tick M，与全程回放的 tick M hash 一致。
  * 证明世界可持续（停服续跑不丢演化）。
  *
- * 触及 Stable World Envelope 边界：若 restore 有损，停下排查；
- * 若需改 schema/restore 语义回总规划师（W6 任务卡 §5）。
+ * v2.2-W1 修复：EventDispatcher._nextId + Agent._ticksSinceReflection/_ticksSinceDriftCheck
+ * 持久化恢复。此前因这些 runtime state 未持久化，restore 后续跑行为漂移。
  *
- * ── W6 实测结论（2026-06-26）：L4 降级 v2.2，根因已定位 ──
- *
- * 实测：续跑段 tick 50-62 hash 一致，tick 63 起漂移。根因：
- *   toWorldState() 序列化丢失累积 memory。
- *   tick 50 时 maya 运行时有 18 条 memory，但 envelope.runtimeSnapshot
- *   .agents.maya.memory.memories 为空数组（[]）。restore 自然无法还原
- *   未序列化的 memory，续跑后 memory 驱动的行为逐步偏离全程回放。
- *
- * 这是 Stable World Envelope 的序列化缺陷，触及边界。
- * 按 W6 任务卡 §5：不强行改 schema/测试掩盖，L4 降级 v2.2，回总规划师
- * 裁定是否在后续波次修复 toWorldState 序列化（需触碰 Stable Envelope）。
- *
- * 测试保留为 skip，记录诊断证据，待修复后取消 skip 验证。
+ * 根因诊断见 docs/current/PERSISTENCE_FIDELITY_ROOT_CAUSE_REPORT.md (W0, _nextId)
+ * 与 docs/current/MEMORY_DELETION_ROOT_CAUSE_REPORT.md (W0c, reflection counters)。
+ * W6 旧诊断"toWorldState 丢失 memory"已证伪（W0/W0c），memory 序列化正常。
  */
 
 import { describe, it, expect } from 'vitest';
@@ -30,7 +20,7 @@ const { computeTickHash } = require('../../src/store/world/tickHash');
 const START_TIME = new Date('2026-09-01T08:00:00Z');
 const SEED = 42;
 const TICKS = 100;
-const RESUME_AT = 50; // 截断点
+const RESUME_AT = 50;
 
 function buildSeededEngine(seed = SEED) {
   const engine = new AndyEngine({ seed, startTime: START_TIME });
@@ -39,9 +29,7 @@ function buildSeededEngine(seed = SEED) {
   return engine;
 }
 
-describe.skip('L4 Replay Trust — 截断续跑一致性 (W6: 降级 v2.2, toWorldState 丢失累积 memory)', () => {
-  // ── 以下测试因 Stable Envelope 序列化缺陷 skip，详见文件头 W6 实测结论 ──
-
+describe('L4 Replay Trust — 截断续跑一致性', () => {
   it('从 tick 50 快照续跑到 100，续跑段 hash 与全程回放一致', () => {
     const fullEngine = buildSeededEngine();
     const fullHashes = [];
@@ -55,6 +43,7 @@ describe.skip('L4 Replay Trust — 截断续跑一致性 (W6: 降级 v2.2, toWor
       resumeEngine.tick();
     }
 
+    // 恢复点状态一致性
     const hashAtResumeBefore = computeTickHash(toWorldState(resumeEngine, 'l4-resume'), RESUME_AT - 1).hash;
     const envelope50 = toWorldState(resumeEngine, 'l4-resume');
     const restoredEngine = fromWorldState(envelope50, {}, AndyEngine);
@@ -88,23 +77,96 @@ describe.skip('L4 Replay Trust — 截断续跑一致性 (W6: 降级 v2.2, toWor
   });
 });
 
-// ── W6 诊断证据测试（不 skip，证明根因，待修复后会失败促使取消 skip）──
-describe('W6 诊断: toWorldState 序列化丢失累积 memory (L4 阻塞根因)', () => {
-  it('tick 50 运行时 memory 数 > 0，但 envelope 序列化后 memory.memories 为空', () => {
+// W1 regression: runtime state restore fidelity
+describe('W1 regression: runtime state restore fidelity', () => {
+  it('EventDispatcher._nextId 在 toJSON→fromJSON 后一致', () => {
+    const engine = buildSeededEngine();
+    for (let i = 0; i < RESUME_AT; i++) engine.tick();
+    const beforeNextId = engine.world.eventDispatcher._nextId;
+
+    const env = toWorldState(engine, 'reg');
+    const restored = fromWorldState(env, {}, AndyEngine);
+    const afterNextId = restored.world.eventDispatcher._nextId;
+
+    expect(afterNextId, '_nextId 应恢复为 ' + beforeNextId).toBe(beforeNextId);
+  });
+
+  it('Agent._ticksSinceReflection 在 toJSON→fromJSON 后一致', () => {
+    const engine = buildSeededEngine();
+    for (let i = 0; i < RESUME_AT; i++) engine.tick();
+    const before = engine.getAllAgents().find(a => a.id === 'maya')._ticksSinceReflection;
+
+    const env = toWorldState(engine, 'reg');
+    const restored = fromWorldState(env, {}, AndyEngine);
+    const after = restored.getAllAgents().find(a => a.id === 'maya')._ticksSinceReflection;
+
+    expect(after, '_ticksSinceReflection 应恢复为 ' + before).toBe(before);
+  });
+
+  it('Agent._ticksSinceDriftCheck 在 toJSON→fromJSON 后一致', () => {
+    const engine = buildSeededEngine();
+    for (let i = 0; i < RESUME_AT; i++) engine.tick();
+    const before = engine.getAllAgents().find(a => a.id === 'leo')._ticksSinceDriftCheck;
+
+    const env = toWorldState(engine, 'reg');
+    const restored = fromWorldState(env, {}, AndyEngine);
+    const after = restored.getAllAgents().find(a => a.id === 'leo')._ticksSinceDriftCheck;
+
+    expect(after, '_ticksSinceDriftCheck 应恢复为 ' + before).toBe(before);
+  });
+
+  it('memory 是 array 且 toWorldState/engine.toJSON 序列化正常 (W6 旧根因推翻 regression)', () => {
     const engine = buildSeededEngine();
     for (let i = 0; i < RESUME_AT; i++) engine.tick();
 
     const agent = engine.getAllAgents().find(a => a.id === 'maya');
     const runtimeMemCount = agent.memory.memories.length;
-
-    const env = toWorldState(engine, 'l4-diag');
-    const snapMemCount = (env.runtimeSnapshot?.agents?.maya?.memory?.memories || []).length;
-
-    // 记录根因：运行时有累积 memory，序列化丢失
     expect(runtimeMemCount, 'tick 50 运行时应已有累积 memory').toBeGreaterThan(0);
-    // 当前缺陷：envelope 序列化后 memory.memories 为空
-    // 修复后此断言会 fail，提示取消 L4 主测试的 skip
-    expect(snapMemCount, 'envelope 应序列化累积 memory（当前缺陷：为空）').toBe(0);
+
+    const env = toWorldState(engine, 'reg');
+    // memory 在 runtimeSnapshot.agents.maya.memory，是 array（非 {memories:[]} 嵌套）
+    const snapMem = env.runtimeSnapshot?.agents?.maya?.memory;
+    expect(Array.isArray(snapMem), 'envelope memory 应是 array（W6 旧诊断误读为 .memories 嵌套）').toBe(true);
+    expect(snapMem.length, 'envelope 应序列化全部累积 memory').toBe(runtimeMemCount);
+  });
+
+  it('旧存档缺 _nextId 时 best-effort 推算（从 eventLog 最大 id）', () => {
+    const engine = buildSeededEngine();
+    for (let i = 0; i < RESUME_AT; i++) engine.tick();
+    const env = toWorldState(engine, 'reg');
+
+    // 模拟旧存档：删除 _nextId 字段
+    const oldArchive = JSON.parse(JSON.stringify(env));
+    delete oldArchive.runtimeSnapshot.events._nextId;
+
+    const restored = fromWorldState(oldArchive, {}, AndyEngine);
+    const restoredNextId = restored.world.eventDispatcher._nextId;
+
+    // best-effort: 从 eventLog 最大 evt_<n> 推算
+    let maxN = -1;
+    for (const evt of oldArchive.runtimeSnapshot.events.eventLog || []) {
+      const m = /^evt_(\d+)$/.exec(evt.id || '');
+      if (m) maxN = Math.max(maxN, parseInt(m[1], 10));
+    }
+    const expected = maxN >= 0 ? maxN + 1 : 0;
+    expect(restoredNextId, '旧存档应 best-effort 推算 _nextId').toBe(expected);
+  });
+
+  it('旧存档缺 _ticksSinceReflection 时 best-effort 默认 0', () => {
+    const engine = buildSeededEngine();
+    for (let i = 0; i < RESUME_AT; i++) engine.tick();
+    const env = toWorldState(engine, 'reg');
+
+    // 模拟旧存档：删除计数器字段
+    const oldArchive = JSON.parse(JSON.stringify(env));
+    for (const id of Object.keys(oldArchive.runtimeSnapshot.agents || {})) {
+      delete oldArchive.runtimeSnapshot.agents[id]._ticksSinceReflection;
+      delete oldArchive.runtimeSnapshot.agents[id]._ticksSinceDriftCheck;
+    }
+
+    const restored = fromWorldState(oldArchive, {}, AndyEngine);
+    const maya = restored.getAllAgents().find(a => a.id === 'maya');
+    expect(maya._ticksSinceReflection, '旧存档缺字段应默认 0').toBe(0);
+    expect(maya._ticksSinceDriftCheck, '旧存档缺字段应默认 0').toBe(0);
   });
 });
-

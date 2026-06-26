@@ -140,11 +140,12 @@ class AndyWorld {
     );
 
     // ─── 事件系统 ───
-    this.eventDispatcher = new EventDispatcher(this.domain, this.rng);
+    // W1: 用 EventDispatcher.fromJSON 恢复（含 _nextId/pendingEvents/eventIndex 重建），
+    // 此前直接 push eventLog 绕过了 _nextId 恢复，导致 L4 截断续跑漂移。
     if (savedState && savedState.events) {
-      for (const evt of savedState.events.eventLog || []) {
-        this.eventDispatcher.eventLog.push(evt);
-      }
+      this.eventDispatcher = EventDispatcher.fromJSON(savedState.events, this.domain, this.rng);
+    } else {
+      this.eventDispatcher = new EventDispatcher(this.domain, this.rng);
     }
 
     // ─── EffectCommitter（复用，减少 GC 压力）───

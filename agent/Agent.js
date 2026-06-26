@@ -79,10 +79,10 @@ class Agent {
     // ─── Runtime state ───
     this._behavior = this.personality.behavior;
     this._socialGraphRef = null;
-    this._ticksSinceReflection = 0;
+    this._ticksSinceReflection = savedState ? (savedState._ticksSinceReflection || 0) : 0;
     this._reflectionInterval = AGENT_DEFAULTS.reflectionInterval;
     this._recentEventTypes = new Set();
-    this._ticksSinceDriftCheck = 0;
+    this._ticksSinceDriftCheck = savedState ? (savedState._ticksSinceDriftCheck || 0) : 0;
     this._actionTraceHistory = savedState ? (savedState._actionTraceHistory || []) : [];
     this._candidateProviderManager = null; // lazy init
     this.runtime = new AgentRuntime(this);
