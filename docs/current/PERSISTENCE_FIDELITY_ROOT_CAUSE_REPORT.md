@@ -3,7 +3,7 @@
 > 阶段：v2.2-W0 诊断（非实现）
 > 诊断脚本：`scripts/l4-divergence-diag.js`
 > 基线 commit：`f1b7dbb`（W0 任务卡）基于 `4287b06`（RFC v0.2）
-> 状态：根因字段定位扎实（edNextId 唯一分叉），独立审计复核 Pass with required edits（B1 因果链已修正）。传导链未完全闭合但不阻塞 W1，待总规划师批准。
+> 状态：**已闭环**（v2.2-W1 修复 _nextId 持久化，commit `1de1176`）。此报告定位的 _nextId 是 5 层根因的第 1 层；后续 W0c/W0e/W0f 定位第 2-5 层，全部经 v2.2-W1 修复，L4 达标。本报告保留作诊断链审计痕迹，根因结论仍有效（_nextId 未持久化是真实缺陷，已修）。
 
 ## 0. 摘要
 

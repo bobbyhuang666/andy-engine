@@ -87,7 +87,7 @@ P3 Aliveness Lane    报告制度与维度口径（先口径后 corpus）
 - **依据**：REPLAY_TRUST §7 Q1（L4 保留 v2.1，实测有损再降 v2.2）。
 - **验收**：从 tick N 快照续跑到 tick M，与全程回放 tick M hash 一致。
 - **停止条件**：实测发现 `fromWorldState` / `runtimeSnapshot` / schema 无法支持续跑，且需改 Stable World Envelope 或 public persistence contract → **立即停止并回总规划师确认**。仅测试/replay 工具层补验证不触碰 schema，无需提前单独批准。
-- **决策点**：实测通过→v2.1 L4 达标；实测有损→降级 v2.2 并在 RFC 记录原因。
+- **决策点**：实测通过→v2.1 L4 达标；实测有损→降级 v2.2 并在 RFC 记录原因。（**已闭环**：W6 实测有损降级 v2.2，经 v2.2-W1 5 层修复后 L4 达标，见 REPLAY_TRUST_ROADMAP §9）
 
 ## 5. P3 Aliveness Lane
 

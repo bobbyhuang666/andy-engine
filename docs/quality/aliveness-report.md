@@ -1,26 +1,26 @@
 # Aliveness Report
 
-> 生成时间: 2026-06-26T05:05:13.077Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
+> 生成时间: 2026-06-26T08:34:55.789Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
 > ALIVENESS_BENCHMARK_RFC v0.3 §3 报告制度。每次 release 重新生成。
 
 ## 测试命令快照
 
 | 命令 | 退出码 | 关键输出 |
 |---|---|---|
-| npm test | 0 | Test Files  158 passed (158) / Tests  2588 passed | 2 skipped (2590) |
+| npm test | 0 | Test Files  158 passed (158) / Tests  2595 passed (2595) |
 | npm run test:domain | 0 |  Test Files  5 passed (5) /       Tests  81 passed (81) |
-| npm run perf:check | 0 | 100 agents avg/tick                23.97     25.52   0.94x   ✓ PASS / 300 agents avg/tick               175.84    202.48   0.87x   ✓ PASS / fixed-clustered gather (ms)        34.35     33.87   1.01x   ✓ PASS / fixed-clustered cache (ms)          5.74      7.33   0.78x   ✓ PASS / runtime-clustered gather (ms)      31.23     34.85    0.9x   ✓ PASS / ✓ All performance checks passed |
+| npm run perf:check | 0 | 100 agents avg/tick                27.13     25.52   1.06x   ✓ PASS / 300 agents avg/tick               202.19    202.48      1x   ✓ PASS / fixed-clustered gather (ms)        37.77     33.87   1.12x   ✓ PASS / fixed-clustered cache (ms)          6.07      7.33   0.83x   ✓ PASS / runtime-clustered gather (ms)      37.63     34.85   1.08x   ✓ PASS / ✓ All performance checks passed |
 | npm run replay:diff | 0 | ticks: 100 | matched: 100 | mismatched: 0 |
 
 ## 七维度状态
 
-### D1 World Persistence — Warning
+### D1 World Persistence — Pass
 
 - **标准**: 世界状态可序列化→反序列化→续跑，结构无损。
-- **测试入口**: tests/unit/persistence-trust.test.js (G1/G2/G3/G6) + golden-seed-replay L1-L3
+- **测试入口**: tests/unit/persistence-trust.test.js (G1/G2/G3/G6) + golden-seed-replay L1-L4 + tests/unit/replay-trust-l4.test.js
 - **Owner**: store 层
-- **特殊说明**: L4 降级 v2.2 — 基础恢复可用，但截断续跑 fidelity 未达 v2.1。W6 实测：toWorldState 丢失累积 memory（tick50 运行时 18 条 → envelope 0 条），restore 后续跑从 tick 63 起漂移。诊断证据见 tests/unit/replay-trust-l4.test.js（诊断测试通过证明根因，主测试 skip）。
-- **测试输出引用**: persistence-trust pass / golden-seed-replay pass / replay:diff exit 0
+- **特殊说明**: Pass (v2.2-W1 L4 修复) — v2.2-W1（commit 1de1176）完整修复 5 层 runtimeSnapshot 持久化缺口（EventDispatcher._nextId / Agent reflection counters / PersonalMemory presentations / memory.appraisal），L4 截断续跑主测试通过，续跑段 hash 与全程一致。W6 旧根因"toWorldState 丢失 memory"已证伪（memory 序列化正常）。
+- **测试输出引用**: persistence-trust pass / golden-seed-replay pass / replay-trust-l4 pass / replay:diff exit 0
 
 ### D2 Character Continuity — Pass
 

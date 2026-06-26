@@ -124,41 +124,42 @@ hash 算法：Node 内置 `crypto.createHash('sha256')`，输出 hex。每 tick 
 | L1 单 seed 单长度回放 | seed42 / 100ticks 通过 + per-tick hash 序列 | ✅ 已达（W3 含 tickHashes） |
 | L2 多 seed 回放 | ≥3 个 seed 各跑 100 ticks，hash 全匹配 | ✅ 已达（W5：seed 42/7/100 各自跨 run 一致 + seed 间不全等，证明 seed 参数化生效） |
 | L3 跨进程回放 | 同一 fixture 在不同进程启动回放， hash 全匹配 | ✅ 已达（W5：主进程 vs 子进程 spawn 一致 + 子进程间一致，证明无进程级非确定源，墙上时钟修复生效） |
-| L4 截断续跑 | 从 tick N 的快照续跑到 tick M，与全程回放的 tick M..M hash 一致 | ⬜ 降级 v2.2（W6 已实测，未通过；不是未验证。降级原因已定位：toWorldState 丢失累积 memory，restore 后续跑从 tick 63 起漂移。总规划师裁定当前阶段不修复，记录为 v2.2 Persistence Fidelity 议题） |
+| L4 截断续跑 | 从 tick N 的快照续跑到 tick M，与全程回放的 tick M..M hash 一致 | ✅ 已达（v2.2-W1：5 层 persistence fidelity 修复后 L4 主测试通过，续跑段 hash 与全程一致） |
 
-**审计 Q1 采纳 → W6 实测更新（总规划师已裁定）**：L4 原"不预降级"方向正确（底层 fromWorldState 已实现）。W6 实测发现 round-trip 有损：续跑段 tick 50-62 hash 一致，tick 63 起漂移。根因——`toWorldState()` 序列化丢失累积 memory（tick 50 运行时 maya 有 18 条 memory，envelope runtimeSnapshot.memory.memories 为空）。restore 无法还原未序列化 memory，续跑后行为逐步偏离。
+**W6 → v2.2-W1 修复闭环**：W6 实测 L4 失败（tick 63 起漂移），根因经 W0/W0c/W0e/W0f 四轮诊断定位为 5 个 runtimeSnapshot 持久化缺口：EventDispatcher._nextId / Agent reflection counters / PersonalMemory presentations（toJSON 截断 + 运行时截断）/ memory.appraisal。v2.2-W1（commit `1de1176`）完整修复 5 层，L4 主测试通过，续跑段 hash 与全程一致。W6 旧根因"toWorldState 丢失累积 memory"已证伪（memory 序列化正常，是 _nextId 等运行期结构未持久化）。
 
-**W6 定稿结论**：L4 已实测，未通过；不是未验证。降级原因已定位。总规划师裁定当前阶段不修复 toWorldState 序列化（属 persistence fidelity / runtimeSnapshot restore 语义问题，需先有设计说明和迁移/兼容判断，见 §9 v2.2 议题）。诊断证据见 `tests/unit/replay-trust-l4.test.js`（诊断测试通过证明根因，主测试 skip）。
+**v2.2 Persistence Fidelity 议题关闭**：L4 不再是降级项。后续若发现新 persistence fidelity 问题，作为新议题重新开 RFC。
 
 ## 8. 审计裁定记录
 
-- **Q1（已采纳 → W6 定稿）**：L4 保留 v2.1，不预降级；实测有损再降。W6 实测有损，降级 v2.2。总规划师裁定当前阶段不修复，记录为 §9 v2.2 议题。
+- **Q1（已采纳 → W6 定稿 → v2.2-W1 闭环）**：L4 保留 v2.1，不预降级；实测有损再降。W6 实测有损降级 v2.2，经 W0/W0c/W0e/W0f 四轮诊断定位 5 层 persistence fidelity 缺口，v2.2-W1（commit `1de1176`）完整修复，L4 主测试通过，恢复达标。
 - **Q2（已采纳）**：9 位量化精度保持不变。
 - **Q3（已采纳）**：`--accept-intentional` 仅跳过立即 fail，不跳过 changelog（§4 已写入）。
 - **S4（已记录）**：generationCommand 须对齐真实脚本（§3 已写入）。
 - **S5（已采纳）**：确定性边界声明作为 SERIALIZATION_CONTRACT 增补章节（§2 已写入）。
 
-## 9. v2.2 预留议题（不启动实现）
+## 9. v2.2 Persistence Fidelity 议题（已关闭）
 
 ### v2.2 Persistence Fidelity / L4 Resume Design
 
-> 状态：预留议题，当前阶段不执行。W6 已实测定位根因，待后续独立设计。
+> 状态：**已关闭**（v2.2-W1 完整修复，L4 达标）。
 
-**背景**：W6 实测 L4 截断续跑失败，根因 `toWorldState()` 序列化丢失累积 memory（tick 50 运行时 18 条 → envelope 0 条），restore 后续跑从 tick 63 起漂移。
+**背景**：W6 实测 L4 截断续跑失败。经 W0（_nextId）/ W0c（reflection counters）/ W0e（presentations 截断）/ W0f（appraisal 未持久化）四轮诊断，定位 5 个 runtimeSnapshot 持久化缺口。
 
-**v2.2 目标（仅设计判断，不实现）**：
+**v2.2-W1 修复（commit `1de1176`）**：
+1. EventDispatcher._nextId 持久化/恢复 + best-effort 推算
+2. Agent._ticksSinceReflection / _ticksSinceDriftCheck 持久化/恢复
+3. PersonalMemory.toJSON presentations 完整持久化（移除 slice(-20)）
+4. PersonalMemory._touchMemory 运行时 presentations 不截断（移除 line 827-828）
+5. memory.appraisal 持久化
 
-1. 判断 toWorldState memory 修复是否只是 `runtimeSnapshot` opaque payload 内部补全，还是触碰 Stable Envelope / public persistence contract。
-2. 明确是否需要：
-   - schemaVersion bump（当前 0.1.0）
-   - migration 路径（既有 fixture 更新）
-   - fixture 重新生成（`golden:regen`）
-   - 兼容策略（旧 fixture 能否加载，或强制重生）
-3. 给出 L4 恢复路线：修复序列化 → 取消 `tests/unit/replay-trust-l4.test.js` 主测试 skip → 验证续跑段 hash 一致 → L4 重达 v2.2。
+L4 主测试取消 skip 并通过，续跑段 hash 与全程一致。golden fixture 走 changelog 重生成（intentional runtimeSnapshot drift）。全量门控全绿。
 
-**不做什么（当前阶段）**：
-- 不改 toWorldState / fromWorldState restore 语义。
-- 不改 Stable Envelope schema。
-- 不为了让 L4 变绿绕过 hash 或调低测试标准。
+**结论**：L4 不再是降级项。Replay Trust 等级 L1-L4 全部达标。后续若发现新 persistence fidelity 问题，作为新议题重新开 RFC。
 
-**触发条件**：本议题在 v2.2 阶段启动时，需先产出设计说明 + 迁移/兼容判断，经总规划师批准后方可实现。
+### 非阻塞后续议题（记录但不启动）
+
+- PersonalMemory / ProceduralMemory `_simTime` 初始化一致性
+- runtimeSnapshot payload 体积增长与未来 compaction（presentations 完整保留后体积增大）
+- 是否在未来 schemaVersion 0.2.0 显式区分 full fidelity / best-effort
+- eventLogHash 是否单独引入

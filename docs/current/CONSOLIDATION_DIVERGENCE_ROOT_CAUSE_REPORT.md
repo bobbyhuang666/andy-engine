@@ -3,7 +3,7 @@
 > 阶段：v2.2-W0f 诊断（非实现），**最终根因报告**（最后一轮 L4 诊断）
 > 诊断脚本：`scripts/l4-consolidation-divergence-diag.js`
 > 基线 commit：`6c2e6f9`（W0f 任务卡），基于 W1 partial（4 层修复工作树改动保留未提交）
-> 状态：第六层根因闭合。`memory.appraisal` 未持久化。
+> 状态：**已闭环**（v2.2-W1 修复 memory.appraisal 持久化，commit `1de1176`）。此报告定位的 appraisal 未持久化是 5 层根因的第 5 层（最后一层），已修。L4 达标。本报告保留作诊断链审计痕迹，根因结论仍有效。
 
 ## 0. 摘要
 

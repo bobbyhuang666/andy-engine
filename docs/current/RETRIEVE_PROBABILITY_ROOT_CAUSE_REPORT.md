@@ -3,7 +3,7 @@
 > 阶段：v2.2-W0e 诊断（非实现），**最终根因报告**（W0b/W0d 相关错误结论 superseded）
 > 诊断脚本：`scripts/l4-retrieve-probability-diag.js`
 > 基线 commit：`6672e15`（W0e 任务卡），基于 W1 partial（_nextId + counters 工作树改动保留未提交）
-> 状态：根因最终闭合（独立审计 + 总规划师裁决）。第四层根因是 `PersonalMemory.toJSON()` 的 `presentations.slice(-20)` 截断。
+> 状态：**已闭环**（v2.2-W1 修复 presentations 完整持久化 + 运行时截断移除，commit `1de1176`）。此报告定位的 presentations 截断是 5 层根因的第 3-4 层，已修。L4 达标。本报告保留作诊断链审计痕迹，根因结论仍有效。
 
 ## 0. 摘要
 

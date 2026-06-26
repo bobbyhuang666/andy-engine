@@ -25,11 +25,11 @@ const DIMENSIONS = [
     id: 'D1',
     name: 'World Persistence',
     standard: '世界状态可序列化→反序列化→续跑，结构无损。',
-    entry: 'tests/unit/persistence-trust.test.js (G1/G2/G3/G6) + golden-seed-replay L1-L3',
+    entry: 'tests/unit/persistence-trust.test.js (G1/G2/G3/G6) + golden-seed-replay L1-L4 + tests/unit/replay-trust-l4.test.js',
     owner: 'store 层',
-    // D1 特殊：L4 降级为已定稿事实（W6），非实时测试结果
-    special: 'L4 降级 v2.2',
-    specialNote: '基础恢复可用，但截断续跑 fidelity 未达 v2.1。W6 实测：toWorldState 丢失累积 memory（tick50 运行时 18 条 → envelope 0 条），restore 后续跑从 tick 63 起漂移。诊断证据见 tests/unit/replay-trust-l4.test.js（诊断测试通过证明根因，主测试 skip）。',
+    // D1: v2.2-W1 修复后 L4 达标（5 层 persistence fidelity 修复）
+    special: 'Pass (v2.2-W1 L4 修复)',
+    specialNote: 'v2.2-W1（commit 1de1176）完整修复 5 层 runtimeSnapshot 持久化缺口（EventDispatcher._nextId / Agent reflection counters / PersonalMemory presentations / memory.appraisal），L4 截断续跑主测试通过，续跑段 hash 与全程一致。W6 旧根因"toWorldState 丢失 memory"已证伪（memory 序列化正常）。',
   },
   {
     id: 'D2',
@@ -150,7 +150,7 @@ function findFileStatus(parsed, fileSubstring) {
 
 function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult) {
   // 特殊维度（已定稿事实）
-  if (dim.special === 'L4 降级 v2.2') return 'Warning';
+  if (dim.special === 'Pass (v2.2-W1 L4 修复)') return 'Pass';
 
   // D5: corpus 已建（W8），检出率测试 pass 即 Warning（不达语义完备但 Gap 已消除）
   if (dim.id === 'D5') {
@@ -164,12 +164,13 @@ function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult)
     return domainResult.status === 0 ? 'Pass' : 'Gap';
   }
 
-  // D1: persistence-trust + replay L1-L3
+  // D1: persistence-trust + replay L1-L4 + replay-trust-l4
   if (dim.id === 'D1') {
     const ptStatus = findFileStatus(testParsed, 'persistence-trust');
     const gsrStatus = findFileStatus(testParsed, 'golden-seed-replay');
-    // L4 降级是 Warning 源，但基础恢复 + L1-L3 pass 即整体 Warning（非 Gap）
-    if (ptStatus === 'pass' && gsrStatus === 'pass') return 'Warning';
+    const l4Status = findFileStatus(testParsed, 'replay-trust-l4');
+    // v2.2-W1: L4 达标，全部 pass 即 Pass
+    if (ptStatus === 'pass' && gsrStatus === 'pass' && l4Status === 'pass') return 'Pass';
     return 'Gap';
   }
 
@@ -245,7 +246,8 @@ function renderReport(dimensions, testParsed, domainResult, perfResult, replayRe
     } else if (dim.id === 'D1') {
       const ptStatus = findFileStatus(testParsed, 'persistence-trust');
       const gsrStatus = findFileStatus(testParsed, 'golden-seed-replay');
-      lines.push(`- **测试输出引用**: persistence-trust ${ptStatus} / golden-seed-replay ${gsrStatus} / replay:diff exit ${replayResult.status}`);
+      const l4Status = findFileStatus(testParsed, 'replay-trust-l4');
+      lines.push(`- **测试输出引用**: persistence-trust ${ptStatus} / golden-seed-replay ${gsrStatus} / replay-trust-l4 ${l4Status} / replay:diff exit ${replayResult.status}`);
     } else if (dim.id === 'D4') {
       const effectsFiles = testParsed.fileResults.filter(f => f.file.includes('tests/unit/effects/'));
       const passCount = effectsFiles.filter(f => f.status === 'pass').length;

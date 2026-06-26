@@ -3,7 +3,7 @@
 > 阶段：v2.2-W0c 诊断（非实现）
 > 诊断脚本：`scripts/l4-memory-deletion-diag.js`
 > 基线 commit：`8643fc6`（W0c 任务卡），基于 W1 partial（_nextId 修复保留工作树未提交）
-> 状态：第三层根因证据链闭合，待独立审计复核
+> 状态：**已闭环**（v2.2-W1 修复 _ticksSinceReflection/_ticksSinceDriftCheck 持久化，commit `1de1176`）。此报告定位的 reflection counters 是 5 层根因的第 2 层，已修。本报告保留作诊断链审计痕迹，根因结论仍有效。
 
 ## 0. 摘要
 
