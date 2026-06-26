@@ -90,6 +90,8 @@
 
 报告落点：`docs/quality/aliveness-report.md`，每次 release 重新生成。
 
+**W7 落地状态**：报告制度已落地（W7）。`scripts/aliveness-report.js` 生成器跑测试命令（npm test / test:domain / perf:check / replay:diff）捕获输出 → 按七维提取证据 → 产 markdown 报告，状态从测试输出提取（非手写状态表）。`package.json` 新增 `aliveness:report` script。首版报告 `docs/quality/aliveness-report.md` 七维齐全：D1 Warning（L4 降级 v2.2，含根因摘要 + 诊断证据指向）/ D2 Pass / D3 Warning / D4 Pass / D5 Gap（corpus 未建 W8）/ D6 Warning / D7 Pass。D1 真实反映"世界可序列化和基础恢复可用，但截断续跑 fidelity 未达 v2.1"（总规划师要求）。
+
 ## 4. 不做的事
 
 - 不承诺 narrative 语义完备。

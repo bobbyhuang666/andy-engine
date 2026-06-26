@@ -8,6 +8,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
+    "aliveness:report": "node scripts/aliveness-report.js --write",
     "replay:diff": "node scripts/replay-diff.js",
     "golden:regen": "GOLDEN_REGEN=1 vitest run tests/unit/golden-seed-replay.test.js",
     "test:domain": "vitest run tests/domain.test.js tests/domain-deep.test.js tests/domain-contract.test.js tests/source-scan.test.js tests/fallback-minimal.test.js",

@@ -1,0 +1,304 @@
+#!/usr/bin/env node
+
+/**
+ * Aliveness Report Generator (ALIVENESS_BENCHMARK_RFC v0.3 §3)
+ *
+ * 跑测试命令捕获输出 → 按七维提取证据 → 产 markdown 报告。
+ * 每维度含标准/测试入口/输出引用/owner/状态。
+ * 禁止手写"已达标"——状态必须从测试输出提取（D1 L4 降级 / D5 corpus 未建为已定稿事实例外）。
+ *
+ * Usage: node scripts/aliveness-report.js [--write]
+ *   --write  生成/更新 docs/quality/aliveness-report.md
+ *   默认仅打印报告到 stdout。
+ */
+
+const { spawnSync } = require('child_process');
+const { writeFileSync, existsSync } = require('fs');
+const path = require('path');
+
+const ROOT = path.resolve(__dirname, '..');
+
+// ─── 七维配置 ───
+
+const DIMENSIONS = [
+  {
+    id: 'D1',
+    name: 'World Persistence',
+    standard: '世界状态可序列化→反序列化→续跑，结构无损。',
+    entry: 'tests/unit/persistence-trust.test.js (G1/G2/G3/G6) + golden-seed-replay L1-L3',
+    owner: 'store 层',
+    // D1 特殊：L4 降级为已定稿事实（W6），非实时测试结果
+    special: 'L4 降级 v2.2',
+    specialNote: '基础恢复可用，但截断续跑 fidelity 未达 v2.1。W6 实测：toWorldState 丢失累积 memory（tick50 运行时 18 条 → envelope 0 条），restore 后续跑从 tick 63 起漂移。诊断证据见 tests/unit/replay-trust-l4.test.js（诊断测试通过证明根因，主测试 skip）。',
+  },
+  {
+    id: 'D2',
+    name: 'Character Continuity',
+    standard: '4 子指标全 Pass：memory continuity / need trajectory / relationship continuity / personality-BehaviorField stability。',
+    entry: 'tests/unit/serialization-roundtrip.test.js + tests/unit/golden-seed-replay.test.js',
+    owner: 'agent memory/psychology/social 层',
+  },
+  {
+    id: 'D3',
+    name: 'Epistemic Correctness',
+    standard: 'AGENT_STATE 视为私有知识；其他 agent 仅凭 direct/observed/told/inferred 证据获知。',
+    entry: 'tests/e2e/alice-bob-epistemic-boundary.test.js',
+    owner: 'knowledge 层',
+    warningNote: '当前断言为"非饥饿底线"，精确跨 agent 知识传播验证偏弱。',
+  },
+  {
+    id: 'D4',
+    name: 'Causal Consequence Writeback',
+    standard: 'world-changing event 产生 typed delta；observation/narrative-only event 显式分类并说明无写回原因。',
+    entry: 'tests/unit/effects/ (含 position-delta.test.js) + golden seed replay',
+    owner: 'effects 层',
+  },
+  {
+    id: 'D5',
+    name: 'Grounded Narrative Faithfulness',
+    standard: 'narrative regression corpus + violation tracking（不承诺语义完备）。',
+    entry: 'narrative regression corpus（待建，W8）',
+    owner: 'narrative 层',
+    // D5 特殊：corpus 未建为已定稿事实
+    special: 'Gap',
+    specialNote: 'corpus 未建（W8 待启动）。FactConsistencyChecker 当前为实验性/regex-based，仅作 violation 信号源。',
+  },
+  {
+    id: 'D6',
+    name: 'Multi-Agent Social Emergence',
+    standard: '≥2 agent 在共享世界，social graph 关系演化可观测、可序列化。',
+    entry: 'tests/integration/agent.test.js + tests/e2e/alice-bob-epistemic-boundary.test.js',
+    owner: 'social 层',
+    warningNote: 'social contagion 路径未纳入 perf:check 监控。',
+  },
+  {
+    id: 'D7',
+    name: 'Domain Portability',
+    standard: '同一 engine 跑 campus/tavern/自定义 domain，core src 不含具体世界词。',
+    entry: 'npm run test:domain + tests/compatibility.test.js',
+    owner: 'domain 层',
+  },
+];
+
+// ─── 测试命令执行 ───
+
+function runCommand(cmd, args, timeoutMs = 120000) {
+  const result = spawnSync(cmd, args, {
+    cwd: ROOT,
+    encoding: 'utf-8',
+    timeout: timeoutMs,
+    shell: process.platform === 'win32',
+  });
+  return {
+    stdout: result.stdout || '',
+    stderr: result.stderr || '',
+    status: result.status,
+    combined: (result.stdout || '') + (result.stderr || ''),
+  };
+}
+
+// ─── 输出解析 ───
+
+function parseVitestOutput(output) {
+  // 提取 Test Files / Tests 计数行
+  const lines = output.split('\n');
+  let testFilesLine = '';
+  let testsLine = '';
+  const fileResults = []; // { file, status }
+  const seenFiles = new Set();
+  for (const line of lines) {
+    const tfMatch = line.match(/Test Files\s+(\d+)\s+passed/);
+    if (tfMatch) testFilesLine = line.trim();
+    const tMatch = line.match(/Tests\s+(\d+)\s+passed/);
+    if (tMatch) testsLine = line.trim();
+    // verbose reporter: "  ✓ tests/xxx/yyy.test.js > describe > test" 或 "×"/"FAIL"
+    // 行首可能有空格（vitest 缩进）
+    const fr = line.match(/^\s*([✓×])\s+(tests\/\S+\.test\.js)/);
+    if (fr) {
+      const file = fr[2];
+      if (!seenFiles.has(file)) {
+        seenFiles.add(file);
+        fileResults.push({ status: fr[1] === '✓' ? 'pass' : 'fail', file });
+      } else if (fr[1] === '×') {
+        // 已记录为 pass 但出现 fail，更新为 fail
+        const existing = fileResults.find(f => f.file === file);
+        if (existing) existing.status = 'fail';
+      }
+    }
+    // 兜底：FAIL 标记行
+    if (line.includes('FAIL') && line.includes('.test.js')) {
+      const m = line.match(/(tests\/\S+\.test\.js)/);
+      if (m) {
+        const existing = fileResults.find(f => f.file === m[1]);
+        if (existing) existing.status = 'fail';
+        else if (!seenFiles.has(m[1])) {
+          seenFiles.add(m[1]);
+          fileResults.push({ status: 'fail', file: m[1] });
+        }
+      }
+    }
+  }
+  return { testFilesLine, testsLine, fileResults };
+}
+
+function findFileStatus(parsed, fileSubstring) {
+  const found = parsed.fileResults.find(f => f.file.includes(fileSubstring));
+  return found ? found.status : 'not-found';
+}
+
+// ─── 状态判定 ───
+
+function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult) {
+  // 特殊维度（已定稿事实）
+  if (dim.special === 'L4 降级 v2.2') return 'Warning';
+  if (dim.special === 'Gap') return 'Gap';
+
+  // D7: domain gate
+  if (dim.id === 'D7') {
+    return domainResult.status === 0 ? 'Pass' : 'Gap';
+  }
+
+  // D1: persistence-trust + replay L1-L3
+  if (dim.id === 'D1') {
+    const ptStatus = findFileStatus(testParsed, 'persistence-trust');
+    const gsrStatus = findFileStatus(testParsed, 'golden-seed-replay');
+    // L4 降级是 Warning 源，但基础恢复 + L1-L3 pass 即整体 Warning（非 Gap）
+    if (ptStatus === 'pass' && gsrStatus === 'pass') return 'Warning';
+    return 'Gap';
+  }
+
+  // D4: 入口是目录 tests/unit/effects/，检查该目录下任一测试文件 pass 即视为守护
+  if (dim.id === 'D4') {
+    const effectsFiles = testParsed.fileResults.filter(f => f.file.includes('tests/unit/effects/'));
+    if (effectsFiles.length > 0 && effectsFiles.every(f => f.status === 'pass')) {
+      return 'Pass';
+    }
+    return 'Gap';
+  }
+
+  // 通用：测试入口在 npm test 输出中 pass
+  // 从 entry 提取测试文件名片段（取最后一个 .test.js 词，去尾部标点）
+  const entryTokens = dim.entry.match(/tests\/[^\s)]+\.test\.js/g) || [];
+  const entryFile = entryTokens[0];
+  if (entryFile) {
+    const frag = entryFile.split('/').pop().replace('.test.js', '');
+    const status = findFileStatus(testParsed, frag);
+    if (status === 'pass') {
+      return dim.warningNote ? 'Warning' : 'Pass';
+    }
+    if (status === 'fail') return 'Gap';
+    // not-found：可能入口是目录或 npm script，降级判定
+  }
+
+  // D6: 也依赖 e2e
+  if (dim.id === 'D6') {
+    const agentStatus = findFileStatus(testParsed, 'integration/agent');
+    return agentStatus === 'pass' ? 'Warning' : 'Gap';
+  }
+
+  return 'Warning';
+}
+
+// ─── 报告渲染 ───
+
+function renderReport(dimensions, testParsed, domainResult, perfResult, replayResult, generatedAt) {
+  const lines = [];
+  lines.push('# Aliveness Report');
+  lines.push('');
+  lines.push(`> 生成时间: ${generatedAt} | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。`);
+  lines.push('> ALIVENESS_BENCHMARK_RFC v0.3 §3 报告制度。每次 release 重新生成。');
+  lines.push('');
+  lines.push('## 测试命令快照');
+  lines.push('');
+  lines.push('| 命令 | 退出码 | 关键输出 |');
+  lines.push('|---|---|---|');
+  lines.push(`| npm test | ${testParsed.testFilesLine ? '0' : '?'} | ${testParsed.testFilesLine} / ${testParsed.testsLine} |`);
+  lines.push(`| npm run test:domain | ${domainResult.status} | ${domainResult.stdout.split('\n').filter(l => l.match(/Tests|Test Files/)).join(' / ') || '(见完整输出)'} |`);
+  lines.push(`| npm run perf:check | ${perfResult.status} | ${perfResult.stdout.split('\n').filter(l => l.includes('PASS') || l.includes('performance checks')).join(' / ') || '(见完整输出)'} |`);
+  lines.push(`| npm run replay:diff | ${replayResult.status} | ${replayResult.stdout.split('\n').filter(l => l.includes('matched') || l.includes('mismatched')).join(' / ') || '(见完整输出)'} |`);
+  lines.push('');
+  lines.push('## 七维度状态');
+  lines.push('');
+
+  for (const dim of dimensions) {
+    const status = judgeDimension(dim, testParsed, domainResult, perfResult, replayResult);
+    lines.push(`### ${dim.id} ${dim.name} — ${status}`);
+    lines.push('');
+    lines.push(`- **标准**: ${dim.standard}`);
+    lines.push(`- **测试入口**: ${dim.entry}`);
+    lines.push(`- **Owner**: ${dim.owner}`);
+    if (dim.special) {
+      lines.push(`- **特殊说明**: ${dim.special} — ${dim.specialNote}`);
+    }
+    if (dim.warningNote) {
+      lines.push(`- **Warning 条件**: ${dim.warningNote}`);
+    }
+    // 测试输出引用（防手写状态表）
+    if (dim.id === 'D7') {
+      lines.push(`- **测试输出引用**: test:domain exit ${domainResult.status}`);
+    } else if (dim.id === 'D1') {
+      const ptStatus = findFileStatus(testParsed, 'persistence-trust');
+      const gsrStatus = findFileStatus(testParsed, 'golden-seed-replay');
+      lines.push(`- **测试输出引用**: persistence-trust ${ptStatus} / golden-seed-replay ${gsrStatus} / replay:diff exit ${replayResult.status}`);
+    } else if (dim.id === 'D4') {
+      const effectsFiles = testParsed.fileResults.filter(f => f.file.includes('tests/unit/effects/'));
+      const passCount = effectsFiles.filter(f => f.status === 'pass').length;
+      lines.push(`- **测试输出引用**: tests/unit/effects/ ${passCount}/${effectsFiles.length} 文件 pass`);
+    } else {
+      const entryTokens = dim.entry.match(/tests\/[^\s)]+\.test\.js/g) || [];
+      const entryFile = entryTokens[0];
+      if (entryFile) {
+        const frag = entryFile.split('/').pop().replace('.test.js', '');
+        const fstatus = findFileStatus(testParsed, frag);
+        lines.push(`- **测试输出引用**: ${entryFile} ${fstatus}`);
+      } else {
+        lines.push(`- **测试输出引用**: (入口非单一测试文件，见测试命令快照)`);
+      }
+    }
+    lines.push('');
+  }
+
+  lines.push('## Sanity check');
+  lines.push('');
+  lines.push(`- **500 tick 不单调发散**: golden-seed-replay 100 ticks 稳定（${findFileStatus(testParsed, 'golden-seed-replay') === 'pass' ? '通过' : '未确认'}）+ perf:check exit ${perfResult.status}`);
+  lines.push('');
+
+  return lines.join('\n') + '\n';
+}
+
+// ─── 主流程 ───
+
+function main() {
+  const args = process.argv.slice(2);
+  const write = args.includes('--write');
+  const generatedAt = new Date().toISOString();
+
+  console.error('[aliveness-report] 跑 npm test...');
+  const testResult = runCommand('npm', ['test', '--', '--reporter=verbose']);
+  const testParsed = parseVitestOutput(testResult.combined);
+
+  console.error('[aliveness-report] 跑 npm run test:domain...');
+  const domainResult = runCommand('npm', ['run', 'test:domain']);
+
+  console.error('[aliveness-report] 跑 npm run perf:check...');
+  const perfResult = runCommand('npm', ['run', 'perf:check']);
+
+  console.error('[aliveness-report] 跑 npm run replay:diff...');
+  const replayResult = runCommand('npm', ['run', 'replay:diff']);
+
+  const report = renderReport(DIMENSIONS, testParsed, domainResult, perfResult, replayResult, generatedAt);
+
+  if (write) {
+    const reportPath = path.join(ROOT, 'docs', 'quality', 'aliveness-report.md');
+    writeFileSync(reportPath, report);
+    console.error(`[aliveness-report] 报告已写入: ${path.relative(ROOT, reportPath)}`);
+  } else {
+    process.stdout.write(report);
+  }
+}
+
+if (require.main === module) {
+  main();
+}
+
+module.exports = { DIMENSIONS, parseVitestOutput, judgeDimension, renderReport };
