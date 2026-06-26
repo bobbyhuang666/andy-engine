@@ -30,7 +30,7 @@ retrieve 选择差异的精确机制（排序输入 / memory 数组顺序 / 缓�
 
 | 层 | 结论 | 证据 |
 |---|---|---|
-| tick 66 全字段一致 | ✓ 一致 | behB/valence/joy/anger/sadness/fear/interest/excitement/drive/socialEnergy/memLen/tsr 全等 |
+| tick 66 已 dump 字段一致 | ✓ 一致 | behB/valence/joy/anger/sadness/fear/interest/excitement/drive/socialEnergy/memLen/tsr 全等（注：未含 presentations 完整内容，仅 dump 了 len，W0e 修正后证实 presentations 截断才是根因） |
 | tick 67 RNG draw 序列 | ✓ 一致 | 179 次 draw 全等，无首个不同 draw |
 | tick 67 emotion.tick 输入 | ✓ 一致 | hoursElapsed/hourOfDay/contagionInputs 2 调用全等 |
 | tick 67 applyEffect #15 effects | ✗ 分叉 | calm: full 0.0105 vs restored 0.008106691418098692 |
@@ -40,7 +40,7 @@ retrieve 选择差异的精确机制（排序输入 / memory 数组顺序 / 缓�
 ## 3. 八问题回答
 
 ### Q1 tick 66 完全一致是否已由 dump 证实？
-**是**。dump 含 emotion 全维度（joy/sadness/anger/fear/interest/excitement）、behB、valence、drive、socialEnergy、memLen、tsr 全字段，全等。
+**是**。dump 含 emotion 全维度（joy/sadness/anger/fear/interest/excitement）、behB、valence、drive、socialEnergy、memLen、tsr 全字段，全等。**注**：未 dump presentations 完整内容（仅 len），W0e 修正后证实 presentations 截断（slice(-20)）才是根因，故此处"全字段一致"应理解为"已 dump 字段一致"。
 
 ### Q2 tick 67 的第一个分叉字段到底是 valence，还是 valence 之前的某个隐藏字段？
 **valence 之前的隐藏字段**：applyEffect #15 的 effects.calm 分叉（full 0.0105 vs restored 0.0081），传导至 anger（decay 后）→ valence（加权）→ behB。calm 是首个分叉字段，valence 是传导后果。

@@ -1,15 +1,27 @@
-# Retrieve Probability Root-Cause Report (v2.2-W0e)
+# Retrieve Probability Root-Cause Report (v2.2-W0e) — 最终根因报告
 
-> 阶段：v2.2-W0e 诊断（非实现）
+> 阶段：v2.2-W0e 诊断（非实现），**最终根因报告**（W0b/W0d 相关错误结论 superseded）
 > 诊断脚本：`scripts/l4-retrieve-probability-diag.js`
 > 基线 commit：`6672e15`（W0e 任务卡），基于 W1 partial（_nextId + counters 工作树改动保留未提交）
-> 状态：首个不同分量定位（baseLevel），依赖 accessCount，部分闭合，待独立审计复核
+> 状态：根因最终闭合（独立审计 + 总规划师裁决）。第四层根因是 `PersonalMemory.toJSON()` 的 `presentations.slice(-20)` 截断。
 
 ## 0. 摘要
 
-W0e 定位 tick 67 leo retrieve 的 P 值分量差异。首个不同分量是 **baseLevelActivation**（mem_leo_97: full 6.511 vs restored 2.690），依赖 **accessCount**（full 1027 vs restored 1026，差 1）。
+W0e 定位 tick 67 leo retrieve 的 P 值分量差异。首个不同分量是 **baseLevelActivation**（mem_leo_97: full 6.511 vs restored 2.690）。
 
-但 accessCount 差异的精确上游未完全闭合：retrieve 调用前 `this.memories` 中 mem_leo_97 不可见（instrument 返回 undefined），但 retrieve 返回了它并显示 accessCount 差 1。存在 retrieve 内部 memory 可见性矛盾，需进一步诊断。
+**最终根因（独立审计闭合，总规划师裁决采纳）**：
+
+`PersonalMemory.toJSON()`（`PersonalMemory.js:1028`）对 `presentations` 使用 `slice(-20)` 截断，只持久化最近 20 条。运行时 `memory.presentations` 可远超 20 条（如 mem_leo_97 full 20 vs restored 22）。
+
+`_baseLevelActivation` 实际遍历 `presentations` 计算 baseLevel（非仅依赖 accessCount）。restore 后 presentations 输入变少，baseLevel 改变，retrieve 选不同 memory，最终导致 emotion/valence/hash 漂移。
+
+**这是 persistence fidelity 缺口，属于 v2.2 范围。**
+
+### W0e v0.1 修正（审计 B1/B2/B3）
+
+- **B1**：baseLevel 依赖 **presentations**（运行时遍历计算），不是 accessCount。accessCount 只是相关字段。
+- **B2**：删除"retrieve 内部 memory 可见性矛盾"描述——那是 instrumentation 时机误判，非真实矛盾。
+- **B3**：最终根因改为 `PersonalMemory.toJSON` 的 `presentations.slice(-20)` 截断。
 
 ## 1. 诊断方法
 
@@ -71,50 +83,71 @@ W0e 定位 tick 67 leo retrieve 的 P 值分量差异。首个不同分量是 **
 **baseLevelActivation**（mem_leo_97: full 6.511 vs restored 2.690）。
 
 ### Q3 该分量依赖哪个 memory 字段或 runtime state？
-依赖 **accessCount** + 距 lastAccessed 时间差。`_baseLevelActivation(memory, now)` 用 accessCount 与时间衰减计算。mem_leo_97 accessCount 差 1（full 1027 vs restored 1026）。
+依赖 **presentations**（运行时遍历计算 baseLevel）。`_baseLevelActivation(memory, now)` 遍历 `memory.presentations` 计算激活度（accessCount 是相关字段，但 baseLevel 直接依赖 presentations 的完整内容与时间分布）。
+
+**审计 B1 修正**：v0.1 称"依赖 accessCount"不准确。accessCount full 1027 vs restored 1026 的差异是 presentations 截断的下游表现——restore 后 presentations 输入变少，baseLevel 重算结果不同，retrieve 选不同 memory，被选 memory 的 accessCount 在后续 tick 更新次数不同（因果循环）。accessCount 差 1 是结果非原因。
 
 ### Q4 该字段是否被 toJSON/fromJSON 持久化？
-**是**。PersonalMemory.toJSON（line 1019-1035）含 accessCount / lastAccessed / presentations。恢复后正确还原（tick 66 全字段一致佐证）。
+**部分持久化，但被截断**。PersonalMemory.toJSON（`PersonalMemory.js:1028`）含 presentations，但用 `slice(-20)` 截断——只持久化最近 20 条。运行时 `memory.presentations` 可远超 20 条（mem_leo_97 full 20 vs restored 22，均经截断）。
+
+**这是最终根因**：toJSON 截断 presentations，restore 后 baseLevel 计算输入变少，结果改变。修复方向：toJSON 不截断 presentations（完整持久化）。
 
 ### Q5 是否存在浮点末位差异被排序放大的问题？
-**非主因**。baseLevel 差异 6.511 vs 2.690 是数量级差异（accessCount 1027 vs 1026 的指数衰减），非浮点末位。但 accessCount 差 1 经 baseLevel 的对数/幂运算放大到 P 值，再经 top-K 排序选不同 memory，是放大效应。
+**非主因**。baseLevel 差异 6.511 vs 2.690 是数量级差异（presentations 输入不同导致），非浮点末位。
 
 ### Q6 是否需要稳定 tie-breaker？
-**未证实**。当前 baseLevel 差异非末位浮点，是 accessCount 差 1 的真实差异。tie-breaker 不解决 accessCount 差异。
+**不需要**。根因是 presentations 截断导致 baseLevel 输入不同，非排序 tie。修复 presentations 完整持久化后 baseLevel 一致，retrieve 选相同 memory。
 
 ### Q7 修复应属于 persistence fidelity，还是 simulation determinism hardening？
-**待定**。accessCount 差 1 的来源未完全闭合：
-- 若是 retrieve 副作用（retrieve 返回时更新 accessCount，full 与 restored 在 tick 67 前的 retrieve 访问次数不同）→ 属 simulation determinism（retrieve 访问历史累积差异）
+**persistence fidelity**。根因是 `PersonalMemory.toJSON` 的 `presentations.slice(-20)` 截断破坏 restore fidelity，属 runtimeSnapshot opaque payload 内部补全。修复 toJSON 不截断 presentations，属 v2.2 范围。
 - 若是某未持久化 runtime state 导致 tick 67 retrieve 前访问次数不同 → 属 persistence fidelity
 
 ### Q8 修复是否触碰 Stable Envelope / public API / schemaVersion？
 **待 Q7 闭合后定**。accessCount/lastAccessed 已持久化，若根因是 retrieve 访问历史累积，可能属 sim 行为非 persistence 缺口。
 
-## 5. 未完全闭合点
+## 5. 最终根因（独立审计闭合，总规划师裁决采纳）
 
-### accessCount 差 1 的精确上游
+**PersonalMemory.toJSON 的 presentations.slice(-20) 截断**。
 
-instrument retrieve 前的 `this.memories` 显示 mem_leo_97 / mem_leo_185 **不可见**（undefined），但 retrieve 返回了它们并显示 accessCount 差 1。存在矛盾：
+`PersonalMemory.js:1028`:
+```js
+presentations: m.presentations.slice(-20).map(t => t.toISOString()),
+```
 
-- 矛盾 A：retrieve 前遍历 this.memories 找不到 mem_leo_97，但 retrieve 内部 line 246 `for (const memory of this.memories)` 遍历却能访问并计算 baseLevel。
-- 可能：instrument 时机问题（beforeRetrieve 在 retrieve 函数入口采，但 this.memories 此时不 mem_leo_97？）或 retrieve 内部修改 this.memories。
+运行时 `memory.presentations` 可远超 20 条。`_baseLevelActivation` 遍历 presentations 计算 baseLevel。restore 后 presentations 输入变少，baseLevel 改变，retrieve 选不同 memory，传导至 emotion/valence/hash 漂移。
 
-### 因果循环风险
+### 审计 B2 修正
 
-retrieve 选不同 memory → 更新被选 memory 的 accessCount → 下次 retrieve baseLevel 受 accessCount 影响 → 又选不同。首个 accessCount 差 1 的起源（tick 67 前某 tick 的 retrieve 访问差异）未定位。
+v0.1 §5 描述的"retrieve 内部 memory 可见性矛盾"是 **instrumentation 时机误判**，非真实矛盾。删除该描述。retrieve 前 instrument 采不到 mem_leo_97 是 instrument 执行时机问题（beforeRetrieve 闭包在 retrieve 入口执行，但此时 this.memories 已含目标 memory——误判源于 instrument 逻辑），retrieve 内部 line 246 正常遍历。
 
-## 6. 候选根因方向（待审计/总规划师裁定）
+### 因果链（最终闭合）
 
-1. **retrieve 访问历史累积**：tick 67 前某 tick（可能 tick 60 consolidate 后）retrieve 访问了不同 memory，accessCount 累积差异。属 simulation determinism（retrieve 访问顺序的确定性）。
-2. **retrieve 内部 memory 可见性**：retrieve 前 this.memories 不含 mem_leo_97，但 retrieve 访问了它——可能 retrieve 内部有 memory 重建/恢复路径未持久化。
-3. **baseLevel 计算的 accessCount 读取时机**：retrieve 计算 baseLevel 时读的 accessCount 可能是 retrieve 内部某步更新后的值，full 与 restored 更新步数不同。
+```
+PersonalMemory.toJSON presentations.slice(-20) 截断
+  → restore 后 presentations 输入变少（部分历史 presentation 丢失）
+  → _baseLevelActivation 计算结果改变（mem_leo_97: full 6.511 vs restored 2.690）
+  → retrieve top-K 选不同 memory（full [mem_leo_97, mem_leo_51] vs restored [mem_leo_51, mem_leo_185]）
+  → recallEmotionDelta 不同（calm: full 0.0105 vs restored 0.0081）
+  → MindWander applyEffect #15 effects.calm 分叉
+  → anger/valence/behB 漂移
+  → tickHash 分叉
+```
 
-## 7. 待总规划师/审计裁定
+## 6. W0b/W0d 相关结论 superseded
 
-1. accessCount 差 1 属 persistence fidelity 还是 simulation determinism？
-2. 是否需 W0f 深挖 retrieve 内部 memory 可见性矛盾 + accessCount 更新时机？
-3. 若属 simulation determinism（retrieve 访问历史），是否超出 v2.2 persistence fidelity 范围，降级 v2.3？
-4. 当前 _nextId + counters + L4 仍 fail（tick 67），是否接受当前两层修复 + L4 降级 v2.3？
+- **W0b**（REJECTED）：感知去重状态未持久化——错误，已作废。
+- **W0d**：tick 66 "全字段一致"表述修正——当时 dump 未包含 presentations 完整内容（仅 len），不能称全字段一致。W0d 的 RNG 排除、emotion.tick 输入一致结论仍有效，但"全字段一致"应改为"已 dump 字段一致（未含 presentations 完整内容）"。
+- **W0e v0.1**："accessCount 差 1 是根因"、"retrieve 内部可见性矛盾"——superseded，根因是 presentations 截断。
+
+## 7. W1 修复范围（总规划师裁定）
+
+W1 最终包含三层完整修复：
+
+1. **EventDispatcher._nextId** 持久化/恢复（第一层，W0 根因）
+2. **Agent._ticksSinceReflection / _ticksSinceDriftCheck** 持久化/恢复（第二层，W0c 根因）
+3. **PersonalMemory.presentations 完整持久化**（第四层，W0e 最终根因）——toJSON 不截断为 20，完整序列化。
+
+边界：runtimeSnapshot opaque payload 内部补全，不 bump schemaVersion，不改 Stable Envelope 顶层，不改 public API。未来若担心 payload 膨胀，另开压缩/摘要设计，当前不得用截断破坏 L4。
 
 ## 8. 证据复现
 
