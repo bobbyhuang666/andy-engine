@@ -1,7 +1,8 @@
 # Replay Trust Roadmap
 
-> World Kernel Trust Phase — 草案 v0.2，待独立审计师审查。仅文档，无实现。
-> 上一版变更：用真实 API 名称、补纯函数前提、golden corpus metadata、replay-diff 人审流程、tickHash canonical JSON。
+> World Kernel Trust Phase — 草案 v0.3，独立审计师已审（Pass）。
+> v0.3 修订（响应审计 Q1/Q3/S4/S5）：§2 明确为 SERIALIZATION_CONTRACT 增补章节；§3 generationCommand 实现须对齐真实脚本；§4 `--accept-intentional` 仅跳过立即 fail 不跳过 changelog；§7 L4 保留 v2.1 不预降级。
+> v0.2 修订：用真实 API 名称、补纯函数前提、golden corpus metadata、replay-diff 人审流程、tickHash canonical JSON。
 
 ## 0. 范围
 
@@ -42,7 +43,7 @@
 | LLM narrative 输出 | ❌ 不承诺 | LLM 本身非确定；narrative 不进入 golden corpus |
 | 种子记忆墙上时钟 | ✅ 已修复（方案 B） | `backgroundToMemories(background, simTime)`，simTime 由 `this.world.clock.time` 传入 |
 
-此声明写入 `docs/SERIALIZATION_CONTRACT.md`，作为"哪些是承诺、哪些不是"的单一事实源。
+此声明作为 `docs/SERIALIZATION_CONTRACT.md` 的**增补章节**（审计 S5：保护 Stable World Envelope 不变性，不重写既有契约），章节名建议 `## Determinism Boundary`，仅追加、不改写既有段落。
 
 ## 3. golden corpus 必带 metadata
 
@@ -68,6 +69,8 @@
 
 `generatedAt` **不参与** tickHash 计算。前提字段缺失的 fixture 视为不合规。
 
+**审计 S4 提示**：`_meta.generationCommand` 引用的 `npm run golden:regen` 脚本当前**不存在**（`package.json` 无 `golden` script，`scripts/` 无 golden 文件）。草案可写，但实现时 fixture 的 generationCommand 必须与真实落地的脚本路径对齐，不得写死一个不存在的命令。
+
 ## 4. replay-diff 工具与人审流程
 
 replay-diff 用于比对当前回放与 golden fixture。必须支持"有意行为变更"流程，避免 golden corpus 阻碍正常演进：
@@ -81,6 +84,8 @@ replay-diff 用于比对当前回放与 golden fixture。必须支持"有意行�
       - 若是：进入人审更新流程（§5）
 3. 人审通过后：更新 fixture + 记录原因，diff 归零
 ```
+
+**审计 Q3 采纳**：可加 `--accept-intentional` flag，但其语义**仅**为"跳过立即 fail 并自动进入 §5 更新流程"——**不得**跳过 §5 的 changelog 记录。即：flag 只改变 fail 时机，不改变审计痕迹义务。未写 changelog 的 fixture 更新仍视为流程违规（见 §5）。
 
 ## 5. golden fixture 更新流程
 
@@ -96,7 +101,7 @@ replay-diff 用于比对当前回放与 golden fixture。必须支持"有意行�
 - 重新生成命令必须与 _meta.generationCommand 一致
 ```
 
-未记录原因的 fixture 更新视为流程违规，不合并。
+未记录原因的 fixture 更新视为流程违规，不合并。`--accept-intentional`（§4）不能豁免此项。
 
 ## 6. tickHash 设计（canonical 化）
 
@@ -117,10 +122,12 @@ hash 算法：Node 内置 `crypto.createHash('sha256')`，输出 hex。每 tick 
 | L3 跨进程回放 | 同一 fixture 在不同进程启动回放，hash 全匹配 | ⬜ v2.1 目标（依赖墙上时钟修复已就位） |
 | L4 截断续跑 | 从 tick N 的快照续跑到 tick M，与全程回放的 tick M..M hash 一致 | ⬜ v2.1 目标 |
 
-L4 是"世界可持续"的硬证据，但依赖 runtimeSnapshot 续跑能力，若 schema 阻塞则降级为 v2.2 目标并在 RFC 记录。
+**审计 Q1 采纳**：L4 保留 v2.1 目标，不预降级。理由：`WorldStateAdapter.fromWorldState()` 已实现（`src/store/world/WorldStateAdapter.js`），22 个可持久化类型有 `static fromJSON`、18 个 round-trip 断言已过，续跑底层能力已就位。原 §7 末段"若 schema 阻塞则降级 v2.2"的担忧在实际代码中未发现阻塞，故改为：**先在 v2.1 做实测验证，若实测发现 round-trip 有损再降级 v2.2 并在 RFC 记录**，不预先降级。
 
-## 8. 待审计师裁定的问题
+## 8. 审计裁定记录
 
-- L4 截断续跑是否可在 v2.1 达成，还是直接降级为 v2.2。
-- tickHash 的 9 位小数量化精度是否足够（关系/情绪等连续量），还是需调到 6 位以容忍更大漂移。
-- replay-diff 默认 fail 是否对正常演进过严，是否允许 `--accept-intentional` 跳过标记流程。
+- **Q1（已采纳）**：L4 保留 v2.1，不预降级；实测有损再降。
+- **Q2（已采纳）**：9 位量化精度保持不变。
+- **Q3（已采纳）**：`--accept-intentional` 仅跳过立即 fail，不跳过 changelog（§4 已写入）。
+- **S4（已记录）**：generationCommand 须对齐真实脚本（§3 已写入）。
+- **S5（已采纳）**：确定性边界声明作为 SERIALIZATION_CONTRACT 增补章节（§2 已写入）。

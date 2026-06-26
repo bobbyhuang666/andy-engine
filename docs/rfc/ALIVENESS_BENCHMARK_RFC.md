@@ -1,11 +1,14 @@
 # Aliveness Benchmark RFC
 
-> World Kernel Trust Phase — 草案 v0.2，待独立审计师审查。仅文档，无实现。
-> 上一版变更：delta 不再绝对、narrative checker 不过度承诺、Character Continuity 拆分多指标、七维补 owner 与测试入口。
+> World Kernel Trust Phase — 草案 v0.3，独立审计师已审（Pass with required edits）。
+> v0.3 修订（响应审计 B3 + 采纳 S6/S8）：§0 明确性能归入 release gate 不重复入七维；§D5 Warning 判定从"误报率 >15%"改为"已知 violation 检出率"（避免小样本误报波动）；§5 D2 允许"3 Pass + 1 Warning = D2 Warning"中间态。
+> v0.2 修订：delta 不再绝对、narrative checker 不过度承诺、Character Continuity 拆分多指标、七维补 owner 与测试入口。
 
 ## 0. 范围
 
 把"对标 Linux/macOS/Minecraft"转译为可验证维度。"对标"对 Foundation Alpha 阶段单人开发项目在单次会话内客观不可达成，本 RFC 的作用是把模糊口号转成**七维度 Pass/Warning/Gap 报告**，每维度指定标准、owner、最小测试入口。
+
+**审计 S6 声明**：七维度聚焦 persistent world kernel 的世界/角色/认知/因果/叙事/社会/域能力，**不**单列性能维度。性能与稳定性归入 Quality Gate RFC 的 Release blocker（`npm run perf:check`）守护，不重复入七维，避免"对标 Minecraft"被误读为"性能对标"。读者若疑惑"为何无性能维度"，见本声明与 QUALITY_GATE_RFC。
 
 ## 1. 七维度框架
 
@@ -59,9 +62,9 @@
 - 标准（修正后降低承诺）：
   - v2.1 目标 = **narrative regression corpus + violation tracking**，**不**承诺语义完备
   - `FactConsistencyChecker` 当前为实验性 / regex-based（`src/narrative/FactConsistencyChecker.js` 源码自述"实验性 / 基于正则 / 已知中文名/地名误报"），仅作为 violation 信号源，不作为"叙事正确性"最终判定
-- 测试入口：narrative regression corpus（待建，最小集 ≥10 条已知 violation 样本）
+- 测试入口：narrative regression corpus（待建，最小集 ≥10 条已知 violation 样本启动）
 - Owner：narrative 层
-- Warning 条件：checker 误报率 > 15% 时降级为 advisory，不计入 violation
+- **Warning 判定（审计 B3 修正）**：原"checker 误报率 > 15% 时降级"在小样本下不可靠（10 条样本，2 条误报即 20%）。改为以**已知 violation 检出率**为 Warning 信号——即 corpus 中已标注的 violation 样本，checker 能检出的比例。检出率 < 80% 发 Warning（checker 漏报风险），检出率稳定 ≥ 80% 维持 Pass。误报率作为**辅助信号**记录但不触发降级（小样本下误报率统计无意义）；corpus 扩到 ≥30 条后再考虑把误报率纳入 Warning 判定。
 
 ### D6 Multi-Agent Social Emergence
 
@@ -92,9 +95,22 @@
 - 不承诺 narrative 语义完备。
 - 不把"500 tick 不发散"等同于 Character Continuity。
 - 不允许维度报告无测试入口引用。
+- 不把性能单列为第八维度（归入 Quality Gate，见 §0 声明）。
 
-## 5. 待审计师裁定的问题
+## 5. D2 中间态（审计 S8 采纳）
 
-- D5 的 narrative regression corpus 最小集 ≥10 条是否过小，是否需先建立已知 violation 样本库再定阈值。
-- D2 四个子指标全 Pass 才算 D2 Pass 是否过严，是否允许"3 Pass + 1 Warning"算 D2 Warning。
-- "对标 Linux/macOS/Minecraft"的七维转译是否漏掉维度（如性能/可观测性/可扩展性），审计师可补充。
+- **D2 Pass**：四子指标全 Pass。
+- **D2 Warning**：3 Pass + 1 Warning（避免单个子项测试不稳完全卡死 D2，同时不降低 Pass 严格度）。
+- **D2 Gap**：任一子指标 Gap，或 ≥2 子指标 Warning。
+
+## 6. 审计裁定记录
+
+- **B3（已修）**：§D5 Warning 判定从"误报率 >15%"改为"已知 violation 检出率 <80%"，避免小样本误报波动；误报率降为辅助信号。
+- **S6（已采纳）**：§0 明确性能归入 Quality Gate release blocker，不单列第八维。
+- **S7（裁定）**：corpus ≥10 启动可接受，受 B3 修正约束（误报率不再触发降级）。
+- **S8（已采纳）**：§5 增加 D2 中间态（3 Pass + 1 Warning = D2 Warning）。
+
+## 7. v0.3 后待总规划师确认的问题
+
+- D5 的 narrative regression corpus 首批 ≥10 条 violation 样本，来源（人工构造 / 历史叙事抓取）需明确，属任务波次而非 RFC。
+- D3 当前断言为"非饥饿底线"，是否在 v2.1 升级为精确跨 agent 知识传播断言，需评估 knowledge 层实现成本。

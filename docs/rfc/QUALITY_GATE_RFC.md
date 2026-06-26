@@ -1,7 +1,8 @@
 # Quality Gate RFC
 
-> World Kernel Trust Phase — 草案 v0.2，待独立审计师审查。仅文档，无实现。
-> 上一版变更：修正 facade 归类、区分 merge/release blocker、coverage 降为 trend metric、R5 两段式判定不再单赖 v8 归因。
+> World Kernel Trust Phase — 草案 v0.3，独立审计师已审（Pass with required edits）。
+> v0.3 修订（响应审计 B1/B2 + 采纳 S1）：§2 明确 `vitest.config.js` thresholds 须一并处理；§4 Merge blocker 纳入 R4 smoke:pack；§6 R5 判定机制未实现，不再声称"全守护"，明确 R5 生效条件。
+> v0.2 修订：修正 facade 归类、区分 merge/release blocker、coverage 降为 trend metric、R5 两段式判定不再单赖 v8 归因。
 
 ## 0. 范围
 
@@ -21,6 +22,11 @@ Foundation Alpha 阶段（单人开发）的发布与合入门禁准则。本 RF
 - 全局 coverage **不作为 Foundation Alpha 的 Release blocker**。
 - Coverage 作为 **trend metric + regression warning**：每次 release 记录当前 lines/statements/functions/branches 数值到 `docs/quality/coverage-trend.md`，若较上次 release 下降超过 3 个百分点（任意一项），发 warning，需在 release notes 说明原因。
 - 成熟版本（Foundation Beta 起）可重新评估是否将 coverage 提升为 Release blocker。届时单独发 RFC，不在本 RFC 内承诺阈值。
+- **v8 thresholds 处理（审计 B2）**：`vitest.config.js:31-36` 当前仍声明 thresholds（stmt 80 / branch 70 / func 85 / line 80），实测 `npx vitest run --coverage` 会因 functions 77.7% < 85、branches 68.0% < 70 而 fail（exit 1）。RFC 说"不阻塞"但 thresholds 仍 fail，构成内部矛盾。本 RFC 生效时须一并处理 thresholds，三选一：
+  - (a) 移除 thresholds；
+  - (b) 改为 warning 不 fail；
+  - (c) 声明 `--coverage` 不进任何 gate，仅产 trend 数据（届时 thresholds 应一并移除以避免误 fail）。
+  - **推荐 (c)**：`--coverage` 仅产 trend 数据写入 `docs/quality/coverage-trend.md`，thresholds 移除。该项为 R5 判定工具落地前的过渡措施。
 
 ## 3. 五项 Release blocker
 
@@ -36,9 +42,9 @@ R5 的"未守护"判定见 §6，**不**以 v8 coverage 比例为唯一依据。
 
 ## 4. Merge blocker（PR 合入门槛）
 
-Merge blocker = R1 + R2 + R3。
+Merge blocker = R1 + R2 + R3 + R4（审计 S1：smoke:pack 实测仅 `npm pack --dry-run`，成本极低，能在 PR 阶段就发现 `package.json` `files` 字段漂移，价值高于成本，故纳入 Merge blocker）。
 
-理由：R4（smoke:pack）和 R5（模块清单审计）成本较高，属于 release 前一次性校验；PR 阶段只要求核心三件套不退化。若 PR 改动涉及打包/序列化路径，reviewer 可临时追加 R4。
+R5（模块清单审计）成本较高，留作 release 前一次性校验。若 PR 改动涉及 src/ 模块增删，reviewer 可临时追加 R5 的 source-scan 部分。
 
 ## 5. Coverage 例外清单与理由
 
@@ -67,7 +73,11 @@ Merge blocker = R1 + R2 + R3。
 - **弱守护**：有 import 路径但 coverage 0%（warning，记录到 `docs/quality/module-guard-manifest.md`）
 - **未守护**：source-scan 找不到任何 import 路径 → **Release blocker**，必须在 release 前补测试或明确删除该模块。
 
-当前已知的"最后一个未守护模块" `src/effects/PositionDelta.js` 已补测试（`tests/unit/effects/position-delta.test.js`），R5 现状为全守护。
+**审计 B1 修正（v0.3）**：R5 判定机制尚未实现——`tests/source-scan.test.js` 当前只做 campus terms / banned API / deterministic API / semantic profile / chinese fallback / bobby 六类扫描，**不含** §6 描述的 module-guard import 路径判定；`docs/quality/module-guard-manifest.md` 亦未创建。因此：
+
+- R5 作为 Release blocker 的**生效条件是 §6 判定工具先落地**；在工具落地前，R5 不得作为可执行 blocker 调用。
+- 已知具体事实仅：上一阶段曾未守护的 `src/effects/PositionDelta.js` 已补直接测试入口（`tests/unit/effects/position-delta.test.js`）。
+- "全守护状态"待 §6 工具落地后验证，**本草案不断言**。
 
 ## 7. 不做的事
 
@@ -75,7 +85,15 @@ Merge blocker = R1 + R2 + R3。
 - 不把 coverage 例外模块视为"无需测试"。
 - 不用 coverage 单一信号判定模块守护状态。
 
-## 8. 待审计师裁定的问题
+## 8. 审计裁定记录
 
-- R5 两段式判定中"弱守护"是否应计入 warning 而非 blocker，审计师若认为过宽可收紧。
-- Merge blocker 子集（R1+R2+R3）是否过松，是否需把 R4 纳入 PR 门槛。
+- **B1（已修）**：R5 判定机制未实现，§6 已改为准确表述，明确 R5 生效条件。
+- **B2（已修）**：§2 增加 vitest thresholds 处理条目，推荐方案 (c)。
+- **S1（已采纳）**：Merge blocker 纳入 R4 smoke:pack。
+- **S2（裁定）**：两段式分层设计本身合理，真正问题是 B1（机制未实现），判定标准不变。
+- **S3（裁定）**：coverage 降为 trend metric 合理，方向不变。
+
+## 9. v0.3 后待总规划师确认的问题
+
+- §2 的 thresholds 处理三选一，推荐 (c) 是否采纳；若采纳，移除 `vitest.config.js` thresholds 属代码改动，需单独立任务波次（不属本 RFC 范围）。
+- R5 判定工具实现属代码任务，本 RFC 仅定义标准与生效条件；工具落地后再回头验证"全守护状态"。
