@@ -33,12 +33,13 @@ v2.2 修复 L4 截断续跑后，暴露三个 v2.3 方向。本阶段不扩功�
 - **验收**：npm test 159文件/2600测试 / test:domain / boundaries / smoke / perf 全过；replay:diff 100/100（无 golden drift，seed memory 由 backgroundToMemories 传 simTime 不受初值影响）；L4 主测试仍 pass。
 - **边界**：未触及 Stable Envelope / schemaVersion / public API / release gate。
 
-## 4. W2 — Memory characterization tests
+## 4. W2 — Memory characterization tests（已完成）
 
-- **锁定行为**：retrieve top-K / consolidate merge pair / _baseLevelActivation / _memorySimilarity / procedural pattern formation。
-- **目标**：给未来 memory 改动（含未来 compaction）提供安全网。
-- **不改生产逻辑**，除非测试暴露明确 bug。
-- **验收**：characterization tests pass + 全量门控。
+- **锁定行为**：retrieve top-K / consolidate merge pair / _baseLevelActivation / _memorySimilarity / procedural pattern formation / query / strengthen / round-trip。
+- **测试**：`tests/unit/memory-characterization.test.js`（10 测试）+ `tests/unit/procedural-memory-characterization.test.js`（8 测试）。
+- **不改生产逻辑**：仅新增 characterization tests，无 src/ 改动（git diff 仅 test 文件）。
+- **验收**：npm test 161文件/2618测试 / test:domain / boundaries / smoke / perf 全过。
+- **价值**：给未来 memory 改动（含未来 compaction）提供 safety net，避免 v2.2 五层逐层挖的痛苦。
 
 ## 5. W3 — Replay observability diagnostic hashes
 
