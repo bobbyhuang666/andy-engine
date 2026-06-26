@@ -3,13 +3,15 @@
 > 阶段：v2.2-W0 诊断（非实现）
 > 诊断脚本：`scripts/l4-divergence-diag.js`
 > 基线 commit：`f1b7dbb`（W0 任务卡）基于 `4287b06`（RFC v0.2）
-> 状态：证据链闭合，待独立审计复核
+> 状态：根因字段定位扎实（edNextId 唯一分叉），独立审计复核 Pass with required edits（B1 因果链已修正）。传导链未完全闭合但不阻塞 W1，待总规划师批准。
 
 ## 0. 摘要
 
-W0 逐 tick dump 诊断**已闭合根因证据链**。L4 漂移精确根因是：`EventDispatcher._nextId` 未持久化，restore 后从 0 重新计数，导致续跑首 tick 生成的 event id 与既有 eventLog id 冲突，进而 memory id 重复、memory 内容渐变，累积影响 agent 标量进入 tickHash 覆盖字段（~tick 63 显化）。
+W0 逐 tick dump 诊断定位 L4 漂移的**根因字段**：`EventDispatcher._nextId` 未持久化，是恢复点 tick 50 的**唯一**分叉字段（full=72, restored=0，其余字段含 RNG/pendingEvents/_scheduledEvents/agent 标量全一致）。
 
-W6 原诊断"toWorldState 丢失累积 memory"**已被推翻**（memory 序列化正常）。v2.2 RFC v0.2 的"EventDispatcher 运行期结构未持久化是真实缺陷但 L4 根因待确认"——**现已确认根因为 `EventDispatcher._nextId`**（pendingEvents / _scheduledEvents 经 dump 证实恢复点末尾为空，非分叉源）。
+W6 原诊断"toWorldState 丢失累积 memory"**已被推翻**（memory 序列化正常）。v2.2 RFC v0.2 的"EventDispatcher 运行期结构未持久化是真实缺陷但 L4 根因待确认"——**现已确认根因字段为 `EventDispatcher._nextId`**（pendingEvents / _scheduledEvents 经 dump 证实恢复点末尾为空，非本场景分叉源）。
+
+**审计 B1 修正（v0.2）**：本报告 v0.1 的因果链传导机制描述（"memory id 重复/错位"）**经独立审计证伪**——memory id 来自 `PersonalMemory._nextMemId`（独立计数器，已持久化），不来自 event id；tick 51 dump 显示 full 与 restored 的 memIds 完全一致。传导链未完全闭合，但 `_nextId` 是恢复点唯一分叉字段这一点已铁证（dump 实测 diff=1）。W1 修复 `_nextId` 持久化后，L4 主测试 pass 即端到端闭环验证，不强制要求传导链理论完全闭合。
 
 ## 1. 诊断方法
 
@@ -53,21 +55,27 @@ W6 原诊断"toWorldState 丢失累积 memory"**已被推翻**（memory 序列�
 
 dump tick 47-49（恢复点前）+ tick 50：`scheduledLen` 全程 = 0。**_scheduledEvents 未参与 L4 分叉**（恢复点末尾无调度事件）。
 
-### 3.3 因果链（_nextId → memory 渐变 → hash 漂移）
+### 3.3 因果链（审计 B1 修正：传导未完全闭合，_nextId 是唯一分叉字段）
 
-dump tick 51 证据：
+**审计 B1 证伪**：本报告 v0.1 曾声称"memory id 重复/错位"为传导机制，经独立审计证伪：
 
-| | full | restored |
-|---|---|---|
-| edNextId | 73 | 1 |
-| edEventLogLen | 73 | 73（长度一致，但 id 不同） |
-| maya memIds | `mem_maya_72, mem_maya_73, ... mem_maya_100` | （id 从 1 重新生成，与既有冲突） |
+- memory id 来自 `PersonalMemory._nextMemId`（`PersonalMemory.js:163` `mem_${agentId}_${_nextMemId++}`），独立计数器，**已持久化**（`:51` nextDynamicMemoryId 从 restored memories 推算）。
+- event id 来自 `EventDispatcher._nextId`（`EventDispatcher.js:83` `evt_${_nextId++}`），两套独立计数器。
+- tick 51 dump 显示 full 与 restored 的 maya/leo memIds **完全一致**，无重复无错位。
 
-- restored 续跑首 tick 生成 event id = 0+1 = 1（因 _nextId 重置为 0）。
-- 既有 eventLog 已含 id 0-71，新 event id 0/1 与既有冲突。
-- event 驱动的 memory 生成使用重复 event id，memory id（如 `mem_maya_72`）重复或错位。
-- memory 内容/顺序渐变 → recall emotion delta 渐变 → emotion/behaviorField 漂移。
-- 累积到 ~tick 63，agent 标量（emotion/behaviorField/position）进入 tickHash 覆盖字段（HASHED_FIELDS），hash 显化漂移。
+**真实传导链（未完全闭合）**：
+
+- `addExperience`（`PersonalMemory.js:183`）将 `eventId: event.id` 存入 memory。event id 冲突使 memory.eventId 指向与 full 不同的事件。
+- 审计建议的 `getEventChain` 路径经核实**未被调用**（grep 全仓无调用点），非传导路径。
+- 真实传导更可能在 eventLog 内部检索/去重/event 处理顺序，但**未完全定位**。
+
+**漂移渐进性（实测，审计修正时间点）**：
+
+- tick 51：edNextId 分叉（73 vs 1），但 emotionJoy/memIds/behB/socialEnergy **全一致**。
+- tick 61：emotionJoy 首次末位差异（full=0.341041041 vs restored=0.341015398）——**审计修正**：v0.1 说"~tick 63 显化"不准确，emotionJoy 从 tick 61 起漂移。
+- tick 63：emotionJoy 差异扩大，leo memIds 出现集合差异。
+
+**诚实声明**：传导链（_nextId 冲突 → ... → emotion 渐变）的中间环节未完全闭合。但 **`_nextId` 是恢复点 tick 50 的唯一分叉字段**（dump 实测 diff=1，其余字段全一致），这一点已铁证。W1 修复 `_nextId` 持久化后，L4 主测试续跑段 hash 一致即为端到端闭环验证，比因果链理论分析更有力。审计明确：传导链未完全闭合**不阻塞** W1，修复正确性由 L4 主测试 pass 验证。
 
 ## 4. 七问题回答
 
@@ -121,10 +129,10 @@ dump tick 51 证据：
 ## 5. 修复方向建议（非实现，待 W1）
 
 - **核心修复**：`EventDispatcher.toJSON()` 增加 `_nextId` 持久化；`fromJSON` 恢复。
-- **防御性修复**（虽非本场景根因，但同类风险）：`pendingEvents` / `eventIndex` 持久化；`AndyWorld._scheduledEvents` 持久化。
+- **防御性修复**（虽非本场景根因，但同类风险，审计 S3 支持）：`pendingEvents` / `eventIndex` 持久化；`AndyWorld._scheduledEvents` 持久化。
 - **migration**：旧存档（0.1.0）_nextId 从 eventLog 最大 id 推算（best-effort）。
-- **schemaVersion**：倾向 bump 0.1.0→0.2.0，但属边界判断，待总规划师确认。
-- **L4 测试**：取消 skip，断言续跑段 hash 一致。
+- **schemaVersion**：审计 S1 建议按 best-effort 取向**不 bump**——_nextId 缺失时 fromJSON 默认 0（旧消费者不识别不报错），migration 从 eventLog 推算作为 0.1.0 的 best-effort 恢复增强。是否 bump 取决于"是否承诺 0.1.0 存档恢复后 L4 hash 一致"——若 best-effort 不承诺则不 bump。**待总规划师按 best-effort 取向裁定。**
+- **L4 测试**：取消 skip，断言续跑段 hash 一致（W1 修复后 pass 即端到端闭环验证）。
 
 ## 6. W6 错误诊断测试处理
 
@@ -134,10 +142,10 @@ dump tick 51 证据：
 
 ## 7. 待总规划师裁定
 
-1. `EventDispatcher._nextId` 持久化是否需要 schemaVersion bump？（边界判断：runtimeSnapshot opaque payload 内部补全 vs public contract 变更）
-2. 防御性修复（pendingEvents / eventIndex / _scheduledEvents）是否一并纳入 W1，还是仅修 _nextId？
-3. W6 错误诊断测试是否在 W0 后立即处理（删除/改写），还是等 W1 修复时一并？
-4. golden fixture 是否需重生成（若 schemaVersion bump）？
+1. `EventDispatcher._nextId` 持久化是否需要 schemaVersion bump？审计 S1 建议**不 bump**（best-effort：_nextId 缺失时 fromJSON 默认 0 不报错，migration 从 eventLog 推算作 0.1.0 恢复增强）。是否承诺 0.1.0 存档恢复后 L4 hash 一致？若不承诺（best-effort）则不 bump。**待总规划师按 best-effort 取向裁定。**
+2. 防御性修复（pendingEvents / eventIndex / _scheduledEvents）是否一并纳入 W1，还是仅修 _nextId？（审计 S3 支持防御性一并）
+3. W6 错误诊断测试是否在 W0 后立即处理（删除/改写，审计 S2 支持），还是等 W1 修复时一并？L4 主测试取消 skip 应等 W1 修复 + 传导链闭合后。
+4. golden fixture 是否需重生成？若不 bump schemaVersion 且 _nextId 不进 tickHash（HASHED_FIELDS 不含 eventLog 内部），fixture 可能无需重生成——待 W1 实测确认。
 
 ## 8. 证据复现
 
