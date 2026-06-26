@@ -1,7 +1,7 @@
 # Module Guard Manifest
 
 > R5 "未守护模块"判定 (QUALITY_GATE_RFC v0.3 §6 主判定)。由 `scripts/module-guard-scan.js` 生成。
-> 生成日期: 2026-06-26 | 模块总数: 147 | 守护(直接): 125 | 守护(间接): 21 | 弱守护: 0 | 未守护: 1
+> 生成日期: 2026-06-26 | 模块总数: 148 | 守护(直接): 126 | 守护(间接): 21 | 弱守护: 0 | 未守护: 1
 > coverage 辅助判定: 不可用（未跑 test:coverage）
 
 ## 守护状态汇总
@@ -158,5 +158,6 @@
 | src/store/StoryStore.js | guarded-direct |
 | src/store/world/compiler.js | guarded-direct |
 | src/store/world/migration.js | guarded-direct |
+| src/store/world/tickHash.js | guarded-direct |
 | src/store/world/validator.js | guarded-direct |
 | src/store/world/WorldStateAdapter.js | guarded-direct |

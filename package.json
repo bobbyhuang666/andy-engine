@@ -8,6 +8,7 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
+    "golden:regen": "GOLDEN_REGEN=1 vitest run tests/unit/golden-seed-replay.test.js",
     "test:domain": "vitest run tests/domain.test.js tests/domain-deep.test.js tests/domain-contract.test.js tests/source-scan.test.js tests/fallback-minimal.test.js",
     "test:compat": "vitest run tests/compatibility.test.js tests/package-boundary.test.js",
     "release:check": "npm test && npm run test:domain && npm run check:boundaries && npm run pack:dry-run",

@@ -69,7 +69,7 @@
 
 `generatedAt` **不参与** tickHash 计算。前提字段缺失的 fixture 视为不合规。
 
-**审计 S4 提示**：`_meta.generationCommand` 引用的 `npm run golden:regen` 脚本当前**不存在**（`package.json` 无 `golden` script，`scripts/` 无 golden 文件）。草案可写，但实现时 fixture 的 generationCommand 必须与真实落地的脚本路径对齐，不得写死一个不存在的命令。
+**审计 S4 已落地（W3）**：`_meta.generationCommand` 引用的 `npm run golden:regen` 脚本已落地（`package.json` 新增 `golden:regen` script = `GOLDEN_REGEN=1 vitest run tests/unit/golden-seed-replay.test.js`），与 fixture `_meta.generationCommand` 一致。golden fixture 已含完整 `_meta`（engineVersion 2.0.1 / schemaVersion 0.1.0 / domainId campus / domainVersion unversioned / seed 42 / ticks 100 / startTime / nodeVersion / nativeMode disabled / generationCommand / generatedAt）+ `tickHashes`（100 条 per-tick hash 序列）。`generatedAt` 在非 regen 比对时从既有 fixture 回填，保证全等稳定（不参与判定，仅审计留存）。
 
 ## 4. replay-diff 工具与人审流程
 
@@ -113,11 +113,13 @@ tickHash 消除无意义格式差异，三条规定：
 
 hash 算法：Node 内置 `crypto.createHash('sha256')`，输出 hex。每 tick 记一条 `{ tick, tickHash }`，fixture 存全量 hash 序列。
 
+**W3 落地状态**：`src/store/world/tickHash.js` 已实现上述算法（canonicalize 递归 key sort + 1e9 量化 + sha256 hex），导出 `computeTickHash` / `computeTickHashSeries` / `canonicalize` / `extractHashedFields`。`HASHED_FIELDS` = `[worldClock, characters, relationships, canonFacts, positions]`，排除 `_meta`/narrative/墙上时间戳/`rngState`（rngState 单独验证，不进 tickHash 避免语义混淆）。单元测试 `tests/unit/tickHash.test.js` 22 测试覆盖 canonical 化/量化精度/key 顺序无关/字段过滤。golden fixture 已含 100 条 `tickHashes` 序列，golden-seed-replay.test.js 新增 per-tick hash 跨 run 稳定性断言。
+
 ## 7. v2.1 应达到的 replay 信任等级
 
 | 等级 | 标准 | 当前状态 |
 |---|---|---|
-| L1 单 seed 单长度回放 | seed42 / 100ticks 通过 | ✅ 已达 |
+| L1 单 seed 单长度回放 | seed42 / 100ticks 通过 + per-tick hash 序列 | ✅ 已达（W3 含 tickHashes） |
 | L2 多 seed 回放 | ≥3 个 seed 各跑 100 ticks，hash 全匹配 | ⬜ v2.1 目标 |
 | L3 跨进程回放 | 同一 fixture 在不同进程启动回放，hash 全匹配 | ⬜ v2.1 目标（依赖墙上时钟修复已就位） |
 | L4 截断续跑 | 从 tick N 的快照续跑到 tick M，与全程回放的 tick M..M hash 一致 | ⬜ v2.1 目标 |

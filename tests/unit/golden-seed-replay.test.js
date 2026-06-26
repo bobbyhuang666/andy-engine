@@ -13,9 +13,10 @@
  *     生成 seed-memory 时间戳，跨进程 byte-compare 会 flaky。
  *     见 docs/rfc/SEED_MEMORY_DETERMINISM_RFC.md。
  *   - 双 run 一致性 cross-check：保留 deterministic-replay 的精神。
+ *   - W3: per-tick tickHash 序列（REPLAY_TRUST_ROADMAP §6）+ _meta 元数据（§3）。
  *
  * 重生成工作流（故意改模拟输出时）：
- *   GOLDEN_REGEN=1 npx vitest run tests/unit/golden-seed-replay.test.js
+ *   npm run golden:regen
  *   检查 git diff tests/fixtures/golden-campus-seed42-100ticks.json 后提交。
  */
 
@@ -25,6 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import AndyEngine from '../../index.js';
 import { toWorldState } from '../../store/index.js';
+const { computeTickHash } = require('../../src/store/world/tickHash');
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const FIXTURE_PATH = join(__dirname, '..', 'fixtures', 'golden-campus-seed42-100ticks.json');
@@ -38,6 +40,34 @@ function buildSeededEngine() {
   engine.createCharacter({ id: 'maya', name: 'Maya', mbti: 'INFP', schedule: 'student' });
   engine.createCharacter({ id: 'leo', name: 'Leo', mbti: 'ESTP', schedule: 'student' });
   return engine;
+}
+
+/**
+ * 构建 _meta 元数据（REPLAY_TRUST_ROADMAP §3）。
+ * 字段从真实来源读取，不硬编码。generatedAt 仅审计用，不参与 tickHash。
+ *
+ * generatedAt 稳定性：非 regen 模式下，测试比对要求全等。
+ * generatedAt 是墙上时钟，每次运行不同会破坏全等比对。
+ * 处理：regen 时写真实时间；比对时读 fixture 既有 generatedAt 回填，
+ * 保证两侧一致（generatedAt 不参与判定，仅作为审计快照留存于 fixture）。
+ */
+function buildMeta(engine, generatedAt = new Date().toISOString()) {
+  const pkg = JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf-8'));
+  const envelope = toWorldState(engine, 'golden-campus-v1');
+  return {
+    engineVersion: pkg.version,
+    schemaVersion: envelope.schemaVersion,
+    domainId: envelope.domainRef,
+    // domain 当前无版本概念（DomainRegistry 单值 domainRef），如实标注
+    domainVersion: 'unversioned',
+    seed: SEED,
+    ticks: TICKS,
+    startTime: START_TIME.toISOString(),
+    nodeVersion: process.versions.node.split('.')[0],
+    nativeMode: process.env.ANDY_USE_NATIVE === '1' ? 'enabled' : 'disabled',
+    generationCommand: 'npm run golden:regen',
+    generatedAt,
+  };
 }
 
 /**
@@ -104,14 +134,35 @@ function normalizeEngine(engine) {
 }
 
 describe('Golden Seed Replay Corpus (P0 determinism)', () => {
-  it('same seed → identical committed golden snapshot', () => {
+  it('same seed → identical committed golden snapshot (含 _meta + tickHashes)', () => {
     const engine = buildSeededEngine();
-    for (let i = 0; i < TICKS; i++) engine.tick();
+
+    // W3: tick 循环内采 per-tick worldState 并 hash（REPLAY_TRUST §6）
+    const tickHashes = [];
+    for (let i = 0; i < TICKS; i++) {
+      engine.tick();
+      const envelope = toWorldState(engine, 'golden-campus-v1');
+      tickHashes.push(computeTickHash(envelope, i));
+    }
 
     const normalized = normalizeEngine(engine);
-    const json = JSON.stringify(normalized, null, 2) + '\n';
 
-    // 重生成模式：故意改模拟输出时，开发者用 GOLDEN_REGEN=1 重写 fixture
+    // 非 regen 模式：从既有 fixture 读 generatedAt 回填，保证全等比对稳定
+    let metaGeneratedAt = new Date().toISOString();
+    if (process.env.GOLDEN_REGEN !== '1' && existsSync(FIXTURE_PATH)) {
+      try {
+        const existing = JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8'));
+        if (existing._meta && existing._meta.generatedAt) {
+          metaGeneratedAt = existing._meta.generatedAt;
+        }
+      } catch { /* fixture 损坏时回退到当前时间，触发比对失败暴露问题 */ }
+    }
+    const meta = buildMeta(engine, metaGeneratedAt);
+
+    const full = { _meta: meta, ...normalized, tickHashes };
+    const json = JSON.stringify(full, null, 2) + '\n';
+
+    // 重生成模式：故意改模拟输出时，开发者用 npm run golden:regen 重写 fixture
     if (process.env.GOLDEN_REGEN === '1') {
       writeFileSync(FIXTURE_PATH, json);
       return; // skip assertion
@@ -120,7 +171,7 @@ describe('Golden Seed Replay Corpus (P0 determinism)', () => {
     if (!existsSync(FIXTURE_PATH)) {
       throw new Error(
         `Golden fixture 不存在：${FIXTURE_PATH}\n` +
-        '运行 GOLDEN_REGEN=1 npx vitest run tests/unit/golden-seed-replay.test.js 生成首次基线。'
+        '运行 npm run golden:regen 生成首次基线。'
       );
     }
 
@@ -137,5 +188,20 @@ describe('Golden Seed Replay Corpus (P0 determinism)', () => {
       engine2.tick();
     }
     expect(normalizeEngine(engine1)).toEqual(normalizeEngine(engine2));
+  });
+
+  it('W3: per-tick tickHash 跨 run 稳定（确定性信号）', () => {
+    // 独立于 fixture 的确定性信号：同 seed 两次 run 的 per-tick hash 序列应一致
+    const run1 = buildSeededEngine();
+    const run2 = buildSeededEngine();
+    const hashes1 = [];
+    const hashes2 = [];
+    for (let i = 0; i < TICKS; i++) {
+      run1.tick();
+      run2.tick();
+      hashes1.push(computeTickHash(toWorldState(run1, 'golden-campus-v1'), i).hash);
+      hashes2.push(computeTickHash(toWorldState(run2, 'golden-campus-v1'), i).hash);
+    }
+    expect(hashes1).toEqual(hashes2);
   });
 });
