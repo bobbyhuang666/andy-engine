@@ -1,9 +1,15 @@
 # Memory Divergence Root-Cause Report (v2.2-W0b)
 
+> **⚠️ REJECTED / SUPERSEDED — 总规划师裁决作废，不得作为执行依据**
+>
+> 独立审计 Reject：W0b 结论"感知去重状态未持久化"不成立。审计已证明 addExperience
+> full/restored 一致，分歧不在感知路径。本报告结论作废，仅保留作审计痕迹。
+> 后续诊断见 v2.2-W0c（Memory Deletion / Replacement Divergence）。
+>
 > 阶段：v2.2-W0b 诊断（非实现）
 > 诊断脚本：`scripts/l4-memory-divergence-diag.js`
 > 基线 commit：`49b18a7`（W0b 任务卡），基于 W1 partial（_nextId 修复保留工作树未提交）
-> 状态：第二层根因证据链闭合，待独立审计复核
+> 状态：~~第二层根因证据链闭合~~ **REJECTED（总规划师裁决）**
 
 ## 0. 摘要
 
