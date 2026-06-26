@@ -85,6 +85,8 @@ replay-diff 用于比对当前回放与 golden fixture。必须支持"有意行�
 3. 人审通过后：更新 fixture + 记录原因，diff 归零
 ```
 
+**W4 落地状态**：`scripts/replay-diff.js` 已实现上述流程——跑当前回放产 per-tick hash 序列（复用 W3 `computeTickHash`）→ 与 golden fixture `tickHashes` 逐 tick 比对 → 产出 diff 报告（汇总 + 详情）→ exit 1 若有 diff（默认）/ exit 0 若 `--accept-intentional`（但 stdout 强制打印 changelog 义务提示，Q3 裁定不豁免）。支持 `--fixture <path>` 选 fixture。`_meta` 合规校验（前提字段缺失则报告）。`package.json` 新增 `replay:diff` script。`docs/quality/golden-corpus-changelog.md` 已建（首条记录 W3 首版生成，commit `b34b7fe`）。`tests/unit/replay-diff.test.js` 12 测试覆盖 diff 检测/`--accept-intentional` 语义/报告格式/_meta 合规。回放配置与 golden-seed-replay.test.js 一致，靠"未扰动 fixture 应无 diff"守护同步（当前 100/100 匹配）。
+
 **审计 Q3 采纳**：可加 `--accept-intentional` flag，但其语义**仅**为"跳过立即 fail 并自动进入 §5 更新流程"——**不得**跳过 §5 的 changelog 记录。即：flag 只改变 fail 时机，不改变审计痕迹义务。未写 changelog 的 fixture 更新仍视为流程违规（见 §5）。
 
 ## 5. golden fixture 更新流程
