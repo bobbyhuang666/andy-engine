@@ -190,6 +190,16 @@ function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult)
     return 'Warning';
   }
 
+  // D6: social emergence E2E — all 3 test files must pass (must be before generic path)
+  if (dim.id === 'D6') {
+    const socialStatus = findFileStatus(testParsed, 'social-emergence');
+    const gossipStatus = findFileStatus(testParsed, 'gossip-propagation');
+    const contagionStatus = findFileStatus(testParsed, 'emotion-contagion-cluster');
+    if (socialStatus === 'pass' && gossipStatus === 'pass' && contagionStatus === 'pass') return 'Pass';
+    if (socialStatus === 'fail' || gossipStatus === 'fail' || contagionStatus === 'fail') return 'Gap';
+    return 'Warning';
+  }
+
   // 通用：测试入口在 npm test 输出中 pass
   // 从 entry 提取测试文件名片段（取最后一个 .test.js 词，去尾部标点）
   const entryTokens = dim.entry.match(/tests\/[^\s)]+\.test\.js/g) || [];
@@ -202,16 +212,6 @@ function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult)
     }
     if (status === 'fail') return 'Gap';
     // not-found：可能入口是目录或 npm script，降级判定
-  }
-
-  // D6: social emergence E2E — all 3 test files must pass
-  if (dim.id === 'D6') {
-    const socialStatus = findFileStatus(testParsed, 'social-emergence');
-    const gossipStatus = findFileStatus(testParsed, 'gossip-propagation');
-    const contagionStatus = findFileStatus(testParsed, 'emotion-contagion-cluster');
-    if (socialStatus === 'pass' && gossipStatus === 'pass' && contagionStatus === 'pass') return 'Pass';
-    if (socialStatus === 'fail' || gossipStatus === 'fail' || contagionStatus === 'fail') return 'Gap';
-    return 'Warning';
   }
 
   return 'Warning';
@@ -267,6 +267,11 @@ function renderReport(dimensions, testParsed, domainResult, perfResult, replayRe
       const effectsFiles = testParsed.fileResults.filter(f => f.file.includes('tests/unit/effects/'));
       const passCount = effectsFiles.filter(f => f.status === 'pass').length;
       lines.push(`- **测试输出引用**: tests/unit/effects/ ${passCount}/${effectsFiles.length} 文件 pass`);
+    } else if (dim.id === 'D6') {
+      const socialStatus = findFileStatus(testParsed, 'social-emergence');
+      const gossipStatus = findFileStatus(testParsed, 'gossip-propagation');
+      const contagionStatus = findFileStatus(testParsed, 'emotion-contagion-cluster');
+      lines.push(`- **测试输出引用**: social-emergence ${socialStatus} / gossip-propagation ${gossipStatus} / emotion-contagion-cluster ${contagionStatus}`);
     } else {
       const entryTokens = dim.entry.match(/tests\/[^\s)]+\.test\.js/g) || [];
       const entryFile = entryTokens[0];
