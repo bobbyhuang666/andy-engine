@@ -11,7 +11,7 @@
  *   node examples/longitudinal-life-demo/demo.js
  */
 
-const AndyEngine = require('../../index');
+const AndyEngine = require('andy-engine');
 
 async function runDemo() {
   console.log('=== Andy Engine Longitudinal Life Demo ===\n');

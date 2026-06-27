@@ -62,7 +62,7 @@ The LLM is a rendering layer, not the source of truth.
 
 | Area | Status |
 |---|---|
-| Unit / integration / domain / source-scan tests | 1918 tests passing |
+| Unit / integration / domain / source-scan tests | 2788 tests passing |
 | Custom domain | Tavern preset passes domain-agnostic validation |
 | Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
 | Seeded RNG | Core runtime paths support seeded simulation baseline (not full deterministic replay) |
@@ -90,6 +90,8 @@ This ensures the LLM receives expression constraints, not raw psychology data.
 2. Full deterministic replay is not claimed — seeded RNG provides baseline for core paths only
 3. External production users are not yet established
 4. Domain maturity varies by preset
+5. **D5 Grounded Narrative Faithfulness is at Warning** — `FactConsistencyChecker` is regex-based and experimental; it detects hand-crafted violation patterns but has not been validated against real LLM-generated output. A Stable release requires D5 hardening.
+6. Package has not been published to npm — infrastructure is ready, publish requires explicit human approval
 
 ---
 
@@ -139,7 +141,7 @@ Andy Engine v2 is the architecture-preview line that turns Andy from a character
 - Continuous 4D BehaviorField as the core behavior dynamics layer
 - Seeded RNG baseline for reproducible core runtime paths (not full deterministic replay)
 - Performance benchmark / profiling / perf-check baseline
-- 1918 tests across unit, integration, domain, compatibility, and source-scan suites
+- 2788 tests across unit, integration, domain, compatibility, and source-scan suites
 - Core runtime tests and default package smoke do not require SQLite native bindings; SQLite persistence is verified separately with `npm run sqlite:smoke`
 - Clean Architecture Pass complete: `src/` owns implementation; old top-level runtime wrappers retired; Semantic Closure Pass complete with 9 domain-safe read-only providers
 
@@ -162,7 +164,7 @@ The following remain experimental or deferred to v2.1/v3:
 - `WorldObject` is modeled but not fully integrated into `Agent.tick`
 - StoryArc runtime is paused
 - AffectCompiler basic implementation (v0.2)
-- npm publish not executed unless explicitly approved
+- npm publish not yet performed; package infrastructure ready for alpha release pending human approval
 
 ---
 
@@ -392,7 +394,7 @@ node server.js
 The easiest way to use Andy Engine. Three lines to create a character with memory, emotion, and personality:
 
 ```javascript
-const { Character } = require("./sdk");
+const { Character } = require("andy-engine/sdk");
 
 const maya = new Character({
   name: "Maya",
@@ -504,7 +506,7 @@ See `experiments/` for the full experiment suite:
 
 ## License
 
-This project is licensed under the AGPL-3.0-only license. npm publication is not planned at this time.
+This project is licensed under the AGPL-3.0-only license. npm publication has not been performed but package infrastructure is ready for Foundation Alpha release pending human approval.
 
 [GNU Affero General Public License v3.0](LICENSE)
 
@@ -611,7 +613,7 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 - 连续 4D BehaviorField 作为核心行为动力学层
 - 可播种 RNG 基线，支持核心运行时路径的可复现模拟（非全路径确定性重放）
 - 性能基准 / Profiling / perf-check 基线
-- 1918 测试（单元、集成、domain、兼容性、source-scan）
+- 2788 测试（单元、集成、domain、兼容性、source-scan）
 - Clean Architecture Pass 完成：`src/` 拥有实现，旧顶层 runtime wrappers 已退休；Semantic Closure Pass 完成，9 个 domain-safe read-only provider 已接入
 
 ### 实验性
@@ -633,7 +635,7 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 - `WorldObject` 已建模但尚未完全集成到 `Agent.tick`
 - StoryArc 运行时已暂停
 - AffectCompiler 基础实现（v0.2）
-- npm publish 未执行，除非明确批准
+- npm 尚未发布；包基础设施已就绪，等待人工审批后即可进行 alpha 发布
 
 ---
 
@@ -707,7 +709,7 @@ Grounded Narrative（有事实边界的叙事）
 
 | 项目 | 状态 |
 |---|---|
-| 单元 / 集成 / domain / source-scan 测试 | 1918 tests passing |
+| 单元 / 集成 / domain / source-scan 测试 | 2788 tests passing |
 | custom domain | tavern preset 通过 domain-agnostic 验证 |
 | facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
 | seeded RNG | 核心运行时路径支持 seeded simulation 基线（非全路径确定性重放） |
@@ -735,6 +737,8 @@ AffectCompiler 生成 AffectFrame，包含：
 2. 不承诺完整的确定性重放 — seeded RNG 仅为核心路径提供基线
 3. 尚未有外部生产用户
 4. Domain 成熟度因 preset 而异
+5. **D5 叙事忠实度为 Warning** — `FactConsistencyChecker` 基于正则表达式，是实验性的；能检测手工构造的违规模式，但尚未在真实 LLM 输出上验证。Stable 发布需要 D5 加固。
+6. 包尚未发布到 npm — 基础设施已就绪，发布需明确人工审批
 
 ---
 
@@ -870,7 +874,7 @@ LLM 天然是全知的——它知道训练数据里的一切。但一个"活着
 最简单的方式，三行代码创建一个有记忆、有情绪、有性格的角色：
 
 ```javascript
-const { Character } = require("./sdk");
+const { Character } = require("andy-engine/sdk");
 
 const maya = new Character({
   name: "Maya",
@@ -898,7 +902,7 @@ const reply = await maya.chat("我今天好累");
 ## 持久化
 
 ```javascript
-const { createStore } = require('./store');
+const { createStore } = require('andy-engine/store');
 
 const store = createStore({ dbPath: './data/andy.db' });
 
@@ -952,7 +956,7 @@ Rust SoA f32 引擎在 50K agents 时比 JS 快 **5.92x**，精度误差 < 1e-8�
 
 ## 许可证
 
-本项目基于 AGPL-3.0-only 许可证。目前不计划发布到 npm。
+本项目基于 AGPL-3.0-only 许可证。npm 尚未发布，但包基础设施已就绪，等待人工审批后即可进行 Foundation Alpha 发布。
 
 [GNU Affero General Public License v3.0](LICENSE)
 

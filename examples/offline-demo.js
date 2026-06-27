@@ -12,7 +12,7 @@
  *   5. 保存/恢复
  */
 
-const { Character, NarrativeBuilder } = require('../sdk');
+const { Character, NarrativeBuilder } = require('andy-engine/sdk');
 
 // 模拟 LLM（根据用户消息生成回复）
 function mockLLM(messages) {

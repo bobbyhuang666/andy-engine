@@ -8,7 +8,7 @@
  * 然后与她对话。角色的回复会反映她当前的情绪和状态。
  */
 
-const { Character } = require('../sdk');
+const { Character } = require('andy-engine/sdk');
 
 // ─── 创建角色 ───
 const maya = new Character({

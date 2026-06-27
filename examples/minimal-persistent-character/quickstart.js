@@ -10,7 +10,7 @@
  *   node examples/minimal-persistent-character/quickstart.js
  */
 
-const AndyEngine = require('../../index');
+const AndyEngine = require('andy-engine');
 
 // Create world
 const engine = new AndyEngine({ seed: 'quickstart' });

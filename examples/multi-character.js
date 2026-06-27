@@ -8,7 +8,7 @@
  * 会自主互动，形成真实的社会。
  */
 
-const { Andy } = require('../sdk');
+const { Andy } = require('andy-engine/sdk');
 
 // ─── 创建世界 ───
 const world = new Andy({
