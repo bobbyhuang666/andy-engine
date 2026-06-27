@@ -266,6 +266,10 @@ class WorldFactStore {
 
       if (fact.scope === FactScope.PUBLIC) {
         known = true;
+        // AGENT_STATE is epistemically private: only the owning agent sees their own state
+        if (fact.type === FactType.AGENT_STATE && fact.agentId !== agentId) {
+          known = false;
+        }
       } else if (knownIds && knownIds.has(id)) {
         known = true;
       }

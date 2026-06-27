@@ -5,27 +5,69 @@
  * 与 Memory 的区别：Knowledge 是事实性的，Memory 是主观的。
  */
 
+/**
+ * @typedef {Object} Evidence
+ * @property {string}   source           - 'direct'|'observed'|'overheard'|'told'|'inferred'
+ * @property {number}   confidence       - [0-1], direct=1.0 observed=0.9 overheard=0.7 told=0.6 inferred=0.5
+ * @property {number}   learnedAt        - simTime ms (0 = unknown, backward compat)
+ * @property {string|null} propagatedFrom - told: 告知者 ID; 其他: null
+ * @property {string|null} eventId       - 触发事件 ID (optional)
+ */
+
+const EVIDENCE_CONFIDENCE = {
+  direct: 1.0,
+  observed: 0.9,
+  overheard: 0.7,
+  told: 0.6,
+  inferred: 0.5,
+};
+
 class KnowledgeStore {
   constructor(factStore) {
     this.factStore = factStore;
     /** @type {Map<string, Set<string>>} agentId → Set<factId> */
     this._knowledge = new Map();
-    /** @type {Map<string, string>} 'agentId:factId' → source */
-    this._sources = new Map();
+    /** @type {Map<string, Evidence>} 'agentId:factId' → Evidence */
+    this._evidence = new Map();
+  }
+
+  /**
+   * 归一化 sourceOrEvidence 为 Evidence 对象
+   * @param {string|Evidence} sourceOrEvidence
+   * @returns {Evidence}
+   */
+  _normalizeEvidence(sourceOrEvidence) {
+    if (typeof sourceOrEvidence === 'string') {
+      return {
+        source: sourceOrEvidence,
+        confidence: EVIDENCE_CONFIDENCE[sourceOrEvidence] ?? 1.0,
+        learnedAt: 0,
+        propagatedFrom: null,
+        eventId: null,
+      };
+    }
+    // 已经是 object，补全默认值
+    return {
+      source: sourceOrEvidence.source || 'direct',
+      confidence: sourceOrEvidence.confidence ?? EVIDENCE_CONFIDENCE[sourceOrEvidence.source] ?? 1.0,
+      learnedAt: sourceOrEvidence.learnedAt ?? 0,
+      propagatedFrom: sourceOrEvidence.propagatedFrom ?? null,
+      eventId: sourceOrEvidence.eventId ?? null,
+    };
   }
 
   /**
    * 让角色知道一个事实
    * @param {string} agentId
    * @param {string} factId
-   * @param {string} source - 知识来源：direct/overheard/told/inferred/observed
+   * @param {string|Evidence} sourceOrEvidence - 知识来源字符串或 Evidence 对象
    */
-  addKnowledge(agentId, factId, source = 'direct') {
+  addKnowledge(agentId, factId, sourceOrEvidence = 'direct') {
     if (!this._knowledge.has(agentId)) {
       this._knowledge.set(agentId, new Set());
     }
     this._knowledge.get(agentId).add(factId);
-    this._sources.set(`${agentId}:${factId}`, source);
+    this._evidence.set(`${agentId}:${factId}`, this._normalizeEvidence(sourceOrEvidence));
   }
 
   /**
@@ -36,8 +78,25 @@ class KnowledgeStore {
     return agentKnowledge ? agentKnowledge.has(factId) : false;
   }
 
+  /**
+   * 获取知识来源字符串
+   * @param {string} agentId
+   * @param {string} factId
+   * @returns {string|null}
+   */
   getSource(agentId, factId) {
-    return this._sources.get(`${agentId}:${factId}`) || null;
+    const evidence = this._evidence.get(`${agentId}:${factId}`);
+    return evidence ? evidence.source : null;
+  }
+
+  /**
+   * 获取完整 Evidence 对象
+   * @param {string} agentId
+   * @param {string} factId
+   * @returns {Evidence|null}
+   */
+  getEvidence(agentId, factId) {
+    return this._evidence.get(`${agentId}:${factId}`) || null;
   }
 
   /**
@@ -68,9 +127,9 @@ class KnowledgeStore {
   /**
    * 批量添加知识
    */
-  addKnowledgeBatch(agentId, factIds, source = 'direct') {
+  addKnowledgeBatch(agentId, factIds, sourceOrEvidence = 'direct') {
     for (const factId of factIds) {
-      this.addKnowledge(agentId, factId, source);
+      this.addKnowledge(agentId, factId, sourceOrEvidence);
     }
   }
 
@@ -82,6 +141,7 @@ class KnowledgeStore {
     if (agentKnowledge) {
       agentKnowledge.delete(factId);
     }
+    this._evidence.delete(`${agentId}:${factId}`);
   }
 
   /**
@@ -110,12 +170,17 @@ class KnowledgeStore {
     for (const [agentId, factIds] of this._knowledge) {
       knowledge[agentId] = Array.from(factIds);
     }
-    const sources = Object.fromEntries(this._sources);
-    return { knowledge, sources };
+    const evidence = Object.fromEntries(this._evidence);
+    // sources 保留作为 evidence 的别名（相同内容），便于下游读取旧结构
+    return { knowledge, evidence, sources: { ...evidence } };
   }
 
   /**
    * 反序列化
+   * 兼容新旧格式：
+   *   1. 优先读 data.evidence（Evidence 对象）
+   *   2. fallback 读 data.sources（string 或 Evidence 对象）
+   *   3. 两者都不存在 → 空 _evidence
    */
   static fromJSON(data, factStore) {
     const store = new KnowledgeStore(factStore);
@@ -123,11 +188,23 @@ class KnowledgeStore {
     for (const [agentId, factIds] of Object.entries(knowledgeData)) {
       store._knowledge.set(agentId, new Set(factIds));
     }
-    if (data.sources) {
+
+    if (data.evidence) {
+      for (const [key, ev] of Object.entries(data.evidence)) {
+        store._evidence.set(key, ev);
+      }
+    } else if (data.sources) {
       for (const [key, source] of Object.entries(data.sources)) {
-        store._sources.set(key, source);
+        if (typeof source === 'string') {
+          store._evidence.set(key, store._normalizeEvidence(source));
+        } else {
+          // 已经是 Evidence 对象（旧升级格式）
+          store._evidence.set(key, source);
+        }
       }
     }
+    // 两者都不存在 → 空 _evidence（默认）
+
     return store;
   }
 }

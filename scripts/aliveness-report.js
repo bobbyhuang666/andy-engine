@@ -42,9 +42,8 @@ const DIMENSIONS = [
     id: 'D3',
     name: 'Epistemic Correctness',
     standard: 'AGENT_STATE 视为私有知识；其他 agent 仅凭 direct/observed/told/inferred 证据获知。',
-    entry: 'tests/e2e/alice-bob-epistemic-boundary.test.js',
+    entry: 'tests/e2e/alice-bob-epistemic-boundary.test.js + tests/e2e/epistemic-evidence-matrix.test.js',
     owner: 'knowledge 层',
-    warningNote: '当前断言为"非饥饿底线"，精确跨 agent 知识传播验证偏弱。',
   },
   {
     id: 'D4',
@@ -183,6 +182,15 @@ function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult)
     return 'Gap';
   }
 
+  // D3: 入口包含两个 E2E 文件，两者都须 pass
+  if (dim.id === 'D3') {
+    const epistemicStatus = findFileStatus(testParsed, 'alice-bob-epistemic-boundary');
+    const matrixStatus = findFileStatus(testParsed, 'epistemic-evidence-matrix');
+    if (epistemicStatus === 'pass' && matrixStatus === 'pass') return 'Pass';
+    if (epistemicStatus === 'fail' || matrixStatus === 'fail') return 'Gap';
+    return 'Warning';
+  }
+
   // 通用：测试入口在 npm test 输出中 pass
   // 从 entry 提取测试文件名片段（取最后一个 .test.js 词，去尾部标点）
   const entryTokens = dim.entry.match(/tests\/[^\s)]+\.test\.js/g) || [];
@@ -248,6 +256,10 @@ function renderReport(dimensions, testParsed, domainResult, perfResult, replayRe
       const gsrStatus = findFileStatus(testParsed, 'golden-seed-replay');
       const l4Status = findFileStatus(testParsed, 'replay-trust-l4');
       lines.push(`- **测试输出引用**: persistence-trust ${ptStatus} / golden-seed-replay ${gsrStatus} / replay-trust-l4 ${l4Status} / replay:diff exit ${replayResult.status}`);
+    } else if (dim.id === 'D3') {
+      const epistemicStatus = findFileStatus(testParsed, 'alice-bob-epistemic-boundary');
+      const matrixStatus = findFileStatus(testParsed, 'epistemic-evidence-matrix');
+      lines.push(`- **测试输出引用**: alice-bob-epistemic-boundary ${epistemicStatus} / epistemic-evidence-matrix ${matrixStatus}`);
     } else if (dim.id === 'D4') {
       const effectsFiles = testParsed.fileResults.filter(f => f.file.includes('tests/unit/effects/'));
       const passCount = effectsFiles.filter(f => f.status === 'pass').length;

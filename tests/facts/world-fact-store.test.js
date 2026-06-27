@@ -373,6 +373,39 @@ describe('WorldFactStore - getFactsForAgent', () => {
       expect(facts[i - 1].timestamp.getTime()).toBeGreaterThanOrEqual(facts[i].timestamp.getTime());
     }
   });
+
+  it('Alice 的 AGENT_STATE 对 bob 不可见', () => {
+    // Add an AGENT_STATE fact for alice
+    const stateFact = store.addFact(makeAgentState({ agentId: 'alice', state: '看书' }));
+    
+    // bob should NOT see alice's AGENT_STATE
+    const bobFacts = store.getFactsForAgent('bob');
+    const bobStateFacts = bobFacts.filter(f => f.type === FactType.AGENT_STATE && f.agentId === 'alice');
+    expect(bobStateFacts).toHaveLength(0);
+  });
+
+  it('Alice 自己的 AGENT_STATE 对 alice 可见', () => {
+    const stateFact = store.addFact(makeAgentState({ agentId: 'alice', state: '跑步' }));
+    
+    // alice SHOULD see her own AGENT_STATE
+    const aliceFacts = store.getFactsForAgent('alice');
+    const aliceStateFacts = aliceFacts.filter(f => f.type === FactType.AGENT_STATE && f.agentId === 'alice');
+    expect(aliceStateFacts).toHaveLength(1);
+    expect(aliceStateFacts[0].state).toBe('跑步');
+  });
+
+  it('非 AGENT_STATE 的 public 事实对其他 agent 仍然可见', () => {
+    const stateFact = store.addFact(makeAgentState({ agentId: 'alice', state: '看书' }));
+    
+    // bob should still see non-AGENT_STATE public facts
+    const bobFacts = store.getFactsForAgent('bob');
+    const bobEventFacts = bobFacts.filter(f => f.type === FactType.EVENT);
+    expect(bobEventFacts.length).toBeGreaterThanOrEqual(1);
+    
+    // bob should NOT see alice's AGENT_STATE
+    const bobStateFacts = bobFacts.filter(f => f.type === FactType.AGENT_STATE);
+    expect(bobStateFacts).toHaveLength(0);
+  });
 });
 
 // ═══════════════════════════════════════════

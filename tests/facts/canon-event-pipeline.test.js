@@ -589,4 +589,519 @@ describe('CanonEventPipeline', () => {
       expect(meaning.meaningType).toBe('social');
     });
   });
+
+  // ─── Told 传播（W1）───
+
+  describe('Told 传播', () => {
+    /**
+     * 辅助：处理一个种子事件让某 agent 获得知识
+     */
+    function seedKnowledge(agentId, content, overrides = {}) {
+      const event = {
+        id: `seed_${Date.now()}_${Math.random()}`,
+        type: 'encounter',
+        content,
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: [agentId],
+        observers: [],
+        time: new Date(),
+        ...overrides,
+      };
+      return pipeline.processEvent(event, agentsMap);
+    }
+
+    let agentsMap;
+
+    beforeEach(() => {
+      // xiaohong at '食堂' to avoid overhearing seed events at '图书馆'
+      agentsMap = makeAgents({ xiaohong: '食堂' });
+    });
+
+    it('社交事件触发 told 传播', () => {
+      const seedResult = seedKnowledge('xiaoming', 'alice found a treasure');
+      const seedFactId = seedResult.fact.id;
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'xiaoming and xiaohong chatting',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      pipeline.processEvent(socialEvent, agentsMap);
+
+      expect(knowledgeStore.hasKnowledge('xiaohong', seedFactId)).toBe(true);
+    });
+
+    it('被告知者 getSource 返回 told', () => {
+      const seedResult = seedKnowledge('xiaoming', 'alice found a gem');
+      const seedFactId = seedResult.fact.id;
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'chatting',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      pipeline.processEvent(socialEvent, agentsMap);
+
+      expect(knowledgeStore.getSource('xiaohong', seedFactId)).toBe('told');
+    });
+
+    it('被告知者 getEvidence.confidence === 0.6', () => {
+      const seedResult = seedKnowledge('xiaoming', 'alice saw a comet');
+      const seedFactId = seedResult.fact.id;
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'chatting',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      pipeline.processEvent(socialEvent, agentsMap);
+
+      const evidence = knowledgeStore.getEvidence('xiaohong', seedFactId);
+      expect(evidence.confidence).toBe(0.6);
+    });
+
+    it('被告知者 getEvidence.propagatedFrom === 告知者 ID', () => {
+      const seedResult = seedKnowledge('xiaoming', 'alice met a stranger');
+      const seedFactId = seedResult.fact.id;
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'chatting',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      pipeline.processEvent(socialEvent, agentsMap);
+
+      const evidence = knowledgeStore.getEvidence('xiaohong', seedFactId);
+      expect(evidence.propagatedFrom).toBe('xiaoming');
+    });
+
+    it('非社交事件不触发 told', () => {
+      const seedResult = seedKnowledge('xiaoming', 'alice found a key');
+      const seedFactId = seedResult.fact.id;
+
+      const encounterEvent = {
+        id: `enc_${Date.now()}_${Math.random()}`,
+        type: 'encounter',
+        content: 'xiaoming and xiaohong meet',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      pipeline.processEvent(encounterEvent, agentsMap);
+
+      expect(knowledgeStore.hasKnowledge('xiaohong', seedFactId)).toBe(false);
+    });
+
+    it('只传播 PUBLIC scope 的事实', () => {
+      const localEvent = {
+        id: `local_${Date.now()}_${Math.random()}`,
+        type: 'encounter',
+        content: 'xiaoming private moment',
+        location: '图书馆',
+        scope: FactScope.LOCAL,
+        participants: ['xiaoming'],
+        observers: [],
+        time: new Date(),
+      };
+      const localResult = pipeline.processEvent(localEvent, agentsMap);
+      const localFactId = localResult.fact.id;
+
+      const pubResult = seedKnowledge('xiaoming', 'alice public event');
+      const pubFactId = pubResult.fact.id;
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'chatting',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      pipeline.processEvent(socialEvent, agentsMap);
+
+      expect(knowledgeStore.hasKnowledge('xiaohong', localFactId)).toBe(false);
+      expect(knowledgeStore.hasKnowledge('xiaohong', pubFactId)).toBe(true);
+    });
+
+    it('不传播他人 AGENT_STATE', () => {
+      const stateFact = {
+        id: `state_${Date.now()}_${Math.random()}`,
+        type: 'agent_state',
+        agentId: 'some_other_agent',
+        state: 'hungry',
+        timestamp: new Date(),
+        source: 'engine',
+        confidence: 1.0,
+        scope: FactScope.PUBLIC,
+        participants: [],
+        observers: [],
+      };
+      factStore.addFact(stateFact);
+      knowledgeStore.addKnowledge('xiaoming', stateFact.id, 'direct');
+
+      const seedResult = seedKnowledge('xiaoming', 'alice found a map');
+      const pubFactId = seedResult.fact.id;
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'chatting',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      pipeline.processEvent(socialEvent, agentsMap);
+
+      expect(knowledgeStore.hasKnowledge('xiaohong', stateFact.id)).toBe(false);
+      expect(knowledgeStore.hasKnowledge('xiaohong', pubFactId)).toBe(true);
+    });
+
+    it('告知者必须 hasKnowledge', () => {
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'chatting',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      const result = pipeline.processEvent(socialEvent, agentsMap);
+
+      expect(result.fact).toBeDefined();
+      const toldUpdates = result.knowledgeUpdates.filter(u => u.source === 'told');
+      expect(toldUpdates.length).toBe(0);
+    });
+
+    it('被告知者已知道 → 不重复传播', () => {
+      const seedResult = seedKnowledge('xiaoming', 'alice found a treasure');
+      const seedFactId = seedResult.fact.id;
+
+      knowledgeStore.addKnowledge('xiaohong', seedFactId, 'direct');
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'chatting',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      const result = pipeline.processEvent(socialEvent, agentsMap);
+
+      const toldUpdates = result.knowledgeUpdates.filter(u => u.source === 'told');
+      expect(toldUpdates.length).toBe(0);
+    });
+
+    it('每方向每交互最多 1 条 fact', () => {
+      seedKnowledge('xiaoming', 'fact one');
+      seedKnowledge('xiaoming', 'fact two');
+      seedKnowledge('xiaoming', 'fact three');
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'chatting',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      const result = pipeline.processEvent(socialEvent, agentsMap);
+
+      const toldToXiaohong = result.knowledgeUpdates.filter(
+        u => u.source === 'told' && u.agentId === 'xiaohong'
+      );
+      expect(toldToXiaohong.length).toBeLessThanOrEqual(1);
+
+      const toldToXiaoming = result.knowledgeUpdates.filter(
+        u => u.source === 'told' && u.agentId === 'xiaoming'
+      );
+      expect(toldToXiaoming.length).toBe(0);
+    });
+
+    it('失效事实不传播', () => {
+      const seedResult = seedKnowledge('xiaoming', 'alice found a cursed item');
+      const seedFactId = seedResult.fact.id;
+      factStore.invalidateFact(seedFactId, '测试失效');
+
+      const validResult = seedKnowledge('xiaoming', 'alice found a healing potion');
+      const validFactId = validResult.fact.id;
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'chatting',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      pipeline.processEvent(socialEvent, agentsMap);
+
+      expect(knowledgeStore.hasKnowledge('xiaohong', seedFactId)).toBe(false);
+      expect(knowledgeStore.hasKnowledge('xiaohong', validFactId)).toBe(true);
+    });
+
+    it('完整管线：社交事件 → fact → direct → told', () => {
+      const seedResult = seedKnowledge('xiaoming', 'alice witnessed a meteor');
+      const seedFactId = seedResult.fact.id;
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'xiaoming and xiaohong discussing astronomy',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      const socialResult = pipeline.processEvent(socialEvent, agentsMap);
+
+      expect(socialResult.fact).toBeDefined();
+      const socialFactId = socialResult.fact.id;
+
+      expect(knowledgeStore.getSource('xiaoming', socialFactId)).toBe('direct');
+      expect(knowledgeStore.getSource('xiaohong', socialFactId)).toBe('direct');
+      expect(knowledgeStore.hasKnowledge('xiaohong', seedFactId)).toBe(true);
+      expect(knowledgeStore.getSource('xiaohong', seedFactId)).toBe('told');
+    });
+
+    it('多 agent：alice direct → bob told (alice 告知)', () => {
+      const seedResult = seedKnowledge('xiaoming', 'alice knows a secret');
+      const seedFactId = seedResult.fact.id;
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'sharing secrets',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      pipeline.processEvent(socialEvent, agentsMap);
+
+      expect(knowledgeStore.getSource('xiaohong', seedFactId)).toBe('told');
+      expect(knowledgeStore.getSource('xiaoming', seedFactId)).toBe('direct');
+    });
+
+    it('多 agent：charlie 非交互 → 不知', () => {
+      const seedResult = seedKnowledge('xiaoming', 'alice found a hidden passage');
+      const seedFactId = seedResult.fact.id;
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'chatting',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      pipeline.processEvent(socialEvent, agentsMap);
+
+      expect(knowledgeStore.hasKnowledge('xiaogang', seedFactId)).toBe(false);
+      expect(knowledgeStore.hasKnowledge('xiaohong', seedFactId)).toBe(true);
+    });
+
+    it('双向传播：双方各自分享一条 fact', () => {
+      const seed1 = seedKnowledge('xiaoming', 'alice knows fact A');
+      const factId1 = seed1.fact.id;
+
+      const fact2 = { id: `fact2_${Date.now()}_${Math.random()}`, type: 'event', eventId: `fact2_evt_${Date.now()}_${Math.random()}`, timestamp: new Date(), source: 'engine', confidence: 1.0, scope: FactScope.PUBLIC, participants: [], observers: [], description: 'fact B' };
+      factStore.addFact(fact2);
+      knowledgeStore.addKnowledge('xiaohong', fact2.id, 'direct');
+
+      const socialEvent = {
+        id: `social_${Date.now()}_${Math.random()}`,
+        type: 'social',
+        content: 'chatting',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+        time: new Date(),
+      };
+      const result = pipeline.processEvent(socialEvent, agentsMap);
+
+      expect(knowledgeStore.hasKnowledge('xiaohong', factId1)).toBe(true);
+      expect(knowledgeStore.hasKnowledge('xiaoming', fact2.id)).toBe(true);
+      expect(knowledgeStore.getSource('xiaohong', factId1)).toBe('told');
+      expect(knowledgeStore.getSource('xiaoming', fact2.id)).toBe('told');
+      expect(knowledgeStore.getEvidence('xiaohong', factId1).propagatedFrom).toBe('xiaoming');
+      expect(knowledgeStore.getEvidence('xiaoming', fact2.id).propagatedFrom).toBe('xiaohong');
+    });
+  });
+
+  // ─── Inferred 传播（W2）───
+  //
+  // Inferred 是 safety net：确保在 PUBLIC 事件发生地点的每个角色
+  // 无论是否参与/观察/偷听，都能获得至少 0.5 置信度的知识。
+  //
+  // 优先级：direct(1.0) > observed(0.9) > overheard(0.7) > inferred(0.5)
+  // 在正常管线中，同位置 agent 通过 overheard(0.7) 获得知识，
+  // inferred 仅在 edge case（如知识被清除）时起作用。
+
+  describe('Inferred 传播', () => {
+    it('直接调用 _propagateInferred 验证机制', () => {
+      const event = makeEvent({
+        content: 'test inferred mechanism',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming'],
+        observers: [],
+      });
+      const agents = makeAgents({ xiaogang: '图书馆' });
+      const result = pipeline.processEvent(event, agents);
+
+      // xiaogang 通过 overheard 获得知识（0.7）
+      expect(knowledgeStore.hasKnowledge('xiaogang', result.fact.id)).toBe(true);
+      expect(knowledgeStore.getSource('xiaogang', result.fact.id)).toBe('overheard');
+
+      // 移除知识后直接调用 _propagateInferred 测试 inferred 机制
+      knowledgeStore.removeKnowledge('xiaogang', result.fact.id);
+      expect(knowledgeStore.hasKnowledge('xiaogang', result.fact.id)).toBe(false);
+
+      const updates = pipeline._propagateInferred(result.fact, agents);
+      expect(updates.length).toBe(1);
+      expect(updates[0].source).toBe('inferred');
+      expect(knowledgeStore.getSource('xiaogang', result.fact.id)).toBe('inferred');
+      expect(knowledgeStore.getEvidence('xiaogang', result.fact.id).confidence).toBe(0.5);
+    });
+
+    it('propagatedFrom 为 null', () => {
+      const event = makeEvent({
+        content: 'inferred event',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming'],
+        observers: [],
+      });
+      const agents = makeAgents({ xiaogang: '图书馆' });
+      const result = pipeline.processEvent(event, agents);
+
+      knowledgeStore.removeKnowledge('xiaogang', result.fact.id);
+      pipeline._propagateInferred(result.fact, agents);
+
+      const evidence = knowledgeStore.getEvidence('xiaogang', result.fact.id);
+      expect(evidence.propagatedFrom).toBeNull();
+    });
+
+    it('LOCAL scope → 没有 inferred', () => {
+      const event = makeEvent({
+        content: 'local event no inference',
+        location: '图书馆',
+        scope: FactScope.LOCAL,
+        participants: ['xiaoming'],
+        observers: [],
+      });
+      const agents = makeAgents({ xiaogang: '图书馆' });
+      const result = pipeline.processEvent(event, agents);
+
+      expect(knowledgeStore.hasKnowledge('xiaogang', result.fact.id)).toBe(false);
+    });
+
+    it('不同位置 agent → 没有 inferred', () => {
+      const event = makeEvent({
+        content: 'far away event',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming'],
+        observers: [],
+      });
+      const agents = makeAgents({ xiaogang: '食堂' });
+      const result = pipeline.processEvent(event, agents);
+
+      expect(knowledgeStore.hasKnowledge('xiaogang', result.fact.id)).toBe(false);
+    });
+
+    it('已存在知识不重复添加 inferred', () => {
+      const event = makeEvent({
+        content: 'already known event',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming'],
+        observers: [],
+      });
+      const agents = makeAgents({ xiaogang: '图书馆' });
+      const result = pipeline.processEvent(event, agents);
+
+      // xiaogang 已有 overheard(0.7)，inferred 不应覆盖
+      const evidence = knowledgeStore.getEvidence('xiaogang', result.fact.id);
+      expect(evidence.source).toBe('overheard');
+      expect(evidence.confidence).toBe(0.7);
+
+      // 直接调用 inferred 应返回空（已有知识）
+      const updates = pipeline._propagateInferred(result.fact, agents);
+      expect(updates.length).toBe(0);
+
+      // source 仍为 overheard，未被 inferred 覆盖
+      expect(knowledgeStore.getSource('xiaogang', result.fact.id)).toBe('overheard');
+    });
+
+    it('全管线优先级：participants direct > 同位置 overheard > inferred safety net', () => {
+      const event = makeEvent({
+        content: 'priority chain test',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming', 'xiaohong'],
+        observers: [],
+      });
+      const agents = makeAgents({ xiaogang: '图书馆' });
+      const result = pipeline.processEvent(event, agents);
+
+      const factId = result.fact.id;
+
+      // 参与者 direct（1.0）
+      expect(knowledgeStore.getSource('xiaoming', factId)).toBe('direct');
+      expect(knowledgeStore.getSource('xiaohong', factId)).toBe('direct');
+      expect(knowledgeStore.getEvidence('xiaoming', factId).confidence).toBe(1.0);
+
+      // 同位置未参与者 overheard（0.7）
+      expect(knowledgeStore.getSource('xiaogang', factId)).toBe('overheard');
+      expect(knowledgeStore.getEvidence('xiaogang', factId).confidence).toBe(0.7);
+
+      // inferred 作为 safety net：如果清除知识后调用 inferred 仍能工作
+      knowledgeStore.removeKnowledge('xiaogang', factId);
+      pipeline._propagateInferred(result.fact, agents);
+      expect(knowledgeStore.getSource('xiaogang', factId)).toBe('inferred');
+      expect(knowledgeStore.getEvidence('xiaogang', factId).confidence).toBe(0.5);
+    });
+  });
 });
