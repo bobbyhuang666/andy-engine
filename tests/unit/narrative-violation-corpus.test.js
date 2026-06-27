@@ -1,10 +1,10 @@
 /**
- * Narrative Violation Corpus 检出率测试 (v2.5-W1)
+ * Narrative Violation Corpus 检出率测试 (v2.5-W2)
  *
  * 遍历 corpus，对每条跑 FactConsistencyChecker，断言检出 expectedViolations 类别。
  * 统计 gate rate 和 boundary rate，按 RFC §4.2 质量门槛判定。
  *
- * W1 目标：20 条，gate rate ≥85%，boundary ≥3 条单独报告。
+ * W2 目标：≥30 条，gate rate ≥85%，boundary ≥5 条，覆盖 ≥9 类。
  */
 
 import { describe, it, expect } from 'vitest';
@@ -15,11 +15,11 @@ const { corpus, KNOWN_REGIONS } = require('../fixtures/narrative-violations/inde
 
 const GATE_RATE_THRESHOLD = 0.85; // RFC §4.2
 
-describe('Narrative Violation Corpus — 检出率 (v2.5-W1)', () => {
+describe('Narrative Violation Corpus — 检出率 (v2.5-W2)', () => {
   const checker = new FactConsistencyChecker({}, { regions: KNOWN_REGIONS });
 
-  it('corpus 至少 20 条', () => {
-    expect(corpus.length).toBeGreaterThanOrEqual(20);
+  it('corpus 至少 30 条', () => {
+    expect(corpus.length).toBeGreaterThanOrEqual(30);
   });
 
   // 每条样本单独断言（便于失败时定位）
@@ -103,19 +103,20 @@ describe('Narrative Violation Corpus — 检出率 (v2.5-W1)', () => {
     }
   });
 
-  it('corpus 覆盖至少 7 类 violation（含 missing_source_attribution）', () => {
+  it('corpus 覆盖至少 9 类 violation（含 agent_state_leak, local_scope_leak）', () => {
     const categories = new Set(
       corpus
         .filter(c => c.expectedViolations.length > 0)
         .map(c => c.category)
     );
-    expect(categories.size).toBeGreaterThanOrEqual(7);
-    expect(categories.has('missing_source_attribution')).toBe(true);
+    expect(categories.size).toBeGreaterThanOrEqual(9);
+    expect(categories.has('agent_state_leak')).toBe(true);
+    expect(categories.has('local_scope_leak')).toBe(true);
   });
 
   it('boundary cases 单独报告检出率', () => {
     const boundaryCases = corpus.filter(c => c.may_detect === false);
-    expect(boundaryCases.length, 'boundary cases 应 ≥3').toBeGreaterThanOrEqual(3);
+    expect(boundaryCases.length, 'boundary cases 应 ≥5').toBeGreaterThanOrEqual(5);
 
     let detected = 0;
     const details = [];

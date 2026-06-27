@@ -12,7 +12,8 @@ import { describe, it, expect } from 'vitest';
 const { createRequire } = await import('node:module');
 const require = createRequire(import.meta.url);
 const FactConsistencyChecker = require('../../../src/narrative/FactConsistencyChecker.js');
-const { FactType } = require('../../../src/canon/FactSchema.js');
+const FactFormatter = require('../../../src/narrative/FactFormatter.js');
+const { FactType, FactScope } = require('../../../src/canon/FactSchema.js');
 
 function makeChecker(regions = ['图书馆', '食堂', '宿舍']) {
   return new FactConsistencyChecker({}, { regions });
@@ -318,6 +319,51 @@ describe('_checkMissingSourceAttribution (v2.5-W1)', () => {
     const r = c.check('无证据事件发生了', grounding);
     expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
   });
+
+  // v2.5-W2: expanded marker list
+  it('does NOT flag told fact with "据说" marker', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '远处发生了地震', location: '远方', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: 'bob' } },
+      ],
+    });
+    const r = c.check('据说远处发生了地震', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
+  });
+
+  it('does NOT flag told fact with "说是" marker', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '食堂关门了', location: '食堂', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: 'bob' } },
+      ],
+    });
+    const r = c.check('说是食堂关门了', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
+  });
+
+  it('does NOT flag inferred fact with "看来" marker', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '食堂有人', location: '食堂', _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null } },
+      ],
+    });
+    const r = c.check('看来食堂有人', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
+  });
+
+  it('does NOT flag inferred fact with "想必" marker', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '那边很热闹', location: '操场', _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null } },
+      ],
+    });
+    const r = c.check('想必那边很热闹', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
+  });
 });
 
 // ═══════════════════════════════════════════
@@ -362,5 +408,225 @@ describe('4-layer severity (v2.5-W1)', () => {
     const c = makeChecker();
     const r = c.check('今天天气不错', makeGrounding());
     expect(r.severity).toBe('pass');
+  });
+});
+
+// ═══════════════════════════════════════════
+// _checkAgentStateLeak (v2.5-W2)
+// ═══════════════════════════════════════════
+describe('_checkAgentStateLeak (v2.5-W2)', () => {
+  it('flags other agent emotion without evidence', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+      ],
+    });
+    // bob is in allowedFacts but only as bare AGENT_STATE (PUBLIC scope),
+    // no EVENT/OBSERVATION evidence — narrator shouldn't know bob's emotion
+    const r = c.check('bob很难过', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob')).toBe(true);
+  });
+
+  it('flags other agent needs without evidence', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+      ],
+    });
+    const r = c.check('bob饿了', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob')).toBe(true);
+  });
+
+  it('flags other agent activity without evidence', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+      ],
+    });
+    const r = c.check('bob正在看书', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob')).toBe(true);
+  });
+
+  it('does NOT flag self agent emotion', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+      ],
+    });
+    // alice is selfId — can express own emotion freely
+    const r = c.check('alice很难过', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak')).toBe(false);
+  });
+
+  it('does NOT flag other agent emotion when EVENT evidence exists', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+        {
+          type: FactType.EVENT,
+          description: 'bob在食堂吃饭',
+          location: '食堂',
+          participants: ['alice', 'bob'],
+          _evidence: { source: 'observed', confidence: 0.9, propagatedFrom: null },
+        },
+      ],
+    });
+    // bob is in an EVENT with alice as participant — narrator can express bob's state
+    const r = c.check('bob很开心', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob')).toBe(false);
+  });
+
+  it('does NOT flag common non-agent words', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+      ],
+    });
+    const r = c.check('大家很开心', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak')).toBe(false);
+  });
+
+  it('severity=rewrite for agent_state_leak', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+      ],
+    });
+    const r = c.check('bob很难过', grounding);
+    expect(r.severity).toBe('rewrite');
+  });
+});
+
+// ═══════════════════════════════════════════
+// _checkLocalScopeLeak (v2.5-W2)
+// ═══════════════════════════════════════════
+describe('_checkLocalScopeLeak (v2.5-W2)', () => {
+  it('flags forbidden LOCAL event mentioned in text', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [],
+      forbiddenFacts: [
+        {
+          type: FactType.EVENT,
+          scope: FactScope.LOCAL,
+          description: '火星上发生了爆炸',
+          location: '火星',
+        },
+      ],
+    });
+    const r = c.check('火星上发生了爆炸', grounding);
+    expect(r.violations.some(v => v.type === 'local_scope_leak')).toBe(true);
+  });
+
+  it('does NOT flag PUBLIC scope events in forbiddenFacts', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [],
+      forbiddenFacts: [
+        {
+          type: FactType.EVENT,
+          scope: FactScope.PUBLIC,
+          description: '公共事件发生了',
+          location: '图书馆',
+        },
+      ],
+    });
+    const r = c.check('公共事件发生了', grounding);
+    expect(r.violations.some(v => v.type === 'local_scope_leak')).toBe(false);
+  });
+
+  it('does NOT flag non-EVENT facts in forbiddenFacts', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [],
+      forbiddenFacts: [
+        {
+          type: FactType.MEMORY,
+          scope: FactScope.LOCAL,
+          description: '别人的私密记忆',
+          agentId: 'bob',
+        },
+      ],
+    });
+    const r = c.check('别人的私密记忆', grounding);
+    expect(r.violations.some(v => v.type === 'local_scope_leak')).toBe(false);
+  });
+
+  it('skips when forbiddenFacts is missing (backward compat)', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({ allowedFacts: [] });
+    // No forbiddenFacts key — should not crash or flag
+    const r = c.check('火星上发生了爆炸', grounding);
+    expect(r.violations.some(v => v.type === 'local_scope_leak')).toBe(false);
+  });
+
+  it('severity=rewrite for local_scope_leak', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [],
+      forbiddenFacts: [
+        {
+          type: FactType.EVENT,
+          scope: FactScope.LOCAL,
+          description: '远处发生了地震',
+          location: '远方',
+        },
+      ],
+    });
+    const r = c.check('远处发生了地震', grounding);
+    expect(r.violations.some(v => v.type === 'local_scope_leak')).toBe(true);
+    expect(r.severity).toBe('rewrite');
+  });
+});
+
+// ═══════════════════════════════════════════
+// told fallback "听闻" (v2.5-W2)
+// ═══════════════════════════════════════════
+describe('told fallback "听闻" (v2.5-W2)', () => {
+  it('FactFormatter returns "听闻" when told has no propagatedFrom', () => {
+    const fact = {
+      type: FactType.EVENT,
+      description: '食堂关门了',
+      location: '食堂',
+      _evidence: { source: 'told', confidence: 0.6, propagatedFrom: null },
+    };
+    const result = FactFormatter.toNaturalLanguageWithSource(fact);
+    expect(result).toContain('听闻');
+    expect(result).not.toContain('告诉你');
+  });
+
+  it('FactFormatter returns "{name}告诉你" when told has propagatedFrom', () => {
+    const fact = {
+      type: FactType.EVENT,
+      description: '食堂关门了',
+      location: '食堂',
+      _evidence: { source: 'told', confidence: 0.6, propagatedFrom: 'bob' },
+    };
+    const result = FactFormatter.toNaturalLanguageWithSource(fact);
+    expect(result).toContain('bob告诉你');
+    expect(result).not.toContain('听闻');
+  });
+
+  it('checker accepts "听说" as valid attribution for told-without-propagatedFrom', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '食堂关门了', location: '食堂', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: null } },
+      ],
+    });
+    const r = c.check('我听说食堂关门了', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
   });
 });

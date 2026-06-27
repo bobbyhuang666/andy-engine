@@ -60,6 +60,20 @@ class FactFormatter {
 
   /**
    * 事实→自然语言 + 来源标注
+   *
+   * Evidence source → annotation mapping:
+   *   direct/observed → no annotation (free expression)
+   *   overheard       → （听闻）
+   *   told            → （{propagatedFrom}告诉你）or （听闻）if propagatedFrom is null
+   *   inferred        → （推测）
+   *
+   * told fallback: When a told-level fact has no propagatedFrom (the informer's
+   * identity is unknown), the formatter falls back to generic "听闻" annotation
+   * instead of "XX告诉你". This is by design: without a known source, fabricating
+   * an informer name would be worse than the imprecise "听闻" label. The fallback
+   * is consistent with the checker's toldMarkers which include "听说" as a valid
+   * attribution.
+   *
    * @param {Object} fact
    * @returns {string}
    */

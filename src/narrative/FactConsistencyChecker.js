@@ -52,6 +52,12 @@ class FactConsistencyChecker {
     // 7. 来源标注校验 (v2.5-W1)
     violations.push(...this._checkMissingSourceAttribution(llmOutput, grounding));
 
+    // 8. 其他角色内心状态泄漏校验 (v2.5-W2)
+    violations.push(...this._checkAgentStateLeak(llmOutput, grounding));
+
+    // 9. LOCAL 事件知识泄漏校验 (v2.5-W2)
+    violations.push(...this._checkLocalScopeLeak(llmOutput, grounding));
+
     return {
       valid: violations.length === 0,
       violations,
@@ -409,11 +415,212 @@ class FactConsistencyChecker {
 
 
   /**
+   * 其他角色内心状态泄漏校验 (v2.5-W2)
+   *
+   * AGENT_STATE 即使是 public scope，在 epistemic reasoning 中也应视为私有知识。
+   * 其他 agent 需要 direct/observed/told/inferred 证据才能表达其状态。
+   *
+   * 检测逻辑：
+   *   1. 找出"可表达状态的 agent"集合（self + 有 EVENT/OBSERVATION 支撑的 other）
+   *   2. 匹配文本中"其他角色 + 内心状态表达"模式
+   *   3. 不在可表达集合中的 → agent_state_leak violation
+   *
+   * @private
+   */
+  _checkAgentStateLeak(text, grounding) {
+    const violations = [];
+    if (!grounding || !grounding.allowedFacts) return violations;
+
+    const selfId = grounding.metadata && grounding.metadata.agentId;
+
+    // Build set of "justifiable" agents whose state the narrator can express.
+    // Self is always justifiable. Other agents are justifiable only if there's
+    // an EVENT or OBSERVATION fact in allowedFacts involving them (with evidence).
+    const justifiableAgents = new Set();
+    if (selfId) justifiableAgents.add(selfId);
+
+    // Collect all known agent names from allowedFacts
+    const knownAgentNames = new Set();
+    for (const fact of grounding.allowedFacts) {
+      if (fact.type === FactType.AGENT_STATE && fact.agentId) knownAgentNames.add(fact.agentId);
+      if (fact.participants) for (const p of fact.participants) knownAgentNames.add(p);
+      if (fact.observers) for (const o of fact.observers) knownAgentNames.add(o);
+      if (fact.observerId) knownAgentNames.add(fact.observerId);
+      if (fact.targetId) knownAgentNames.add(fact.targetId);
+    }
+    if (selfId) knownAgentNames.add(selfId);
+
+    // Other agents with EVENT/OBSERVATION evidence are justifiable
+    for (const fact of grounding.allowedFacts) {
+      if (fact.type === FactType.EVENT) {
+        // If the narrator is participant/observer of this event, other participants are visible
+        const narratorInvolved =
+          (fact.participants && fact.participants.includes(selfId)) ||
+          (fact.observers && fact.observers.includes(selfId)) ||
+          (fact._evidence && ['direct', 'observed', 'overheard', 'told', 'inferred'].includes(fact._evidence.source));
+        if (narratorInvolved) {
+          if (fact.participants) for (const p of fact.participants) justifiableAgents.add(p);
+          if (fact.observers) for (const o of fact.observers) justifiableAgents.add(o);
+        }
+      }
+      if (fact.type === FactType.OBSERVATION) {
+        // Observation about a target — if narrator is observer or has evidence
+        const narratorKnows =
+          fact.observerId === selfId ||
+          (fact._evidence && ['direct', 'observed', 'overheard', 'told', 'inferred'].includes(fact._evidence.source));
+        if (narratorKnows && fact.targetId) {
+          justifiableAgents.add(fact.targetId);
+        }
+      }
+    }
+
+    // Emotion vocabulary
+    const emotionWords = [
+      '开心', '难过', '生气', '害怕', '惊讶', '紧张', '沮丧', '无聊', '孤独',
+      '兴奋', '满足', '烦躁', '焦虑', '疲惫', '害羞', '尴尬', '内疚', '失落',
+      '感动', '愤怒', '伤心', '心烦', '郁闷', '寂寞', '委屈', '伤心', '痛苦',
+      '快乐', '幸福', '感激', '后悔', '绝望', '崩溃',
+    ];
+
+    // Needs vocabulary
+    const needsWords = ['饿了', '困了', '累了', '想休息', '想吃', '想睡', '口渴', '头疼', '不舒服'];
+
+    // Activity vocabulary
+    const activityWords = [
+      '看书', '学习', '休息', '工作', '运动', '吃饭', '聊天', '散步', '睡觉',
+      '跑步', '锻炼', '做饭', '打扫', '练琴', '画画', '写作业', '上网', '打游戏',
+    ];
+
+    // Patterns for state expressions about other agents
+    const commonNonAgents = ['大家', '别人', '对方', '朋友', '人们', '我们', '他们', '她们', '自己'];
+
+    // Pattern 1: AgentName + emotion (Name很/有点/非常/挺/比较/比较+emotion)
+    // Use known agent names from grounding for matching
+    for (const agentName of knownAgentNames) {
+      if (agentName === selfId) continue; // Self is always ok
+      if (commonNonAgents.includes(agentName)) continue;
+      if (justifiableAgents.has(agentName)) continue; // Justified by evidence
+
+      // Check emotion expressions: Name[很/有点/非常/挺/比较]emotion
+      for (const emotion of emotionWords) {
+        const emotionPatterns = [
+          new RegExp(`${agentName}(很|有点|非常|挺|比较|极度|特别|真)${emotion}`),
+          new RegExp(`${agentName}感到${emotion}`),
+          new RegExp(`${agentName}觉得${emotion}`),
+        ];
+        for (const pattern of emotionPatterns) {
+          if (pattern.test(text)) {
+            violations.push({
+              type: 'agent_state_leak',
+              agent: agentName,
+              stateType: 'emotion',
+              message: `表达了${agentName}的情绪状态，但你没有证据知道对方的状态`,
+            });
+            break; // One violation per agent is enough
+          }
+        }
+        if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) break;
+      }
+
+      if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) continue;
+
+      // Check needs expressions: Name + needsWord
+      for (const needs of needsWords) {
+        const needsPatterns = [
+          new RegExp(`${agentName}${needs}`),
+          new RegExp(`${agentName}想${needs.replace('想', '')}`),
+        ];
+        for (const pattern of needsPatterns) {
+          if (pattern.test(text)) {
+            violations.push({
+              type: 'agent_state_leak',
+              agent: agentName,
+              stateType: 'needs',
+              message: `表达了${agentName}的需求状态，但你没有证据知道对方的状态`,
+            });
+            break;
+          }
+        }
+        if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) break;
+      }
+
+      if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) continue;
+
+      // Check activity expressions: Name正在/在+activity
+      for (const activity of activityWords) {
+        const activityPatterns = [
+          new RegExp(`${agentName}正在${activity}`),
+          new RegExp(`${agentName}在${activity}`),
+        ];
+        for (const pattern of activityPatterns) {
+          if (pattern.test(text)) {
+            violations.push({
+              type: 'agent_state_leak',
+              agent: agentName,
+              stateType: 'activity',
+              message: `表达了${agentName}的活动状态，但你没有证据知道对方的状态`,
+            });
+            break;
+          }
+        }
+        if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) break;
+      }
+    }
+
+    return violations;
+  }
+
+  /**
+   * LOCAL 事件知识泄漏校验 (v2.5-W2)
+   *
+   * 检测 narrative 是否提到了 forbiddenFacts 中 scope=LOCAL 的事件。
+   * 这些是其他区域发生的本地事件，agent 不应该知道。
+   *
+   * 需要 grounding.forbiddenFacts 提供（FactProvider 已填充）。
+   * 如果 forbiddenFacts 不可用则跳过（向后兼容）。
+   *
+   * @private
+   */
+  _checkLocalScopeLeak(text, grounding) {
+    const violations = [];
+    if (!grounding || !grounding.forbiddenFacts) return violations;
+
+    for (const fact of grounding.forbiddenFacts) {
+      if (!fact || fact._invalidated) continue;
+      if (fact.type !== FactType.EVENT) continue;
+      if (fact.scope !== FactScope.LOCAL) continue;
+
+      const desc = fact.description || '';
+      if (desc.length < 2) continue;
+
+      if (this._textContainsFactContent(text, desc)) {
+        violations.push({
+          type: 'local_scope_leak',
+          fact: desc,
+          location: fact.location || '',
+          message: `提到了你不知道的本地事件"${desc}"`,
+        });
+      }
+    }
+
+    return violations;
+  }
+
+  /**
    * 来源标注校验 (v2.5-W1)
    *
    * 反向检查：grounding 中有 told/inferred 级别事实，但 narrative
    * 无任何来源标记语（"我听说"/"XX告诉我"/"我推测"/"大概"等），
    * 则触发 warning。
+   *
+   * Known limitation (v2.5-W2): This checker uses reverse full-text marker
+   * detection, not per-fact attribution tracking. If a told/inferred fact
+   * appears in text but the attribution marker is on a different sentence,
+   * the checker may miss the violation (false negative). Conversely, if a
+   * told marker appears in text for a different reason, it may suppress a
+   * legitimate violation (false positive suppression). Per-fact attribution
+   * tracking would require LLM-side cooperation (structured output), which
+   * is out of scope for the current regex-based approach.
    *
    * @private
    */
@@ -422,8 +629,8 @@ class FactConsistencyChecker {
     if (!grounding || !grounding.allowedFacts) return violations;
 
     // Source markers in text that indicate attribution
-    const toldMarkers = ['听说', '告诉我', '告诉过', '说的', '跟我说的', '跟我讲'];
-    const inferredMarkers = ['推测', '大概', '可能', '估计', '猜测', '也许', '应该'];
+    const toldMarkers = ['听说', '告诉我', '告诉过', '说的', '跟我说的', '跟我讲', '说是', '听讲', '据说', '风闻', '传'];
+    const inferredMarkers = ['推测', '大概', '可能', '估计', '猜测', '也许', '应该', '看来', '想必', '八成', '十有八九', '按理'];
 
     // Collect told/inferred facts from grounding
     const toldFacts = [];
@@ -497,6 +704,15 @@ class FactConsistencyChecker {
 
   /**
    * 计算严重程度 (v2.5: 4-layer)
+   *
+   * Severity tiers (highest → lowest priority):
+   *   reject              — new_event, new_relationship
+   *   rewrite             — unknown_character, unknown_location, unsupported_claim,
+   *                         agent_state_leak, local_scope_leak
+   *   warning             — missing_source_attribution
+   *   degrade_to_template — time_conflict, unknown_event (implicit)
+   *   pass                — no violations
+   *
    * @private
    */
   _computeSeverity(violations) {
@@ -507,8 +723,14 @@ class FactConsistencyChecker {
       return 'reject';
     }
 
-    // 未知角色或地点或不支持的声明 → rewrite
-    if (violations.some(v => v.type === 'unknown_character' || v.type === 'unknown_location' || v.type === 'unsupported_claim')) {
+    // 未知角色或地点或不支持的声明或状态泄漏 → rewrite
+    if (violations.some(v =>
+      v.type === 'unknown_character' ||
+      v.type === 'unknown_location' ||
+      v.type === 'unsupported_claim' ||
+      v.type === 'agent_state_leak' ||
+      v.type === 'local_scope_leak'
+    )) {
       return 'rewrite';
     }
 
@@ -517,7 +739,7 @@ class FactConsistencyChecker {
       return 'warning';
     }
 
-    // 其他 → degrade_to_template
+    // 其他（time_conflict, unknown_event）→ degrade_to_template
     return 'degrade_to_template';
   }
 
@@ -555,6 +777,12 @@ class FactConsistencyChecker {
           break;
         case 'missing_source_attribution':
           suggestions.push(`为"${v.fact}"添加来源标注（${v.source === 'told' ? '听说/XX告诉我' : '推测/大概'}）`);
+          break;
+        case 'agent_state_leak':
+          suggestions.push(`移除对${v.agent}内心状态的表达（你不应该知道对方的状态）`);
+          break;
+        case 'local_scope_leak':
+          suggestions.push(`移除你不知道的事件"${v.fact}"`);
           break;
       }
     }

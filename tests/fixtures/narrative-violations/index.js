@@ -19,12 +19,15 @@
  *   - new_event: 刚刚XX了 模式，不在已知事件
  *   - unsupported_claim: （见 _checkAgentLocationClaims，无支撑的 agent-location 声明）
  *   - missing_source_attribution: told/inferred 事实缺少来源标注 (v2.5-W1)
+ *   - agent_state_leak: 表达其他 agent 内心状态（无证据）(v2.5-W2)
+ *   - local_scope_leak: 提及 LOCAL 事件（forbiddenFacts）(v2.5-W2)
  *
  * 注意：checker 的 location regex /[在去到从]([一-龥]{2,6})/g 会贪婪捕获，
  * "找到了" 中的 "到" 会触发 unknown_location 误报。语料设计需避开此陷阱。
  */
 
 const { FactType } = require('../../../src/canon/FactSchema');
+const { FactScope } = require('../../../src/canon/FactSchema');
 
 const KNOWN_AGENT = '爱丽丝';
 const KNOWN_OTHER = '鲍勃';
@@ -281,6 +284,170 @@ const corpus = [
     grounding: baseGrounding(),
     expectedViolations: [{ type: 'unknown_character' }],
     may_detect: false,  // regex only matches Chinese chars — English name won't trigger
+  },
+
+  // ═══════════════════════════════════════════
+  // v2.5-W2 新增：agent_state_leak + local_scope_leak + expanded coverage
+  // ═══════════════════════════════════════════
+
+  // ─── agent_state_leak: 表达其他 agent 内心状态（无证据） ───
+  {
+    id: 'nv-021',
+    category: 'agent_state_leak',
+    description: 'LLM 表达其他 agent 情绪（无证据）',
+    llmOutput: '鲍勃很难过。',
+    grounding: baseGrounding({
+      // 鲍勃只有 AGENT_STATE（PUBLIC scope 入口），无 EVENT/OBSERVATION 支撑
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [{ type: 'agent_state_leak' }],
+  },
+  {
+    id: 'nv-022',
+    category: 'agent_state_leak',
+    description: 'LLM 表达其他 agent 需求（无证据）',
+    llmOutput: '鲍勃饿了。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [{ type: 'agent_state_leak' }],
+  },
+  {
+    id: 'nv-023',
+    category: 'agent_state_leak',
+    description: 'LLM 表达其他 agent 活动（无证据）',
+    llmOutput: '鲍勃正在看书。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [{ type: 'agent_state_leak' }],
+  },
+
+  // ─── local_scope_leak: 提及 LOCAL 事件（forbiddenFacts） ───
+  {
+    id: 'nv-024',
+    category: 'local_scope_leak',
+    description: 'LLM 提及禁止的 LOCAL 事件',
+    llmOutput: '操场那边发生了冲突。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+      ],
+      forbiddenFacts: [
+        {
+          type: FactType.EVENT,
+          scope: FactScope.LOCAL,
+          description: '操场发生了冲突',
+          location: '操场',
+        },
+      ],
+    }),
+    expectedViolations: [{ type: 'local_scope_leak' }],
+  },
+  {
+    id: 'nv-025',
+    category: 'local_scope_leak',
+    description: 'LLM 提及另一个 LOCAL 事件',
+    llmOutput: '远处发生了地震。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+      ],
+      forbiddenFacts: [
+        {
+          type: FactType.EVENT,
+          scope: FactScope.LOCAL,
+          description: '远处发生了地震',
+          location: '远方',
+        },
+      ],
+    }),
+    expectedViolations: [{ type: 'local_scope_leak' }],
+  },
+
+  // ─── agent_state_leak boundary: 有 EVENT 证据时不违规 ───
+  {
+    id: 'nv-026',
+    category: 'agent_state_leak',
+    description: '有 EVENT 证据时表达其他 agent 状态（boundary）',
+    llmOutput: '鲍勃很开心。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        {
+          type: FactType.EVENT,
+          description: '鲍勃在食堂吃饭',
+          location: '食堂',
+          participants: [KNOWN_AGENT, KNOWN_OTHER],
+          _evidence: { source: 'observed', confidence: 0.9, propagatedFrom: null },
+        },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // EVENT evidence justifies expressing bob's state — boundary (checker should NOT flag)
+  },
+
+  // ─── local_scope_leak boundary: 作为参与者提及 LOCAL 事件 ───
+  {
+    id: 'nv-027',
+    category: 'local_scope_leak',
+    description: '自己参与的 LOCAL 事件不在 forbiddenFacts（boundary）',
+    llmOutput: '我们在宿舍开了派对。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.EVENT, description: '宿舍开派对', location: '宿舍' },
+      ],
+      forbiddenFacts: [],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // No forbidden facts → no violation — boundary
+  },
+
+  // ─── missing_source_attribution: expanded markers (v2.5-W2) ───
+  {
+    id: 'nv-028',
+    category: 'missing_source_attribution',
+    description: 'told 事实用 "据说" 标注（pass）',
+    llmOutput: '据说鲍勃发现了一本好书。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        { type: FactType.EVENT, description: '鲍勃发现了一本好书', location: '图书馆', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: KNOWN_OTHER } },
+      ],
+    }),
+    expectedViolations: [],
+  },
+
+  // ─── unknown_location: additional patterns ───
+  {
+    id: 'nv-029',
+    category: 'unknown_location',
+    description: 'LLM 在未配置地点（从XX模式）',
+    llmOutput: '我从咖啡馆出来的。',
+    grounding: baseGrounding(),
+    expectedViolations: [{ type: 'unknown_location' }],
+  },
+
+  // ─── new_event: additional pattern ───
+  {
+    id: 'nv-030',
+    category: 'new_event',
+    description: 'LLM 编造新事件（刚刚下雪了）',
+    llmOutput: '刚刚下雪了。',
+    grounding: baseGrounding(),
+    expectedViolations: [{ type: 'new_event' }],
   },
 ];
 
