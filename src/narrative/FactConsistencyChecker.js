@@ -415,15 +415,19 @@ class FactConsistencyChecker {
 
 
   /**
-   * 其他角色内心状态泄漏校验 (v2.5-W2)
+   * 其他角色内心状态泄漏校验 (v2.5-W2, evidence fix W3)
    *
    * AGENT_STATE 即使是 public scope，在 epistemic reasoning 中也应视为私有知识。
-   * 其他 agent 需要 direct/observed/told/inferred 证据才能表达其状态。
+   * 其他 agent 需要 direct/observed 证据才能表达其状态。told/inferred EVENT
+   * 不能 justify 他人 AGENT_STATE 表达（知道"Bob 参加了某事件"不等于知道
+   * "Bob 很伤心/很累/想吃饭"）。
    *
-   * 检测逻辑：
-   *   1. 找出"可表达状态的 agent"集合（self + 有 EVENT/OBSERVATION 支撑的 other）
-   *   2. 匹配文本中"其他角色 + 内心状态表达"模式
-   *   3. 不在可表达集合中的 → agent_state_leak violation
+   * 两层判定 (v2.5-W3):
+   *   - activityJustifiable: 可表达"可见行为"（activity）的 agent
+   *     → narrator 亲身参与/观察事件，或 EVENT evidence 为 direct/observed/overheard
+   *   - emotionNeedsJustifiable: 可表达"内在状态"（emotion/needs）的 agent
+   *     → narrator 亲身参与/观察事件（亲眼在场可推断可观察的情绪表现）
+   *     → told/inferred EVENT 绝不 justify emotion/needs
    *
    * @private
    */
@@ -433,11 +437,14 @@ class FactConsistencyChecker {
 
     const selfId = grounding.metadata && grounding.metadata.agentId;
 
-    // Build set of "justifiable" agents whose state the narrator can express.
-    // Self is always justifiable. Other agents are justifiable only if there's
-    // an EVENT or OBSERVATION fact in allowedFacts involving them (with evidence).
-    const justifiableAgents = new Set();
-    if (selfId) justifiableAgents.add(selfId);
+    // Two-tier justification sets
+    const activityJustifiable = new Set();      // can express visible activity
+    const emotionNeedsJustifiable = new Set();  // can express emotion/needs
+
+    if (selfId) {
+      activityJustifiable.add(selfId);
+      emotionNeedsJustifiable.add(selfId);
+    }
 
     // Collect all known agent names from allowedFacts
     const knownAgentNames = new Set();
@@ -450,40 +457,67 @@ class FactConsistencyChecker {
     }
     if (selfId) knownAgentNames.add(selfId);
 
-    // Other agents with EVENT/OBSERVATION evidence are justifiable
+    // Build justification sets from evidence
     for (const fact of grounding.allowedFacts) {
       if (fact.type === FactType.EVENT) {
-        // If the narrator is participant/observer of this event, other participants are visible
-        const narratorInvolved =
+        // narrator physically present at the event → can infer emotion/needs from observed behavior
+        const narratorPresent =
           (fact.participants && fact.participants.includes(selfId)) ||
-          (fact.observers && fact.observers.includes(selfId)) ||
-          (fact._evidence && ['direct', 'observed', 'overheard', 'told', 'inferred'].includes(fact._evidence.source));
-        if (narratorInvolved) {
-          if (fact.participants) for (const p of fact.participants) justifiableAgents.add(p);
-          if (fact.observers) for (const o of fact.observers) justifiableAgents.add(o);
+          (fact.observers && fact.observers.includes(selfId));
+
+        // direct/observed/overheard evidence → can express visible activity
+        const hasDirectEvidence = fact._evidence &&
+          ['direct', 'observed', 'overheard'].includes(fact._evidence.source);
+
+        if (narratorPresent) {
+          // Physically present → all tiers for other participants/observers
+          if (fact.participants) for (const p of fact.participants) {
+            activityJustifiable.add(p);
+            emotionNeedsJustifiable.add(p);
+          }
+          if (fact.observers) for (const o of fact.observers) {
+            activityJustifiable.add(o);
+            emotionNeedsJustifiable.add(o);
+          }
+        } else if (hasDirectEvidence) {
+          // Has direct/observed/overheard evidence but not physically present
+          // → can only express visible activity, NOT emotion/needs
+          if (fact.participants) for (const p of fact.participants) activityJustifiable.add(p);
+          if (fact.observers) for (const o of fact.observers) activityJustifiable.add(o);
         }
+        // told/inferred EVENT → does NOT justify any AGENT_STATE expression
+        // No _evidence → backward compat, does NOT justify
       }
+
       if (fact.type === FactType.OBSERVATION) {
-        // Observation about a target — if narrator is observer or has evidence
-        const narratorKnows =
-          fact.observerId === selfId ||
-          (fact._evidence && ['direct', 'observed', 'overheard', 'told', 'inferred'].includes(fact._evidence.source));
-        if (narratorKnows && fact.targetId) {
-          justifiableAgents.add(fact.targetId);
+        // narrator is the observer → all tiers for the target
+        const narratorIsObserver = fact.observerId === selfId;
+        // direct/observed/overheard evidence → activity only
+        const hasDirectEvidence = fact._evidence &&
+          ['direct', 'observed', 'overheard'].includes(fact._evidence.source);
+
+        if (narratorIsObserver && fact.targetId) {
+          activityJustifiable.add(fact.targetId);
+          emotionNeedsJustifiable.add(fact.targetId);
+        } else if (hasDirectEvidence && fact.targetId) {
+          activityJustifiable.add(fact.targetId);
         }
+        // told/inferred OBSERVATION → does NOT justify
       }
     }
 
-    // Emotion vocabulary
+    // Emotion vocabulary (deduplicated, v2.5-W3)
     const emotionWords = [
       '开心', '难过', '生气', '害怕', '惊讶', '紧张', '沮丧', '无聊', '孤独',
       '兴奋', '满足', '烦躁', '焦虑', '疲惫', '害羞', '尴尬', '内疚', '失落',
-      '感动', '愤怒', '伤心', '心烦', '郁闷', '寂寞', '委屈', '伤心', '痛苦',
+      '感动', '愤怒', '伤心', '心烦', '郁闷', '寂寞', '委屈', '痛苦',
       '快乐', '幸福', '感激', '后悔', '绝望', '崩溃',
     ];
 
     // Needs vocabulary
     const needsWords = ['饿了', '困了', '累了', '想休息', '想吃', '想睡', '口渴', '头疼', '不舒服'];
+    // Needs with "想" prefix that can also match "Name想XX" pattern
+    const needsWithPrefix = ['休息', '吃', '睡'];
 
     // Activity vocabulary
     const activityWords = [
@@ -494,76 +528,95 @@ class FactConsistencyChecker {
     // Patterns for state expressions about other agents
     const commonNonAgents = ['大家', '别人', '对方', '朋友', '人们', '我们', '他们', '她们', '自己'];
 
-    // Pattern 1: AgentName + emotion (Name很/有点/非常/挺/比较/比较+emotion)
-    // Use known agent names from grounding for matching
+    // Check each known agent
     for (const agentName of knownAgentNames) {
       if (agentName === selfId) continue; // Self is always ok
       if (commonNonAgents.includes(agentName)) continue;
-      if (justifiableAgents.has(agentName)) continue; // Justified by evidence
 
       // Check emotion expressions: Name[很/有点/非常/挺/比较]emotion
-      for (const emotion of emotionWords) {
-        const emotionPatterns = [
-          new RegExp(`${agentName}(很|有点|非常|挺|比较|极度|特别|真)${emotion}`),
-          new RegExp(`${agentName}感到${emotion}`),
-          new RegExp(`${agentName}觉得${emotion}`),
-        ];
-        for (const pattern of emotionPatterns) {
-          if (pattern.test(text)) {
-            violations.push({
-              type: 'agent_state_leak',
-              agent: agentName,
-              stateType: 'emotion',
-              message: `表达了${agentName}的情绪状态，但你没有证据知道对方的状态`,
-            });
-            break; // One violation per agent is enough
+      if (!emotionNeedsJustifiable.has(agentName)) {
+        for (const emotion of emotionWords) {
+          const emotionPatterns = [
+            new RegExp(`${agentName}(很|有点|非常|挺|比较|极度|特别|真)${emotion}`),
+            new RegExp(`${agentName}感到${emotion}`),
+            new RegExp(`${agentName}觉得${emotion}`),
+          ];
+          for (const pattern of emotionPatterns) {
+            if (pattern.test(text)) {
+              violations.push({
+                type: 'agent_state_leak',
+                agent: agentName,
+                stateType: 'emotion',
+                message: `表达了${agentName}的情绪状态，但你没有证据知道对方的情绪`,
+              });
+              break;
+            }
           }
+          if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) break;
         }
-        if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) break;
       }
 
       if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) continue;
 
       // Check needs expressions: Name + needsWord
-      for (const needs of needsWords) {
-        const needsPatterns = [
-          new RegExp(`${agentName}${needs}`),
-          new RegExp(`${agentName}想${needs.replace('想', '')}`),
-        ];
-        for (const pattern of needsPatterns) {
-          if (pattern.test(text)) {
-            violations.push({
-              type: 'agent_state_leak',
-              agent: agentName,
-              stateType: 'needs',
-              message: `表达了${agentName}的需求状态，但你没有证据知道对方的状态`,
-            });
-            break;
+      if (!emotionNeedsJustifiable.has(agentName)) {
+        for (const needs of needsWords) {
+          const needsPatterns = [
+            new RegExp(`${agentName}${needs}`),
+          ];
+          for (const pattern of needsPatterns) {
+            if (pattern.test(text)) {
+              violations.push({
+                type: 'agent_state_leak',
+                agent: agentName,
+                stateType: 'needs',
+                message: `表达了${agentName}的需求状态，但你没有证据知道对方的需求`,
+              });
+              break;
+            }
+          }
+          if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) break;
+        }
+
+        // Also check "Name想XX" for needsWithPrefix
+        if (!violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) {
+          for (const needs of needsWithPrefix) {
+            const pattern = new RegExp(`${agentName}想${needs}`);
+            if (pattern.test(text)) {
+              violations.push({
+                type: 'agent_state_leak',
+                agent: agentName,
+                stateType: 'needs',
+                message: `表达了${agentName}的需求状态，但你没有证据知道对方的需求`,
+              });
+              break;
+            }
           }
         }
-        if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) break;
       }
 
       if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) continue;
 
       // Check activity expressions: Name正在/在+activity
-      for (const activity of activityWords) {
-        const activityPatterns = [
-          new RegExp(`${agentName}正在${activity}`),
-          new RegExp(`${agentName}在${activity}`),
-        ];
-        for (const pattern of activityPatterns) {
-          if (pattern.test(text)) {
-            violations.push({
-              type: 'agent_state_leak',
-              agent: agentName,
-              stateType: 'activity',
-              message: `表达了${agentName}的活动状态，但你没有证据知道对方的状态`,
-            });
-            break;
+      if (!activityJustifiable.has(agentName)) {
+        for (const activity of activityWords) {
+          const activityPatterns = [
+            new RegExp(`${agentName}正在${activity}`),
+            new RegExp(`${agentName}在${activity}`),
+          ];
+          for (const pattern of activityPatterns) {
+            if (pattern.test(text)) {
+              violations.push({
+                type: 'agent_state_leak',
+                agent: agentName,
+                stateType: 'activity',
+                message: `表达了${agentName}的活动状态，但你没有证据知道对方的活动`,
+              });
+              break;
+            }
           }
+          if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) break;
         }
-        if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) break;
       }
     }
 

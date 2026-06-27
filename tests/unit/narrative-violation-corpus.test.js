@@ -1,10 +1,10 @@
 /**
- * Narrative Violation Corpus 检出率测试 (v2.5-W2)
+ * Narrative Violation Corpus 检出率测试 (v2.5-W3)
  *
  * 遍历 corpus，对每条跑 FactConsistencyChecker，断言检出 expectedViolations 类别。
  * 统计 gate rate 和 boundary rate，按 RFC §4.2 质量门槛判定。
  *
- * W2 目标：≥30 条，gate rate ≥85%，boundary ≥5 条，覆盖 ≥9 类。
+ * W3 目标：≥35 条，gate rate ≥85%，boundary ≥5 条，覆盖 ≥9 类。
  */
 
 import { describe, it, expect } from 'vitest';
@@ -15,11 +15,11 @@ const { corpus, KNOWN_REGIONS } = require('../fixtures/narrative-violations/inde
 
 const GATE_RATE_THRESHOLD = 0.85; // RFC §4.2
 
-describe('Narrative Violation Corpus — 检出率 (v2.5-W2)', () => {
+describe('Narrative Violation Corpus — 检出率 (v2.5-W3)', () => {
   const checker = new FactConsistencyChecker({}, { regions: KNOWN_REGIONS });
 
-  it('corpus 至少 30 条', () => {
-    expect(corpus.length).toBeGreaterThanOrEqual(30);
+  it('corpus 至少 35 条', () => {
+    expect(corpus.length).toBeGreaterThanOrEqual(35);
   });
 
   // 每条样本单独断言（便于失败时定位）

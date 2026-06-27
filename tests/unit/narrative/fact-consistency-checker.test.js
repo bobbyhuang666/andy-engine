@@ -412,7 +412,7 @@ describe('4-layer severity (v2.5-W1)', () => {
 });
 
 // ═══════════════════════════════════════════
-// _checkAgentStateLeak (v2.5-W2)
+// _checkAgentStateLeak (v2.5-W2, evidence fix W3)
 // ═══════════════════════════════════════════
 describe('_checkAgentStateLeak (v2.5-W2)', () => {
   it('flags other agent emotion without evidence', () => {
@@ -465,7 +465,7 @@ describe('_checkAgentStateLeak (v2.5-W2)', () => {
     expect(r.violations.some(v => v.type === 'agent_state_leak')).toBe(false);
   });
 
-  it('does NOT flag other agent emotion when EVENT evidence exists', () => {
+  it('does NOT flag other agent emotion when narrator is EVENT participant', () => {
     const c = makeChecker();
     const grounding = makeGrounding({
       allowedFacts: [
@@ -480,7 +480,7 @@ describe('_checkAgentStateLeak (v2.5-W2)', () => {
         },
       ],
     });
-    // bob is in an EVENT with alice as participant — narrator can express bob's state
+    // alice is participant → physically present → can express bob's emotion
     const r = c.check('bob很开心', grounding);
     expect(r.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob')).toBe(false);
   });
@@ -506,6 +506,243 @@ describe('_checkAgentStateLeak (v2.5-W2)', () => {
     });
     const r = c.check('bob很难过', grounding);
     expect(r.severity).toBe('rewrite');
+  });
+});
+
+// ═══════════════════════════════════════════
+// _checkAgentStateLeak evidence tier (v2.5-W3)
+// ═══════════════════════════════════════════
+describe('_checkAgentStateLeak evidence tier (v2.5-W3)', () => {
+  // ─── HIGH: told/inferred EVENT should NOT justify emotion/needs ───
+  it('told EVENT does NOT justify other agent emotion', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+        {
+          type: FactType.EVENT,
+          description: 'bob参加了会议',
+          location: '会议室',
+          participants: ['bob', 'carol'],
+          _evidence: { source: 'told', confidence: 0.6, propagatedFrom: 'carol' },
+        },
+      ],
+    });
+    // alice told-level knows bob attended a meeting → cannot infer bob's emotion
+    const r = c.check('bob很焦虑', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob' && v.stateType === 'emotion')).toBe(true);
+  });
+
+  it('inferred EVENT does NOT justify other agent needs', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+        {
+          type: FactType.EVENT,
+          description: 'bob参加了会议',
+          location: '会议室',
+          participants: ['bob', 'carol'],
+          _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null },
+        },
+      ],
+    });
+    const r = c.check('bob饿了', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob' && v.stateType === 'needs')).toBe(true);
+  });
+
+  it('told EVENT does NOT justify other agent activity', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+        {
+          type: FactType.EVENT,
+          description: 'bob在图书馆',
+          location: '图书馆',
+          participants: ['bob'],
+          _evidence: { source: 'told', confidence: 0.6, propagatedFrom: 'carol' },
+        },
+      ],
+    });
+    const r = c.check('bob正在看书', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob' && v.stateType === 'activity')).toBe(true);
+  });
+
+  // ─── HIGH: OBSERVATION evidence path ───
+  it('OBSERVATION fact: narrator is observer → can express target emotion', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.OBSERVATION, observerId: 'alice', targetId: 'bob', action: '在食堂吃饭' },
+      ],
+    });
+    const r = c.check('bob很开心', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak')).toBe(false);
+  });
+
+  it('OBSERVATION fact: narrator is NOT observer → flags emotion', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+        { type: FactType.OBSERVATION, observerId: 'carol', targetId: 'bob', action: '在食堂吃饭' },
+      ],
+    });
+    const r = c.check('bob很开心', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob')).toBe(true);
+  });
+
+  it('OBSERVATION fact with direct evidence → can express target activity', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.OBSERVATION, observerId: 'carol', targetId: 'bob', action: '在看书',
+          _evidence: { source: 'direct', confidence: 1.0, propagatedFrom: null } },
+      ],
+    });
+    // direct evidence → activity justifiable, but NOT emotion (narrator not observer)
+    const r1 = c.check('bob正在看书', grounding);
+    expect(r1.violations.some(v => v.type === 'agent_state_leak' && v.stateType === 'activity')).toBe(false);
+    const r2 = c.check('bob很开心', grounding);
+    expect(r2.violations.some(v => v.type === 'agent_state_leak' && v.stateType === 'emotion')).toBe(true);
+  });
+
+  // ─── MEDIUM: _evidence.source fallback path ───
+  it('EVENT without _evidence does NOT justify any AGENT_STATE', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+        {
+          type: FactType.EVENT,
+          description: 'bob在食堂吃饭',
+          location: '食堂',
+          participants: ['bob'],
+          // No _evidence field — backward compat
+        },
+      ],
+    });
+    const r = c.check('bob很开心', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob')).toBe(true);
+  });
+
+  // ─── MEDIUM: observers.includes(selfId) path ───
+  it('narrator in EVENT observers → can express participant emotion', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+        {
+          type: FactType.EVENT,
+          description: 'bob在食堂吃饭',
+          location: '食堂',
+          participants: ['bob'],
+          observers: ['alice'],
+          _evidence: { source: 'direct', confidence: 1.0, propagatedFrom: null },
+        },
+      ],
+    });
+    // alice is observer → physically present → can express bob's emotion
+    const r = c.check('bob很开心', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak')).toBe(false);
+  });
+
+  // ─── Two-tier: observed EVENT (not present) → activity OK, emotion NOT ───
+  it('observed EVENT (narrator not present) justifies activity but NOT emotion', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+        {
+          type: FactType.EVENT,
+          description: 'bob在图书馆学习',
+          location: '图书馆',
+          participants: ['bob'],
+          _evidence: { source: 'observed', confidence: 0.9, propagatedFrom: null },
+        },
+      ],
+    });
+    // observed evidence → can express activity
+    const r1 = c.check('bob正在学习', grounding);
+    expect(r1.violations.some(v => v.type === 'agent_state_leak' && v.stateType === 'activity')).toBe(false);
+    // observed evidence but not present → cannot infer emotion
+    const r2 = c.check('bob很焦虑', grounding);
+    expect(r2.violations.some(v => v.type === 'agent_state_leak' && v.stateType === 'emotion')).toBe(true);
+  });
+
+  it('overheard EVENT (narrator not present) justifies activity but NOT emotion', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+        {
+          type: FactType.EVENT,
+          description: 'bob在图书馆',
+          location: '图书馆',
+          participants: ['bob'],
+          _evidence: { source: 'overheard', confidence: 0.7, propagatedFrom: null },
+        },
+      ],
+    });
+    const r1 = c.check('bob正在看书', grounding);
+    expect(r1.violations.some(v => v.type === 'agent_state_leak' && v.stateType === 'activity')).toBe(false);
+    const r2 = c.check('bob很开心', grounding);
+    expect(r2.violations.some(v => v.type === 'agent_state_leak' && v.stateType === 'emotion')).toBe(true);
+  });
+
+  // ─── False negative regression ───
+  it('regression: alice told about bob/carol meeting → "Bob is anxious" triggers leak', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+        { type: FactType.AGENT_STATE, agentId: 'carol' },
+        {
+          type: FactType.EVENT,
+          description: 'bob和carol参加了会议',
+          location: '会议室',
+          participants: ['bob', 'carol'],
+          _evidence: { source: 'told', confidence: 0.6, propagatedFrom: 'carol' },
+        },
+      ],
+    });
+    const r = c.check('bob很焦虑', grounding);
+    expect(r.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob' && v.stateType === 'emotion')).toBe(true);
+  });
+
+  // ─── Allowed regression ───
+  it('regression: alice physically observes bob → expressing visible behavior is allowed', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+        {
+          type: FactType.EVENT,
+          description: 'bob在食堂吃饭',
+          location: '食堂',
+          participants: ['alice', 'bob'],
+          _evidence: { source: 'direct', confidence: 1.0, propagatedFrom: null },
+        },
+      ],
+    });
+    // alice is participant → physically present → can express bob's visible activity and emotion
+    const r1 = c.check('bob正在吃饭', grounding);
+    expect(r1.violations.some(v => v.type === 'agent_state_leak')).toBe(false);
+    const r2 = c.check('bob很开心', grounding);
+    expect(r2.violations.some(v => v.type === 'agent_state_leak')).toBe(false);
   });
 });
 

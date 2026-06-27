@@ -374,11 +374,11 @@ const corpus = [
     expectedViolations: [{ type: 'local_scope_leak' }],
   },
 
-  // ─── agent_state_leak boundary: 有 EVENT 证据时不违规 ───
+  // ─── agent_state_leak: narrator physically present → no leak ───
   {
     id: 'nv-026',
-    category: 'agent_state_leak',
-    description: '有 EVENT 证据时表达其他 agent 状态（boundary）',
+    category: 'pass',
+    description: 'narrator 亲身参与 EVENT → 可表达其他 agent 情绪',
     llmOutput: '鲍勃很开心。',
     grounding: baseGrounding({
       allowedFacts: [
@@ -388,13 +388,12 @@ const corpus = [
           type: FactType.EVENT,
           description: '鲍勃在食堂吃饭',
           location: '食堂',
-          participants: [KNOWN_AGENT, KNOWN_OTHER],
+          participants: [KNOWN_AGENT, KNOWN_OTHER], // narrator is participant → physically present
           _evidence: { source: 'observed', confidence: 0.9, propagatedFrom: null },
         },
       ],
     }),
     expectedViolations: [],
-    may_detect: false,  // EVENT evidence justifies expressing bob's state — boundary (checker should NOT flag)
   },
 
   // ─── local_scope_leak boundary: 作为参与者提及 LOCAL 事件 ───
@@ -448,6 +447,119 @@ const corpus = [
     llmOutput: '刚刚下雪了。',
     grounding: baseGrounding(),
     expectedViolations: [{ type: 'new_event' }],
+  },
+
+  // ═══════════════════════════════════════════
+  // v2.5-W3 新增：agent_state_leak evidence tier 修复
+  // ═══════════════════════════════════════════
+
+  // ─── agent_state_leak: told/inferred EVENT 不 justify emotion/needs (W3) ───
+  {
+    id: 'nv-031',
+    category: 'agent_state_leak',
+    description: 'told EVENT 不 justify 他人情绪（W3 regression）',
+    llmOutput: '鲍勃很焦虑。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        {
+          type: FactType.EVENT,
+          description: '鲍勃参加了会议',
+          location: '会议室',
+          participants: [KNOWN_OTHER, '卡罗尔'],
+          _evidence: { source: 'told', confidence: 0.6, propagatedFrom: '卡罗尔' },
+        },
+      ],
+    }),
+    expectedViolations: [{ type: 'agent_state_leak' }],
+  },
+  {
+    id: 'nv-032',
+    category: 'agent_state_leak',
+    description: 'inferred EVENT 不 justify 他人需求（W3 regression）',
+    llmOutput: '鲍勃饿了。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        {
+          type: FactType.EVENT,
+          description: '鲍勃在图书馆',
+          location: '图书馆',
+          participants: [KNOWN_OTHER],
+          _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null },
+        },
+      ],
+    }),
+    expectedViolations: [{ type: 'agent_state_leak' }],
+  },
+
+  // ─── agent_state_leak two-tier: observed EVENT → activity OK, emotion NOT (W3) ───
+  {
+    id: 'nv-033',
+    category: 'agent_state_leak',
+    description: 'observed EVENT justify activity but NOT emotion (W3 tier)',
+    llmOutput: '鲍勃很焦虑。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        {
+          type: FactType.EVENT,
+          description: '鲍勃在图书馆学习',
+          location: '图书馆',
+          participants: [KNOWN_OTHER],
+          _evidence: { source: 'observed', confidence: 0.9, propagatedFrom: null },
+        },
+      ],
+    }),
+    expectedViolations: [{ type: 'agent_state_leak' }],
+  },
+
+  // ─── pass: observed EVENT → activity allowed (W3 tier) ───
+  {
+    id: 'nv-034',
+    category: 'pass',
+    description: 'observed EVENT justify 可见活动（W3 tier）',
+    llmOutput: '鲍勃正在学习。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        {
+          type: FactType.EVENT,
+          description: '鲍勃在图书馆学习',
+          location: '图书馆',
+          participants: [KNOWN_OTHER],
+          _evidence: { source: 'observed', confidence: 0.9, propagatedFrom: null },
+        },
+      ],
+    }),
+    expectedViolations: [],
+  },
+
+  // ─── boundary: EVENT without _evidence → no justification (W3 backward compat) ───
+  {
+    id: 'nv-035',
+    category: 'agent_state_leak',
+    description: 'EVENT 无 _evidence 不 justify 他人状态（W3 boundary）',
+    llmOutput: '鲍勃很开心。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        {
+          type: FactType.EVENT,
+          description: '鲍勃在食堂',
+          location: '食堂',
+          participants: [KNOWN_OTHER],
+          // No _evidence — backward compat scenario
+        },
+      ],
+    }),
+    expectedViolations: [{ type: 'agent_state_leak' }],
+    may_detect: false,  // backward compat: no _evidence → not justifiable, but may not detect without evidence
   },
 ];
 
