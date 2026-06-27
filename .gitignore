@@ -26,3 +26,4 @@ data/
 *.db-shm
 *.tgz
 benchmarks/baselines/local.json
+.DS_Store
