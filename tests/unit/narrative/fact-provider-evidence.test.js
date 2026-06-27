@@ -120,12 +120,12 @@ describe('FactProvider _evidence attachment', () => {
     });
   });
 
-  describe('PUBLIC fact without knowledgeStore entry gets default _evidence', () => {
-    it('public fact with no KS entry gets default evidence', () => {
+  describe('PUBLIC fact without knowledgeStore entry gets NO _evidence (v2.6-W4b fix)', () => {
+    it('public fact with no KS entry does NOT get fabricated evidence', () => {
       store.addFact({
-        id: 'fact_public_default',
+        id: 'fact_public_no_evidence',
         type: 'event',
-        eventId: 'evt_public_default',
+        eventId: 'evt_public_no_evidence',
         description: 'Public announcement',
         location: '广场',
         timestamp: new Date('2024-01-01T10:00:00Z'),
@@ -138,18 +138,15 @@ describe('FactProvider _evidence attachment', () => {
 
       // No knowledgeStore entry for alice on this fact
       const grounding = provider.getGroundingPackage('alice');
-      const found = grounding.allowedFacts.find(f => f.id === 'fact_public_default');
+      const found = grounding.allowedFacts.find(f => f.id === 'fact_public_no_evidence');
       expect(found).toBeDefined();
-      expect(found._evidence).toEqual({
-        source: 'direct',
-        confidence: 1.0,
-        propagatedFrom: null,
-      });
+      // v2.6-W4b: no KS entry → no _evidence (prevents false 'direct' justification)
+      expect(found._evidence).toBeUndefined();
     });
   });
 
-  describe('AGENT_STATE(self) gets default _evidence', () => {
-    it('self AGENT_STATE fact gets default evidence', () => {
+  describe('AGENT_STATE(self) without KS entry gets NO _evidence (v2.6-W4b fix)', () => {
+    it('self AGENT_STATE fact without KS entry has no _evidence', () => {
       store.addFact({
         id: 'fact_agent_state_self',
         type: FactType.AGENT_STATE,
@@ -167,6 +164,31 @@ describe('FactProvider _evidence attachment', () => {
 
       const grounding = provider.getGroundingPackage('alice');
       const found = grounding.allowedFacts.find(f => f.id === 'fact_agent_state_self');
+      expect(found).toBeDefined();
+      // v2.6-W4b: no KS entry → no _evidence (self-justification handled by checker)
+      expect(found._evidence).toBeUndefined();
+    });
+
+    it('self AGENT_STATE fact WITH KS entry has _evidence', () => {
+      const fact = store.addFact({
+        id: 'fact_agent_state_self_ks',
+        type: FactType.AGENT_STATE,
+        agentId: 'alice',
+        state: 'studying',
+        region: '图书馆',
+        emotionSummary: 'focused',
+        timestamp: new Date('2024-01-01T10:00:00Z'),
+        source: 'engine',
+        confidence: 1.0,
+        scope: 'public',
+        participants: ['alice'],
+        observers: [],
+      });
+
+      knowledgeStore.addKnowledge('alice', fact.id, 'direct');
+
+      const grounding = provider.getGroundingPackage('alice');
+      const found = grounding.allowedFacts.find(f => f.id === 'fact_agent_state_self_ks');
       expect(found).toBeDefined();
       expect(found._evidence).toEqual({
         source: 'direct',
@@ -201,8 +223,8 @@ describe('FactProvider _evidence attachment', () => {
   });
 
   describe('evidenceSummary counts correctly', () => {
-    it('counts direct, told, and inferred sources', () => {
-      // Public fact (default evidence: direct)
+    it('counts direct, told, and inferred sources (only facts with KS entries)', () => {
+      // Public fact WITHOUT KS entry → not counted in evidenceSummary
       store.addFact({
         id: 'fact_pub_1',
         type: 'event',
@@ -274,8 +296,8 @@ describe('FactProvider _evidence attachment', () => {
 
       const grounding = provider.getGroundingPackage('alice');
       expect(grounding.metadata.evidenceSummary).toBeDefined();
-      // 2 direct: public fact + direct KS fact
-      expect(grounding.metadata.evidenceSummary.direct).toBe(2);
+      // v2.6-W4b: only 1 direct (the KS entry), not 2 (PUBLIC fact has no _evidence)
+      expect(grounding.metadata.evidenceSummary.direct).toBe(1);
       expect(grounding.metadata.evidenceSummary.told).toBe(1);
       expect(grounding.metadata.evidenceSummary.inferred).toBe(1);
     });
@@ -283,12 +305,12 @@ describe('FactProvider _evidence attachment', () => {
 
   describe('evidenceSummary omits zero-count sources', () => {
     it('only sources with count > 0 appear in summary', () => {
-      // Only a public fact → only 'direct' source
+      // Only a public fact WITHOUT KS entry → no _evidence → not counted
       store.addFact({
-        id: 'fact_only_direct',
+        id: 'fact_only_public',
         type: 'event',
-        eventId: 'evt_only_direct',
-        description: 'Only direct event',
+        eventId: 'evt_only_public',
+        description: 'Only public event',
         location: '广场',
         timestamp: new Date('2024-01-01T10:00:00Z'),
         source: 'engine',
@@ -299,13 +321,111 @@ describe('FactProvider _evidence attachment', () => {
       });
 
       const grounding = provider.getGroundingPackage('alice');
-      expect(grounding.metadata.evidenceSummary).toBeDefined();
+      // v2.6-W4b: PUBLIC fact without KS entry has no _evidence,
+      // so evidenceSummary is undefined (no facts with _evidence)
+      expect(grounding.metadata.evidenceSummary).toBeUndefined();
+    });
+
+    it('KS-entry direct fact appears in evidenceSummary', () => {
+      const fact = store.addFact({
+        id: 'fact_ks_direct_only',
+        type: 'event',
+        eventId: 'evt_ks_direct_only',
+        description: 'Direct KS only event',
+        location: '图书馆',
+        timestamp: new Date('2024-01-01T10:00:00Z'),
+        source: 'engine',
+        confidence: 1.0,
+        scope: 'local',
+        participants: ['alice'],
+        observers: [],
+      });
+      knowledgeStore.addKnowledge('alice', fact.id, 'direct');
+
+      const grounding = provider.getGroundingPackage('alice');
       expect(grounding.metadata.evidenceSummary).toEqual({ direct: 1 });
-      // 'told', 'inferred', 'observed', 'overheard' should NOT appear
       expect(grounding.metadata.evidenceSummary.told).toBeUndefined();
       expect(grounding.metadata.evidenceSummary.inferred).toBeUndefined();
-      expect(grounding.metadata.evidenceSummary.observed).toBeUndefined();
-      expect(grounding.metadata.evidenceSummary.overheard).toBeUndefined();
+    });
+  });
+
+  describe('PUBLIC fact without KS evidence must NOT justify others\' AGENT_STATE (v2.6-W4b regression)', () => {
+    it('PUBLIC EVENT without KS evidence does NOT justify other agent\'s activity', () => {
+      // This is the core regression: a PUBLIC event fact visible to an agent
+      // via WorldFactStore (not via KnowledgeStore) must NOT be treated as
+      // 'direct' evidence that justifies expressing other participants' activity.
+      const FactConsistencyChecker = require('../../../src/narrative/FactConsistencyChecker.js');
+
+      // Add a PUBLIC event with bob as participant, no KS entry for alice
+      store.addFact({
+        id: 'fact_public_bob_event',
+        type: 'event',
+        eventId: 'evt_public_bob_event',
+        description: 'Bob attended a lecture',
+        location: '图书馆',
+        timestamp: new Date('2024-01-01T10:00:00Z'),
+        source: 'engine',
+        confidence: 1.0,
+        scope: 'public',
+        participants: ['bob'],
+        observers: [],
+      });
+
+      // Alice sees the PUBLIC fact but has no explicit KS knowledge
+      const grounding = provider.getGroundingPackage('alice');
+      const eventFact = grounding.allowedFacts.find(f => f.id === 'fact_public_bob_event');
+      expect(eventFact).toBeDefined();
+      // No _evidence → checker should NOT justify Bob's state
+      expect(eventFact._evidence).toBeUndefined();
+
+      // Verify checker flags agent_state_leak
+      const checker = new FactConsistencyChecker(store, { regions: ['图书馆'] });
+      const result = checker.check('bob正在学习。', grounding);
+      expect(result.violations.some(v => v.type === 'agent_state_leak')).toBe(true);
+    });
+
+    it('PUBLIC EVENT WITH KS told evidence does NOT justify activity either', () => {
+      const FactConsistencyChecker = require('../../../src/narrative/FactConsistencyChecker.js');
+
+      const fact = store.addFact({
+        id: 'fact_told_bob_event',
+        type: 'event',
+        eventId: 'evt_told_bob_event',
+        description: 'Bob had a meeting',
+        location: '会议室',
+        timestamp: new Date('2024-01-01T10:00:00Z'),
+        source: 'engine',
+        confidence: 1.0,
+        scope: 'public',
+        participants: ['bob'],
+        observers: [],
+      });
+
+      // Alice knows about this via told (not direct/observed/overheard)
+      knowledgeStore.addKnowledge('alice', fact.id, {
+        source: 'told',
+        confidence: 0.6,
+        propagatedFrom: 'carol',
+      });
+
+      const grounding = provider.getGroundingPackage('alice');
+      const eventFact = grounding.allowedFacts.find(f => f.id === 'fact_told_bob_event');
+      expect(eventFact._evidence.source).toBe('told');
+
+      // told EVENT does NOT justify activity, emotion, or needs
+      const checker = new FactConsistencyChecker(store, { regions: ['会议室'] });
+
+      // Activity: told does NOT justify
+      const actResult = checker.check('bob正在工作。', grounding);
+      expect(actResult.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob')).toBe(true);
+
+      // Emotion: told does NOT justify
+      const emoResult = checker.check('bob很焦虑。', grounding);
+      expect(emoResult.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob')).toBe(true);
+
+      // Needs: told does NOT justify
+      const needResult = checker.check('bob饿了。', grounding);
+      expect(needResult.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob')).toBe(true);
     });
   });
 

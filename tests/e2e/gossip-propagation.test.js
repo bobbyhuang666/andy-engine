@@ -153,10 +153,6 @@ describe('Gossip Propagation E2E', () => {
     // Carol overheard the social event (same location) — this is critical:
     // it ensures Carol already knows the social event fact, so in Step 3
     // the seed fact is the first unknown fact Bob can tell Carol.
-    const socialFact1Id = pipeline.processEvent(makeEvent({
-      type: 'social', content: 'dummy', location: '食堂',
-      participants: ['alice', 'bob'],
-    }), agents).fact?.id;  // may return existing fact
     // Carol has overheard knowledge of the social event at 食堂
     const carolKnownFacts = [...knowledgeStore.getKnownFactIds('carol')];
     expect(carolKnownFacts.length).toBeGreaterThanOrEqual(1);
@@ -335,11 +331,16 @@ describe('Gossip Propagation E2E', () => {
     const selfResult = checker.check(selfOutput, carolGrounding);
     expect(selfResult.violations.some(v => v.type === 'agent_state_leak')).toBe(false);
 
-    // ── Negative control: Carol CAN express Bob's visible activity with told ──
-    // told EVENT justifies activity (visible behavior) but NOT emotion/needs
-    const activityOutput = 'bob正在开会。';
+    // ── Confirm told EVENT does NOT justify ANY AGENT_STATE expression ──
+    // v2.6-W4b: told EVENT does NOT justify activity, emotion, or needs.
+    // Only direct/observed/overheard evidence (without narrator present) justifies activity.
+    // Told/inferred evidence justifies NOTHING.
+    const activityOutput = 'bob正在看书。';
     const activityResult = checker.check(activityOutput, carolGrounding);
-    // Activity should NOT trigger agent_state_leak (told justifies visible activity)
-    expect(activityResult.violations.some(v => v.type === 'agent_state_leak')).toBe(false);
+    expect(activityResult.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob')).toBe(true);
+
+    const needsOutput = 'bob饿了。';
+    const needsResult = checker.check(needsOutput, carolGrounding);
+    expect(needsResult.violations.some(v => v.type === 'agent_state_leak' && v.agent === 'bob')).toBe(true);
   });
 });

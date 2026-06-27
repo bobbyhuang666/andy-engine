@@ -65,10 +65,9 @@ const DIMENSIONS = [
   {
     id: 'D6',
     name: 'Multi-Agent Social Emergence',
-    standard: '≥2 agent 在共享世界，social graph 关系演化可观测、可序列化。',
-    entry: 'tests/integration/agent.test.js + tests/e2e/alice-bob-epistemic-boundary.test.js',
+    standard: 'triadic closure, Dunbar differentiation, emotion contagion convergence, gossip 2-hop, serialization fidelity.',
+    entry: 'tests/e2e/social-emergence.test.js + tests/e2e/gossip-propagation.test.js + tests/e2e/emotion-contagion-cluster.test.js',
     owner: 'social 层',
-    warningNote: 'social contagion 路径未纳入 perf:check 监控。',
   },
   {
     id: 'D7',
@@ -205,10 +204,14 @@ function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult)
     // not-found：可能入口是目录或 npm script，降级判定
   }
 
-  // D6: 也依赖 e2e
+  // D6: social emergence E2E — all 3 test files must pass
   if (dim.id === 'D6') {
-    const agentStatus = findFileStatus(testParsed, 'integration/agent');
-    return agentStatus === 'pass' ? 'Warning' : 'Gap';
+    const socialStatus = findFileStatus(testParsed, 'social-emergence');
+    const gossipStatus = findFileStatus(testParsed, 'gossip-propagation');
+    const contagionStatus = findFileStatus(testParsed, 'emotion-contagion-cluster');
+    if (socialStatus === 'pass' && gossipStatus === 'pass' && contagionStatus === 'pass') return 'Pass';
+    if (socialStatus === 'fail' || gossipStatus === 'fail' || contagionStatus === 'fail') return 'Gap';
+    return 'Warning';
   }
 
   return 'Warning';

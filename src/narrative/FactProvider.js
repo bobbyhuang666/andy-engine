@@ -37,15 +37,21 @@ class FactProvider {
   /**
    * Attach _evidence annotation to a fact.
    *
-   * When this.knowledgeStore exists, each fact carries a read-only _evidence
-   * object derived from KnowledgeStore.getEvidence(). If no evidence entry
-   * exists (e.g. PUBLIC scope fact without explicit KS entry), a default
-   * { source: 'direct', confidence: 1.0, propagatedFrom: null } is used.
+   * When this.knowledgeStore exists and the agent has an explicit evidence
+   * entry in KnowledgeStore, the fact carries a read-only _evidence object
+   * derived from KnowledgeStore.getEvidence().
+   *
+   * If no evidence entry exists (e.g. PUBLIC scope fact without explicit KS
+   * entry), NO _evidence is attached. This prevents PUBLIC facts visible
+   * without explicit knowledge from being treated as 'direct' evidence,
+   * which would incorrectly justify AGENT_STATE expressions about other
+   * agents. (v2.6-W4b fix)
+   *
    * When no knowledgeStore, returns fact unchanged.
    *
    * @param {string} agentId
    * @param {Object} fact
-   * @returns {Object} fact with _evidence (or unchanged if no knowledgeStore)
+   * @returns {Object} fact with _evidence (if KS entry exists) or unchanged
    * @private
    */
   _attachEvidence(agentId, fact) {
@@ -55,8 +61,10 @@ class FactProvider {
     if (evidence) {
       return { ...fact, _evidence: { source: evidence.source, confidence: evidence.confidence, propagatedFrom: evidence.propagatedFrom } };
     }
-    // Default for facts in allowedFacts without an explicit KS entry
-    return { ...fact, _evidence: { source: 'direct', confidence: 1.0, propagatedFrom: null } };
+    // No KS evidence entry → do NOT fabricate default evidence.
+    // PUBLIC facts visible without explicit knowledge should not be treated
+    // as 'direct' evidence for AGENT_STATE expression justification.
+    return fact;
   }
 
   /**

@@ -46,7 +46,10 @@ describe('Emotion Contagion Cluster E2E', () => {
       startTime: new Date('2024-01-15T08:00:00'),
     });
 
-    // Create 3 agents in same region with empty schedules (stay co-located)
+    // Create 3 agents in same region with empty schedules
+    // Note: agents may move together during simulation ticks via action
+    // selection, but stay co-located (same region at each tick), ensuring
+    // contagion radius coverage throughout the test.
     engine.createCharacter({
       id: 'a',
       name: 'A',
@@ -133,6 +136,13 @@ describe('Emotion Contagion Cluster E2E', () => {
 
     const joyVariance = variance(joyValues);
     const sadnessVariance = variance(sadnessValues);
+
+    // ── Emotion value range sanity check ──
+    // All emotion values must remain in [-1, 1] after contagion
+    for (const v of [...joyValues, ...sadnessValues]) {
+      expect(v).toBeGreaterThanOrEqual(-1);
+      expect(v).toBeLessThanOrEqual(1);
+    }
 
     // ── Deterministic assertions ──
 
