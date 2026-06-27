@@ -225,3 +225,142 @@ describe('_suggestFix', () => {
     expect(c.check('今天天气不错', makeGrounding()).suggestion).toBeNull();
   });
 });
+
+// ═══════════════════════════════════════════
+// _checkMissingSourceAttribution (v2.5-W1)
+// ═══════════════════════════════════════════
+describe('_checkMissingSourceAttribution (v2.5-W1)', () => {
+  it('flags told fact expressed without source marker', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '鲍勃找到了一本书', location: '图书馆', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: 'bob' } },
+      ],
+    });
+    const r = c.check('鲍勃找到了一本书', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(true);
+  });
+
+  it('flags inferred fact expressed without "推测/大概"', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '食堂发生了聚餐', location: '食堂', _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null } },
+      ],
+    });
+    const r = c.check('食堂发生了聚餐', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(true);
+  });
+
+  it('does NOT flag told fact with "听说" marker', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '鲍勃找到了一本书', location: '图书馆', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: 'bob' } },
+      ],
+    });
+    const r = c.check('我听说鲍勃找到了一本书', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
+  });
+
+  it('does NOT flag told fact with "告诉我" marker', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '鲍勃在食堂吃饭', location: '食堂', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: 'bob' } },
+      ],
+    });
+    const r = c.check('bob告诉我鲍勃在食堂吃饭', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
+  });
+
+  it('does NOT flag inferred fact with "推测" marker', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '食堂发生了聚餐', location: '食堂', _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null } },
+      ],
+    });
+    const r = c.check('我推测食堂发生了聚餐', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
+  });
+
+  it('does NOT flag inferred fact with "大概" marker', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '食堂有人', location: '食堂', _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null } },
+      ],
+    });
+    const r = c.check('食堂大概有人', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
+  });
+
+  it('does NOT flag direct/observed facts', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '直接事件', location: '图书馆', _evidence: { source: 'direct', confidence: 1.0, propagatedFrom: null } },
+        { type: FactType.EVENT, description: '观察事件', location: '图书馆', _evidence: { source: 'observed', confidence: 0.9, propagatedFrom: null } },
+      ],
+    });
+    const r = c.check('直接事件发生了，观察事件也发生了', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
+  });
+
+  it('does NOT flag facts without _evidence (backward compat)', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '无证据事件', location: '图书馆' },
+      ],
+    });
+    const r = c.check('无证据事件发生了', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════
+// 4-layer severity (v2.5-W1)
+// ═══════════════════════════════════════════
+describe('4-layer severity (v2.5-W1)', () => {
+  it('severity=warning for missing_source_attribution only', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '食堂关门了', location: '食堂', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: 'bob' } },
+      ],
+    });
+    const r = c.check('食堂关门了', grounding);
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(true);
+    expect(r.severity).toBe('warning');
+  });
+
+  it('severity=warning for inferred without marker only', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '推断的事', location: '图书馆', _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null } },
+      ],
+    });
+    const r = c.check('推断的事', grounding);
+    expect(r.severity).toBe('warning');
+  });
+
+  it('severity=reject when both warning and reject violations exist', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.EVENT, description: '食堂关门了', location: '食堂', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: 'bob' } },
+      ],
+    });
+    const r = c.check('食堂关门了，刚刚吃了一顿大餐了', grounding);
+    expect(r.severity).toBe('reject');
+  });
+
+  it('severity=pass when no violations', () => {
+    const c = makeChecker();
+    const r = c.check('今天天气不错', makeGrounding());
+    expect(r.severity).toBe('pass');
+  });
+});

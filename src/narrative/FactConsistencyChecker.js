@@ -49,6 +49,9 @@ class FactConsistencyChecker {
     // 6. Agent-location 声明校验
     violations.push(...this._checkAgentLocationClaims(llmOutput, grounding));
 
+    // 7. 来源标注校验 (v2.5-W1)
+    violations.push(...this._checkMissingSourceAttribution(llmOutput, grounding));
+
     return {
       valid: violations.length === 0,
       violations,
@@ -404,8 +407,96 @@ class FactConsistencyChecker {
     return violations;
   }
 
+
   /**
-   * 计算严重程度
+   * 来源标注校验 (v2.5-W1)
+   *
+   * 反向检查：grounding 中有 told/inferred 级别事实，但 narrative
+   * 无任何来源标记语（"我听说"/"XX告诉我"/"我推测"/"大概"等），
+   * 则触发 warning。
+   *
+   * @private
+   */
+  _checkMissingSourceAttribution(text, grounding) {
+    const violations = [];
+    if (!grounding || !grounding.allowedFacts) return violations;
+
+    // Source markers in text that indicate attribution
+    const toldMarkers = ['听说', '告诉我', '告诉过', '说的', '跟我说的', '跟我讲'];
+    const inferredMarkers = ['推测', '大概', '可能', '估计', '猜测', '也许', '应该'];
+
+    // Collect told/inferred facts from grounding
+    const toldFacts = [];
+    const inferredFacts = [];
+
+    for (const fact of grounding.allowedFacts) {
+      if (!fact._evidence) continue;
+      const src = fact._evidence.source;
+      const desc = fact.description || '';
+
+      if (src === 'told') {
+        toldFacts.push(desc);
+      } else if (src === 'inferred') {
+        inferredFacts.push(desc);
+      }
+    }
+
+    // Check: told facts must have attribution markers in text
+    for (const desc of toldFacts) {
+      if (desc.length < 2) continue;
+      // If the description content appears in text but without attribution
+      if (this._textContainsFactContent(text, desc)) {
+        const hasAttribution = toldMarkers.some(m => text.includes(m));
+        if (!hasAttribution) {
+          violations.push({
+            type: 'missing_source_attribution',
+            source: 'told',
+            fact: desc,
+            message: `听闻级别事实"${desc}"未标注来源`,
+          });
+        }
+      }
+    }
+
+    // Check: inferred facts must have hedging markers in text
+    for (const desc of inferredFacts) {
+      if (desc.length < 2) continue;
+      if (this._textContainsFactContent(text, desc)) {
+        const hasHedging = inferredMarkers.some(m => text.includes(m)) ||
+                           toldMarkers.some(m => text.includes(m));
+        if (!hasHedging) {
+          violations.push({
+            type: 'missing_source_attribution',
+            source: 'inferred',
+            fact: desc,
+            message: `推断级别事实"${desc}"未标注"推测"或"大概"`,
+          });
+        }
+      }
+    }
+
+    return violations;
+  }
+
+  /**
+   * 检查文本是否包含事实描述的关键内容
+   * @private
+   */
+  _textContainsFactContent(text, description) {
+    // Simple substring check — if description appears in text
+    if (text.includes(description)) return true;
+    // Check partial match for longer descriptions (at least 4 chars overlap)
+    if (description.length >= 4) {
+      for (let i = 0; i <= description.length - 4; i++) {
+        const fragment = description.substring(i, i + 4);
+        if (text.includes(fragment)) return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * 计算严重程度 (v2.5: 4-layer)
    * @private
    */
   _computeSeverity(violations) {
@@ -419,6 +510,11 @@ class FactConsistencyChecker {
     // 未知角色或地点或不支持的声明 → rewrite
     if (violations.some(v => v.type === 'unknown_character' || v.type === 'unknown_location' || v.type === 'unsupported_claim')) {
       return 'rewrite';
+    }
+
+    // 来源标注缺失 → warning (v2.5)
+    if (violations.some(v => v.type === 'missing_source_attribution')) {
+      return 'warning';
     }
 
     // 其他 → degrade_to_template
@@ -456,6 +552,9 @@ class FactConsistencyChecker {
           break;
         case 'unsupported_claim':
           suggestions.push(`移除不支持的声明"${v.agent}在${v.location}"`);
+          break;
+        case 'missing_source_attribution':
+          suggestions.push(`为"${v.fact}"添加来源标注（${v.source === 'told' ? '听说/XX告诉我' : '推测/大概'}）`);
           break;
       }
     }

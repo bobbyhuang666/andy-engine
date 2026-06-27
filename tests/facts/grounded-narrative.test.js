@@ -413,7 +413,7 @@ describe('GroundedNarrative', () => {
       expect(grounding.allowedFacts.map(f => f.id)).not.toContain('fact_local_1');
     });
 
-    it('invalidated fact not inferred', () => {
+    it('inferredFacts is always empty (v2.5 downgrade)', () => {
       store.addFact({
         id: 'fact_agent_state',
         type: 'agent_state',
@@ -429,7 +429,7 @@ describe('GroundedNarrative', () => {
         observers: [],
       });
 
-      const fact = store.addFact({
+      store.addFact({
         id: 'fact_event_inf',
         type: 'event',
         eventId: 'evt_inf',
@@ -443,16 +443,30 @@ describe('GroundedNarrative', () => {
         observers: [],
       });
 
-      // Before: inferable
-      let grounding = provider.getGroundingPackage('bobby', { currentRegion: '广场' });
-      expect(grounding.inferredFacts.map(f => f.id)).toContain('fact_event_inf');
+      const grounding = provider.getGroundingPackage('bobby', { currentRegion: '广场' });
+      expect(grounding.inferredFacts).toEqual([]);
+    });
 
-      // Invalidate
-      store.invalidateFact(fact.id, 'wrong');
+    it('inferred knowledge appears in allowedFacts via KnowledgeStore', () => {
+      const fact = store.addFact({
+        id: 'fact_local_inf',
+        type: 'event',
+        eventId: 'evt_local_inf',
+        description: '本地推断事件',
+        location: '大厅',
+        timestamp: new Date('2024-01-01T10:00:00Z'),
+        source: 'engine',
+        confidence: 1.0,
+        scope: 'local',
+        participants: ['mira'],
+        observers: [],
+      });
 
-      // After: not inferable
-      grounding = provider.getGroundingPackage('bobby', { currentRegion: '广场' });
-      expect(grounding.inferredFacts.map(f => f.id)).not.toContain('fact_event_inf');
+      knowledgeStore.addKnowledge('bobby', fact.id, { source: 'inferred', confidence: 0.5 });
+
+      const grounding = provider.getGroundingPackage('bobby');
+      expect(grounding.allowedFacts.map(f => f.id)).toContain('fact_local_inf');
+      expect(grounding.inferredFacts).toEqual([]);
     });
 
     it('invalidated fact not exposed as forbidden', () => {

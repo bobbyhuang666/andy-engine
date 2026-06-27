@@ -58,6 +58,31 @@ class FactFormatter {
     return facts.map(f => FactFormatter.toNaturalLanguage(f));
   }
 
+  /**
+   * 事实→自然语言 + 来源标注
+   * @param {Object} fact
+   * @returns {string}
+   */
+  static toNaturalLanguageWithSource(fact) {
+    const base = FactFormatter.toNaturalLanguage(fact);
+    if (!fact._evidence) return base;
+
+    const { source, propagatedFrom } = fact._evidence;
+
+    switch (source) {
+      case 'direct':
+      case 'observed':
+        return base;
+      case 'overheard':
+        return `${base}（听闻）`;
+      case 'told':
+        return propagatedFrom ? `${base}（${propagatedFrom}告诉你）` : `${base}（听闻）`;
+      case 'inferred':
+        return `${base}（推测）`;
+      default:
+        return base;
+    }
+  }
   // ═══════════════════════════════════════════
   // 内部格式化方法
   // ═══════════════════════════════════════════

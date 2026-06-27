@@ -256,7 +256,7 @@ class NarrativeBuilder {
   }
 
   // ═══════════════════════════════════════════
-  // 事实约束（grounding package）
+  // 事实约束（grounding package）— v2.5 evidence-aware
   // ═══════════════════════════════════════════
   static _buildGroundingSection(groundingPackage) {
     const sections = [];
@@ -264,25 +264,72 @@ class NarrativeBuilder {
     sections.push(`# 事实约束
 你必须基于以下事实进行表达，不能编造新事实。
 - 你只能引用"你知道的事实"中的内容
-- 你可以基于"可推断的事实"进行合理推测
 - 你不能提及"你不知道的事实"中的任何内容
+- 对于来源不同的事实，表达方式有约束：
+  - 直接经历的事实：可以自由表达
+  - 亲眼看到的事实：可以自由表达
+  - 听闻的事实（标注"听闻"）：须用"听说"等表述
+  - 别人告诉你的事实（标注来源）：须用"XX告诉我"等表述
+  - 推断的事实（标注"推测"）：须用"我推测"或"大概"等表述
 - 你的表达方式（语气、措辞、情绪强度）可以自由发挥`);
 
     if (groundingPackage.allowedFacts && groundingPackage.allowedFacts.length > 0) {
-      const factLines = groundingPackage.allowedFacts
-        .slice(0, 20)
-        .map(f => `- ${FactFormatter.toNaturalLanguage(f)}`);
+      // v2.5: group by evidence source for clarity
+      const grouped = NarrativeBuilder._groupFactsBySource(groundingPackage.allowedFacts);
+      const factLines = [];
+
+      // direct/observed: no annotation needed
+      if (grouped.direct.length > 0) {
+        for (const f of grouped.direct.slice(0, 15)) {
+          factLines.push(`- ${FactFormatter.toNaturalLanguage(f)}`);
+        }
+      }
+      if (grouped.observed.length > 0) {
+        for (const f of grouped.observed.slice(0, 10)) {
+          factLines.push(`- ${FactFormatter.toNaturalLanguage(f)}`);
+        }
+      }
+
+      // overheard: annotated
+      if (grouped.overheard.length > 0) {
+        for (const f of grouped.overheard.slice(0, 5)) {
+          factLines.push(`- ${FactFormatter.toNaturalLanguageWithSource(f)}`);
+        }
+      }
+
+      // told: annotated with source
+      if (grouped.told.length > 0) {
+        for (const f of grouped.told.slice(0, 5)) {
+          factLines.push(`- ${FactFormatter.toNaturalLanguageWithSource(f)}`);
+        }
+      }
+
+      // inferred: annotated as "推测"
+      if (grouped.inferred.length > 0) {
+        for (const f of grouped.inferred.slice(0, 5)) {
+          factLines.push(`- ${FactFormatter.toNaturalLanguageWithSource(f)}`);
+        }
+      }
+
+      // Fallback for facts without _evidence (backward compat)
+      if (grouped.unknown.length > 0) {
+        for (const f of grouped.unknown.slice(0, 10)) {
+          factLines.push(`- ${FactFormatter.toNaturalLanguage(f)}`);
+        }
+      }
+
+      // If nothing was rendered (shouldn't happen but defensive), render all
+      if (factLines.length === 0) {
+        for (const f of groundingPackage.allowedFacts.slice(0, 20)) {
+          factLines.push(`- ${FactFormatter.toNaturalLanguage(f)}`);
+        }
+      }
+
       sections.push(`# 你知道的事实
 ${factLines.join('\n')}`);
     }
 
-    if (groundingPackage.inferredFacts && groundingPackage.inferredFacts.length > 0) {
-      const inferLines = groundingPackage.inferredFacts
-        .slice(0, 10)
-        .map(f => `- ${FactFormatter.toNaturalLanguage(f)}（推断）`);
-      sections.push(`# 可推断的事实
-${inferLines.join('\n')}`);
-    }
+    // v2.5: inferredFacts is always empty (B1 downgrade), no section rendered
 
     if (groundingPackage.locationMeaning) {
       sections.push(`# 当前地点\n${groundingPackage.locationMeaning}`);
@@ -294,6 +341,24 @@ ${inferLines.join('\n')}`);
 
     return sections.join('\n\n');
   }
+
+  /**
+   * Group allowedFacts by evidence source
+   * @param {Object[]} facts
+   * @returns {Object} { direct, observed, overheard, told, inferred, unknown }
+   * @private
+   */
+  static _groupFactsBySource(facts) {
+    const groups = { direct: [], observed: [], overheard: [], told: [], inferred: [], unknown: [] };
+    for (const f of facts) {
+      const src = f._evidence?.source;
+      if (!src) { groups.unknown.push(f); continue; }
+      if (groups[src]) { groups[src].push(f); }
+      else { groups.unknown.push(f); }
+    }
+    return groups;
+  }
+
 
   // ═══════════════════════════════════════════
   // 行为指南（正面引导 + 动态规则）

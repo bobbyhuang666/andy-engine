@@ -18,6 +18,10 @@
  *   - new_relationship: 成为XX朋友/变成XX关系/分手了/在一起了/结婚了
  *   - new_event: 刚刚XX了 模式，不在已知事件
  *   - unsupported_claim: （见 _checkAgentLocationClaims，无支撑的 agent-location 声明）
+ *   - missing_source_attribution: told/inferred 事实缺少来源标注 (v2.5-W1)
+ *
+ * 注意：checker 的 location regex /[在去到从]([一-龥]{2,6})/g 会贪婪捕获，
+ * "找到了" 中的 "到" 会触发 unknown_location 误报。语料设计需避开此陷阱。
  */
 
 const { FactType } = require('../../../src/canon/FactSchema');
@@ -142,6 +146,141 @@ const corpus = [
     llmOutput: '刚刚吃了一顿大餐了。',
     grounding: baseGrounding(),
     expectedViolations: [{ type: 'new_event' }],
+  },
+
+  // ═══════════════════════════════════════════
+  // v2.5-W1 新增：evidence-aware violation entries
+  // ═══════════════════════════════════════════
+
+  // ─── missing_source_attribution: told without marker ───
+  {
+    id: 'nv-012',
+    category: 'missing_source_attribution',
+    description: 'told 级别事实未标注来源',
+    // 用 "发现" 替代 "找到"，避免 "到" 触发 unknown_location 误报
+    llmOutput: '鲍勃发现了一本好书。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        { type: FactType.EVENT, description: '鲍勃发现了一本好书', location: '图书馆', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: KNOWN_OTHER } },
+      ],
+    }),
+    expectedViolations: [{ type: 'missing_source_attribution' }],
+  },
+  {
+    id: 'nv-013',
+    category: 'missing_source_attribution',
+    description: 'inferred 级别事实未标注推测',
+    llmOutput: '食堂发生了有趣的事。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        { type: FactType.EVENT, description: '食堂发生了有趣的事', location: '食堂', _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null } },
+      ],
+    }),
+    expectedViolations: [{ type: 'missing_source_attribution' }],
+  },
+  {
+    id: 'nv-014',
+    category: 'missing_source_attribution',
+    description: 'inferred 表达成确定事实（无标记）',
+    llmOutput: '食堂大概有人聚餐。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        { type: FactType.EVENT, description: '食堂大概有人聚餐', location: '食堂', _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null } },
+      ],
+    }),
+    expectedViolations: [],  // "大概" is a valid hedging marker → no violation
+  },
+
+  // ─── pass samples (no violations expected) ───
+  {
+    id: 'nv-015',
+    category: 'pass',
+    description: 'told 事实正确标注"听说"',
+    // 用 "发现" 替代 "找到"，避免 "到" 触发 unknown_location 误报
+    llmOutput: '我听说鲍勃发现了一本好书。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        { type: FactType.EVENT, description: '鲍勃发现了一本好书', location: '图书馆', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: KNOWN_OTHER } },
+      ],
+    }),
+    expectedViolations: [],
+  },
+  {
+    id: 'nv-016',
+    category: 'pass',
+    description: 'inferred 事实正确标注"推测"',
+    llmOutput: '我推测食堂有人聚餐。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        { type: FactType.EVENT, description: '食堂有人聚餐', location: '食堂', _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null } },
+      ],
+    }),
+    expectedViolations: [],
+  },
+  {
+    id: 'nv-017',
+    category: 'pass',
+    description: 'direct 事实自由表达',
+    // 逗号分割使 location regex 恰好捕获 "图书馆"（3字），而非贪婪捕获 "图书馆看了一"
+    llmOutput: '今天在图书馆，看了一天的书。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.EVENT, description: '在图书馆看书', location: '图书馆', _evidence: { source: 'direct', confidence: 1.0, propagatedFrom: null } },
+      ],
+    }),
+    expectedViolations: [],
+  },
+
+  // ─── boundary cases (may_detect: false) ───
+  {
+    id: 'nv-018',
+    category: 'missing_source_attribution',
+    description: '模糊来源标注"好像听说"（boundary）',
+    // 用 "发现" 替代 "找到"，避免 "到" 触发 unknown_location 误报
+    llmOutput: '我好像听说鲍勃发现了一本好书。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        { type: FactType.EVENT, description: '鲍勃发现了一本好书', location: '图书馆', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: KNOWN_OTHER } },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // "好像听说" contains "听说" so checker should pass it — boundary
+  },
+  {
+    id: 'nv-019',
+    category: 'missing_source_attribution',
+    description: '间接表达 inferred 事实（boundary）',
+    llmOutput: '食堂那边估计挺热闹。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.EVENT, description: '食堂有聚餐', location: '食堂', _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null } },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // "估计" is a hedging marker — checker may or may not detect it
+  },
+  {
+    id: 'nv-020',
+    category: 'unknown_character',
+    description: '语义等价人名 "Ming" 替代 "小明"（boundary）',
+    llmOutput: '，Ming说道今天有点累。',
+    grounding: baseGrounding(),
+    expectedViolations: [{ type: 'unknown_character' }],
+    may_detect: false,  // regex only matches Chinese chars — English name won't trigger
   },
 ];
 

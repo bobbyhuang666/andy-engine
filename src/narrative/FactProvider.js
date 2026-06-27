@@ -35,6 +35,31 @@ class FactProvider {
   }
 
   /**
+   * Attach _evidence annotation to a fact.
+   *
+   * When this.knowledgeStore exists, each fact carries a read-only _evidence
+   * object derived from KnowledgeStore.getEvidence(). If no evidence entry
+   * exists (e.g. PUBLIC scope fact without explicit KS entry), a default
+   * { source: 'direct', confidence: 1.0, propagatedFrom: null } is used.
+   * When no knowledgeStore, returns fact unchanged.
+   *
+   * @param {string} agentId
+   * @param {Object} fact
+   * @returns {Object} fact with _evidence (or unchanged if no knowledgeStore)
+   * @private
+   */
+  _attachEvidence(agentId, fact) {
+    if (!this.knowledgeStore) return fact;
+
+    const evidence = this.knowledgeStore.getEvidence(agentId, fact.id);
+    if (evidence) {
+      return { ...fact, _evidence: { source: evidence.source, confidence: evidence.confidence, propagatedFrom: evidence.propagatedFrom } };
+    }
+    // Default for facts in allowedFacts without an explicit KS entry
+    return { ...fact, _evidence: { source: 'direct', confidence: 1.0, propagatedFrom: null } };
+  }
+
+  /**
    * 获取角色的 grounding package
    * @param {string} agentId
    * @param {Object} [options]
@@ -49,19 +74,42 @@ class FactProvider {
     const inferredFacts = this._getInferredFacts(agentId, options).slice(0, maxFacts);
     const forbiddenFacts = this._getForbiddenFacts(agentId, options).slice(0, maxFacts);
 
+    const metadata = {
+      agentId,
+      currentTime: options.time || null,
+      factCount: {
+        allowed: allowedFacts.length,
+        inferred: 0, // v2.5 B1 downgrade: always 0
+        forbidden: forbiddenFacts.length,
+      },
+    };
+
+    // Compute evidenceSummary when knowledgeStore exists
+    if (this.knowledgeStore && allowedFacts.length > 0) {
+      const counts = {};
+      for (const fact of allowedFacts) {
+        if (fact._evidence) {
+          const src = fact._evidence.source;
+          counts[src] = (counts[src] || 0) + 1;
+        }
+      }
+      // Only include sources with count > 0
+      const summary = {};
+      for (const [source, count] of Object.entries(counts)) {
+        if (count > 0) {
+          summary[source] = count;
+        }
+      }
+      if (Object.keys(summary).length > 0) {
+        metadata.evidenceSummary = summary;
+      }
+    }
+
     const grounding = {
       allowedFacts,
       inferredFacts,
       forbiddenFacts,
-      metadata: {
-        agentId,
-        currentTime: options.time || null,
-        factCount: {
-          allowed: allowedFacts.length,
-          inferred: inferredFacts.length,
-          forbidden: forbiddenFacts.length,
-        },
-      },
+      metadata,
     };
 
     if (options.currentRegion && this.store) {
@@ -118,7 +166,11 @@ class FactProvider {
         if (fact.type === FactType.AGENT_STATE && fact.agentId !== agentId) {
           continue;
         }
-        result.push(fact);
+        if (this.knowledgeStore) {
+          result.push(this._attachEvidence(agentId, fact));
+        } else {
+          result.push(fact);
+        }
         seenIds.add(fact.id);
       }
     }
@@ -128,7 +180,7 @@ class FactProvider {
       const knownFacts = this.knowledgeStore.getKnownFacts(agentId, options);
       for (const fact of knownFacts) {
         if (!seenIds.has(fact.id) && this._isActiveFact(fact)) {
-          result.push(fact);
+          result.push(this._attachEvidence(agentId, fact));
           seenIds.add(fact.id);
         }
       }
@@ -170,37 +222,20 @@ class FactProvider {
   }
 
   /**
-   * 角色可以推断的事实：
-   * 1. 同一区域的公共事件（可能观察到）
-   * 2. 关系变化（通过社交互动推断）
+   * v2.5 B1 Downgrade: _getInferredFacts returns an empty array.
+   *
+   * All inferred knowledge now flows through KnowledgeStore -> allowedFacts.
+   * The inferredFacts field is retained in the output structure for API
+   * compatibility but will always be empty in v2.5.
+   *
+   * Rationale: Dual-source inferred knowledge (KnowledgeStore AND inference
+   * heuristics) caused inconsistencies. The single KnowledgeStore path is
+   * the canonical source for all agent knowledge.
+   *
    * @private
    */
   _getInferredFacts(agentId, options) {
-    const result = [];
-    const agentStateFacts = this.store.getAgentStateFacts();
-    const agentState = agentStateFacts.find(f => f.agentId === agentId);
-    const currentRegion = agentState?.region;
-
-    if (!currentRegion) return result;
-
-    const knownIds = this.knowledgeStore
-      ? this.knowledgeStore.getKnownFactIds(agentId)
-      : new Set();
-
-    const eventFacts = this.store.getEventFacts();
-    for (const fact of eventFacts) {
-      if (!this._isActiveFact(fact)) continue;
-      if (knownIds.has(fact.id)) continue;
-      if (fact.scope === FactScope.PUBLIC && fact.location === currentRegion) {
-        result.push({
-          ...fact,
-          confidence: 0.6,
-          _inferred: true,
-        });
-      }
-    }
-
-    return result;
+    return [];
   }
 
   /**
