@@ -1,6 +1,6 @@
 # Aliveness Report
 
-> 生成时间: 2026-06-27T17:11:33.572Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
+> 生成时间: 2026-06-27T17:41:51.836Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
 > ALIVENESS_BENCHMARK_RFC v0.3 §3 报告制度。每次 release 重新生成。
 
 ## 测试命令快照
@@ -9,7 +9,7 @@
 |---|---|---|
 | npm test | 0 | Test Files  169 passed (169) / Tests  2788 passed (2788) |
 | npm run test:domain | 0 |  Test Files  5 passed (5) /       Tests  81 passed (81) |
-| npm run perf:check | 0 | 100 agents avg/tick                26.83     25.52   1.05x   ✓ PASS / 300 agents avg/tick                183.9    202.48   0.91x   ✓ PASS / fixed-clustered gather (ms)        37.22     33.87    1.1x   ✓ PASS / fixed-clustered cache (ms)          6.24      7.33   0.85x   ✓ PASS / runtime-clustered gather (ms)      37.49     34.85   1.08x   ✓ PASS / ✓ All performance checks passed |
+| npm run perf:check | 0 | 100 agents avg/tick                26.48     25.52   1.04x   ✓ PASS / 300 agents avg/tick               192.61    202.48   0.95x   ✓ PASS / fixed-clustered gather (ms)        35.88     33.87   1.06x   ✓ PASS / fixed-clustered cache (ms)          6.27      7.33   0.86x   ✓ PASS / runtime-clustered gather (ms)      36.69     34.85   1.05x   ✓ PASS / ✓ All performance checks passed |
 | npm run replay:diff | 0 | ticks: 100 | matched: 100 | mismatched: 0 |
 
 ## 七维度状态
