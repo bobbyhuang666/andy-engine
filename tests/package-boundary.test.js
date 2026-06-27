@@ -31,11 +31,24 @@ describe('Package Boundary', () => {
       if (pkg.exports['./sdk'].types) {
         expect(existsSync(path.join(process.cwd(), pkg.exports['./sdk'].types))).toBe(true);
       }
-      expect(pkg.exports['./domain']).toBe('./domain/index.js');
+      // domain, facts, store may be conditional exports { types, require } or simple strings
+      const domainEntry = pkg.exports['./domain'];
+      expect(domainEntry.require || domainEntry).toBe('./domain/index.js');
+      if (domainEntry.types) {
+        expect(existsSync(path.join(process.cwd(), domainEntry.types))).toBe(true);
+      }
       expect(pkg.exports['./domain/validate']).toBe('./src/domain/validateDomain.js');
       expect(pkg.exports['./domain/registry']).toBe('./src/domain/DomainRegistry.js');
-      expect(pkg.exports['./facts']).toBe('./facts/index.js');
-      expect(pkg.exports['./store']).toBe('./store/index.js');
+      const factsEntry = pkg.exports['./facts'];
+      expect(factsEntry.require || factsEntry).toBe('./facts/index.js');
+      if (factsEntry.types) {
+        expect(existsSync(path.join(process.cwd(), factsEntry.types))).toBe(true);
+      }
+      const storeEntry = pkg.exports['./store'];
+      expect(storeEntry.require || storeEntry).toBe('./store/index.js');
+      if (storeEntry.types) {
+        expect(existsSync(path.join(process.cwd(), storeEntry.types))).toBe(true);
+      }
       expect(pkg.exports['./config/defaults']).toBe('./src/config/defaults.js');
       expect(pkg.exports['./presets/tavern']).toBe('./presets/tavern/index.js');
       expect(pkg.exports['./presets/campus']).toBe('./presets/campus/index.js');

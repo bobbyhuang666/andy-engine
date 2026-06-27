@@ -51,6 +51,7 @@
     "native/",
     "examples/",
     "docs/DOMAIN.md",
+    "CHANGELOG.md",
     "README.md",
     "LICENSE"
   ],
@@ -90,11 +91,20 @@
       "types": "./sdk/index.d.ts",
       "require": "./sdk/index.js"
     },
-    "./domain": "./domain/index.js",
+    "./domain": {
+      "types": "./domain/index.d.ts",
+      "require": "./domain/index.js"
+    },
     "./domain/validate": "./src/domain/validateDomain.js",
     "./domain/registry": "./src/domain/DomainRegistry.js",
-    "./facts": "./facts/index.js",
-    "./store": "./store/index.js",
+    "./facts": {
+      "types": "./facts/index.d.ts",
+      "require": "./facts/index.js"
+    },
+    "./store": {
+      "types": "./store/index.d.ts",
+      "require": "./store/index.js"
+    },
     "./config/defaults": "./src/config/defaults.js",
     "./presets/campus": "./presets/campus/index.js",
     "./presets/tavern": "./presets/tavern/index.js"
