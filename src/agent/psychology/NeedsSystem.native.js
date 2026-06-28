@@ -11,6 +11,24 @@ const { getDefaultDomain } = require('../../domain/DomainRegistry');
 const { loadNativeModule } = require('../../shared/nativeLoader');
 const { diagnostics } = require('../../shared/Diagnostics');
 
+// R16 fix: constants needed by tickWithBehavior / getDriveGradient / getRecoveryRatesForBehavior
+// Must match NeedsSystem.js exactly to ensure native/JS parity.
+const NEED_DEPRIVATION_GRADIENT_TARGETS = {
+  hunger:      [0.35, 0.45, 0.20, 0.40],
+  energy:      [0.08, 0.04, 0.05, 0.03],
+  social:      [0.35, 0.85, 0.25, 0.80],
+  comfort:     [0.15, 0.15, 0.20, 0.12],
+  stimulation: [0.45, 0.35, 0.40, 0.40],
+};
+
+const NEED_SATISFACTION_CENTERS = {
+  hunger:      [0.35, 0.55, 0.15, 0.45],
+  energy:      [0.06, 0.03, 0.05, 0.03],
+  social:      [0.40, 0.90, 0.30, 0.85],
+  comfort:     [0.15, 0.15, 0.25, 0.15],
+  stimulation: [0.50, 0.40, 0.50, 0.50],
+};
+
 // 不在模块顶层调用 getDefaultDomain()——改为惰性求值（Wave 3b-0）。
 
 let _NativeCtor = null;
@@ -145,10 +163,73 @@ class NeedsSystemNative {
     return `需求：${parts.join('，')}。`;
   }
 
+  /**
+   * R16 fix: tick with continuous behavior vector for recovery rate calculation.
+   * Must match NeedsSystem.tickWithBehavior() exactly for native/JS parity.
+   * AgentRuntime.tick() calls this on every tick.
+   */
+  tickWithBehavior(hoursElapsed, behaviorVector) {
+    // Step 1: natural decay (same as tick())
+    for (const [need, rate] of Object.entries(this._decayRates)) {
+      const current = this.needs[need];
+      const effectiveRate = rate * (0.5 + current * 0.5);
+      this.needs[need] = Math.max(0, current - effectiveRate * hoursElapsed);
+    }
+
+    // Step 2: behavior-driven recovery
+    const rates = this.getRecoveryRatesForBehavior(behaviorVector);
+    for (const [need, rate] of Object.entries(rates)) {
+      if (rate > 0) {
+        this.needs[need] = Math.min(1, this.needs[need] + rate * hoursElapsed);
+      }
+    }
+  }
+
+  /**
+   * R16 fix: get need drive gradient for BehaviorField integration.
+   * Must match NeedsSystem.getDriveGradient() exactly.
+   */
+  getDriveGradient() {
+    const drives = [];
+    for (const [need, value] of Object.entries(this.needs)) {
+      const threshold = cfg.threshold[need] || 0.3;
+      if (value >= threshold) continue;
+      const urgency = threshold - value;
+      const target = NEED_DEPRIVATION_GRADIENT_TARGETS[need];
+      if (!target) continue;
+      drives.push({ need, urgency, gradient: [...target] });
+    }
+    return drives;
+  }
+
+  /**
+   * R16 fix: compute recovery rates from continuous behavior vector.
+   * Must match NeedsSystem.getRecoveryRatesForBehavior() exactly.
+   */
+  getRecoveryRatesForBehavior(behaviorVector) {
+    const rates = {};
+    const maxDist = 0.8;
+    for (const [need, target] of Object.entries(NEED_SATISFACTION_CENTERS)) {
+      let distSq = 0;
+      for (let d = 0; d < 4; d++) {
+        const diff = behaviorVector[d] - target[d];
+        distSq += diff * diff;
+      }
+      const distance = Math.sqrt(distSq);
+      const factor = Math.max(0, 1 - distance / maxDist);
+      const baseRate = cfg.recoveryRate[need] || 0.3;
+      const multiplier = (this._recoveryMultipliers && this._recoveryMultipliers[need]) || 1.0;
+      rates[need] = baseRate * factor * multiplier;
+    }
+    return rates;
+  }
+
   toJSON() {
     return {
       needs: { ...this.needs },
       _decayRates: this._decayRates ? { ...this._decayRates } : {},
+      // R16 fix: include _recoveryMultipliers for serialization parity with JS version
+      _recoveryMultipliers: { ...(this._recoveryMultipliers || {}) },
     };
   }
 
