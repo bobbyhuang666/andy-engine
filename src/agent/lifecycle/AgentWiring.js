@@ -49,11 +49,17 @@ function setupLocationMeaningInfluence(behaviorField, factStore, domain, positio
 /**
  * Set up future tendency tracker on BehaviorField.
  *
+ * R15 fix: accepts optional savedState to restore tendencies from a previous
+ * serialization round-trip, preventing loss of behavioral tendencies.
+ *
  * @param {Object} behaviorField
+ * @param {Object|null} savedFutureTendency - serialized FutureTendencyTracker state
  * @returns {Object} The FutureTendencyTracker instance
  */
-function setupFutureTendency(behaviorField) {
-  const futureTendency = new FutureTendencyTracker();
+function setupFutureTendency(behaviorField, savedFutureTendency = null) {
+  const futureTendency = savedFutureTendency
+    ? FutureTendencyTracker.fromJSON(savedFutureTendency)
+    : new FutureTendencyTracker();
   behaviorField.setFutureTendency(futureTendency);
   return futureTendency;
 }
@@ -64,11 +70,12 @@ function setupFutureTendency(behaviorField) {
  * @param {Object} subs - Subsystems object from factory
  * @param {Object} config - Agent config (for factStore)
  * @param {Object|null} domain
+ * @param {Object|null} savedState - Full agent saved state (for futureTendency restore)
  */
-function wireAll(subs, config, domain) {
+function wireAll(subs, config, domain, savedState = null) {
   wireBehaviorFieldToStateMachine(subs.stateMachine, subs.behaviorField);
   setupLocationMeaningInfluence(subs.behaviorField, config.factStore, domain, subs.position);
-  const futureTendency = setupFutureTendency(subs.behaviorField);
+  const futureTendency = setupFutureTendency(subs.behaviorField, savedState?.futureTendency || null);
   return { futureTendency };
 }
 

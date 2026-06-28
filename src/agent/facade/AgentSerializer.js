@@ -25,6 +25,10 @@ function toJSON(agent) {
     needs: agent.needs.toJSON(),
     emotionRegulation: agent.emotionRegulation.toJSON(),
     intrinsicMotivation: agent.intrinsicMotivation.toJSON(),
+    // R15 fix: persist futureTendency to preserve behavioral tendencies across save/restore.
+    // Without this, all accumulated location-based behavioral tendencies are lost after
+    // a serialization round-trip, breaking continuity in long-running simulations.
+    futureTendency: agent.futureTendency ? agent.futureTendency.toJSON() : null,
     position: agent.position,
     socialEnergy: agent.socialEnergy,
     health: agent.health,

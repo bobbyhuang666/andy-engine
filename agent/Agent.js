@@ -73,7 +73,8 @@ class Agent {
     this.isOnline = subs.isOnline;
 
     // ─── Wire subsystems together ───
-    const wiring = wireAll(subs, config, this._domain);
+    // R15 fix: pass savedState so wireAll can restore FutureTendencyTracker
+    const wiring = wireAll(subs, config, this._domain, savedState);
     this.futureTendency = wiring.futureTendency;
 
     // ─── Runtime state ───

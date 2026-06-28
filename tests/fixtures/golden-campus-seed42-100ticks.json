@@ -10,7 +10,7 @@
     "nodeVersion": "26",
     "nativeMode": "disabled",
     "generationCommand": "npm run golden:regen",
-    "generatedAt": "2026-06-28T16:31:48.584Z"
+    "generatedAt": "2026-06-28T16:45:21.856Z"
   },
   "schemaVersion": "0.1.0",
   "worldId": "golden-campus-v1",
@@ -2786,6 +2786,10 @@
           "_ticksSinceGoal": 4,
           "_lastGoalId": 2
         },
+        "futureTendency": {
+          "tendencies": {},
+          "decayRate": 0.95
+        },
         "position": "操场",
         "socialEnergy": 0.5104831265198756,
         "health": 0.9712500000000006,
@@ -5364,6 +5368,10 @@
           ],
           "_ticksSinceGoal": 4,
           "_lastGoalId": 4
+        },
+        "futureTendency": {
+          "tendencies": {},
+          "decayRate": 0.95
         },
         "position": "回家路上",
         "socialEnergy": 0.5203848467540064,
