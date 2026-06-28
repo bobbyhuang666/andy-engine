@@ -40,7 +40,11 @@ class Relationship {
         positive: Number.isFinite(savedState.impression?.positive) ? savedState.impression.positive : 0,
         negative: Number.isFinite(savedState.impression?.negative) ? savedState.impression.negative : 0,
       };
-      this.history = (savedState.history || []).slice(-20);
+      // R8 fix: restore history entries, converting time strings back to Date objects
+      this.history = (savedState.history || []).slice(-20).map(entry => ({
+        ...entry,
+        time: entry.time instanceof Date ? entry.time : new Date(entry.time),
+      }));
     } else {
       this.type = 'stranger';
       this.strength = cfg.initialStrength;
@@ -244,7 +248,10 @@ class Relationship {
       interactionCount: this.interactionCount,
       _relationalInteractions: this._relationalInteractions,
       impression: { ...this.impression },
-      history: this.history.slice(-20),
+      history: this.history.slice(-20).map(entry => ({
+        ...entry,
+        time: entry.time instanceof Date ? entry.time.toISOString() : entry.time,
+      })),
     };
   }
 

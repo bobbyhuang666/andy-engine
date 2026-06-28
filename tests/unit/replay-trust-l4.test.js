@@ -115,7 +115,7 @@ describe('W1 regression: runtime state restore fidelity', () => {
     expect(after, '_ticksSinceDriftCheck 应恢复为 ' + before).toBe(before);
   });
 
-  it('memory 是 array 且 toWorldState/engine.toJSON 序列化正常 (W6 旧根因推翻 regression)', () => {
+  it('memory 序列化包含 memories 数组和 _nextMemId (R8 fix)', () => {
     const engine = buildSeededEngine();
     for (let i = 0; i < RESUME_AT; i++) engine.tick();
 
@@ -124,10 +124,13 @@ describe('W1 regression: runtime state restore fidelity', () => {
     expect(runtimeMemCount, 'tick 50 运行时应已有累积 memory').toBeGreaterThan(0);
 
     const env = toWorldState(engine, 'reg');
-    // memory 在 runtimeSnapshot.agents.maya.memory，是 array（非 {memories:[]} 嵌套）
+    // R8: memory serialization is now {memories: [...], _nextMemId: N}
+    // (was plain array before, missing _nextMemId caused ID collision after prune+restore)
     const snapMem = env.runtimeSnapshot?.agents?.maya?.memory;
-    expect(Array.isArray(snapMem), 'envelope memory 应是 array（W6 旧诊断误读为 .memories 嵌套）').toBe(true);
-    expect(snapMem.length, 'envelope 应序列化全部累积 memory').toBe(runtimeMemCount);
+    expect(typeof snapMem, 'envelope memory 应是对象').toBe('object');
+    expect(Array.isArray(snapMem.memories), 'envelope memory.memories 应是数组').toBe(true);
+    expect(snapMem.memories.length, 'envelope 应序列化全部累积 memory').toBe(runtimeMemCount);
+    expect(typeof snapMem._nextMemId, 'envelope memory._nextMemId 应是数字').toBe('number');
   });
 
   it('旧存档缺 _nextId 时 best-effort 推算（从 eventLog 最大 id）', () => {

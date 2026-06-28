@@ -19,13 +19,15 @@ class ScheduleHandler {
    * R7 fix: Validate that a region exists in the domain before moving agent.
    * Prevents phantom regions from being auto-created in RegionGrid and
    * keeps simulation spatial state consistent with domain configuration.
+   * R8 fix: return false when domain is unavailable (consistent with
+   * ActionSelectionRuntime which also returns false in this case).
    * @param {Object} agent
    * @param {string} targetRegion
-   * @returns {boolean} true if region is valid (or domain unavailable)
+   * @returns {boolean} true if region is valid
    * @private
    */
   static _isValidRegion(agent, targetRegion) {
-    if (!agent.domain || typeof agent.domain.hasRegion !== 'function') return true; // no domain to validate against
+    if (!agent.domain || typeof agent.domain.hasRegion !== 'function') return false;
     return agent.domain.hasRegion(targetRegion);
   }
 

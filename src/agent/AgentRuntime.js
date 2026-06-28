@@ -73,8 +73,12 @@ class AgentRuntime {
 
     if (!agent.isOnline) return result;
 
+    // R8 fix: throw on null env instead of silently returning empty result.
+    // A null env means the tick context is broken — silently skipping would
+    // freeze the agent (no needs decay, no emotion update, no memory evolution)
+    // with no indication of the error.
     if (!env || typeof env !== 'object') {
-      return result;
+      throw new Error(`AgentRuntime.tick(): agent "${agent.id}" received invalid env (null or non-object). This indicates a bug in the tick context builder.`);
     }
 
     const hoursElapsed = Math.max(0, (env.minutesElapsed || 5) / 60);

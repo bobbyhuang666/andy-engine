@@ -80,9 +80,8 @@ describe('AgentRuntime', () => {
       expect(result.emotionSnapshot).toBeNull();
     });
 
-    it('returns early when env is invalid', () => {
-      const result = runtime.tick(null);
-      expect(result.stateChanged).toBe(false);
+    it('throws when env is invalid', () => {
+      expect(() => runtime.tick(null)).toThrow(/invalid env/);
     });
 
     it('handles empty events', () => {

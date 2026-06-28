@@ -163,14 +163,16 @@ describe('PersonalMemory 模块', () => {
   });
 
   describe('序列化', () => {
-    it('应该是数组', () => {
+    it('应该是对象，包含 memories 数组和 _nextMemId', () => {
       const json = mem.toJSON();
-      expect(Array.isArray(json)).toBe(true);
+      expect(typeof json).toBe('object');
+      expect(Array.isArray(json.memories)).toBe(true);
+      expect(typeof json._nextMemId).toBe('number');
     });
 
     it('应该有正确数量', () => {
       const json = mem.toJSON();
-      expect(json.length).toBe(2);
+      expect(json.memories.length).toBe(2);
     });
   });
 });

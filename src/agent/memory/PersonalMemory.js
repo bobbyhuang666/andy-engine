@@ -51,7 +51,11 @@ class PersonalMemory {
     // setSimTime（每 tick 由 AgentRuntime.tick 调用）覆盖为 sim time。
     this._simTime = 0;
     const restoredMemories = savedMemories ? (Array.isArray(savedMemories) ? savedMemories : (savedMemories.memories || [])) : [];
-    this._nextMemId = nextDynamicMemoryId(agentId, restoredMemories);
+    // R8 fix: use serialized _nextMemId if available, preventing ID collision
+    // after prune+restore. Fallback to recomputation for backward compat.
+    this._nextMemId = (savedMemories && !Array.isArray(savedMemories) && typeof savedMemories._nextMemId === 'number')
+      ? savedMemories._nextMemId
+      : nextDynamicMemoryId(agentId, restoredMemories);
     this.appraisalBiases = [];
 
     if (savedMemories) {
@@ -1038,7 +1042,7 @@ class PersonalMemory {
   // ═══════════════════════════════════════════
 
   toJSON() {
-    return this.memories.map(m => ({
+    const memories = this.memories.map(m => ({
       id: m.id,
       content: m.content,
       category: m.category,
@@ -1060,6 +1064,11 @@ class PersonalMemory {
       // similarity 分数不同导致 consolidate 合并 pair 不同，L4 漂移（W0f 根因）。
       appraisal: m.appraisal || null,
     }));
+    // R8 fix: include _nextMemId to prevent ID collision after prune+restore.
+    // Previously only the memories array was serialized, so _nextMemId was
+    // recomputed from surviving memories — which could be lower than the
+    // pre-prune value, causing duplicate IDs on new memory creation.
+    return { memories, _nextMemId: this._nextMemId };
   }
 
   /**

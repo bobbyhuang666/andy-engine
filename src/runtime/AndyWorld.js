@@ -74,12 +74,16 @@ class AndyWorld {
     });
 
     // ─── 环境层 ───
-    this.environment = savedState ? savedState.environment : {
+    this.environment = savedState?.environment ? savedState.environment : {
       weather: config.weather || 'sunny',
       weatherChangedAt: this.clock.time,
       timeOfDay: this._calcTimeOfDay(this.clock.hour),
       season: this._calcSeason(this.clock.time.getMonth()),
     };
+    // R8 fix: restore Date objects from serialized strings
+    if (this.environment.weatherChangedAt && !(this.environment.weatherChangedAt instanceof Date)) {
+      this.environment.weatherChangedAt = new Date(this.environment.weatherChangedAt);
+    }
 
     // ─── 事实系统（可选）───
     this.factStore = this.runtimeConfig.enableFacts
@@ -190,7 +194,17 @@ class AndyWorld {
     }
     this.agents.set(agent.id, agent);
     this.socialGraph.addAgent(agent.id);
-    this.regions.place(agent.id, agent.position);
+    // R8 fix: handle RegionGrid.place() returning false when agent.position
+    // is not in the domain. Fallback to domain's defaultRegion so the agent
+    // is not left in limbo (no region = no encounters, no contagion, invisible).
+    const placed = this.regions.place(agent.id, agent.position);
+    if (!placed) {
+      const fallback = this.domain ? this.domain.fallback.defaultRegion : null;
+      if (fallback) {
+        agent.position = fallback;
+        this.regions.place(agent.id, fallback);
+      }
+    }
     if (this.spatial) {
       this.spatial.addAgent(agent.id, agent.position);
     }
@@ -388,7 +402,15 @@ class AndyWorld {
         allNewEvents.push(...agentResult.newEvents);
       }
       if (agentResult.regionChanged) {
-        this.regions.place(agentId, agent.position);
+        // R8 fix: validate placement succeeded; if not, revert to domain default
+        const placed = this.regions.place(agentId, agent.position);
+        if (!placed) {
+          const fallback = this.domain ? this.domain.fallback.defaultRegion : null;
+          if (fallback && fallback !== agent.position) {
+            agent.position = fallback;
+            this.regions.place(agentId, fallback);
+          }
+        }
       }
     }
     result.phase.agentThink = { agentCount: this.agents.size, results: agentResults };

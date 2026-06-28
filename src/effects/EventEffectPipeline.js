@@ -34,7 +34,15 @@ const { FutureTendencyDelta } = require('./FutureTendencyDelta');
  */
 function applyActionEffect({ agentSnapshot, selectedCandidate, reasonTrace, simTime }) {
   const simTimeISO = simTime instanceof Date ? simTime.toISOString() : (simTime || null);
-  const agentId = agentSnapshot?.id || 'unknown';
+  // R8 fix: throw on missing agentId instead of using 'unknown' fallback.
+  // The 'unknown' fallback caused all deltas to be silently dropped by
+  // EffectCommitter (which looks up agents by ID), masking data integrity bugs.
+  // Note: buildActionContext returns { agent: { id, ... }, ... }, so id may be
+  // nested under agentSnapshot.agent.id or directly at agentSnapshot.id.
+  const agentId = agentSnapshot?.id ?? agentSnapshot?.agent?.id;
+  if (!agentId) {
+    throw new Error('EventEffectPipeline.applyActionEffect(): agentSnapshot.id is required');
+  }
 
   if (!selectedCandidate) {
     const event = {
@@ -81,7 +89,12 @@ function applyActionEffect({ agentSnapshot, selectedCandidate, reasonTrace, simT
  * @returns {import('./StateDelta').StateDelta[]}
  */
 function computeDeltas(candidate, agentSnapshot) {
-  const agentId = agentSnapshot?.id || 'unknown';
+  // R8 fix: throw on missing agentId (same as applyActionEffect)
+  // Note: id may be at agentSnapshot.id or agentSnapshot.agent.id
+  const agentId = agentSnapshot?.id ?? agentSnapshot?.agent?.id;
+  if (!agentId) {
+    throw new Error('EventEffectPipeline.computeDeltas(): agentSnapshot.id is required');
+  }
   const deltas = [];
 
   switch (candidate.type) {
