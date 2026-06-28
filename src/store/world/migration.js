@@ -10,8 +10,7 @@
  */
 
 const { CURRENT_SCHEMA_VERSION } = require('./validator');
-
-const DEFAULT_DOMAIN_ID = 'campus';
+const { DEFAULT_DOMAIN_ID } = require('../../config/defaults');
 
 /**
  * 将旧版本 World State 迁移到当前版本
@@ -60,8 +59,9 @@ function migrateWorldState(oldState) {
  * @private
  */
 function migrateV0ToV1(oldState) {
-  // 生成 worldId（旧版无此字段）
-  const worldId = `world_migrated_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  // 生成 worldId（确定性 counter-based）
+  const { generateId } = require('../../shared/ids');
+  const worldId = `world_migrated_${generateId('w').split('_').slice(1).join('_')}`;
 
   // 提取 characters 公共字段（全新数组，不引用原对象）
   const agents = oldState.agents || {};
@@ -85,7 +85,7 @@ function migrateV0ToV1(oldState) {
   // 提取 events 公共字段（全新数组，不引用原对象）
   const rawEventLog = (oldState.events && oldState.events.eventLog) || [];
   const events = rawEventLog.map(evt => ({
-    id: evt.id || `evt_${Date.now()}`,
+    id: evt.id || generateId('evt'),
     time: typeof evt.time === 'string' ? evt.time : String(evt.time || ''),
     type: evt.type || 'general',
     content: evt.content || '',

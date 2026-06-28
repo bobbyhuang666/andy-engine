@@ -11,8 +11,7 @@
 
 const { validateWorldSpec, validateWorldState, CURRENT_SCHEMA_VERSION } = require('./validator');
 const { toWorldState } = require('./WorldStateAdapter');
-
-const DEFAULT_DOMAIN_ID = 'campus';
+const { DEFAULT_DOMAIN_ID } = require('../../config/defaults');
 
 /**
  * 将 World Spec 编译为初始 World State
@@ -97,8 +96,9 @@ function compile(spec, domainConfig = null, engineConstructor = null) {
     }
   }
 
-  // Step 5: 生成世界 ID（临时随机种子，非确定性）
-  const worldId = spec.worldId || `world_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  // Step 5: 生成世界 ID（确定性 counter-based）
+  const { generateId } = require('../../shared/ids');
+  const worldId = spec.worldId || generateId('world');
 
   // Step 6: 通过 Adapter 生成 World State
   const state = toWorldState(engine, worldId);

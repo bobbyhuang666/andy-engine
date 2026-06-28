@@ -148,14 +148,15 @@ class BehaviorField {
       || 'idle';
 
     if (savedState) {
-      this.B = [...savedState.B];
-      this.velocity = [...savedState.velocity];
-      this._prevB = [...savedState.B];
+      this.B = savedState.B.map(v => Number.isFinite(v) ? v : 0.15);
+      this.velocity = savedState.velocity.map(v => Number.isFinite(v) ? v : 0);
+      this._prevB = savedState._prevB ? [...savedState._prevB] : [...savedState.B];
       // Validate saved _lastLabel exists in current domain states
       this._lastLabel = (savedState._lastLabel && this.domain.states[savedState._lastLabel])
         ? savedState._lastLabel
         : fallbackLabel;
       this._tickCount = savedState._tickCount || 0;
+      this._lastLabelConfidence = savedState._lastLabelConfidence ?? 0;
     } else {
       // 初始位置：休息状态附近
       this.B = [0.15, 0.08, 0.15, 0.08];
@@ -163,6 +164,7 @@ class BehaviorField {
       this._prevB = [...this.B];
       this._lastLabel = fallbackLabel;
       this._tickCount = 0;
+      this._lastLabelConfidence = 0;
     }
 
     // 缓存
@@ -514,13 +516,24 @@ class BehaviorField {
   }
 
   /**
-   * 边界处理：clamp + 速度反射
+   * 边界处理：clamp + 速度反射 + NaN guard
    * @private
    */
   _enforceBoundary() {
     const reflect = this.cfg.boundaryReflection;
 
     for (let d = 0; d < DIMS; d++) {
+      // R6 fix: NaN/Infinity guard. If B or velocity becomes NaN (e.g., from
+      // gradient overflow), reset to safe defaults instead of propagating.
+      if (!Number.isFinite(this.B[d])) {
+        this.B[d] = 0.5;
+        this.velocity[d] = 0;
+        continue;
+      }
+      if (!Number.isFinite(this.velocity[d])) {
+        this.velocity[d] = 0;
+      }
+
       if (this.B[d] < 0) {
         this.B[d] = 0;
         this.velocity[d] = Math.abs(this.velocity[d]) * reflect;
@@ -602,6 +615,7 @@ class BehaviorField {
       velocity: [...this.velocity],
       _prevB: [...this._prevB],
       _lastLabel: this._lastLabel,
+      _lastLabelConfidence: this._lastLabelConfidence,
       _tickCount: this._tickCount,
     };
   }

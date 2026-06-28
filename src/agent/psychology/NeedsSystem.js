@@ -84,6 +84,20 @@ class NeedsSystem {
       this._decayRates = NeedsSystem._calcDecayRates(ocean);
       this._recoveryMultipliers = NeedsSystem._calcRecoveryMultipliers(ocean);
     }
+
+    // NaN 防御：验证 _decayRates 和 _recoveryMultipliers 内部值
+    const freshDecayRates = NeedsSystem._calcDecayRates(ocean);
+    const freshRecoveryMultipliers = NeedsSystem._calcRecoveryMultipliers(ocean);
+    for (const key of Object.keys(this._decayRates)) {
+      if (!Number.isFinite(this._decayRates[key])) {
+        this._decayRates[key] = freshDecayRates[key];
+      }
+    }
+    for (const key of Object.keys(this._recoveryMultipliers)) {
+      if (!Number.isFinite(this._recoveryMultipliers[key])) {
+        this._recoveryMultipliers[key] = freshRecoveryMultipliers[key];
+      }
+    }
   }
 
   /**

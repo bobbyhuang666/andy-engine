@@ -187,7 +187,13 @@ class LLMAdapter {
           const parsed = JSON.parse(data);
           const content = parsed.choices?.[0]?.delta?.content;
           if (content) yield content;
-        } catch {}
+        } catch (e) {
+          // Non-fatal: SSE stream may contain partial/malformed chunks.
+          // Log at debug level rather than silently swallowing.
+          if (typeof process !== 'undefined' && process.env?.DEBUG_LLM_STREAM) {
+            process.stderr.write(`[LLMAdapter/OpenAI stream parse] ${e.message}\n`);
+          }
+        }
       }
     }
   }
@@ -252,7 +258,13 @@ class LLMAdapter {
           if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
             yield parsed.delta.text;
           }
-        } catch {}
+        } catch (e) {
+          // Non-fatal: SSE stream may contain partial/malformed chunks.
+          // Log at debug level rather than silently swallowing.
+          if (typeof process !== 'undefined' && process.env?.DEBUG_LLM_STREAM) {
+            process.stderr.write(`[LLMAdapter/Anthropic stream parse] ${e.message}\n`);
+          }
+        }
       }
     }
   }

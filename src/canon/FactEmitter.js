@@ -120,16 +120,17 @@ class FactEmitter {
       const existingFacts = this.store.getAgentStateFacts();
       const existing = existingFacts.find(f => f.agentId === agentId);
       if (existing) {
-        this.store.updateFact(existing.id, {
+        const updated = this.store.updateFact(existing.id, {
           state: stateLabel,
           region: position,
           emotionSummary,
           timestamp: now,
         });
+        facts.push(updated || fact);
       } else {
         this.store.addFact(fact);
+        facts.push(fact);
       }
-      facts.push(fact);
     }
 
     return facts;
@@ -260,15 +261,16 @@ class FactEmitter {
         );
 
         if (existing) {
-          this.store.updateFact(existing.id, {
+          const updated = this.store.updateFact(existing.id, {
             relationType: rel.type || 'stranger',
             strength: rel.strength || 0,
             timestamp: now,
           });
+          facts.push(updated || fact);
         } else {
           this.store.addFact(fact);
+          facts.push(fact);
         }
-        facts.push(fact);
       }
     }
 
@@ -314,14 +316,15 @@ class FactEmitter {
         );
 
         if (existing) {
-          this.store.updateFact(existing.id, {
+          const updated = this.store.updateFact(existing.id, {
             importance: mem.importance,
             timestamp: now,
           });
+          facts.push(updated || fact);
         } else {
           this.store.addFact(fact);
+          facts.push(fact);
         }
-        facts.push(fact);
       }
     }
 

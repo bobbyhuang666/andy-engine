@@ -99,20 +99,20 @@ describe('shared/ids — id generation', () => {
     expect(id.endsWith(expectedSuffix)).toBe(true);
   });
 
-  it('generateId without rng falls back to Math.random (still produces id)', () => {
+  it('generateId without rng uses counter-based deterministic id', () => {
     const id = generateId('y', null);
     expect(id).toMatch(/^y_/);
-    // 含 4 段: prefix_timestamp_counter_randomsuffix
+    // 含 3 段: prefix_counter_counter36
     const parts = id.split('_');
-    expect(parts.length).toBe(4);
+    expect(parts.length).toBe(3);
   });
 
   it('generateId increments internal counter (monotonic prefix-agnostic)', () => {
     const before = generateId('seq');
     const after = generateId('seq');
-    // counter 段递增
-    const beforeCounter = Number(before.split('_')[2]);
-    const afterCounter = Number(after.split('_')[2]);
+    // counter 段递增 (format: prefix_counter_suffix)
+    const beforeCounter = Number(before.split('_')[1]);
+    const afterCounter = Number(after.split('_')[1]);
     expect(afterCounter).toBeGreaterThan(beforeCounter);
   });
 

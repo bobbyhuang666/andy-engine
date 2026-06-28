@@ -16,13 +16,13 @@ class Schedule {
   constructor(config = {}, savedState = null, rng = null) {
     this._rng = rng || new RNG(0);
     this.entries = (config.entries || []).map(e => ({
-      startHour: e.startHour ?? 0,
-      endHour: e.endHour ?? 0,
+      startHour: Number.isFinite(e.startHour) ? e.startHour : 0,
+      endHour: Number.isFinite(e.endHour) ? e.endHour : 0,
       region: e.region || '',
       activity: e.activity || '',
       days: e.days || [0, 1, 2, 3, 4, 5, 6],
-      probability: e.probability ?? 1.0,
-      noise: e.noise ?? 30,
+      probability: Number.isFinite(e.probability) ? e.probability : 1.0,
+      noise: Number.isFinite(e.noise) ? e.noise : 30,
     }));
 
     // 为每个条目生成当天的实际时间（加入扰动）

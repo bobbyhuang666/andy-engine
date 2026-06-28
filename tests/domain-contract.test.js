@@ -239,7 +239,8 @@ describe('DomainRegistry', () => {
   });
 
   it('default campus registry works', () => {
-    const registry = new DomainRegistry();
+    const campusDomain = require('../presets/campus');
+    const registry = new DomainRegistry(campusDomain, { validate: false });
     expect(registry.id).toBe('campus');
     expect(registry.hasRegion('宿舍')).toBe(true);
     expect(registry.hasState('在上课')).toBe(true);

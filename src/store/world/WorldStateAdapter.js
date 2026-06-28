@@ -12,8 +12,7 @@
  */
 
 const { CURRENT_SCHEMA_VERSION } = require('./validator');
-
-const DEFAULT_DOMAIN_ID = 'campus';
+const { DEFAULT_DOMAIN_ID } = require('../../config/defaults');
 
 /**
  * 从 AndyEngine 实例导出 World State（Stable Envelope 格式）

@@ -280,9 +280,22 @@ class AndyBridge {
         const state = JSON.parse(chunk);
         const agent = this.andy.agents?.get?.(state.id)
           || this.andy.getAgent?.(state.id);
-        if (agent) {
-          Object.assign(agent, { emotion: { ...state.emotion }, position: state.position, health: state.health });
-        }
+          if (agent) {
+            // 不覆盖 EmotionVector 类实例，只恢复标量字段
+            if (agent.emotion && state.emotion) {
+              if (state.emotion.current && agent.emotion.current) {
+                for (const [dim, val] of Object.entries(state.emotion.current)) {
+                  if (Number.isFinite(val)) agent.emotion.current[dim] = val;
+                }
+              }
+              if (Number.isFinite(state.emotion.stress) && agent.emotion.setStress) {
+                agent.emotion.setStress(state.emotion.stress);
+              }
+            }
+            if (state.position !== undefined) agent.position = state.position;
+            if (state.health !== undefined) agent.health = state.health;
+            if (Number.isFinite(state.socialEnergy)) agent.socialEnergy = state.socialEnergy;
+          }
       } catch {
         // 跳过损坏的条目
       }

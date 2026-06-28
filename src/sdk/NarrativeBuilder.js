@@ -12,9 +12,7 @@
 
 const { applyForbiddenTerms } = require('../domain/ForbiddenTerms');
 const FactFormatter = require('../narrative/FactFormatter');
-
-// 默认 domain id（与 src/store/world/* 的 DEFAULT_DOMAIN_ID 同值，语义为「默认域」而非「特权 campus」）
-const DEFAULT_DOMAIN_ID = 'campus';
+const { DEFAULT_DOMAIN_ID } = require('../config/defaults');
 
 class NarrativeBuilder {
   static buildSystemPrompt(worldContext, options = {}) {

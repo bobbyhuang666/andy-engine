@@ -19,8 +19,10 @@ class DomainRegistry {
   constructor(domainConfig = null, options = {}) {
     const { validate = true, strict = false } = options;
 
-    const campusDomain = domainConfig || require('../../presets/campus');
-    this.domain = campusDomain;
+    if (!domainConfig) {
+      throw new Error('DomainRegistry requires a domainConfig. Callers should provide a domain or use getDefaultDomain().');
+    }
+    this.domain = domainConfig;
 
     // 校验（非默认 domain 时强制校验）
     if (validate && domainConfig) {
@@ -346,7 +348,8 @@ let _defaultInstance = null;
  */
 function getDefaultDomain() {
   if (!_defaultInstance) {
-    _defaultInstance = new DomainRegistry();
+    const campusDomain = require('../../presets/campus');
+    _defaultInstance = new DomainRegistry(campusDomain, { validate: false });
   }
   return _defaultInstance;
 }

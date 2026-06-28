@@ -76,7 +76,8 @@ class AndyEngine {
       }
       this.domain = new DomainRegistry(config.domain, { validate: false });
     } else {
-      this.domain = new DomainRegistry();
+      const campusDomain = require('./presets/campus');
+      this.domain = new DomainRegistry(campusDomain, { validate: false });
     }
 
     this.config = {

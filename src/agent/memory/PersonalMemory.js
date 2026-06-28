@@ -73,9 +73,9 @@ class PersonalMemory {
         category: m.category || 'background',
         emotionTag: m.emotionTag || 'neutral',
         importance: m.importance || 0.8,
-        timestamp: new Date(m.timestamp || Date.now()),
-        lastAccessed: new Date(),
-        presentations: [new Date()],
+        timestamp: new Date(m.timestamp || this._simTime || 0),
+        lastAccessed: new Date(this._simTime || 0),
+        presentations: [new Date(this._simTime || 0)],
         accessCount: 1,
         associations: m.associations || [],
       }));
@@ -167,11 +167,14 @@ class PersonalMemory {
       content: event.content || event.description || '',
       category: event.type || 'general',
       emotionTag: this._tagEmotion(emotionState),
-      importance: (appraisalImportance != null
-        ? appraisalImportance
-        : this._calculateImportance(event, emotionState))
-        // 情绪增强效应（Cahill & McGaugh 1995）：高唤醒时编码的记忆更强烈
-        * (1 + this._getArousal(emotionState?.current || emotionState) * 0.3),
+      importance: (() => {
+        let importance = (appraisalImportance != null
+          ? appraisalImportance
+          : this._calculateImportance(event, emotionState))
+          * (1 + this._getArousal(emotionState?.current || emotionState) * 0.3);
+        if (!Number.isFinite(importance)) importance = 0.5;
+        return importance;
+      })(),
       timestamp: new Date(this._simTime),
       lastAccessed: new Date(this._simTime),
       presentations: [new Date(this._simTime)],
@@ -660,10 +663,14 @@ class PersonalMemory {
       const accessBoost = Math.min(0.3, hoursSinceAccess < 1 ? 0.15 : hoursSinceAccess < 6 ? 0.08 : 0);
       decayFactor = Math.min(1, decayFactor + accessBoost);
 
-      memory.importance = Math.min(1, Math.max(
-        cfg.pruneThreshold,
-        memory.importance * decayFactor
-      ));
+      if (!Number.isFinite(memory.importance)) {
+        memory.importance = cfg.pruneThreshold;
+      } else {
+        memory.importance = Math.min(1, Math.max(
+          cfg.pruneThreshold,
+          memory.importance * decayFactor
+        ));
+      }
     }
 
     // 定期清理
@@ -726,7 +733,10 @@ class PersonalMemory {
               this.memories[keep].importance + 0.1
             );
             this.memories[keep].accessCount += this.memories[remove].accessCount;
-            this.memories[keep].presentations.push(...this.memories[remove].presentations);
+            // Use loop instead of spread to avoid stack overflow with large arrays
+            for (const p of this.memories[remove].presentations) {
+              this.memories[keep].presentations.push(p);
+            }
 
             toRemove.add(remove);
             merged.push({ kept: this.memories[keep].id, removed: this.memories[remove].id });
@@ -1066,7 +1076,7 @@ class PersonalMemory {
   biasesToJSON() {
     return this.appraisalBiases.map(b => ({
       ...b,
-      createdAt: b.createdAt || Date.now(),
+      createdAt: b.createdAt || this._simTime || 0,
     }));
   }
 }

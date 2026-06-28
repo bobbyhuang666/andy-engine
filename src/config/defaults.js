@@ -412,8 +412,17 @@ const SEMANTIC_EVENT_CATEGORIES = {
   },
 };
 
+/**
+ * Default domain identifier.
+ * Single source of truth — all src/ modules must read this instead of
+ * hardcoding 'campus'.  The value matches the campus preset's domain.id
+ * (presets/campus/index.js).
+ */
+const DEFAULT_DOMAIN_ID = 'campus';
+
 module.exports = {
   ANDY_DEFAULTS,
+  DEFAULT_DOMAIN_ID,
   EMOTION_DIMENSIONS,
   CO_ACTIVATION,
   EMOTION_OPPOSITES,

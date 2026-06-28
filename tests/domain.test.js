@@ -27,7 +27,8 @@ function containsCampusWords(text) {
 describe('Domain-Agnostic 架构', () => {
   describe('DomainRegistry', () => {
     it('默认使用 campus preset', () => {
-      const domain = new DomainRegistry();
+      const campusDomain = require('../presets/campus');
+      const domain = new DomainRegistry(campusDomain, { validate: false });
       expect(domain.id).toBe('campus');
       expect(domain.regions).toContain('宿舍');
       expect(domain.regions).toContain('食堂');

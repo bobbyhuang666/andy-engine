@@ -14,7 +14,7 @@
 function interact(agent, other, interactionType = 'talk') {
   const valence = calculateInteractionValence(agent, other, interactionType);
 
-  const otherMood = other.emotion.getValence();
+  const otherMood = other.emotion?.getValence?.() ?? 0;
   const moodInfluence = otherMood * 0.3;
 
   const emotionDelta = {
@@ -31,7 +31,7 @@ function interact(agent, other, interactionType = 'talk') {
     emotionDelta.nervousness = Math.abs(moodInfluence) * 0.03;
   }
 
-  agent.emotion.applyEffect(emotionDelta);
+  agent.emotion?.applyEffect?.(emotionDelta);
 
   agent.memory.addExperience({
     content: `和${other.name}${interactionType === 'talk' ? '聊了天' : interactionType === 'help' ? '互相帮助' : interactionType === 'conflict' ? '发生了冲突' : '擦肩而过'}`,
@@ -39,7 +39,7 @@ function interact(agent, other, interactionType = 'talk') {
     effects: [],
     _region: agent.position,
     _currentState: agent.stateMachine.currentState,
-  }, agent.emotion);
+  }, agent.emotion || null);
 
   return {
     valence: valence + moodInfluence,
@@ -56,7 +56,7 @@ function interact(agent, other, interactionType = 'talk') {
  * @returns {number}
  */
 function calculateInteractionValence(agent, other, type) {
-  const myValence = agent.emotion.getValence();
+  const myValence = agent.emotion?.getValence?.() ?? 0;
 
   let baseValence = 0.3;
   baseValence += myValence * 0.2;
@@ -81,8 +81,9 @@ function calculateInteractionValence(agent, other, type) {
  * @returns {number}
  */
 function personalityCompatibility(agent, other) {
-  const myO = agent.personality.ocean;
-  const otherO = other.personality.ocean;
+  const myO = agent.personality?.ocean;
+  const otherO = other.personality?.ocean;
+  if (!myO || !otherO) return 0.5;
 
   const opennessDiff = Math.abs(myO.openness - otherO.openness);
   const agreeDiff = Math.abs(myO.agreeableness - otherO.agreeableness);
@@ -98,7 +99,7 @@ function personalityCompatibility(agent, other) {
     neuroDiff * 0.20
   );
 
-  const mbtiBonus = (agent.personality.mbti === other.personality.mbti) ? 0.1 : 0;
+  const mbtiBonus = (agent.personality?.mbti && agent.personality.mbti === other.personality?.mbti) ? 0.1 : 0;
 
   return Math.max(0, Math.min(1, similarity + mbtiBonus));
 }

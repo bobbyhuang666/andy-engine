@@ -111,8 +111,13 @@ function buildNarrative(agent, options = {}) {
   } finally {
     // 还原情绪（共情是临时的），确保即使 toNarrative 抛异常也还原
     if (emotionBackup) {
-      Object.assign(agent.emotion.current, emotionBackup.current);
-      Object.assign(agent.emotion.mood, emotionBackup.mood);
+      // Native 后端：Object.assign 只还原 JS 镜像但 Rust 状态未变，导致 desync。
+      // 跳过 Object.assign 避免中间不一致；Rust 状态在下次 tick 自然恢复。
+      // 纯 JS 后端：Object.assign 正确还原。
+      if (!agent.emotion._ev) {
+        Object.assign(agent.emotion.current, emotionBackup.current);
+        Object.assign(agent.emotion.mood, emotionBackup.mood);
+      }
     }
   }
 

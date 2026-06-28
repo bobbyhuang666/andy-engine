@@ -164,64 +164,27 @@ class FactProvider {
     const result = [];
     const seenIds = new Set();
 
-    // 1. Public facts are visible to all agents, EXCEPT:
-    //    - AGENT_STATE for other agents (private knowledge: an agent's location is not public)
-    //    - Only self's own AGENT_STATE enters allowedFacts via this path
-    const allFacts = this.store.getAllFacts();
-    for (const fact of allFacts) {
-      if (!seenIds.has(fact.id) && this._isActiveFact(fact) && fact.scope === FactScope.PUBLIC) {
-        // AGENT_STATE is private: only self's own state is visible
-        if (fact.type === FactType.AGENT_STATE && fact.agentId !== agentId) {
-          continue;
-        }
-        if (this.knowledgeStore) {
-          result.push(this._attachEvidence(agentId, fact));
-        } else {
-          result.push(fact);
-        }
-        seenIds.add(fact.id);
+    // 1. Use WorldFactStore.getFactsForAgent() — index-accelerated (R4 optimization).
+    //    This replaces the previous O(N) full scan of allFacts.
+    const agentFacts = this.store.getFactsForAgent(agentId, options);
+    for (const fact of agentFacts) {
+      if (!this._isActiveFact(fact)) continue;
+      if (this.knowledgeStore) {
+        result.push(this._attachEvidence(agentId, fact));
+      } else {
+        result.push(fact);
       }
+      seenIds.add(fact.id);
     }
 
     // 2. Knowledge-store facts (explicit knowledge: direct/observed/told/inferred)
+    //    These may include facts not in the _byAgent index yet (e.g., inferred)
     if (this.knowledgeStore) {
       const knownFacts = this.knowledgeStore.getKnownFacts(agentId, options);
       for (const fact of knownFacts) {
         if (!seenIds.has(fact.id) && this._isActiveFact(fact)) {
           result.push(this._attachEvidence(agentId, fact));
           seenIds.add(fact.id);
-        }
-      }
-    } else {
-      // 3. Fallback: scope/role-based filtering when no knowledgeStore
-      for (const fact of allFacts) {
-        if (seenIds.has(fact.id) || !this._isActiveFact(fact)) continue;
-
-        if (fact.participants && fact.participants.includes(agentId)) {
-          result.push(fact);
-          seenIds.add(fact.id);
-          continue;
-        }
-        if (fact.observers && fact.observers.includes(agentId)) {
-          result.push(fact);
-          seenIds.add(fact.id);
-          continue;
-        }
-        if (fact.type === FactType.MEMORY && fact.agentId === agentId) {
-          result.push(fact);
-          seenIds.add(fact.id);
-          continue;
-        }
-        if (fact.type === FactType.OBSERVATION && fact.observerId === agentId) {
-          result.push(fact);
-          seenIds.add(fact.id);
-          continue;
-        }
-        if (fact.type === FactType.RELATIONSHIP &&
-            (fact.agentA === agentId || fact.agentB === agentId)) {
-          result.push(fact);
-          seenIds.add(fact.id);
-          continue;
         }
       }
     }
@@ -255,23 +218,32 @@ class FactProvider {
    */
   _getForbiddenFacts(agentId, options) {
     const result = [];
-    const allFacts = this.store.getAllFacts();
 
-    for (const fact of allFacts) {
-      // 跳过已失效的事实
+    // Forbidden facts are LOCAL-scope facts that the agent does NOT know about.
+    // Instead of scanning all facts, only scan LOCAL EVENT and MEMORY types
+    // which are the only categories that can be forbidden.
+    const localEventFacts = this.store.getAllFacts([FactType.EVENT]);
+    const memoryFacts = this.store.getAllFacts([FactType.MEMORY]);
+
+    for (const fact of [...localEventFacts, ...memoryFacts]) {
+      // Skip invalid facts
       if (!this._isActiveFact(fact)) continue;
-      // 跳过已经知道的
+      // Skip PUBLIC facts (always visible)
       if (fact.scope === FactScope.PUBLIC) continue;
+      // Skip if agent is a participant
       if (fact.participants && fact.participants.includes(agentId)) continue;
+      // Skip if agent is an observer
       if (fact.observers && fact.observers.includes(agentId)) continue;
+      // Skip if knowledgeStore knows about it
+      if (this.knowledgeStore && this.knowledgeStore.hasKnowledge(agentId, fact.id)) continue;
 
-      // 其他角色的私密记忆
+      // Other agents' private memories
       if (fact.type === FactType.MEMORY && fact.agentId !== agentId) {
         result.push(fact);
         continue;
       }
 
-      // 其他区域的本地事件
+      // Local-scope events the agent didn't participate in
       if (fact.scope === FactScope.LOCAL &&
           fact.type === FactType.EVENT &&
           !fact.participants?.includes(agentId)) {

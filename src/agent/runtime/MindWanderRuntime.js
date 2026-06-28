@@ -141,7 +141,7 @@ function mindWander(agent) {
     type: 'mind_wander',
     thoughtType: thought.type,
     content: thought.content,
-    time: new Date(agent.memory.getSimTime() || Date.now()).toISOString(),
+    time: new Date(agent.memory.getSimTime() || 0).toISOString(),
   };
 }
 

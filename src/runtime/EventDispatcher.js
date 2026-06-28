@@ -119,7 +119,7 @@ class EventDispatcher {
       if (this._rand() > 0.6) return null;
       rel = socialGraph.getOrCreateRelationship(agentA, agentB);
     }
-    const strength = rel.strength;
+    const strength = Number.isFinite(rel.strength) ? rel.strength : 0;
 
     // 去重：避免同一对 Agent 同时产生多个交互事件
     const pairKey = [agentA, agentB].sort().join('_');
@@ -436,9 +436,11 @@ class EventDispatcher {
     // 清理过期事件（从循环中移出，避免 O(n²) 的 shift 操作）
     this._cleanupOldEvents();
 
-    // 性能优化：eventLog 上限 2000 条，防止长期模拟内存膨胀
-    if (this.eventLog.length > 2000) {
-      const removed = this.eventLog.splice(0, this.eventLog.length - 2000);
+    // 性能优化：eventLog 上限，防止长期模拟内存膨胀
+    // R6 fix: use configured maxEventLogSize instead of hardcoded 2000
+    const maxLogSize = cfg.maxEventLogSize || 2000;
+    if (this.eventLog.length > maxLogSize) {
+      const removed = this.eventLog.splice(0, this.eventLog.length - maxLogSize);
       for (const evt of removed) {
         this.eventIndex.delete(evt.id);
       }

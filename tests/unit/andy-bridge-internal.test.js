@@ -146,17 +146,18 @@ describe('AndyBridge._restoreAgents', () => {
     expect(() => bridge._restoreAgents(Buffer.alloc(0))).not.toThrow();
   });
 
-  it('restores emotion/position/health and skips corrupt chunks', () => {
+  it('restores position/health/socialEnergy in fallback (no emotion); skips corrupt chunks', () => {
     const bridge = makeBridge();
     const agent = {};
     bridge.andy = fakeAndy({ a: agent });
-    const good = JSON.stringify({ id: 'a', emotion: { valence: -0.5 }, position: { x: 2 }, health: 50 });
+    const good = JSON.stringify({ id: 'a', emotion: { valence: -0.5 }, position: { x: 2 }, health: 50, socialEnergy: 0.8 });
     const corrupt = '{bad json';
     const data = Buffer.from(good + '\n---\n' + corrupt);
     bridge._restoreAgents(data);
-    expect(agent.emotion).toEqual({ valence: -0.5 });
+    // emotion is NOT restored in fallback (preserves class instances like EmotionVector)
     expect(agent.position).toEqual({ x: 2 });
     expect(agent.health).toBe(50);
+    expect(agent.socialEnergy).toBe(0.8);
   });
 
   it('no-ops when agent id not found in andy', () => {

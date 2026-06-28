@@ -95,8 +95,8 @@ function restoreSubsystems(savedState, config, agentId, domain, rng) {
   const behaviorField = new BehaviorField(personality, savedState.behaviorField || null, {}, domain, rng);
 
   const position = savedState.position;
-  const socialEnergy = savedState.socialEnergy ?? AGENT_DEFAULTS.socialEnergy;
-  const health = savedState.health ?? AGENT_DEFAULTS.health;
+  const socialEnergy = Number.isFinite(savedState.socialEnergy) ? savedState.socialEnergy : AGENT_DEFAULTS.socialEnergy;
+  const health = Number.isFinite(savedState.health) ? savedState.health : AGENT_DEFAULTS.health;
   const isOnline = savedState.isOnline ?? AGENT_DEFAULTS.isOnline;
 
   return {

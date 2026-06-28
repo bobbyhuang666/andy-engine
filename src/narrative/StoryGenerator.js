@@ -111,7 +111,7 @@ class StoryGenerator {
     if (!agentResult) return null;
 
     const { rng, simTime } = options;
-    const timestamp = simTime ? simTime.getTime() : Date.now();
+    const timestamp = simTime ? simTime.getTime() : 0;
     const stories = [];
 
     // 1. 状态变化
@@ -134,8 +134,8 @@ class StoryGenerator {
     }
 
    // 5. 无事发生（低概率生成平淡故事，避免空白）
-    // RFC RNG_STRICTNESS 豁免：叙事多样性路径，非模拟核心路径；无 ctor rng 时回退 Math.random 可接受。
-   const quietChance = rng ? rng.next() : Math.random();
+    // Deterministic: rng is required for seeded simulation. Skip quiet story if no rng.
+   const quietChance = rng ? rng.next() : 1;
     if (stories.length === 0 && quietChance < 0.1) {
       stories.push({
         category: 'daily_life',
@@ -179,7 +179,7 @@ class StoryGenerator {
    */
   generateFromSignal(storyText, emotionEffect, tick, options = {}) {
     const { simTime } = options;
-    const timestamp = simTime ? simTime.getTime() : Date.now();
+    const timestamp = simTime ? simTime.getTime() : 0;
     // 根据情绪变化确定标签和重要性
     let emotionTag = 'neutral';
     let importance = 0.5;
@@ -317,9 +317,9 @@ class StoryGenerator {
 // ═══════════════════════════════════════════
 
 function pickRandom(arr, rng) {
-  // RFC RNG_STRICTNESS 豁免：叙事工具函数，非模拟核心路径；回退 Math.random 可接受。
-  const r = rng ? rng.next() : Math.random();
-  return arr[Math.floor(r * arr.length)];
+  // Deterministic: rng is required for seeded simulation. Fallback to first element if no rng.
+  if (!rng) return arr[0];
+  return arr[Math.floor(rng.next() * arr.length)];
 }
 
 module.exports = { StoryGenerator };

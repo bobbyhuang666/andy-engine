@@ -143,14 +143,12 @@ describe('StoryGenerator RNG/simTime injection', () => {
       expect(story.timestamp).toBe(simTime.getTime());
     });
 
-    it('timestamp falls back to Date.now() without simTime', () => {
+    it('timestamp falls back to 0 without simTime (deterministic)', () => {
       const gen = new StoryGenerator();
-      const before = Date.now();
       const story = gen.generateFromSignal('test story', null, 10);
-      const after = Date.now();
 
-      expect(story.timestamp).toBeGreaterThanOrEqual(before);
-      expect(story.timestamp).toBeLessThanOrEqual(after);
+      // Deterministic: no Date.now() fallback, uses 0 instead
+      expect(story.timestamp).toBe(0);
     });
 
     it('same simTime → same timestamp', () => {

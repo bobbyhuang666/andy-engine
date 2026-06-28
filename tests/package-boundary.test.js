@@ -466,13 +466,13 @@ describe('Package Boundary', () => {
       }
     });
 
-    it('src/sdk/ NarrativeBuilder allowed imports are domain/, facts/, and narrative/', () => {
+    it('src/sdk/ NarrativeBuilder allowed imports are domain/, facts/, narrative/, and config/', () => {
       const nbPath = path.join(srcSdkDir, 'NarrativeBuilder.js');
       if (!existsSync(nbPath)) return;
       const imports = getImports(nbPath);
       const internalImports = imports.filter(i => i.startsWith('../'));
       const disallowed = internalImports.filter(
-        i => !i.startsWith('../domain/') && !i.startsWith('../../facts') && !i.startsWith('../narrative/')
+        i => !i.startsWith('../domain/') && !i.startsWith('../../facts') && !i.startsWith('../narrative/') && !i.startsWith('../config/')
       );
       expect(
         disallowed,
@@ -480,17 +480,22 @@ describe('Package Boundary', () => {
       ).toEqual([]);
     });
 
-    it('src/sdk/ Character and Andy only import index.js (AndyEngine) as engine seam', () => {
+    it('src/sdk/ Character and Andy only import index.js (AndyEngine) as engine seam plus shared config/', () => {
       const engineSeamFiles = ['Character.js', 'Andy.js'];
+      const allowedPeerImports = ['../config/defaults', '../shared/Diagnostics', '../shared/ids'];
       for (const file of engineSeamFiles) {
         const filePath = path.join(srcSdkDir, file);
         if (!existsSync(filePath)) continue;
         const imports = getImports(filePath);
-        const internalImports = imports.filter(i => i.startsWith('../../'));
-        const disallowed = internalImports.filter(i => i !== '../../index.js' && i !== '../../index');
+        const internalImports = imports.filter(i => i.startsWith('../'));
+        const disallowed = internalImports.filter(i => {
+          if (i === '../../index.js' || i === '../../index') return false;
+          if (allowedPeerImports.includes(i)) return false;
+          return true;
+        });
         expect(
           disallowed,
-          `${file} should only import ../../index.js as engine seam, found: ${disallowed.join(', ')}`
+          `${file} has disallowed imports: ${disallowed.join(', ')}`
         ).toEqual([]);
       }
     });

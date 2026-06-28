@@ -96,7 +96,7 @@ class EmotionVectorNative {
     // JS mirror objects — kept in sync for fast property access
     this.current = {};
     this.mood = {};
-    this.stress = savedState?.stress ?? 2;
+    this.stress = Number.isFinite(savedState?.stress) ? savedState.stress : 2;
     this._pinkNoiseState = savedState?._pinkNoiseState || new Array(16).fill(0);
 
     // Initialize mirrors from native state

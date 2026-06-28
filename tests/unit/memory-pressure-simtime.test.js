@@ -48,7 +48,7 @@ describe('MemoryPressure simTime', () => {
       expect(pEarly.recency).toBeGreaterThan(pLate.recency);
     });
 
-    it('no simTime falls back to Date.now()', () => {
+    it('no simTime falls back to 0 (deterministic)', () => {
       const p = MemoryPressure.compute({ memories: baseMemories });
       expect(p).toHaveProperty('negative');
       expect(p).toHaveProperty('positive');

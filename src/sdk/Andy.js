@@ -24,9 +24,7 @@
 
 const AndyEngine = require('./AndyEngine');
 const Character = require('./Character');
-
-// 默认 domain id（与 src/store/world/* 的 DEFAULT_DOMAIN_ID 同值，语义为「默认域」而非「特权 campus」）
-const DEFAULT_DOMAIN_ID = 'campus';
+const { DEFAULT_DOMAIN_ID } = require('../config/defaults');
 
 class Andy {
   /**

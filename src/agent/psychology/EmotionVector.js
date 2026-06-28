@@ -44,7 +44,7 @@ class EmotionVector {
       // 中期情绪状态（mood）：持续数小时的"情绪余韵"
       // 参考 ALMA (Gebhard 2005) + PSYA (2025) 的情绪层次模型
       this.mood = savedState.mood ? { ...savedState.mood } : { ...this.baseline };
-      this.stress = savedState.stress ?? 2;
+      this.stress = Number.isFinite(savedState?.stress) ? savedState.stress : 2;
       this._pinkNoiseState = savedState._pinkNoiseState || new Array(16).fill(0);
     } else {
       this.current = {};
@@ -391,8 +391,10 @@ class EmotionVector {
 
         // 只对显著差异产生传染
         // 基础传染率 30%（Hatfield 1993），负面情绪额外+40%
+        // Negativity bias: when neighbor's negative emotion is HIGHER than mine,
+        // the contagion rate is boosted (negative emotions spread faster).
         if (Math.abs(diff) > 0.05) {
-          const isNegative = NEGATIVE_DIMS.has(dim) && theirVal < myVal;
+          const isNegative = NEGATIVE_DIMS.has(dim) && theirVal > myVal;
           const contagionRate = isNegative ? 0.3 * negativityBias : 0.3;
           this.current[dim] = myVal + diff * effectiveWeight * contagionRate;
         }
@@ -513,6 +515,7 @@ class EmotionVector {
    * @param {number} stress
    */
   setStress(stress) {
+    if (!Number.isFinite(stress)) stress = 2;
     this.stress = Math.max(0, Math.min(10, stress));
   }
 

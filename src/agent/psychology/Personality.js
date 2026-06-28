@@ -56,11 +56,11 @@ class Personality {
       this.mbti = config.mbti;
     } else if (config.ocean) {
       this.ocean = {
-        openness: config.ocean.openness ?? 0.5,
-        conscientiousness: config.ocean.conscientiousness ?? 0.5,
-        extraversion: config.ocean.extraversion ?? 0.5,
-        agreeableness: config.ocean.agreeableness ?? 0.5,
-        neuroticism: config.ocean.neuroticism ?? 0.5,
+        openness: Number.isFinite(config.ocean.openness) ? config.ocean.openness : 0.5,
+        conscientiousness: Number.isFinite(config.ocean.conscientiousness) ? config.ocean.conscientiousness : 0.5,
+        extraversion: Number.isFinite(config.ocean.extraversion) ? config.ocean.extraversion : 0.5,
+        agreeableness: Number.isFinite(config.ocean.agreeableness) ? config.ocean.agreeableness : 0.5,
+        neuroticism: Number.isFinite(config.ocean.neuroticism) ? config.ocean.neuroticism : 0.5,
       };
       this.mbti = config.mbti || this._inferMBTI();
     } else {

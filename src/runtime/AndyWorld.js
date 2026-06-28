@@ -22,6 +22,7 @@ const { applyEventConsequences } = require('../effects/EventEffectPipeline');
 const { EffectCommitter } = require('../effects/EffectCommitter');
 const { RelationshipDelta } = require('../effects/RelationshipDelta');
 const { MemoryDelta } = require('../effects/MemoryDelta');
+const { PositionDelta } = require('../effects/PositionDelta');
 const { diagnostics } = require('../shared/Diagnostics');
 const { RNG } = require('../shared/rng');
 
@@ -521,8 +522,16 @@ class AndyWorld {
 
     for (const change of spatialResult.regionChanges) {
       const agent = this.agents.get(change.agentId);
-      if (agent) {
-        agent.position = change.to;
+      if (agent && change.to !== agent.position) {
+        // Route spatial position changes through EffectCommitter (R4 fix).
+        // Direct agent.position = bypasses the canonical delta pipeline.
+        const delta = new PositionDelta(change.agentId, {
+          to: change.to,
+          from: agent.position,
+          reason: 'spatial_move',
+        });
+        this.effectCommitter.commit({ deltas: [delta] });
+        // RegionGrid still needs explicit update (EffectCommitter doesn't know about it)
         this.regions.place(change.agentId, change.to);
       }
     }

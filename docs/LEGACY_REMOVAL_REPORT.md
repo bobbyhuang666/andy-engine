@@ -10,13 +10,19 @@
 
 | Metric | Count |
 |--------|-------|
-| Total classified files | 82 |
+| Total classified files | 85 |
 | Already removed (not on disk) | 76 |
-| Existing files analyzed | 6 |
+| Existing files analyzed | 9 |
 | **Can remove now (existing)** | **0** |
-| Blocked (existing) | 6 |
+| Blocked (existing) | 9 |
 | Standalone tooling outside src | 0 |
 | Unclassified old files | 0 |
+
+> R4 audit note: 3 previously unclassified files (`agent/action/ReasonTrace.js`,
+> `agent/action/providers/ReflectCandidateProvider.js`,
+> `agent/action/providers/WorldObjectCandidateProvider.js`) have been added
+> as `legacy-implementation`. They contain independent implementations that
+> should be migrated to re-export adapters pointing to `src/action/` canonicals.
 
 ### Gate Check
 
@@ -33,6 +39,7 @@
 |---------------|-----------|---------|
 | public-facade | 0 | 5 |
 | public-approved-adapter | 0 | 1 |
+| legacy-implementation | 0 | 3 |
 
 ---
 
@@ -46,6 +53,9 @@
 | `domain/index.js` | public-facade | yes | no | no | NO | public-facade: needs breaking release |
 | `store/index.js` | public-facade | yes | no | no | NO | public-facade: needs breaking release |
 | `sdk/index.js` | public-facade | yes | no | yes (1) | NO | public-facade: needs breaking release |
+| `agent/action/ReasonTrace.js` | legacy-implementation | no | no | no | NO | needs migration to re-export adapter (canonical in src/action/ReasonTrace.js) |
+| `agent/action/providers/ReflectCandidateProvider.js` | legacy-implementation | no | no | no | NO | needs migration to re-export adapter or move canonical to src/action/providers/ |
+| `agent/action/providers/WorldObjectCandidateProvider.js` | legacy-implementation | no | no | no | NO | needs migration to re-export adapter (canonical in src/action/WorldObject.js) |
 
 ---
 

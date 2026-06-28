@@ -162,18 +162,21 @@ describe('EventDispatcher._cleanupOldEvents', () => {
 });
 
 // ═══════════════════════════════════════════
-// dispatch — eventLog cap (2000)
+// dispatch — eventLog cap (uses cfg.maxEventLogSize)
 // ═══════════════════════════════════════════
 describe('EventDispatcher.dispatch — eventLog cap', () => {
-  it('trims eventLog beyond 2000 entries', () => {
+  it('trims eventLog beyond maxEventLogSize entries', () => {
     const ed = makeDispatcher();
-    // 推入 2005 个事件
-    for (let i = 0; i < 2005; i++) {
+    // Push more events than the configured max (default 10000)
+    // The trim only fires in _cleanupOldEvents, not in dispatch's immediate trim
+    // which uses maxEventLogSize. For a quick test, verify the cap mechanism works.
+    for (let i = 0; i < 10005; i++) {
       ed.createEvent({ type: 'social', content: `e${i}` });
     }
     ed.dispatch();
-    expect(ed.eventLog.length).toBeLessThanOrEqual(2000);
-    expect(ed.eventLog.length).toBeGreaterThanOrEqual(1990); // 不应删太多
+    // After dispatch, eventLog should be trimmed to maxEventLogSize (10000) or less
+    expect(ed.eventLog.length).toBeLessThanOrEqual(10000);
+    expect(ed.eventLog.length).toBeGreaterThanOrEqual(9900); // 不应删太多
   });
 });
 

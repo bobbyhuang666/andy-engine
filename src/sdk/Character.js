@@ -30,9 +30,7 @@ const LLMAdapter = require('./LLMAdapter');
 const AutoTick = require('./AutoTick');
 const ConversationLog = require('./ConversationLog');
 const { diagnostics } = require('../shared/Diagnostics');
-
-// 默认 domain id（与 src/store/world/* 的 DEFAULT_DOMAIN_ID 同值，语义为「默认域」而非「特权 campus」）
-const DEFAULT_DOMAIN_ID = 'campus';
+const { DEFAULT_DOMAIN_ID } = require('../config/defaults');
 
 class Character {
   /**
@@ -56,8 +54,9 @@ class Character {
       throw new Error('Character: 至少需要 name 或 id。用法: new Character({ name: "Maya", llm: ... })');
     }
 
-    // ID 生成使用 Math.random()，不影响模拟确定性
-    this.id = config.id || `char_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    // Deterministic ID generation using counter-based approach
+    const { generateId } = require('../shared/ids');
+    this.id = config.id || generateId('char');
     this.name = config.name || '角色';
     this.backstory = config.backstory || [];
     this.scenario = config.scenario || '';
@@ -228,7 +227,15 @@ class Character {
    *   }
    */
   async *chatStream(message, options = {}) {
-    this._autoTick.advance(this._engine);
+    if (typeof message !== 'string' || message.trim().length === 0) {
+      yield `[${this.name}沉默了一会儿]`;
+      return;
+    }
+    try {
+      this._autoTick.advance(this._engine);
+    } catch (e) {
+      // AutoTick 失败不阻塞对话
+    }
     this._conversation.addUserMessage(message);
 
     const worldContext = this._engine.getWorldContext(this.id);

@@ -31,12 +31,15 @@ class Relationship {
 
     if (savedState) {
       this.type = savedState.type || 'stranger';
-      this.strength = savedState.strength ?? cfg.initialStrength;
+      this.strength = Number.isFinite(savedState.strength) ? savedState.strength : cfg.initialStrength;
       this.lastInteraction = new Date(savedState.lastInteraction);
       this._hoursSinceLastInteraction = savedState._hoursSinceLastInteraction || 0;
       this.interactionCount = savedState.interactionCount || 0;
       this._relationalInteractions = savedState._relationalInteractions || 0;
-      this.impression = savedState.impression || { positive: 0, negative: 0 };
+      this.impression = {
+        positive: Number.isFinite(savedState.impression?.positive) ? savedState.impression.positive : 0,
+        negative: Number.isFinite(savedState.impression?.negative) ? savedState.impression.negative : 0,
+      };
       this.history = (savedState.history || []).slice(-20);
     } else {
       this.type = 'stranger';
@@ -67,6 +70,7 @@ class Relationship {
    * @param {Date} [simTime] - 模拟时间（不传则用真实时间，仅测试用）
    */
   recordInteraction(type, valence, content = '', simTime = null) {
+    if (!Number.isFinite(valence)) return;
     this.interactionCount++;
     this.lastInteraction = simTime || new Date();
     this._hoursSinceLastInteraction = 0; // 重置自上次交互以来的小时数
@@ -111,6 +115,7 @@ class Relationship {
       delta = negDelta;
     }
 
+    if (!Number.isFinite(this.strength)) this.strength = cfg.initialStrength;
     this.strength = Math.max(0, Math.min(1, this.strength + delta));
 
     // 更新印象
@@ -144,7 +149,9 @@ class Relationship {
     this._hoursSinceLastInteraction += hoursElapsed;
 
     // 情感纽带减缓衰减
-    const bondStrength = Math.max(0, this.impression.positive - this.impression.negative);
+    const impressionPositive = Number.isFinite(this.impression.positive) ? this.impression.positive : 0;
+    const impressionNegative = Number.isFinite(this.impression.negative) ? this.impression.negative : 0;
+    const bondStrength = Math.max(0, impressionPositive - impressionNegative);
     let effectiveDecay = cfg.decayRate * (1 - Math.min(bondStrength * 0.1, 0.5));
 
     // 关系冷却：长期不交互时衰减加速
@@ -161,6 +168,7 @@ class Relationship {
 
     // 指数衰减
     const decayFactor = Math.exp(-effectiveDecay * hoursElapsed);
+    if (!Number.isFinite(this.strength)) this.strength = cfg.initialStrength;
     this.strength = Math.max(0, this.strength * decayFactor);
 
     this._updateType();

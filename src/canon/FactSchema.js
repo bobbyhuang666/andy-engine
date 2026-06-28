@@ -398,7 +398,7 @@ function validateTypeFields(fact) {
       if (!fact.agentA) errors.push('relationship: agentA is required');
       if (!fact.agentB) errors.push('relationship: agentB is required');
       if (!fact.relationType) errors.push('relationship: relationType is required');
-      if (typeof fact.strength !== 'number') errors.push('relationship: strength must be a number');
+      if (typeof fact.strength !== 'number' || !Number.isFinite(fact.strength) || fact.strength < 0 || fact.strength > 1) errors.push('relationship: strength must be a finite number between 0 and 1');
       break;
     case FactType.EVENT:
       if (!fact.eventId) errors.push('event: eventId is required');
@@ -420,7 +420,7 @@ function validateTypeFields(fact) {
     case FactType.LOCATION_MEANING:
       if (!fact.location) errors.push('location_meaning: location is required');
       if (!fact.meaningType) errors.push('location_meaning: meaningType is required');
-      if (typeof fact.weight !== 'number') errors.push('location_meaning: weight must be a number');
+      if (typeof fact.weight !== 'number' || !Number.isFinite(fact.weight) || fact.weight < 0 || fact.weight > 1) errors.push('location_meaning: weight must be a finite number between 0 and 1');
       break;
     case FactType.INVALIDATED:
       if (!fact.originalFactId) errors.push('invalidated: originalFactId is required');

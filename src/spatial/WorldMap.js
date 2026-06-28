@@ -161,12 +161,14 @@ class RegionDef {
     const padding = 2; // 2 米边距
     const rand = () => this._rng.next();
     if (this.shape === 'rect') {
+      if (this.w - padding * 2 <= 0 || this.h - padding * 2 <= 0) return this.center();
       return {
         x: this.x + padding + rand() * (this.w - padding * 2),
         y: this.y + padding + rand() * (this.h - padding * 2),
       };
     }
     if (this.shape === 'circle') {
+      if (this.radius - padding <= 0) return this.center();
       const angle = rand() * Math.PI * 2;
       const r = Math.sqrt(rand()) * (this.radius - padding);
       return {

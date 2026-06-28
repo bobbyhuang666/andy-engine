@@ -112,24 +112,22 @@ class EmotionSignalBuffer {
         '被人关心了，心里暖暖的',
         '有人嘘寒问暖，心情好了一点',
       ];
-      // SDK 层故事文案随机选择，不影响模拟状态，故意非确定性以增加多样性。
-      // RFC RNG_STRICTNESS 豁免：非模拟核心路径（叙事多样性），回退 Math.random 可接受。
-      // 下方 praise/comfort 分支同此豁免。
-      story = variants[Math.floor((this._rng ? this._rng.next() : Math.random()) * variants.length)];
+      // Deterministic: use rng if available, otherwise pick first variant
+      story = variants[Math.floor((this._rng ? this._rng.next() : 0) * variants.length)];
     } else if (intent === 'praise') {
       const variants = [
         '被人夸了一下，有点开心',
         '有人说你好话，心情不错',
         '收到了一点赞美',
       ];
-      story = variants[Math.floor((this._rng ? this._rng.next() : Math.random()) * variants.length)];
+      story = variants[Math.floor((this._rng ? this._rng.next() : 0) * variants.length)];
     } else if (intent === 'comfort') {
       const variants = [
         '有人安慰了你',
         '得到了一些鼓励',
         '有人说了些暖心的话',
       ];
-      story = variants[Math.floor((this._rng ? this._rng.next() : Math.random()) * variants.length)];
+      story = variants[Math.floor((this._rng ? this._rng.next() : 0) * variants.length)];
     } else if (messageCount >= 5) {
       story = '和一个人聊了很久';
     } else if (messageCount >= 2) {

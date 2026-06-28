@@ -49,14 +49,15 @@ class IntrinsicMotivation {
     this._imConfig = this.domain.intrinsicMotivationConfig;
 
     if (savedState) {
-      this.curiosity = savedState.curiosity ?? 0.5;
+      this.curiosity = Number.isFinite(savedState.curiosity) ? savedState.curiosity : 0.5;
       this.familiarity = savedState.familiarity || {};
       this.activeGoals = savedState.activeGoals || [];
       this.completedGoals = (savedState.completedGoals || []).slice(-20);
       this.competence = savedState.competence || {};
       this.explorationHistory = (savedState.explorationHistory || []).slice(-50);
-      this._ticksSinceGoal = savedState._ticksSinceGoal ?? 0;
-      this._lastGoalId = savedState._lastGoalId ?? 0;
+      this._ticksSinceGoal = Number.isFinite(savedState._ticksSinceGoal) ? savedState._ticksSinceGoal : 0;
+      this._lastGoalId = Number.isFinite(savedState._lastGoalId) ? savedState._lastGoalId : 0;
+      this._lastSimTime = savedState._lastSimTime || 0;
     } else {
       this.curiosity = 0.5;
       this.familiarity = {};
@@ -67,6 +68,7 @@ class IntrinsicMotivation {
       this.explorationHistory = [];
       this._ticksSinceGoal = 0;
       this._lastGoalId = 0;
+      this._lastSimTime = 0;
     }
 
     this._behavior = behavior;
@@ -95,6 +97,8 @@ class IntrinsicMotivation {
    * @returns {Object} { drive, newEvents, emotionEffects }
    */
   tick({ position, state, hour, hoursElapsed, simTime, needsState }) {
+    // Store simTime for deterministic fallback in getNovelty()
+    if (simTime) this._lastSimTime = simTime.getTime();
     const result = {
       drive: null,
       newEvents: [],
@@ -226,7 +230,7 @@ class IntrinsicMotivation {
 
     // 时间遗忘：很久没去的地方会重新变得新奇
     // 模拟记忆的指数衰减（Ebbinghaus 1885）
-    const now = simTime ? simTime.getTime() : Date.now();
+    const now = simTime ? simTime.getTime() : this._lastSimTime;
     const hoursSinceVisit = (now - fam.lastVisit) / (1000 * 60 * 60);
     const forgettingFactor = Math.min(1, hoursSinceVisit / this._cfg.forgettingHours);
 

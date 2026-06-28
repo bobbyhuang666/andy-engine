@@ -22,6 +22,9 @@ const {
   createLocationMeaningFact,
 } = require('./FactSchema');
 
+/** Maximum number of event facts to retain before eviction */
+const MAX_EVENT_FACTS = 2000;
+
 class WorldFactStore {
   constructor() {
     /** @type {Map<string, Object>} id → fact */
@@ -101,6 +104,8 @@ class WorldFactStore {
 
     if (fact.type === FactType.EVENT) {
       this._eventIndex.set(fact.eventId, fact.id);
+      // Evict oldest event facts when exceeding limit
+      this._evictEventFacts();
     }
 
     return fact;
@@ -113,6 +118,33 @@ class WorldFactStore {
    */
   addFacts(facts) {
     return facts.map(f => this.addFact(f));
+  }
+
+  /**
+   * Evict oldest event facts when exceeding MAX_EVENT_FACTS.
+   * Prevents unbounded growth of append-only event facts.
+   * @private
+   */
+  _evictEventFacts() {
+    const eventIds = this._byType.get(FactType.EVENT);
+    if (eventIds.size <= MAX_EVENT_FACTS) return;
+
+    // Collect event facts sorted by timestamp (oldest first)
+    const events = [];
+    for (const id of eventIds) {
+      const fact = this._facts.get(id);
+      if (fact) events.push(fact);
+    }
+    events.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+
+    const removeCount = eventIds.size - Math.floor(MAX_EVENT_FACTS * 0.8);
+    for (let i = 0; i < removeCount && i < events.length; i++) {
+      const fact = events[i];
+      this._facts.delete(fact.id);
+      eventIds.delete(fact.id);
+      if (fact.eventId) this._eventIndex.delete(fact.eventId);
+      this._unindexAgents(fact);
+    }
   }
 
   /**
@@ -146,6 +178,7 @@ class WorldFactStore {
       throw new Error(`Invalid fact after update: ${baseCheck.errors.join('; ')}`);
     }
 
+    this._unindexAgents(existing);
     this._facts.set(id, updated);
     this._indexAgents(updated);
 
@@ -260,25 +293,31 @@ class WorldFactStore {
   getFactsForAgent(agentId, options = {}) {
     const knownIds = this._byAgent.get(agentId);
     const result = [];
+    const seen = new Set();
 
+    // Phase 1: PUBLIC facts (visible to all, except AGENT_STATE for other agents)
     for (const [id, fact] of this._facts) {
-      let known = false;
-
-      if (fact.scope === FactScope.PUBLIC) {
-        known = true;
-        // AGENT_STATE is epistemically private: only the owning agent sees their own state
-        if (fact.type === FactType.AGENT_STATE && fact.agentId !== agentId) {
-          known = false;
-        }
-      } else if (knownIds && knownIds.has(id)) {
-        known = true;
-      }
-
-      if (!known) continue;
-
+      if (fact.scope !== FactScope.PUBLIC) continue;
+      // AGENT_STATE is epistemically private: only the owning agent sees their own state
+      if (fact.type === FactType.AGENT_STATE && fact.agentId !== agentId) continue;
+      if (fact._invalidated) continue;
       if (options.types && !options.types.includes(fact.type)) continue;
-
+      seen.add(id);
       result.push(fact);
+    }
+
+    // Phase 2: Non-public facts known to this agent (use _byAgent index instead of full scan)
+    if (knownIds) {
+      for (const id of knownIds) {
+        if (seen.has(id)) continue; // already added as PUBLIC
+        const fact = this._facts.get(id);
+        if (!fact || fact._invalidated) continue;
+        // AGENT_STATE epistemic privacy: even if this fact is indexed for
+        // this agent (e.g., via observers), only the owning agent should see it.
+        if (fact.type === FactType.AGENT_STATE && fact.agentId !== agentId) continue;
+        if (options.types && !options.types.includes(fact.type)) continue;
+        result.push(fact);
+      }
     }
 
     result.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
@@ -544,7 +583,9 @@ class WorldFactStore {
   _getByType(type) {
     const ids = this._byType.get(type);
     if (!ids) return [];
-    return Array.from(ids).map(id => this._facts.get(id));
+    // Filter out undefined entries (can occur if fact was evicted but index
+    // not yet cleaned, or during partial mutation). R6 fix.
+    return Array.from(ids).map(id => this._facts.get(id)).filter(Boolean);
   }
 
   /** @private */

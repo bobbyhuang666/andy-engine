@@ -37,8 +37,10 @@ class ProceduralMemory {
 
     if (savedState) {
       for (const [key, pattern] of Object.entries(savedState.patterns || {})) {
+        if (!Number.isFinite(pattern.strength)) pattern.strength = 0.5;
         this.patterns.set(key, pattern);
       }
+      this._recentActions = Array.isArray(savedState._recentActions) ? savedState._recentActions.slice(-50) : [];
     }
   }
 
@@ -241,7 +243,7 @@ class ProceduralMemory {
 
       // 长时间未重复的模式衰减
       if (hoursSinceLastSeen > 24) {
-        pattern.strength *= Math.exp(-decayRate * hoursSinceLastSeen);
+        pattern.strength *= Math.exp(-decayRate * hoursElapsed);
       }
 
       // 强度太低的模式删除
@@ -270,7 +272,10 @@ class ProceduralMemory {
     for (const [key, pattern] of this.patterns) {
       patterns[key] = { ...pattern };
     }
-    return { patterns };
+    return {
+      patterns,
+      _recentActions: this._recentActions.slice(-50),
+    };
   }
 
   /**

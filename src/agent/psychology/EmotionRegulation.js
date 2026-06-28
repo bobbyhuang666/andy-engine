@@ -71,11 +71,11 @@ class EmotionRegulation {
 
     // ─── 调节资源（自我损耗模型, Baumeister 1998）───
     // 频繁调节会消耗资源，导致后续调节效果下降
-    this._regulationResource = savedState?._regulationResource ?? 1.0; // 1.0 = 充满, 0.0 = 枯竭
-    this._regulationCount = savedState?._regulationCount ?? 0;
+    this._regulationResource = Number.isFinite(savedState?._regulationResource) ? savedState._regulationResource : 1.0; // 1.0 = 充满, 0.0 = 枯竭
+    this._regulationCount = Number.isFinite(savedState?._regulationCount) ? savedState._regulationCount : 0;
 
     // ─── 内部状态 ───
-    this._regulationTickCounter = savedState?._regulationTickCounter ?? 0;
+    this._regulationTickCounter = Number.isFinite(savedState?._regulationTickCounter) ? savedState._regulationTickCounter : 0;
     this._reappraisalHistory = savedState?._reappraisalHistory ?? []; // 近期重评记录
   }
 
@@ -160,6 +160,7 @@ class EmotionRegulation {
     this._regulationResource = Math.min(1,
       this._regulationResource + recoveryRate * hoursElapsed
     );
+    if (!Number.isFinite(this._regulationResource)) this._regulationResource = 1;
 
     // 定期衰减调节计数
     if (hoursElapsed > 0) {

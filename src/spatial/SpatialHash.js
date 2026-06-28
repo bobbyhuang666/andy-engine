@@ -44,8 +44,8 @@ class SpatialHash {
    * @returns {number}
    */
   cellId(x, y) {
-    const cx = Math.min(Math.floor(x / this.cellSize), this.cols - 1);
-    const cy = Math.min(Math.floor(y / this.cellSize), this.rows - 1);
+    const cx = Number.isFinite(x) ? Math.max(0, Math.min(Math.floor(x / this.cellSize), this.cols - 1)) : 0;
+    const cy = Number.isFinite(y) ? Math.max(0, Math.min(Math.floor(y / this.cellSize), this.rows - 1)) : 0;
     return cy * this.cols + cx;
   }
 

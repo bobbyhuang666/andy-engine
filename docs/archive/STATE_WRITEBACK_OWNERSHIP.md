@@ -74,6 +74,7 @@ Action / CanonEvent
 | `agent.position =` | `src/agent/handlers/ScheduleHandler.js:67` | **owned by subsystem** | Tick-internal: needs-driven move |
 | `agent.position =` | `src/agent/handlers/ScheduleHandler.js:84` | **owned by subsystem** | Tick-internal: IM-driven exploration |
 | `agent.position =` | `src/agent/runtime/ActionSelectionRuntime.js:201` | **owned by EffectCommitter** | Routed through EffectCommitter via PositionDelta (Stage 22) |
+| `agent.position =` | `src/runtime/AndyWorld.js:525` | **owned by EffectCommitter** | Routed through EffectCommitter via PositionDelta (R4 audit fix; was undocumented direct writeback) |
 
 ### 2.5 BehaviorField
 
