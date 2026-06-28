@@ -84,7 +84,8 @@ function restoreSubsystems(savedState, config, agentId, domain, rng) {
   const stateMachine = new StateMachine(null, savedState.stateMachine, domain);
   const memory = new PersonalMemory(agentId, [], savedState.memory, domain, rng);
   if (savedState.appraisalBiases) {
-    memory.appraisalBiases = savedState.appraisalBiases;
+    // R12: deep-copy to prevent shared reference mutation
+    memory.appraisalBiases = savedState.appraisalBiases.map(b => ({ ...b }));
   }
   const proceduralMemory = new ProceduralMemory(savedState.proceduralMemory);
   const needs = new NeedsSystem(personality, savedState.needs, domain);

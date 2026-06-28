@@ -125,7 +125,8 @@ class ConversationLog {
    */
   toJSON() {
     return {
-      messages: this.messages,
+      // R12: spread-copy messages to prevent shared reference mutation
+      messages: this.messages.map(m => ({ ...m })),
       summarizedHistory: this._summarizedHistory,
       characterName: this.characterName,
     };
@@ -136,7 +137,8 @@ class ConversationLog {
    */
   static fromJSON(data) {
     const log = new ConversationLog({ characterName: data.characterName });
-    log.messages = data.messages || [];
+    // R12: spread-copy to prevent shared reference from input
+    log.messages = (data.messages || []).map(m => ({ ...m }));
     log._summarizedHistory = data.summarizedHistory || '';
     return log;
   }
@@ -173,6 +175,11 @@ class ConversationLog {
       if (userMsgs.length > 0) {
         const oldSummary = this._summarizedHistory ? `${this._summarizedHistory}\n` : '';
         this._summarizedHistory = `${oldSummary}更早聊过：${userMsgs.slice(0, 3).join('、')}`;
+        // R12: cap summarized history to prevent unbounded string growth
+        const MAX_SUMMARY_LENGTH = 2000;
+        if (this._summarizedHistory.length > MAX_SUMMARY_LENGTH) {
+          this._summarizedHistory = this._summarizedHistory.slice(-MAX_SUMMARY_LENGTH);
+        }
       }
     }
   }

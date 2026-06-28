@@ -397,12 +397,20 @@ class AndyWorld {
     const emotionBlendCache = this._buildEmotionBlendCache();
 
     for (const [agentId, agent] of this.agents) {
-      const perceivedEvents = this.eventDispatcher.filterEventsForAgent(
-        agentId,
-        this.eventDispatcher.eventLog.slice(-10)
-      );
-      const contagionInputs = this._gatherContagionInputs(agentId, agent, emotionBlendCache);
-      const agentResult = agent.tick(env, perceivedEvents, contagionInputs);
+      let agentResult;
+      try {
+        const perceivedEvents = this.eventDispatcher.filterEventsForAgent(
+          agentId,
+          this.eventDispatcher.eventLog.slice(-10)
+        );
+        const contagionInputs = this._gatherContagionInputs(agentId, agent, emotionBlendCache);
+        agentResult = agent.tick(env, perceivedEvents, contagionInputs);
+      } catch (err) {
+        // R12: isolate agent errors — one failing agent must not kill the entire tick.
+        // The failing agent is skipped; other agents continue normally.
+        diagnostics.warn(`Agent ${agentId} tick failed: ${err.message}`);
+        agentResult = { error: err.message };
+      }
       agentResults[agentId] = agentResult;
 
       if (agentResult.newEvents) {
@@ -475,7 +483,13 @@ class AndyWorld {
             factStore: this.factStore,
             domain: this.domain,
           });
-          this.effectCommitter.commit({ deltas: consequences });
+          const commitResult = this.effectCommitter.commit({ deltas: consequences });
+          // R12: log effect committer errors instead of silently swallowing
+          if (commitResult.errors && commitResult.errors.length > 0) {
+            for (const { delta, error } of commitResult.errors) {
+              diagnostics.warn(`EffectCommitter error for ${delta.type}: ${error.message}`);
+            }
+          }
 
           memoryUpdateCount += consequences.filter(d => d.type === 'memory').length;
           locationUpdateCount += consequences.filter(d => d.type === 'locationMeaning').length;
@@ -571,7 +585,12 @@ class AndyWorld {
           from: agent.position,
           reason: 'spatial_move',
         });
-        this.effectCommitter.commit({ deltas: [delta] });
+        const posResult = this.effectCommitter.commit({ deltas: [delta] });
+        if (posResult.errors && posResult.errors.length > 0) {
+          for (const { error } of posResult.errors) {
+            diagnostics.warn(`PositionDelta error: ${error.message}`);
+          }
+        }
         // RegionGrid still needs explicit update (EffectCommitter doesn't know about it)
         this.regions.place(change.agentId, change.to);
       }
@@ -657,7 +676,12 @@ class AndyWorld {
     }
 
     if (deltas.length > 0) {
-      this.effectCommitter.commit({ deltas });
+      const encResult = this.effectCommitter.commit({ deltas });
+      if (encResult.errors && encResult.errors.length > 0) {
+        for (const { error } of encResult.errors) {
+          diagnostics.warn(`Encounter effect error: ${error.message}`);
+        }
+      }
     }
 
     return deltas.length;

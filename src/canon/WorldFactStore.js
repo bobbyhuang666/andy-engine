@@ -442,10 +442,12 @@ class WorldFactStore {
     store._nextId = data.nextId || 0;
 
     for (const f of data.facts) {
-      if (typeof f.timestamp === 'string') {
-        f.timestamp = new Date(f.timestamp);
+      // R12: deep-copy each fact to prevent mutating input + shared reference
+      const fact = { ...f };
+      if (typeof fact.timestamp === 'string') {
+        fact.timestamp = new Date(fact.timestamp);
       }
-      store._facts.set(f.id, f);
+      store._facts.set(fact.id, fact);
       store._byType.get(f.type).add(f.id);
       store._indexAgents(f);
       if (f.type === FactType.EVENT) {

@@ -29,7 +29,7 @@ function toJSON(agent) {
     socialEnergy: agent.socialEnergy,
     health: agent.health,
     isOnline: agent.isOnline,
-    _actionTraceHistory: agent._actionTraceHistory,
+    _actionTraceHistory: (agent._actionTraceHistory || []).map(t => ({ ...t })),
     // W1: 持久化 reflection 周期计数器（恢复后续跑 consolidate/drift 时机一致）
     _ticksSinceReflection: agent._ticksSinceReflection,
     _ticksSinceDriftCheck: agent._ticksSinceDriftCheck,

@@ -576,6 +576,9 @@ class EventDispatcher {
       eventLog: this.eventLog.slice(-100).map(e => ({
         ...e,
         semanticCategory: e.semanticCategory,
+        // R12: deep-copy array fields to prevent shared reference mutation
+        participants: [...(e.participants || [])],
+        effects: (e.effects || []).map(ef => ({ ...ef })),
       })),
       _nextId: this._nextId,
     };
@@ -598,9 +601,11 @@ class EventDispatcher {
     const ed = new EventDispatcher(domain, rng);
     if (json && Array.isArray(json.eventLog)) {
       for (const evt of json.eventLog) {
-        ed.eventLog.push(evt);
+        // R12: deep-copy each event to prevent shared reference from input
+        const event = { ...evt, participants: [...(evt.participants || [])], effects: (evt.effects || []).map(e => ({ ...e })) };
+        ed.eventLog.push(event);
         // W1: 主动重建 eventIndex 缓存（此前依赖 dispatch 路径 set）
-        ed.eventIndex.set(evt.id, evt);
+        ed.eventIndex.set(event.id, event);
       }
     }
     // W1: 恢复 _nextId。优先用持久化值；缺字段（旧存档 0.1.0）时 best-effort 推算。

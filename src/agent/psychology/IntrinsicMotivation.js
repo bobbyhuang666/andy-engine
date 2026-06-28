@@ -50,13 +50,12 @@ class IntrinsicMotivation {
 
     if (savedState) {
       this.curiosity = Number.isFinite(savedState.curiosity) ? savedState.curiosity : 0.5;
-      this.familiarity = savedState.familiarity || {};
-      // R10: restore activityFamiliarity (was missing from savedState branch,
-      // causing undefined after round-trip despite being set in fresh branch).
-      this.activityFamiliarity = savedState.activityFamiliarity || {};
-      this.activeGoals = savedState.activeGoals || [];
-      this.completedGoals = (savedState.completedGoals || []).slice(-20);
-      this.competence = savedState.competence || {};
+      // R12: deep-copy nested objects from savedState to prevent shared reference mutation
+      this.familiarity = JSON.parse(JSON.stringify(savedState.familiarity || {}));
+      this.activityFamiliarity = JSON.parse(JSON.stringify(savedState.activityFamiliarity || {}));
+      this.activeGoals = (savedState.activeGoals || []).map(g => ({ ...g }));
+      this.completedGoals = (savedState.completedGoals || []).slice(-20).map(g => ({ ...g }));
+      this.competence = JSON.parse(JSON.stringify(savedState.competence || {}));
       this.explorationHistory = (savedState.explorationHistory || []).slice(-50);
       this._ticksSinceGoal = Number.isFinite(savedState._ticksSinceGoal) ? savedState._ticksSinceGoal : 0;
       this._lastGoalId = Number.isFinite(savedState._lastGoalId) ? savedState._lastGoalId : 0;
@@ -183,6 +182,18 @@ class IntrinsicMotivation {
    */
   _recordVisit(position, hoursElapsed, simTime) {
     if (!this.familiarity[position]) {
+      // R12: prune least-visited regions if over limit
+      const MAX_FAMILIARITY_REGIONS = 30;
+      const keys = Object.keys(this.familiarity);
+      if (keys.length >= MAX_FAMILIARITY_REGIONS) {
+        let least = keys[0];
+        for (const k of keys) {
+          if (this.familiarity[k].visits < this.familiarity[least].visits) {
+            least = k;
+          }
+        }
+        delete this.familiarity[least];
+      }
       this.familiarity[position] = {
         visits: 0,
         lastVisit: simTime.getTime(),
@@ -807,12 +818,12 @@ class IntrinsicMotivation {
   toJSON() {
     return {
       curiosity: this.curiosity,
-      familiarity: this.familiarity,
-      // R10: serialize activityFamiliarity for round-trip fidelity
-      activityFamiliarity: this.activityFamiliarity || {},
+      // R12: deep-copy nested objects to prevent shared reference mutation
+      familiarity: JSON.parse(JSON.stringify(this.familiarity)),
+      activityFamiliarity: JSON.parse(JSON.stringify(this.activityFamiliarity || {})),
       activeGoals: this.activeGoals.slice(-5), // 只保存最近 5 个
       completedGoals: this.completedGoals.slice(-10),
-      competence: this.competence,
+      competence: JSON.parse(JSON.stringify(this.competence)),
       explorationHistory: this.explorationHistory.slice(-50),
       _ticksSinceGoal: this._ticksSinceGoal,
       _lastGoalId: this._lastGoalId,

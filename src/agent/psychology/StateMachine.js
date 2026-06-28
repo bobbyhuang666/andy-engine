@@ -30,7 +30,7 @@ class StateMachine {
     if (savedState) {
       this.currentState = savedState.currentState;
       this.stateEnteredAt = new Date(savedState.stateEnteredAt);
-      this.history = savedState.history || [];
+      this.history = [...(savedState.history || [])];
     } else {
       this.currentState = initialState || this.domain.fallback.defaultState;
       this.stateEnteredAt = new Date();

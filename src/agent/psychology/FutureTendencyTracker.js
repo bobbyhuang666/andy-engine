@@ -57,8 +57,14 @@ class FutureTendencyTracker {
    */
   decay() {
     for (const [region, tendency] of this._tendencies) {
+      let allZero = true;
       for (let d = 0; d < DIMS; d++) {
         tendency[d] *= this.decayRate;
+        // R12: prune entries that have fully decayed to near-zero
+        if (Math.abs(tendency[d]) > 1e-6) allZero = false;
+      }
+      if (allZero) {
+        this._tendencies.delete(region);
       }
     }
   }

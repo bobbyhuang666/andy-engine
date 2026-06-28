@@ -66,9 +66,14 @@ class PersonalMemory {
         lastAccessed: new Date(m.lastAccessed),
         presentations: (m.presentations || []).map(t => new Date(t)),
         semanticCategory: m.semanticCategory || null,
+        // R12: deep-copy nested objects to prevent shared reference mutation
+        associations: [...(m.associations || [])],
+        emotionSnapshot: { ...(m.emotionSnapshot || {}) },
+        appraisal: m.appraisal ? { ...m.appraisal } : null,
       }));
       if (!Array.isArray(savedMemories) && savedMemories.appraisalBiases) {
-        this.appraisalBiases = savedMemories.appraisalBiases;
+        // R12: deep-copy appraisalBiases to prevent shared reference
+        this.appraisalBiases = savedMemories.appraisalBiases.map(b => ({ ...b }));
       }
     } else {
       this.memories = seedMemories.map((m, i) => ({
@@ -1074,14 +1079,12 @@ class PersonalMemory {
       // 未来若担心 payload 膨胀，另开压缩/摘要设计，当前不得用截断破坏 L4。
       presentations: m.presentations.map(t => t.toISOString()),
       accessCount: m.accessCount,
-      associations: m.associations,
+      associations: [...m.associations],
       eventId: m.eventId,
-      emotionSnapshot: m.emotionSnapshot,
+      // R12: spread-copy to prevent shared reference mutation
+      emotionSnapshot: { ...m.emotionSnapshot },
       semanticCategory: m.semanticCategory || null,
-      // W1: 持久化 appraisal（认知评价元数据，用于反思和 _memorySimilarity 合并决策）。
-      // 此前未持久化，restore 后 null，_memorySimilarity 跳过 appraisal 分量，
-      // similarity 分数不同导致 consolidate 合并 pair 不同，L4 漂移（W0f 根因）。
-      appraisal: m.appraisal || null,
+      appraisal: m.appraisal ? { ...m.appraisal } : null,
     }));
     // R8 fix: include _nextMemId to prevent ID collision after prune+restore.
     // Previously only the memories array was serialized, so _nextMemId was

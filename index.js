@@ -175,6 +175,11 @@ class AndyEngine {
       scheduleConfig = schedule || {};
     }
 
+    // R12: validate duplicate ID BEFORE constructing Agent (avoids wasted resources)
+    if (this.world.getAgent(config.id)) {
+      throw new Error(`createCharacter: character "${config.id}" already exists. Use a unique ID.`);
+    }
+
     const agent = new Agent({
       id,
       name,
@@ -188,11 +193,6 @@ class AndyEngine {
       actionSelection: this.config.actionSelection,
       factStore: this.world.factStore || null,
     });
-
-    // R11: validate duplicate ID at public API level with user-facing message
-    if (this.world.getAgent(config.id)) {
-      throw new Error(`createCharacter: character "${config.id}" already exists. Use a unique ID.`);
-    }
 
     this.world.addAgent(agent);
     return agent;
@@ -440,10 +440,17 @@ class AndyEngine {
    * 获取引擎统计信息
    */
   getStats() {
+    const env = this.world.environment;
     return {
       ...this.world.getStats(),
       worldTime: this.world.time.toISOString(),
-      environment: { ...this.world.environment },
+      // R12: deep-copy weatherChangedAt to prevent shared Date reference
+      environment: {
+        ...env,
+        weatherChangedAt: env.weatherChangedAt instanceof Date
+          ? env.weatherChangedAt.toISOString()
+          : env.weatherChangedAt,
+      },
     };
   }
 
