@@ -78,8 +78,8 @@ C1, C3, C5, C6, M1, M2, M4, M5, M6, M7, M10, M15, M16, M17, M18
 ### 最大的审计误判
 
 1. **M9 scoreNeed 语义反转** — 完全搞反了语义。实际逻辑正确：hunger=0.9(饱)→urgency=0.1(低)，hunger=0.1(饿)→urgency=0.9(高)。
-2. **M3 behaviorLabel** — 测试访问了不存在的属性，label 通过 `agent.behavior.label` 和 `agent.behaviorField.label` 可用。
-3. **C6 严重度** — AndyBridge 未在 package.json 导出、未被任何模块导入，是有效死代码。主序列化路径正确使用 `new EmotionVector(personality, savedState.emotion, rng)`。
+2. **M3 behaviorLabel** — 测试访问了不存在的属性，label 通过 `agent.behavior.label` 和 `agent.behaviorField.label` 可用。**（独立审计修正：应为 PARTIALLY_CONFIRMED——API 路径令人困惑，confidence 硬编码为 0）**
+3. **C6 严重度** — AndyBridge 未在 package.json 导出、未被任何模块导入，是有效死代码。主序列化路径正确使用 `new EmotionVector(personality, savedState.emotion, rng)`。**（独立审计修正：应建议立即移除而非拖延）**
 
 ### 严重度降级说明
 
@@ -116,7 +116,44 @@ C1, C3, C5, C6, M1, M2, M4, M5, M6, M7, M10, M15, M16, M17, M18
 
 ## 五、独立审计复核
 
-> ⏳ 独立审计子 AI 正在对对账报告进行交叉验证。复核结果将在完成后整合于此。
+### 总体评定: ✅ PASS_WITH_NOTES
+
+独立审计子 AI 对对账报告进行了全面交叉验证，结论为 **PASS_WITH_NOTES**——对账报告核心事实准确、法医级精度高，但存在**系统性偏向下调严重度**的倾向。
+
+### 复核确认项
+
+| 复核项 | 结论 |
+|--------|------|
+| 完整性 | ✅ 所有 C1-C6, M1-M18, m1-m8 均有裁定，无遗漏 |
+| M9 FALSE_POSITIVE | ✅ 确认正确——审计师搞反了 needs 语义 |
+| M8 FALSE_POSITIVE | ✅ 确认正确——不存在循环依赖自引用 |
+| C2 CONFIRMED | ✅ 确认正确——roleArchetype 流程确实导致 entries=0 |
+| C6 DOWNGRADED | ✅ 降级合理，但应有更强建议 |
+| 代码行号/片段 | ✅ 抽查全部准确，无捏造 |
+
+### 审计修正意见（5 项）
+
+| # | 对账裁定 | 审计修正 | 理由 |
+|---|---------|---------|------|
+| **M3** | FALSE_POSITIVE | → **PARTIALLY_CONFIRMED** | label 存在但 API 路径令人困惑，且 confidence 硬编码为 0，C4 旁路也影响 label 质量 |
+| **C3** | P2 | → **P1** | AndyEngine 间接拥有 AndyWorld 及其资源（timer、SQLiteStore），shutdown() 不只是"API 完整性"，是集成必需 |
+| **C5** | P2 | → **P1** | `.d.ts` 类型声明是公开合约一部分，方法名不匹配会导致消费者编译/运行时错误 |
+| **C6** | P2/deferred | → **v3.2 立即移除** | 含 P0 级 bug 的死代码是地雷，不应拖延决定 |
+| **M10** | CONFIRMED P2 | → **需要设计验证** | "可能是探索偏好"若无设计文档支持，应视为设计缺陷 |
+
+### 审计核心洞察
+
+> **对账报告的最大优势是法医级精度**——正确识别了原始审计的 3 个错误（M9 语义、M8 循环依赖、M3 路径）。**最大弱点是对"设计即如此"辩护的接受过于宽松**，且在技术论证（"不在公开导出"）与实际影响（".d.ts 类型消费者仍会受影响"）之间偏向技术论证。
+
+### 审计建议调整 v3.2 范围
+
+| 优先级 | 调整 | 来源 |
+|--------|------|------|
+| P1 (新增) | C3: 添加 shutdown() 方法 | 间接资源所有权仍需清理 |
+| P1 (新增) | C5-type: 修正 .d.ts 类型声明 | 公开合约一致性 |
+| P1 (新增) | M3: 添加 `agent.behaviorLabel` 便捷别名 | API 可发现性 |
+| 立即执行 | C6: 移除 AndyBridge 死代码 | 消除含 bug 的死代码地雷 |
+| 验证后决定 | M10: scoreLocation 设计意图 | 无设计文档时视为缺陷 |
 
 ---
 
@@ -131,16 +168,20 @@ C1, C3, C5, C6, M1, M2, M4, M5, M6, M7, M10, M15, M16, M17, M18
 
 ### v3.2 建议范围
 
-**只修 P0 + P1 核心项**，不做大重构：
+**基于独立审计复核调整后的 P0 + P1 范围**：
 
-| 优先级 | 范围 | 预计改动量 |
-|--------|------|-----------|
-| P0 | C2-Bug1: 修复 roleArchetype 流程，让 archetype 参数传给 `createStudentSchedule(archetype)` | ~20 行 |
-| P0 | C2-Bug2: 统一 schedules.js 区域名为 domain 定义 | ~30 行 |
-| P1 | C4: 为 BehaviorField 添加 `applyImpulse()` 方法替代直接覆写 | ~40 行 |
-| P1 | M12+M13: 在 buildActionContext 中补齐缺失字段和名称映射 | ~50 行 |
-| P1 | M11: 将 agent.goals 传入 buildActionContext | ~15 行 |
-| P1 | M14: 让 BehaviorField 接受外部梯度输入 | ~30 行 |
+| 优先级 | 范围 | 预计改动量 | 来源 |
+|--------|------|-----------|------|
+| P0 | C2-Bug1: 修复 roleArchetype 流程，让 archetype 参数传给 `createStudentSchedule(archetype)` | ~20 行 | 对账 |
+| P0 | C2-Bug2: 统一 schedules.js 区域名为 domain 定义 | ~30 行 | 对账 |
+| P1 | C4: 为 BehaviorField 添加 `applyImpulse()` 方法替代直接覆写 | ~40 行 | 对账 |
+| P1 | M12+M13: 在 buildActionContext 中补齐缺失字段和名称映射 | ~50 行 | 对账 |
+| P1 | M11: 将 agent.goals 传入 buildActionContext | ~15 行 | 对账 |
+| P1 | M14: 让 BehaviorField 接受外部梯度输入 | ~30 行 | 对账 |
+| P1 | C3: 添加 shutdown() 方法 | ~20 行 | **审计修正↑** |
+| P1 | C5-type: 修正 .d.ts 类型声明与实际 API 一致 | ~40 行 | **审计修正↑** |
+| P1 | M3: 添加 `agent.behaviorLabel` 便捷别名 | ~5 行 | **审计修正↑** |
+| 立即 | C6: 移除 AndyBridge 死代码（含 P0 级 bug） | -100+ 行 | **审计修正↑** |
 
 ### 后续路线图
 
