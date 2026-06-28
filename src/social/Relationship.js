@@ -122,11 +122,12 @@ class Relationship {
     if (!Number.isFinite(this.strength)) this.strength = cfg.initialStrength;
     this.strength = Math.max(0, Math.min(1, this.strength + delta));
 
-    // 更新印象
+    // 更新印象（R11: cap at 5.0 to prevent unbounded growth; bondStrength * 0.1
+    // is clamped at 0.5 anyway, so values above 5.0 have no behavioral effect)
     if (valence > 0) {
-      this.impression.positive += valence;
+      this.impression.positive = Math.min(this.impression.positive + valence, 5.0);
     } else {
-      this.impression.negative += Math.abs(valence);
+      this.impression.negative = Math.min(this.impression.negative + Math.abs(valence), 5.0);
     }
 
     // 更新关系类型

@@ -740,6 +740,17 @@ class AndyWorld {
     this._tickCallbacks.push(callback);
   }
 
+  /**
+   * 移除 tick 回调
+   * @param {Function} callback - 之前通过 onTick 注册的回调
+   */
+  offTick(callback) {
+    const idx = this._tickCallbacks.indexOf(callback);
+    if (idx !== -1) {
+      this._tickCallbacks.splice(idx, 1);
+    }
+  }
+
   getStats() {
     return {
       tickCount: this.clock.tickCount,
@@ -758,7 +769,13 @@ class AndyWorld {
     return {
       time: this.clock.toISOString(),
       tickCount: this.clock.tickCount,
-      environment: { ...this.environment },
+      // R11: deep-copy environment to prevent shared Date reference mutation
+      environment: {
+        ...this.environment,
+        weatherChangedAt: this.environment.weatherChangedAt instanceof Date
+          ? new Date(this.environment.weatherChangedAt.getTime())
+          : this.environment.weatherChangedAt,
+      },
       agents: Object.fromEntries(
         [...this.agents.entries()].map(([id, agent]) => [id, agent.getStatus()])
       ),

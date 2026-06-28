@@ -475,9 +475,10 @@ class EventDispatcher {
   getCausalChain(rootEventId) {
     const chain = [];
     const visited = new Set();
+    const MAX_DEPTH = 1000;  // R11: prevent stack overflow on deep chains
 
-    const traverse = (eventId) => {
-      if (visited.has(eventId)) return;
+    const traverse = (eventId, depth) => {
+      if (visited.has(eventId) || depth > MAX_DEPTH) return;
       visited.add(eventId);
 
       const event = this.eventIndex.get(eventId);
@@ -488,12 +489,12 @@ class EventDispatcher {
       // 查找由这个事件引发的后续事件
       for (const [id, evt] of this.eventIndex) {
         if (evt.cause === eventId) {
-          traverse(id);
+          traverse(id, depth + 1);
         }
       }
     };
 
-    traverse(rootEventId);
+    traverse(rootEventId, 0);
     return chain;
   }
 

@@ -82,7 +82,7 @@ class FutureTendencyTracker {
   toJSON() {
     const data = {};
     for (const [region, tendency] of this._tendencies) {
-      data[region] = tendency;
+      data[region] = [...tendency];  // R11: spread to avoid shared reference
     }
     return { tendencies: data, decayRate: this.decayRate };
   }
@@ -96,7 +96,7 @@ class FutureTendencyTracker {
     const tracker = new FutureTendencyTracker();
     tracker.decayRate = data.decayRate || 0.95;
     for (const [region, tendency] of Object.entries(data.tendencies || {})) {
-      tracker._tendencies.set(region, tendency);
+      tracker._tendencies.set(region, [...tendency]);  // R11: spread to avoid shared reference
     }
     return tracker;
   }

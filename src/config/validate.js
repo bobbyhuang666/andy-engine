@@ -21,6 +21,17 @@ function validateConfig(config) {
 
   const errors = [];
 
+  // ─── startTime 类型验证 ───
+  if (config.startTime !== undefined) {
+    const st = config.startTime;
+    if (!(st instanceof Date) && typeof st !== 'number' && typeof st !== 'string') {
+      errors.push(`startTime must be a Date, number, or ISO string, got ${typeof st}`);
+    }
+    if (typeof st === 'string' && isNaN(Date.parse(st))) {
+      errors.push(`startTime string is not a valid date: "${st}"`);
+    }
+  }
+
   // ─── 情绪系统参数 ───
   if (config.emotion) {
     const e = config.emotion;

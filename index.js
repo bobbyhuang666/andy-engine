@@ -189,6 +189,11 @@ class AndyEngine {
       factStore: this.world.factStore || null,
     });
 
+    // R11: validate duplicate ID at public API level with user-facing message
+    if (this.world.getAgent(config.id)) {
+      throw new Error(`createCharacter: character "${config.id}" already exists. Use a unique ID.`);
+    }
+
     this.world.addAgent(agent);
     return agent;
   }
@@ -315,6 +320,7 @@ class AndyEngine {
     if (!this.world.factStore) return null;
 
     const agent = this.world.getAgent(agentId);
+    if (!agent) return null;
     const provider = new FactProvider(
       this.world.factStore,
       this.world.socialGraph,
@@ -377,6 +383,9 @@ class AndyEngine {
    * @returns {Object[]}
    */
   runTicks(count) {
+    if (!Number.isFinite(count) || count < 0 || !Number.isInteger(count)) {
+      throw new TypeError(`runTicks: count must be a non-negative integer, got ${count}`);
+    }
     const results = [];
     for (let i = 0; i < count; i++) {
       results.push(this.tick());

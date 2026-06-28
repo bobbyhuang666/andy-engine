@@ -503,6 +503,10 @@ class IntrinsicMotivation {
         goal.status = 'completed';
         goal.completedAt = now;
         this.completedGoals.push(goal);
+        // R11: trim in-memory completedGoals to prevent unbounded growth
+        if (this.completedGoals.length > 20) {
+          this.completedGoals = this.completedGoals.slice(-20);
+        }
         this.activeGoals.splice(i, 1);
 
         // 目标完成满足好奇心
@@ -580,6 +584,19 @@ class IntrinsicMotivation {
    */
   _updateCompetence(domain, success) {
     if (!this.competence[domain]) {
+      // R11: prune least-recently-updated domains if over limit
+      const MAX_COMPETENCE_DOMAINS = 30;
+      const keys = Object.keys(this.competence);
+      if (keys.length >= MAX_COMPETENCE_DOMAINS) {
+        // Remove domain with lowest progressRate (least interesting)
+        let worst = keys[0];
+        for (const k of keys) {
+          if (this.competence[k].progressRate < this.competence[worst].progressRate) {
+            worst = k;
+          }
+        }
+        delete this.competence[worst];
+      }
       this.competence[domain] = {
         attempts: 0,
         successes: 0,

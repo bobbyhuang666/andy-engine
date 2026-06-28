@@ -63,7 +63,7 @@ class ProceduralMemory {
   recordAction(action) {
     const entry = {
       hour: Math.floor(action.hour || 0),
-      dayOfWeek: action.dayOfWeek || 0,
+      dayOfWeek: action.dayOfWeek ?? 0,
       position: action.position || '',
       state: action.state || '',
       valence: action.valence || 0,
