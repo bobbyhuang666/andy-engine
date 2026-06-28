@@ -324,6 +324,14 @@ class AndyBridge {
                 if (Number.isFinite(val)) agent.emotion.mood[dim] = val;
               }
             }
+            // R10: restore baseline (long-term personality-derived anchor).
+            // Without this, emotions regress toward the constructor default baseline
+            // instead of the evolved one, producing systematically biased emotion dynamics.
+            if (state.emotion.baseline && agent.emotion.baseline) {
+              for (const [dim, val] of Object.entries(state.emotion.baseline)) {
+                if (Number.isFinite(val)) agent.emotion.baseline[dim] = val;
+              }
+            }
           }
           // R9: restore needs
           if (agent.needs && state.needs && state.needs.needs) {
@@ -342,6 +350,34 @@ class AndyBridge {
               if (Number.isFinite(state.behaviorField.B[i])) {
                 agent.behaviorField.B[i] = state.behaviorField.B[i];
               }
+            }
+            // R10: restore velocity (Langevin dynamics momentum).
+            // Without this, agents lose momentum after bridge restore, producing
+            // a discontinuity in behavioral trajectory (zero-velocity tick).
+            if (state.behaviorField.velocity && agent.behaviorField.velocity) {
+              for (let i = 0; i < Math.min(state.behaviorField.velocity.length, agent.behaviorField.velocity.length); i++) {
+                if (Number.isFinite(state.behaviorField.velocity[i])) {
+                  agent.behaviorField.velocity[i] = state.behaviorField.velocity[i];
+                }
+              }
+            }
+            // R10: restore _prevB, _lastLabel, _lastLabelConfidence, _tickCount
+            // for full BehaviorField fidelity.
+            if (state.behaviorField._prevB && agent.behaviorField._prevB) {
+              for (let i = 0; i < Math.min(state.behaviorField._prevB.length, agent.behaviorField._prevB.length); i++) {
+                if (Number.isFinite(state.behaviorField._prevB[i])) {
+                  agent.behaviorField._prevB[i] = state.behaviorField._prevB[i];
+                }
+              }
+            }
+            if (typeof state.behaviorField._lastLabel === 'string') {
+              agent.behaviorField._lastLabel = state.behaviorField._lastLabel;
+            }
+            if (Number.isFinite(state.behaviorField._lastLabelConfidence)) {
+              agent.behaviorField._lastLabelConfidence = state.behaviorField._lastLabelConfidence;
+            }
+            if (Number.isFinite(state.behaviorField._tickCount)) {
+              agent.behaviorField._tickCount = state.behaviorField._tickCount;
             }
           }
           // R9: restore stateMachine currentState

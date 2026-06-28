@@ -51,6 +51,9 @@ class IntrinsicMotivation {
     if (savedState) {
       this.curiosity = Number.isFinite(savedState.curiosity) ? savedState.curiosity : 0.5;
       this.familiarity = savedState.familiarity || {};
+      // R10: restore activityFamiliarity (was missing from savedState branch,
+      // causing undefined after round-trip despite being set in fresh branch).
+      this.activityFamiliarity = savedState.activityFamiliarity || {};
       this.activeGoals = savedState.activeGoals || [];
       this.completedGoals = (savedState.completedGoals || []).slice(-20);
       this.competence = savedState.competence || {};
@@ -788,6 +791,8 @@ class IntrinsicMotivation {
     return {
       curiosity: this.curiosity,
       familiarity: this.familiarity,
+      // R10: serialize activityFamiliarity for round-trip fidelity
+      activityFamiliarity: this.activityFamiliarity || {},
       activeGoals: this.activeGoals.slice(-5), // 只保存最近 5 个
       completedGoals: this.completedGoals.slice(-10),
       competence: this.competence,

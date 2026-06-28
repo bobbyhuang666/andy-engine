@@ -362,7 +362,12 @@ class EmotionVector {
 
       // 超过 0.6 开始有回归力，超过 0.9 有强力回归
       if (Math.abs(dist) > 0.6) {
-        const pullStrength = maxDelta * (1 + (Math.abs(dist) - 0.6) * 2);
+        // R10: clamp pullStrength to [0,1] to prevent overshoot.
+        // With current maxDeltaPerTick=0.10, pullStrength peaks at ~0.18,
+        // but a future config change to maxDeltaPerTick > 0.56 could cause
+        // pullStrength > 1.0, making (1-pullStrength) negative and flipping
+        // the emotion past the baseline to the opposite side.
+        const pullStrength = Math.min(1, maxDelta * (1 + (Math.abs(dist) - 0.6) * 2));
         this.current[dim] = base + dist * (1 - pullStrength);
       }
     }

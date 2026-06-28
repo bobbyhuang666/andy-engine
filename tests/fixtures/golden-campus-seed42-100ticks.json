@@ -10,7 +10,7 @@
     "nodeVersion": "26",
     "nativeMode": "disabled",
     "generationCommand": "npm run golden:regen",
-    "generatedAt": "2026-06-28T12:57:24.931Z"
+    "generatedAt": "2026-06-28T13:22:50.617Z"
   },
   "schemaVersion": "0.1.0",
   "worldId": "golden-campus-v1",
@@ -5905,6 +5905,7 @@
               "totalTime": 0.3333333333333333
             }
           },
+          "activityFamiliarity": {},
           "activeGoals": [],
           "completedGoals": [
             {
@@ -11963,6 +11964,7 @@
               "totalTime": 0.3333333333333333
             }
           },
+          "activityFamiliarity": {},
           "activeGoals": [],
           "completedGoals": [],
           "competence": {},

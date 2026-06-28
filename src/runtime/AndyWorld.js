@@ -75,7 +75,9 @@ class AndyWorld {
     });
 
     // ─── 环境层 ───
-    this.environment = savedState?.environment ? savedState.environment : {
+    // R10 fix: clone environment from savedState instead of taking by reference,
+    // to prevent mutation of the original savedState (breaks idempotent round-trip).
+    this.environment = savedState?.environment ? { ...savedState.environment } : {
       weather: config.weather || 'sunny',
       weatherChangedAt: this.clock.time,
       timeOfDay: this._calcTimeOfDay(this.clock.hour),
@@ -770,7 +772,14 @@ class AndyWorld {
     const data = {
       time: this.clock.toISOString(),
       tickCount: this.clock.tickCount,
-      environment: { ...this.environment },
+      // R10: explicitly convert Date to ISO string to prevent shallow-copy
+      // reference sharing of the live Date object with the serialization output.
+      environment: {
+        ...this.environment,
+        weatherChangedAt: this.environment.weatherChangedAt instanceof Date
+          ? this.environment.weatherChangedAt.toISOString()
+          : this.environment.weatherChangedAt,
+      },
       agents: Object.fromEntries(
         [...this.agents.entries()].map(([id, agent]) => [id, agent.toJSON()])
       ),

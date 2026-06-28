@@ -192,8 +192,10 @@ class Schedule {
    */
   toJSON() {
     return {
-      entries: this.entries,
-      _todayVariations: this._todayVariations,
+      // R10: return copies, not direct references, to prevent consumers
+      // from mutating the live Schedule's internal state through the toJSON result.
+      entries: this.entries.map(e => ({ ...e })),
+      _todayVariations: this._todayVariations ? { ...this._todayVariations } : null,
       _lastVariationDate: this._lastVariationDate,
     };
   }
