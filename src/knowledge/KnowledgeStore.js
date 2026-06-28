@@ -72,10 +72,18 @@ class KnowledgeStore {
 
   /**
    * 检查角色是否知道某个事实
+   * R7 fix: also verify the fact still exists in the fact store. After
+   * WorldFactStore eviction, stale knowledge entries would otherwise return
+   * true even though the fact is gone, creating an inconsistency between
+   * hasKnowledge() and getKnownFacts() (which already filters evicted facts).
    */
   hasKnowledge(agentId, factId) {
     const agentKnowledge = this._knowledge.get(agentId);
-    return agentKnowledge ? agentKnowledge.has(factId) : false;
+    if (!agentKnowledge || !agentKnowledge.has(factId)) return false;
+    // Verify the fact still exists (may have been evicted)
+    const fact = this.factStore.getFactById(factId);
+    if (!fact || fact._invalidated) return false;
+    return true;
   }
 
   /**
@@ -142,6 +150,31 @@ class KnowledgeStore {
       agentKnowledge.delete(factId);
     }
     this._evidence.delete(`${agentId}:${factId}`);
+  }
+
+  /**
+   * R7 fix: Remove knowledge entries for fact IDs that no longer exist in
+   * the fact store (e.g., after WorldFactStore eviction). Called by
+   * WorldFactStore._evictEventFacts() to keep knowledge consistent and
+   * prevent unbounded growth of _knowledge/_evidence Maps.
+   * @param {string[]} evictedFactIds - fact IDs that were just evicted
+   */
+  purgeEvictedFacts(evictedFactIds) {
+    if (!evictedFactIds || evictedFactIds.length === 0) return;
+    const evictedSet = new Set(evictedFactIds);
+
+    for (const [agentId, factIds] of this._knowledge) {
+      for (const factId of evictedSet) {
+        if (factIds.has(factId)) {
+          factIds.delete(factId);
+          this._evidence.delete(`${agentId}:${factId}`);
+        }
+      }
+      // Clean up empty agent entries
+      if (factIds.size === 0) {
+        this._knowledge.delete(agentId);
+      }
+    }
   }
 
   /**

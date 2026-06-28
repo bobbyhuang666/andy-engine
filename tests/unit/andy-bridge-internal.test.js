@@ -19,7 +19,16 @@ import { describe, it, expect, vi } from 'vitest';
 import { AndyBridge } from '../../src/sdk/AndyBridge.js';
 
 function makeBridge(overrides = {}) {
-  return new AndyBridge({ persistence: { type: 'memory' }, ...overrides });
+  const bridge = new AndyBridge({ persistence: { type: 'memory' }, ...overrides });
+  return bridge;
+}
+
+// R7 fix: bridge methods now require init(). For tests that test internal
+// behavior with mocked stores (bypassing real init), set _initialized manually.
+function makeInitializedBridge(overrides = {}) {
+  const bridge = makeBridge(overrides);
+  bridge._initialized = true;
+  return bridge;
 }
 
 // 构造 fake andy 对象,提供指定 agent
@@ -44,7 +53,7 @@ describe('AndyBridge constructor — memory persistence branch', () => {
 
 describe('AndyBridge.onTick', () => {
   it('returns tick-only stories and forwards to store when no pending signal', () => {
-    const bridge = makeBridge();
+    const bridge = makeInitializedBridge();
     const onTickSpy = vi.fn();
     bridge.store = { virtualTime: Date.now(), tickCount: 5, onTick: onTickSpy };
     const result = bridge.onTick({ tickNumber: 6, events: [] });
@@ -54,7 +63,7 @@ describe('AndyBridge.onTick', () => {
   });
 
   it('consumes a buffered signal, applies to agent, appends a signal story', () => {
-    const bridge = makeBridge();
+    const bridge = makeInitializedBridge();
     // 先推入用户消息生成信号
     bridge.onUserMessage('你今天好累');
     const agent = { emotion: { current: { valence: 0 }, stress: 0 } };

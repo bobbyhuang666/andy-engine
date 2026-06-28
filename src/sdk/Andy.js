@@ -64,6 +64,12 @@ class Andy {
     }
 
     const id = config.id || `char_${this._characters.size}`;
+    // R7 fix: Guard against duplicate character IDs. Overwriting would leave
+    // the old agent in the engine world (ghost agent), consuming CPU and
+    // producing invisible events.
+    if (this._characters.has(id)) {
+      throw new Error(`Andy.addCharacter(): character "${id}" already exists. Use a unique ID or remove the existing character first.`);
+    }
     const character = new Character({
       ...config,
       id,

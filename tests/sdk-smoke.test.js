@@ -171,12 +171,14 @@ describe('AndyBridge (A4.5)', () => {
     expect(bridge.signalBuffer).toBeDefined();
   });
 
-  it('onUserMessage returns effect and intent', () => {
+  it('onUserMessage returns effect and intent', async () => {
     const bridge = new AndyBridge({ dbPath: ':memory:' });
+    await bridge.init();
     const result = bridge.onUserMessage('你今天开心吗');
     expect(result).toBeDefined();
     expect(result.effect).toBeDefined();
     expect(result.intent).toBeDefined();
+    await bridge.shutdown();
   });
 
   it('getStats returns expected shape', async () => {

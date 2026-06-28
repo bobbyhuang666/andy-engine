@@ -47,6 +47,18 @@ class WorldFactStore {
 
     /** @type {Date|null} 模拟时间 */
     this._simTime = null;
+
+    /** @type {import('../knowledge/KnowledgeStore')|null} R7: wired by AndyWorld for eviction sync */
+    this._knowledgeStore = null;
+  }
+
+  /**
+   * R7 fix: Wire the knowledge store so that _evictEventFacts() can purge
+   * stale knowledge entries. Called by AndyWorld after constructing both.
+   * @param {import('../knowledge/KnowledgeStore')} knowledgeStore
+   */
+  setKnowledgeStore(knowledgeStore) {
+    this._knowledgeStore = knowledgeStore;
   }
 
   // ═══════════════════════════════════════════
@@ -138,12 +150,21 @@ class WorldFactStore {
     events.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
 
     const removeCount = eventIds.size - Math.floor(MAX_EVENT_FACTS * 0.8);
+    const evictedIds = [];
     for (let i = 0; i < removeCount && i < events.length; i++) {
       const fact = events[i];
       this._facts.delete(fact.id);
       eventIds.delete(fact.id);
       if (fact.eventId) this._eventIndex.delete(fact.eventId);
       this._unindexAgents(fact);
+      evictedIds.push(fact.id);
+    }
+
+    // R7 fix: Notify knowledge store to purge stale entries for evicted facts,
+    // preventing hasKnowledge() returning true for evicted facts and
+    // preventing unbounded _knowledge/_evidence Map growth.
+    if (evictedIds.length > 0 && this._knowledgeStore) {
+      this._knowledgeStore.purgeEvictedFacts(evictedIds);
     }
   }
 

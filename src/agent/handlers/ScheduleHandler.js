@@ -16,6 +16,20 @@ class ScheduleHandler {
   }
 
   /**
+   * R7 fix: Validate that a region exists in the domain before moving agent.
+   * Prevents phantom regions from being auto-created in RegionGrid and
+   * keeps simulation spatial state consistent with domain configuration.
+   * @param {Object} agent
+   * @param {string} targetRegion
+   * @returns {boolean} true if region is valid (or domain unavailable)
+   * @private
+   */
+  static _isValidRegion(agent, targetRegion) {
+    if (!agent.domain || typeof agent.domain.hasRegion !== 'function') return true; // no domain to validate against
+    return agent.domain.hasRegion(targetRegion);
+  }
+
+  /**
    * Execute schedule check and position decisions.
    * @param {Object} context - tick context
    */
@@ -26,8 +40,11 @@ class ScheduleHandler {
     const scheduleResult = ScheduleHandler.checkSchedule(agent, env.hour, env.dayOfWeek, env.simDate);
 
     if (scheduleResult.moved) {
-      result.regionChanged = true;
-      agent.position = scheduleResult.region;
+      // R7 fix: validate region before moving agent
+      if (ScheduleHandler._isValidRegion(agent, scheduleResult.region)) {
+        result.regionChanged = true;
+        agent.position = scheduleResult.region;
+      }
 
       if (scheduleResult.skipEvent) {
         if (scheduleResult.altState) {
@@ -62,7 +79,8 @@ class ScheduleHandler {
       }
     } else if (needsDrive && needsDrive.urgency > 0.05) {
       const needRegion = ScheduleHandler.findNeedRegion(agent, needsDrive.need);
-      if (needRegion && needRegion !== agent.position) {
+      // R7 fix: validate region before moving agent
+      if (needRegion && needRegion !== agent.position && ScheduleHandler._isValidRegion(agent, needRegion)) {
         result.regionChanged = true;
         agent.position = needRegion;
       }
@@ -84,7 +102,8 @@ class ScheduleHandler {
         const explorationRegions = imResult.drive.targetRegions;
         if (explorationRegions && explorationRegions.length > 0) {
           const target = explorationRegions[0];
-          if (target !== agent.position) {
+          // R7 fix: validate region before moving agent
+          if (target !== agent.position && ScheduleHandler._isValidRegion(agent, target)) {
             result.regionChanged = true;
             agent.position = target;
           }

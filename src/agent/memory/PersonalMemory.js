@@ -737,6 +737,10 @@ class PersonalMemory {
             for (const p of this.memories[remove].presentations) {
               this.memories[keep].presentations.push(p);
             }
+            // R7 fix: cap presentations after consolidation merge
+            if (this.memories[keep].presentations.length > cfg.maxPresentationsPerMemory) {
+              this.memories[keep].presentations = this.memories[keep].presentations.slice(-cfg.maxPresentationsPerMemory);
+            }
 
             toRemove.add(remove);
             merged.push({ kept: this.memories[keep].id, removed: this.memories[remove].id });
@@ -836,12 +840,14 @@ class PersonalMemory {
     memory.accessCount++;
     memory.importance = Math.min(1, memory.importance + cfg.importanceBoostOnAccess);
 
-    // W1: 移除运行时 presentations.slice(-20) 截断。
-    // 此前截断与 accessCount 累计不同步（accessCount 不截断，presentations 截断），
-    // 破坏 restore fidelity——_baseLevelActivation 遍历 presentations 计算，
-    // 截断后 full 与 restored 的访问历史语义不一致，导致 L4 漂移。
-    // 与 toJSON 层 presentations 完整持久化一致，保留完整访问历史。
-    // 未来若担心 payload/内存膨胀，另开 v2.3 memory compaction RFC。
+    // R7 fix: cap presentations to prevent unbounded growth. Each Date object
+    // costs ~60 bytes; at 2000 ticks with frequent retrieval, a single memory
+    // can accumulate 1000+ presentations (60KB per memory). Cap at
+    // cfg.maxPresentationsPerMemory (default 50), keeping the most recent ones
+    // which are most relevant for ACT-R base-level activation.
+    if (memory.presentations.length > cfg.maxPresentationsPerMemory) {
+      memory.presentations = memory.presentations.slice(-cfg.maxPresentationsPerMemory);
+    }
   }
 
   /** @private */

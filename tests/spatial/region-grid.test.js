@@ -42,11 +42,13 @@ describe('RegionGrid — place migration between regions', () => {
     expect(grid.getAgentsInRegion('a')).toEqual([]);
     expect(grid.getAgentsInRegion('b')).toEqual(['x']);
   });
-  it('place into an unregistered region auto-registers it', () => {
+  it('place into an unregistered region is rejected (R7 fix: no phantom regions)', () => {
     const grid = new RegionGrid(['a']);
-    grid.place('x', 'new-region');
-    expect(grid.getRegion('x')).toBe('new-region');
-    expect(grid.count('new-region')).toBe(1);
+    grid.place('x', 'a'); // first place into valid region
+    const result = grid.place('x', 'new-region'); // try unknown region
+    expect(result).toBe(false); // rejected
+    expect(grid.getRegion('x')).toBe('a'); // agent stays in original region
+    expect(grid.count('new-region')).toBe(0); // no phantom region created
   });
 });
 

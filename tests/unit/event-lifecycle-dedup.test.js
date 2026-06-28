@@ -19,6 +19,11 @@ import { getDefaultDomain } from '../../src/domain/DomainRegistry.js';
 
 const campusDomain = getDefaultDomain();
 
+// R7 fix: use a valid domain region name instead of VALID_REGION which doesn't exist
+// in the campus domain (the actual region is '校园广场'). RegionGrid now
+// rejects unknown regions instead of auto-creating phantom ones.
+const VALID_REGION = '校园广场';
+
 function createMockAgent(id, position, socialGraph) {
   const agent = {
     id,
@@ -55,8 +60,8 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
       rel.strength = 0.8;
 
       const agents = new Map();
-      agents.set('a', createMockAgent('a', '广场'));
-      agents.set('b', createMockAgent('b', '广场'));
+      agents.set('a', createMockAgent('a', VALID_REGION));
+      agents.set('b', createMockAgent('b', VALID_REGION));
 
       // Mock _rand to guarantee encounter
       let callIdx = 0;
@@ -66,7 +71,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
         return 0.5;
       };
 
-      const draft = dispatcher.generateEncounterEvent('a', 'b', '广场', socialGraph, agents);
+      const draft = dispatcher.generateEncounterEvent('a', 'b', VALID_REGION, socialGraph, agents);
       expect(draft).not.toBeNull();
       expect(draft.type).toBe('social');
       expect(dispatcher.pendingEvents).toHaveLength(0);
@@ -86,7 +91,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
         return 0.5;
       };
 
-      const draft = dispatcher.generateRandomEvent('agent1', '广场', { hour: 14 });
+      const draft = dispatcher.generateRandomEvent('agent1', VALID_REGION, { hour: 14 });
       expect(draft).not.toBeNull();
       expect(draft.type).toBe('random');
       expect(dispatcher.pendingEvents).toHaveLength(0);
@@ -110,8 +115,8 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
         startTime: new Date('2024-06-15T10:00:00'),
       }, null, campusDomain, rng);
 
-      const agentA = createMockAgent('alice', '广场', world.socialGraph);
-      const agentB = createMockAgent('bob', '广场', world.socialGraph);
+      const agentA = createMockAgent('alice', VALID_REGION, world.socialGraph);
+      const agentB = createMockAgent('bob', VALID_REGION, world.socialGraph);
       world.addAgent(agentA);
       world.addAgent(agentB);
 
@@ -141,8 +146,8 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
         startTime: new Date('2024-06-15T10:00:00'),
       }, null, campusDomain, rng);
 
-      const agentA = createMockAgent('alice', '广场', world.socialGraph);
-      const agentB = createMockAgent('bob', '广场', world.socialGraph);
+      const agentA = createMockAgent('alice', VALID_REGION, world.socialGraph);
+      const agentB = createMockAgent('bob', VALID_REGION, world.socialGraph);
       world.addAgent(agentA);
       world.addAgent(agentB);
 
@@ -183,8 +188,8 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
         enableFacts: true,
       }, null, campusDomain, rng);
 
-      const agentA = createMockAgent('alice', '广场', world.socialGraph);
-      const agentB = createMockAgent('bob', '广场', world.socialGraph);
+      const agentA = createMockAgent('alice', VALID_REGION, world.socialGraph);
+      const agentB = createMockAgent('bob', VALID_REGION, world.socialGraph);
       world.addAgent(agentA);
       world.addAgent(agentB);
 
@@ -227,7 +232,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
         startTime: new Date('2024-06-15T10:00:00'),
       }, null, campusDomain, rng);
 
-      world.addAgent(createMockAgent('a', '广场', world.socialGraph));
+      world.addAgent(createMockAgent('a', VALID_REGION, world.socialGraph));
 
       // Force random event by mocking _rand
       let callCount = 0;
@@ -262,8 +267,8 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
       const rel = socialGraph.getOrCreateRelationship('a', 'b');
       rel.strength = 0.8;
       const agents = new Map();
-      agents.set('a', createMockAgent('a', '广场'));
-      agents.set('b', createMockAgent('b', '广场'));
+      agents.set('a', createMockAgent('a', VALID_REGION));
+      agents.set('b', createMockAgent('b', VALID_REGION));
 
       let callIdx = 0;
       dispatcher._rand = () => {
@@ -272,7 +277,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
         return 0.5;
       };
 
-      const encounterDraft = dispatcher.generateEncounterEvent('a', 'b', '广场', socialGraph, agents);
+      const encounterDraft = dispatcher.generateEncounterEvent('a', 'b', VALID_REGION, socialGraph, agents);
       expect(encounterDraft).not.toBeNull();
       expect(dispatcher.pendingEvents).toHaveLength(0);
 
@@ -283,7 +288,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
         if (callCount === 1) return 0.01;
         return 0.5;
       };
-      const randomDraft = dispatcher.generateRandomEvent('a', '广场', { hour: 14 });
+      const randomDraft = dispatcher.generateRandomEvent('a', VALID_REGION, { hour: 14 });
       expect(randomDraft).not.toBeNull();
       expect(dispatcher.pendingEvents).toHaveLength(0);
 
@@ -303,7 +308,7 @@ describe('Event Lifecycle Dedup (P0-1)', () => {
       const world = new AndyWorld({
         startTime: new Date('2024-06-15T10:00:00'),
       }, null, campusDomain);
-      world.addAgent(createMockAgent('a', '广场', world.socialGraph));
+      world.addAgent(createMockAgent('a', VALID_REGION, world.socialGraph));
 
       world.setWeather('rain');
 

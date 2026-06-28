@@ -38,6 +38,7 @@ const ANDY_DEFAULTS = {
   // ═══════════════════════════════════════════
   memory: {
     maxMemories: 500,          // 每个 Agent 最大记忆条数
+    maxPresentationsPerMemory: 50, // R7: cap presentations array to prevent unbounded growth
     decayRate: 0.5,            // ACT-R 衰减指数 d
     retrievalThreshold: -1.5,  // 检索阈值 tau
     retrievalNoise: 0.3,       // 检索噪声 s

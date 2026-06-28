@@ -30,8 +30,13 @@ class RegionGrid {
 
   /**
    * 将 Agent 放入指定区域
+   * R7 fix: Do NOT auto-create unknown regions. Only place agents into regions
+   * that were declared in the domain configuration. Auto-creation masks bugs
+   * in callers (e.g., ScheduleHandler using an unvalidated region name) and
+   * creates phantom regions that diverge from domain configuration.
    * @param {string} agentId
    * @param {string} regionId
+   * @returns {boolean} true if placed successfully, false if region doesn't exist
    */
   place(agentId, regionId) {
     // 从旧区域移除
@@ -41,12 +46,18 @@ class RegionGrid {
       if (oldSet) oldSet.delete(agentId);
     }
 
-    // 放入新区域
+    // R7 fix: reject unknown regions instead of auto-creating them
     if (!this._grid.has(regionId)) {
-      this._grid.set(regionId, new Set());
+      // Restore old region if agent had one, to avoid leaving agent in limbo
+      if (oldRegion) {
+        const oldSet = this._grid.get(oldRegion);
+        if (oldSet) oldSet.add(agentId);
+      }
+      return false;
     }
     this._grid.get(regionId).add(agentId);
     this._agentRegions.set(agentId, regionId);
+    return true;
   }
 
   /**

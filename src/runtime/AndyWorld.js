@@ -92,6 +92,10 @@ class AndyWorld {
         ? KnowledgeStore.fromJSON(savedState.knowledgeStore, this.factStore)
         : new KnowledgeStore(this.factStore))
       : null;
+    // R7 fix: wire knowledgeStore → factStore so eviction purges stale knowledge
+    if (this.knowledgeStore && this.factStore) {
+      this.factStore.setKnowledgeStore(this.knowledgeStore);
+    }
     this.factEmitter = this.runtimeConfig.enableFacts
       ? new FactEmitter(this.factStore, { knowledgeStore: this.knowledgeStore })
       : null;
@@ -163,6 +167,14 @@ class AndyWorld {
   // ═══════════════════════════════════════════
 
   addAgent(agent) {
+    // R7 fix: Guard against duplicate agent IDs. Silently overwriting would
+    // leave the old agent's social graph node, region placement, and spatial
+    // entry orphaned — producing a "ghost agent" that consumes CPU but is
+    // invisible to the API.
+    if (this.agents.has(agent.id)) {
+      throw new Error(`AndyWorld.addAgent(): agent "${agent.id}" already exists. Remove the existing agent first or use a unique ID.`);
+    }
+
     // RNG 所有权链注入（RFC）：上游（index.js/Agent facade）未传 rng 时，
     // agent 及其心理学子系统的 _rng 为 null（子系统构造期会用 RNG(0) 兜底
     // 以支持独立测试）。此处用 world 恒持的 RNG 覆盖，确保模拟路径所有

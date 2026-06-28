@@ -114,6 +114,7 @@ class AndyBridge {
    * @returns {{ effect: Object, intent: string }}
    */
   onUserMessage(userText) {
+    this._requireInit('onUserMessage');
     const result = this.signalBuffer.push(userText);
     return {
       effect: result.effect,
@@ -133,6 +134,7 @@ class AndyBridge {
    * @returns {{ stories: Story[], signalConsumed: Object|null }}
    */
   onTick(tickResult) {
+    this._requireInit('onTick');
     const stories = [];
     const simTime = this.store.virtualTime ? new Date(this.store.virtualTime) : undefined;
     const options = { rng: this._rng, simTime };
@@ -172,6 +174,7 @@ class AndyBridge {
    * @returns {Story[]}
    */
   getStoriesForAgent(hours = 72, limit = 5) {
+    this._requireInit('getStoriesForAgent');
     return this.store.getStoriesForAgent(this.agentId, hours, limit);
   }
 
@@ -210,6 +213,7 @@ class AndyBridge {
    * 获取统计信息
    */
   getStats() {
+    this._requireInit('getStats');
     return {
       tickCount: this.store.tickCount,
       virtualTime: this.store.virtualTime,
@@ -221,6 +225,17 @@ class AndyBridge {
   // ═══════════════════════════════════════════
   // 内部方法
   // ═══════════════════════════════════════════
+
+  /**
+   * R7 fix: Guard against calling methods before init().
+   * @param {string} methodName - for error message
+   * @private
+   */
+  _requireInit(methodName) {
+    if (!this._initialized) {
+      throw new Error(`AndyBridge.${methodName}() called before init(). Call await bridge.init() first.`);
+    }
+  }
 
   /**
    * 将情绪信号注入 agent

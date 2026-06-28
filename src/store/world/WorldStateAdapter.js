@@ -78,6 +78,11 @@ function toWorldState(engine, worldId) {
  * @throws {Error} domainRef 不匹配时抛出错误
  */
 function fromWorldState(worldState, config = {}, engineConstructor = null) {
+  // R7 fix: guard against null/undefined worldState
+  if (!worldState || typeof worldState !== 'object') {
+    throw new Error('fromWorldState() requires a valid worldState object, received: ' + String(worldState));
+  }
+
   // 恢复安全性校验：domainRef 一致性
   if (config.domain) {
     if (config.domain.id !== worldState.domainRef) {
