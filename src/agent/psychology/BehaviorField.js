@@ -177,6 +177,11 @@ class BehaviorField {
 
     // 未来行为倾向（延迟初始化）
     this._futureTendency = null;
+
+    // R13 C2 fix: 外部吸引子（ScheduleHandler 等通过此接口施加梯度，
+    // 而非直接设置 B/velocity，保持 Langevin 动力学一致性）
+    this._attractor = null; // { target: [4], strength: number, duration: number }
+    this._attractorTicksLeft = 0;
   }
 
   /**
@@ -201,6 +206,35 @@ class BehaviorField {
    */
   setFutureTendency(tracker) {
     this._futureTendency = tracker;
+  }
+
+  /**
+   * R13 C2 fix: 设置外部吸引子
+   *
+   * ScheduleHandler 等外部模块通过此接口在行为场中施加一个临时吸引子，
+   * 而非直接设置 B/velocity（那会绕过 Langevin 动力学，导致惯性断裂）。
+   *
+   * 吸引子作为势能项 U_attractor = strength * ||B - target||² 融入梯度计算，
+   * 在 duration 个 tick 后自动失效。
+   *
+   * @param {number[]} target - 4D 目标行为位置 [activity, sociality, focus, expressiveness]
+   * @param {number} strength - 吸引力强度（推荐 5-15，与 schedule 权重 ~1.8 的量级匹配）
+   * @param {number} duration - 持续 tick 数（推荐 3-8，之后自然衰减）
+   */
+  setAttractor(target, strength, duration) {
+    this._attractor = {
+      target: [...target],
+      strength: Number.isFinite(strength) ? strength : 10.0,
+    };
+    this._attractorTicksLeft = Number.isFinite(duration) ? Math.round(duration) : 5;
+  }
+
+  /**
+   * 清除当前吸引子（可选，吸引子也会随 duration 自然失效）
+   */
+  clearAttractor() {
+    this._attractor = null;
+    this._attractorTicksLeft = 0;
   }
 
   // ═══════════════════════════════════════════
@@ -293,6 +327,23 @@ class BehaviorField {
 
     // ── 5. 习惯梯度 ──
     this._addHabitGradient(grad, w.habit * this._weightModifiers.habit);
+
+    // ── 5.1 外部吸引子梯度（R13 C2 fix）──
+    // ScheduleHandler 通过 setAttractor() 注入的临时吸引子，
+    // 融入 Langevin 动力学而非直接设置 B/velocity
+    if (this._attractor && this._attractorTicksLeft > 0) {
+      const { target, strength } = this._attractor;
+      for (let d = 0; d < DIMS; d++) {
+        // 势能 U = strength * ||B - target||²
+        // 梯度 ∇U = 2 * strength * (B - target)
+        // 动力学中 v += -∇U·dt，所以 B 会朝 target 移动
+        grad[d] += 2 * strength * (this.B[d] - target[d]);
+      }
+      this._attractorTicksLeft--;
+      if (this._attractorTicksLeft <= 0) {
+        this._attractor = null;
+      }
+    }
 
     // ── 5.5 地点意义梯度 ──
     if (this._locationMeaningInfluence && this._currentRegion) {
@@ -627,12 +678,21 @@ class BehaviorField {
       _lastLabel: this._lastLabel,
       _lastLabelConfidence: this._lastLabelConfidence,
       _tickCount: this._tickCount,
+      // R13 C2 fix: 持久化吸引子状态
+      _attractor: this._attractor ? { target: [...this._attractor.target], strength: this._attractor.strength } : null,
+      _attractorTicksLeft: this._attractorTicksLeft,
     };
   }
 
   static fromJSON(data, personality, domain) {
     if (!domain) throw new Error('BehaviorField.fromJSON requires a domain config');
-    return new BehaviorField(personality, data, {}, domain);
+    const bf = new BehaviorField(personality, data, {}, domain);
+    // R13 C2 fix: 恢复吸引子状态
+    if (data._attractor) {
+      bf._attractor = { target: [...data._attractor.target], strength: data._attractor.strength };
+      bf._attractorTicksLeft = data._attractorTicksLeft || 0;
+    }
+    return bf;
   }
 }
 

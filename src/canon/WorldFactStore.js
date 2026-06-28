@@ -199,6 +199,14 @@ class WorldFactStore {
       throw new Error(`Invalid fact after update: ${baseCheck.errors.join('; ')}`);
     }
 
+    // R13 C4 fix: validate type-specific fields after update, same as addFact().
+    // Without this, a RELATIONSHIP update with invalid relationType or an
+    // AGENT_STATE update with invalid agentId would be silently accepted.
+    const typeCheck = validateTypeFields(updated);
+    if (!typeCheck.valid) {
+      throw new Error(`Invalid type fields after update: ${typeCheck.errors.join('; ')}`);
+    }
+
     this._unindexAgents(existing);
     this._facts.set(id, updated);
     this._indexAgents(updated);

@@ -152,21 +152,28 @@ class AndyEngine {
     // 解析日程（支持预设名）
     let scheduleConfig;
     if (typeof schedule === 'string') {
-      // 先查 domain 的 roleArchetypes
+      // R13 fix: archetype 有三种形态：
+      //   1. 含 entries 的完整日程（如 tavern blacksmith）→ 直接使用
+      //   2. 只有配置参数 + scheduleFactories（如 campus student）→ 通过 factory 生成
+      //   3. 只有配置参数无 factory → campus fallback 或空 schedule
       const archetype = this.domain.roleArchetypes[schedule];
-      if (archetype) {
-        // 直接使用 archetype 构造 Schedule，不走 resolvePreset
-        scheduleConfig = new Schedule(archetype).toJSON();
+      const factory = this.domain.scheduleFactories && this.domain.scheduleFactories[schedule];
+      if (archetype && archetype.entries && archetype.entries.length > 0) {
+        // Archetype 自带完整 entries（如 tavern），直接使用
+        scheduleConfig = archetype;
+      } else if (factory) {
+        // 有 factory 时用 factory + archetype 配置生成日程
+        scheduleConfig = factory(archetype || {}).toJSON();
       } else if (this.domain.id === 'campus') {
         // campus domain fallback:由 preset 模块解析 campus 预设名(core 不内置 campus role 名)
         const campusSchedules = require('./presets/campus/schedules');
-        const factory = {
+        const campusFactory = {
           student: campusSchedules.createStudentSchedule,
           worker: campusSchedules.createWorkerSchedule,
           freelancer: campusSchedules.createFreelancerSchedule,
           home: campusSchedules.createHomeSchedule,
         }[schedule];
-        scheduleConfig = factory ? factory().toJSON() : {};
+        scheduleConfig = campusFactory ? campusFactory(archetype || {}).toJSON() : {};
       } else {
         // custom domain 找不到时使用空 schedule，不 fallback 到 campus
         scheduleConfig = {};
@@ -494,8 +501,29 @@ class AndyEngine {
    * @param {Object} config
    * @returns {AndyEngine}
    */
+  /**
+   * 从 JSON 恢复引擎实例
+   *
+   * R13 C3 fix: validate input data to prevent crashes from corrupted/empty payloads.
+   * Without this, passing null/undefined/string would throw cryptic errors deep
+   * in AndyWorld constructor instead of a clear message at the boundary.
+   *
+   * @param {Object} data - 之前 toJSON() 的输出
+   * @param {Object} [config] - 可选配置覆盖
+   * @returns {AndyEngine}
+   */
   static fromJSON(data, config = {}) {
-    return new AndyEngine(config, data);
+    // R13 C3 fix: validate input data to prevent crashes from corrupted/empty payloads.
+    // Returns null for invalid input instead of throwing (graceful degradation).
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      return null;
+    }
+    try {
+      return new AndyEngine(config, data);
+    } catch (e) {
+      // Corrupted data that passes structural check but fails during reconstruction
+      return null;
+    }
   }
 }
 

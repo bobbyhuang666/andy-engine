@@ -53,8 +53,11 @@ class ScheduleHandler {
           const targetCenter = STATE_CENTERS[scheduleResult.altState];
           if (targetCenter) {
             const prevLabel = agent.behaviorField.label;
-            agent.behaviorField.B = [...targetCenter];
-            agent.behaviorField.velocity = [0, 0, 0, 0];
+            // R13 C2 fix: use setAttractor instead of directly setting B/velocity.
+            // Direct B/velocity mutation bypasses Langevin dynamics, causing
+            // inertia loss and gradient discontinuity. setAttractor adds a
+            // temporary potential well that steers B toward the target smoothly.
+            agent.behaviorField.setAttractor(targetCenter, 10.0, 5);
             if (prevLabel !== scheduleResult.altState) {
               result.stateChanged = true;
               result.newEvents.push({

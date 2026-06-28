@@ -202,6 +202,9 @@ class DomainRegistry {
 
   get roleArchetypes() { return this.domain.roleArchetypes || {}; }
 
+  // R13 C1 fix: expose scheduleFactories for domain-driven schedule generation
+  get scheduleFactories() { return this.domain.scheduleFactories || null; }
+
   // ═══════════════════════════════════════════
   // 叙事模板
   // ═══════════════════════════════════════════

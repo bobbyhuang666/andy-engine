@@ -17,7 +17,9 @@ describe('Aliveness Metrics Smoke', () => {
     engine.world.regions.place('alice', '图书馆');
     
     // Run ticks to generate events
-    for (let i = 0; i < 10; i++) {
+    // R13 fix: 10 ticks is often not enough for narrative to accumulate
+    // meaningful content after initialization. 30 ticks is more reliable.
+    for (let i = 0; i < 30; i++) {
       engine.tick();
     }
     

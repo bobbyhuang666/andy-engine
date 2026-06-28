@@ -15,6 +15,8 @@
  *   - campus schedules module (presets/campus/schedules.js) owns legacy schedule configs
  */
 
+const campusSchedules = require('./schedules');
+
 const campusDomain = {
   id: 'campus',
   name: '校园世界观',
@@ -574,6 +576,16 @@ const campusDomain = {
     },
     freelancer: {},
     home: {},
+  },
+
+  // R13 C1 fix: scheduleFactories maps role names to factory functions
+  // that produce Schedule instances with proper entries (roleArchetypes only
+  // contains config params like morningClass/workStart, not schedule entries).
+  scheduleFactories: {
+    student: campusSchedules.createStudentSchedule,
+    worker: campusSchedules.createWorkerSchedule,
+    freelancer: campusSchedules.createFreelancerSchedule,
+    home: campusSchedules.createHomeSchedule,
   },
 
   // ═══════════════════════════════════════════
