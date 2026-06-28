@@ -229,12 +229,14 @@ class WorldFactStore {
       for (const t of types) {
         const ids = this._byType.get(t);
         if (ids) {
-          for (const id of ids) result.push(this._facts.get(id));
+          // R14 fix: return shallow copies to prevent external mutation of store internals
+          for (const id of ids) result.push({ ...this._facts.get(id) });
         }
       }
       return result;
     }
-    return Array.from(this._facts.values());
+    // R14 fix: return shallow copies to prevent external mutation of store internals
+    return Array.from(this._facts.values()).map(f => ({ ...f }));
   }
 
   /**
@@ -388,7 +390,9 @@ class WorldFactStore {
    * @returns {Object|null}
    */
   getFactById(id) {
-    return this._facts.get(id) || null;
+    // R14 fix: return shallow copy to prevent external mutation of store internals
+    const fact = this._facts.get(id);
+    return fact ? { ...fact } : null;
   }
 
   // ═══════════════════════════════════════════

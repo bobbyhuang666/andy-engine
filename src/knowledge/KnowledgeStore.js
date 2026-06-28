@@ -104,7 +104,9 @@ class KnowledgeStore {
    * @returns {Evidence|null}
    */
   getEvidence(agentId, factId) {
-    return this._evidence.get(`${agentId}:${factId}`) || null;
+    // R14 fix: return shallow copy to prevent external mutation of store internals
+    const ev = this._evidence.get(`${agentId}:${factId}`);
+    return ev ? { ...ev } : null;
   }
 
   /**
