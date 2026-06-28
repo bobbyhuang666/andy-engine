@@ -23,6 +23,7 @@ const { EffectCommitter } = require('../effects/EffectCommitter');
 const { RelationshipDelta } = require('../effects/RelationshipDelta');
 const { MemoryDelta } = require('../effects/MemoryDelta');
 const { PositionDelta } = require('../effects/PositionDelta');
+const { EmotionDelta } = require('../effects/EmotionDelta');
 const { diagnostics } = require('../shared/Diagnostics');
 const { RNG } = require('../shared/rng');
 
@@ -161,7 +162,11 @@ class AndyWorld {
     this.effectCommitter = new EffectCommitter({ world: this, agents: this.agents });
 
     // ─── 调度器内部状态 ───
-    this._scheduledEvents = [];
+    // R9 fix: restore _scheduledEvents from serialized data
+    this._scheduledEvents = (savedState?.scheduledEvents || []).map(e => ({
+      ...e,
+      scheduledFor: e.scheduledFor instanceof Date ? e.scheduledFor : new Date(e.scheduledFor),
+    }));
     this._tickCallbacks = [];
     this._lastTickTime = null;
   }
@@ -631,6 +636,9 @@ class AndyWorld {
               content: event.content || '',
             }));
           }
+        } else if (effect.type === 'emotion' && effect.delta) {
+          // R9 fix: apply emotion effects from social encounters (were silently dropped before).
+          deltas.push(new EmotionDelta(effect.target, effect.delta));
         } else if (effect.type === 'memory' && effect.delta) {
           const d = effect.delta;
           if (d.kind === 'candidate') {
@@ -777,6 +785,14 @@ class AndyWorld {
     }
     if (this.knowledgeStore) {
       data.knowledgeStore = this.knowledgeStore.toJSON();
+    }
+    // R9 fix: serialize _scheduledEvents to prevent data loss on save/restore.
+    // Without this, any pending scheduled events are permanently dropped.
+    if (this._scheduledEvents.length > 0) {
+      data.scheduledEvents = this._scheduledEvents.map(e => ({
+        ...e,
+        scheduledFor: e.scheduledFor instanceof Date ? e.scheduledFor.toISOString() : e.scheduledFor,
+      }));
     }
     return data;
   }

@@ -250,12 +250,18 @@ class AndyBridge {
 
     const effect = signal.mergedEffect;
 
-    // 直接修改 current（简化版，跳过 applyEffect 的完整评估）
-    for (const [dim, delta] of Object.entries(effect)) {
-      if (agent.emotion.current[dim] !== undefined) {
-        agent.emotion.current[dim] = Math.max(-1, Math.min(1,
-          agent.emotion.current[dim] + delta
-        ));
+    // R9 fix: route emotion signals through applyEffect() instead of
+    // directly writing to current. This ensures regulation strategies,
+    // mood update, co-activation, and maxDeltaPerTick clamping are applied.
+    // Fall back to direct scalar update if applyEffect is not available
+    // (e.g., in test mocks or non-standard emotion objects).
+    if (typeof agent.emotion.applyEffect === 'function') {
+      agent.emotion.applyEffect(effect);
+    } else {
+      for (const [dim, delta] of Object.entries(effect)) {
+        if (agent.emotion.current[dim] !== undefined && Number.isFinite(delta)) {
+          agent.emotion.current[dim] = Math.max(-1, Math.min(1, agent.emotion.current[dim] + delta));
+        }
       }
     }
   }
@@ -281,6 +287,12 @@ class AndyBridge {
 
   /**
    * 从快照恢复 agent 状态
+   * R9 fix: expanded restore to cover more subsystems while respecting SDK→agent boundary.
+   * Restores: emotion (current + stress + mood), needs, position, health, socialEnergy,
+   * behaviorField (B vector), stateMachine (currentState), _ticksSinceReflection/DriftCheck.
+   * Memory, personality, schedule, intrinsicMotivation, emotionRegulation, and
+   * proceduralMemory require full fromJSON reconstruction — those need
+   * AndyEngine.fromJSON() (the canonical full restore path).
    * @private
    */
   _restoreAgents(data) {
@@ -295,22 +307,55 @@ class AndyBridge {
         const state = JSON.parse(chunk);
         const agent = this.andy.agents?.get?.(state.id)
           || this.andy.getAgent?.(state.id);
-          if (agent) {
-            // 不覆盖 EmotionVector 类实例，只恢复标量字段
-            if (agent.emotion && state.emotion) {
-              if (state.emotion.current && agent.emotion.current) {
-                for (const [dim, val] of Object.entries(state.emotion.current)) {
-                  if (Number.isFinite(val)) agent.emotion.current[dim] = val;
-                }
-              }
-              if (Number.isFinite(state.emotion.stress) && agent.emotion.setStress) {
-                agent.emotion.setStress(state.emotion.stress);
+        if (agent) {
+          // Emotion: restore current values and stress
+          if (agent.emotion && state.emotion) {
+            if (state.emotion.current && agent.emotion.current) {
+              for (const [dim, val] of Object.entries(state.emotion.current)) {
+                if (Number.isFinite(val)) agent.emotion.current[dim] = val;
               }
             }
-            if (state.position !== undefined) agent.position = state.position;
-            if (state.health !== undefined) agent.health = state.health;
-            if (Number.isFinite(state.socialEnergy)) agent.socialEnergy = state.socialEnergy;
+            if (Number.isFinite(state.emotion.stress) && agent.emotion.setStress) {
+              agent.emotion.setStress(state.emotion.stress);
+            }
+            // R9: restore mood (running average of emotion)
+            if (state.emotion.mood && agent.emotion.mood) {
+              for (const [dim, val] of Object.entries(state.emotion.mood)) {
+                if (Number.isFinite(val)) agent.emotion.mood[dim] = val;
+              }
+            }
           }
+          // R9: restore needs
+          if (agent.needs && state.needs && state.needs.needs) {
+            for (const [need, val] of Object.entries(state.needs.needs)) {
+              if (Number.isFinite(val) && agent.needs.needs[need] !== undefined) {
+                agent.needs.needs[need] = val;
+              }
+            }
+          }
+          if (state.position !== undefined) agent.position = state.position;
+          if (state.health !== undefined) agent.health = state.health;
+          if (Number.isFinite(state.socialEnergy)) agent.socialEnergy = state.socialEnergy;
+          // R9: restore behaviorField B vector
+          if (state.behaviorField && state.behaviorField.B && agent.behaviorField) {
+            for (let i = 0; i < Math.min(state.behaviorField.B.length, agent.behaviorField.B.length); i++) {
+              if (Number.isFinite(state.behaviorField.B[i])) {
+                agent.behaviorField.B[i] = state.behaviorField.B[i];
+              }
+            }
+          }
+          // R9: restore stateMachine currentState
+          if (state.stateMachine && state.stateMachine.currentState && agent.stateMachine) {
+            agent.stateMachine.currentState = state.stateMachine.currentState;
+          }
+          // R9: restore tick counters
+          if (Number.isFinite(state._ticksSinceReflection)) {
+            agent._ticksSinceReflection = state._ticksSinceReflection;
+          }
+          if (Number.isFinite(state._ticksSinceDriftCheck)) {
+            agent._ticksSinceDriftCheck = state._ticksSinceDriftCheck;
+          }
+        }
       } catch {
         // 跳过损坏的条目
       }

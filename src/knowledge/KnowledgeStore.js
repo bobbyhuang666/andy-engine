@@ -224,7 +224,9 @@ class KnowledgeStore {
 
     if (data.evidence) {
       for (const [key, ev] of Object.entries(data.evidence)) {
-        store._evidence.set(key, ev);
+        // R9 fix: normalize evidence objects to ensure all fields have proper
+        // defaults (null instead of undefined for propagatedFrom/eventId)
+        store._evidence.set(key, store._normalizeEvidence(ev));
       }
     } else if (data.sources) {
       for (const [key, source] of Object.entries(data.sources)) {

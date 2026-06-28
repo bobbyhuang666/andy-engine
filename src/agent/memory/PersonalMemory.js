@@ -566,11 +566,15 @@ class PersonalMemory {
     for (const dim of positiveDims) {
       if (memory.emotionSnapshot[dim] !== undefined) {
         memory.emotionSnapshot[dim] += valenceUpdate * 0.3;
+        // R9 fix: clamp to valid range to prevent unbounded drift
+        memory.emotionSnapshot[dim] = Math.max(-1, Math.min(1, memory.emotionSnapshot[dim]));
       }
     }
     for (const dim of negativeDims) {
       if (memory.emotionSnapshot[dim] !== undefined) {
         memory.emotionSnapshot[dim] -= valenceUpdate * 0.2;
+        // R9 fix: clamp to valid range to prevent unbounded drift
+        memory.emotionSnapshot[dim] = Math.max(-1, Math.min(1, memory.emotionSnapshot[dim]));
       }
     }
   }
@@ -636,7 +640,14 @@ class PersonalMemory {
   _buildCacheKey(context, limit) {
     const kw = (context.keywords || []).slice().sort().join(',');
     const region = context.region || '';
-    return `${kw}|${limit}|${region}`;
+    // R9 fix: include emotion valence/arousal and semanticCategory in cache key.
+    // Without these, retrieve() calls with different emotion contexts or
+    // semanticCategory values but same keywords/region/limit return stale results.
+    const emVal = context.emotion ? Math.round((context.emotion.valence || 0) * 100) : '';
+    const emAro = context.emotion ? Math.round((context.emotion.arousal || 0) * 100) : '';
+    const semCat = context.semanticCategory || '';
+    const agentId = context.agentId || '';
+    return `${kw}|${limit}|${region}|v${emVal}|a${emAro}|${semCat}|${agentId}`;
   }
 
   // ═══════════════════════════════════════════
@@ -737,9 +748,17 @@ class PersonalMemory {
               this.memories[keep].importance + 0.1
             );
             this.memories[keep].accessCount += this.memories[remove].accessCount;
-            // Use loop instead of spread to avoid stack overflow with large arrays
+            // R9 fix: deduplicate presentation timestamps during merge.
+            // Without dedup, shared timestamps inflate base-level activation.
+            const existingTimes = new Set(
+              this.memories[keep].presentations.map(t => t instanceof Date ? t.getTime() : t)
+            );
             for (const p of this.memories[remove].presentations) {
-              this.memories[keep].presentations.push(p);
+              const key = p instanceof Date ? p.getTime() : p;
+              if (!existingTimes.has(key)) {
+                this.memories[keep].presentations.push(p);
+                existingTimes.add(key);
+              }
             }
             // R7 fix: cap presentations after consolidation merge
             if (this.memories[keep].presentations.length > cfg.maxPresentationsPerMemory) {

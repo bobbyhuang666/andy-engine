@@ -34,15 +34,15 @@ function toWorldState(engine, worldId) {
   }));
 
   // 提取 Stable Envelope: relationships（仅公共字段）
-  const rawEdges = originalSnapshot.socialGraph || [];
-  const relationships = Array.isArray(rawEdges)
-    ? rawEdges.map(edge => ({
-        from: edge.agentA,
-        to: edge.agentB,
-        type: edge.type,
-        strength: edge.strength,
-      }))
-    : [];
+  const rawGraph = originalSnapshot.socialGraph || [];
+  // R9 fix: SocialGraph.toJSON() now returns {edges, _tickCount} instead of plain array
+  const rawEdges = Array.isArray(rawGraph) ? rawGraph : (rawGraph.edges || []);
+  const relationships = rawEdges.map(edge => ({
+    from: edge.agentA,
+    to: edge.agentB,
+    type: edge.type,
+    strength: edge.strength,
+  }));
 
   // 提取 Stable Envelope: events（仅公共字段）
   const rawEventLog = (originalSnapshot.events && originalSnapshot.events.eventLog) || [];

@@ -21,8 +21,15 @@ class SocialGraph {
     /** @type {Map<string, Map<string, Relationship>>} agentId → { otherId → Relationship } */
     this._adjacency = new Map();
 
-    if (savedEdges) {
-      for (const edge of savedEdges) {
+    // R9 fix: handle both new format {edges, _tickCount} and legacy format (plain array)
+    let edges = savedEdges;
+    if (savedEdges && !Array.isArray(savedEdges) && Array.isArray(savedEdges.edges)) {
+      edges = savedEdges.edges;
+      this._tickCount = savedEdges._tickCount || 0;
+    }
+
+    if (edges) {
+      for (const edge of edges) {
         const rel = new Relationship(edge.agentA, edge.agentB, edge);
         this._ensureNode(edge.agentA);
         this._ensureNode(edge.agentB);
@@ -410,16 +417,23 @@ class SocialGraph {
    * 序列化
    */
   toJSON() {
-    return this.snapshot().edges;
+    // R9 fix: include _tickCount to preserve triadic closure and Dunbar timing
+    return { edges: this.snapshot().edges, _tickCount: this._tickCount || 0 };
   }
 
   /**
    * 从 toJSON 输出反序列化为 SocialGraph 实例。
-   * @param {Object[]} json - toJSON() 产出的关系边数组
+   * @param {Object|Object[]} json - toJSON() 产出（object with edges + _tickCount, or legacy edges array）
    * @returns {SocialGraph}
    */
   static fromJSON(json) {
-    return new SocialGraph(json);
+    // R9 fix: handle both new format {edges, _tickCount} and legacy format (plain array)
+    const edges = Array.isArray(json) ? json : json.edges;
+    const graph = new SocialGraph(edges);
+    if (!Array.isArray(json) && typeof json._tickCount === 'number') {
+      graph._tickCount = json._tickCount;
+    }
+    return graph;
   }
 }
 

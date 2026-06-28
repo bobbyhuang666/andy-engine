@@ -378,29 +378,39 @@ class BehaviorField {
 
     const effectiveWeight = weight * maxDrive;
 
+    // R9 fix: compute emotion gradient into a separate array first, so that
+    // arousal amplification only affects the emotion contribution — not the
+    // needs gradient that was already added to `grad`.
+    const emotionGrad = [0, 0, 0, 0];
+
     if (approachDrive >= avoidDrive && approachDrive >= agenticDrive) {
       // 趋近：增加社交和表达（梯度为负值，通过 -∇U·dt 增加维度）
       for (let d = 0; d < DIMS; d++) {
-        grad[d] -= effectiveWeight * EMOTION_TARGETS.approach[d];
+        emotionGrad[d] = -effectiveWeight * EMOTION_TARGETS.approach[d];
       }
     } else if (avoidDrive >= agenticDrive) {
       // 回避：退缩（梯度为正值，通过 -∇U·dt 减少维度）
       for (let d = 0; d < DIMS; d++) {
-        grad[d] -= effectiveWeight * EMOTION_TARGETS.avoid[d];
+        emotionGrad[d] = -effectiveWeight * EMOTION_TARGETS.avoid[d];
       }
     } else {
       // 代理（愤怒/挫败）
       for (let d = 0; d < DIMS; d++) {
-        grad[d] -= effectiveWeight * EMOTION_TARGETS.agentic[d];
+        emotionGrad[d] = -effectiveWeight * EMOTION_TARGETS.agentic[d];
       }
     }
 
-    // 高唤醒度放大所有情绪梯度
+    // 高唤醒度放大情绪梯度（仅情绪部分，不影响需求梯度）
     if (arousal > 0.6) {
       const amp = 1 + (arousal - 0.6) * 1.5;
       for (let d = 0; d < DIMS; d++) {
-        grad[d] *= amp;
+        emotionGrad[d] *= amp;
       }
+    }
+
+    // Add computed emotion gradient to accumulated gradient
+    for (let d = 0; d < DIMS; d++) {
+      grad[d] += emotionGrad[d];
     }
   }
 

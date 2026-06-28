@@ -208,6 +208,10 @@ class Andy {
       character._engine = world._engine;
       character._ownsEngine = false;
       character._agent = world._engine.getAgent(character.id);
+      // R9 fix: guard against missing agent (corrupt save / domain mismatch)
+      if (!character._agent) {
+        throw new Error(`Andy.load(): agent "${character.id}" not found in restored engine. The save data may be corrupted or the domain configuration may have changed.`);
+      }
       world._characters.set(id, character);
     }
     return world;

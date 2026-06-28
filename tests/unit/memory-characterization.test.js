@@ -156,6 +156,9 @@ describe('v2.3-W2: PersonalMemory consolidate characterization', () => {
     mem.consolidate();
     const kept = mem.memories[0];
     expect(kept.accessCount).toBe(beforeKeepAcc + beforeRemoveAcc);
-    expect(kept.presentations.length).toBe(beforeKeepPres + beforeRemovePres);
+    // R9 fix: presentations are deduplicated during merge (shared timestamps removed).
+    // The count may be less than the raw sum if both memories share presentation timestamps.
+    expect(kept.presentations.length).toBeLessThanOrEqual(beforeKeepPres + beforeRemovePres);
+    expect(kept.presentations.length).toBeGreaterThanOrEqual(Math.max(beforeKeepPres, beforeRemovePres));
   });
 });

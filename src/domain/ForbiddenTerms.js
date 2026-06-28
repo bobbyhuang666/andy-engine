@@ -18,7 +18,11 @@ function applyForbiddenTerms(text, domain) {
 
   let result = text;
   for (const term of domain.forbiddenTerms) {
-    result = result.replace(new RegExp(term, 'g'), '***');
+    // R9 fix: escape regex special characters to prevent regex injection.
+    // Without this, terms like "C++" or "vs." would be interpreted as
+    // regex syntax rather than literal text.
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    result = result.replace(new RegExp(escaped, 'g'), '***');
   }
   return result;
 }

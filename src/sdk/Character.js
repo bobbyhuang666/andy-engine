@@ -114,8 +114,13 @@ class Character {
       maxMessages: config.maxMessages || 50,
     });
 
-    // 首次 tick（初始化状态）
-    this._engine.tick();
+    // 首次 tick（初始化状态）— only for owned (non-shared) engines.
+    // R9 fix: shared engines are ticked by their owner; auto-ticking here
+    // advances the shared world by one tick per character creation, causing
+    // time jumps and inconsistent state in multi-character setups.
+    if (this._ownsEngine) {
+      this._engine.tick();
+    }
   }
 
   // ═══════════════════════════════════════════
@@ -372,6 +377,10 @@ class Character {
     character._engine = engine;
     character._ownsEngine = true;
     character._agent = engine.getAgent(state.id);
+    // R9 fix: guard against missing agent (corrupt save / domain mismatch)
+    if (!character._agent) {
+      throw new Error(`Character.load(): agent "${state.id}" not found in restored engine. The save data may be corrupted or the domain configuration may have changed.`);
+    }
     character._llm = new LLMAdapter(llmConfig || {});
     character._autoTick = AutoTick.fromJSON(state.autoTick || {});
     character._conversation = ConversationLog.fromJSON(state.conversation);

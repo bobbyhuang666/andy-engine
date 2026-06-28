@@ -187,7 +187,9 @@ describe('D6 Social Emergence E2E', () => {
       }
 
       // Capture post-development edge snapshot (edges may have grown from encounters)
-      const edgesBeforeSave = graph.toJSON();
+      const graphJSON = graph.toJSON();
+      // R9: SocialGraph.toJSON() now returns {edges, _tickCount}
+      const edgesBeforeSave = graphJSON.edges || graphJSON;
       const edgeCountBeforeSave = edgesBeforeSave.length;
 
       // Build a lookup for pre-serialization edge strengths
@@ -205,7 +207,9 @@ describe('D6 Social Emergence E2E', () => {
 
       // Verify restored graph immediately matches pre-serialization structure
       const restoredGraph = restoredEngine.world.socialGraph;
-      const restoredEdges = restoredGraph.toJSON();
+      const restoredEdgesJSON = restoredGraph.toJSON();
+      // R9: SocialGraph.toJSON() now returns {edges, _tickCount}
+      const restoredEdges = restoredEdgesJSON.edges || restoredEdgesJSON;
       expect(restoredEdges.length).toBe(edgeCountBeforeSave);
 
       // Verify each pre-serialization edge exists in restored graph
@@ -230,7 +234,8 @@ describe('D6 Social Emergence E2E', () => {
       }
 
       // Post-continuation: edges still valid, strengths in [0,1]
-      const postEdges = restoredGraph.toJSON();
+      const postEdgesJSON = restoredGraph.toJSON();
+      const postEdges = postEdgesJSON.edges || postEdgesJSON;
       for (const edge of postEdges) {
         expect(edge.strength).toBeGreaterThanOrEqual(0);
         expect(edge.strength).toBeLessThanOrEqual(1);

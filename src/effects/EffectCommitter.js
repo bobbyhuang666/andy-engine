@@ -165,6 +165,12 @@ class EffectCommitter {
 
     if (delta.to !== agent.position) {
       agent.position = delta.to;
+      // R9 fix: sync RegionGrid when position changes via EffectCommitter.
+      // Without this, agent.position and RegionGrid occupancy diverge,
+      // causing encounter detection to use stale region data.
+      if (this.world?.regions && typeof this.world.regions.place === 'function') {
+        this.world.regions.place(agent.id, delta.to);
+      }
     }
   }
 
