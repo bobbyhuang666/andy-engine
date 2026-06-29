@@ -86,14 +86,17 @@ describe('Fact System Tavern Runnable Slice', () => {
     // Mira should have NO private/local facts about 酒馆
     expect(mira酒馆Facts.length).toBe(0);
 
-    // ─── Assert: Leo 完全不知道 ───
+    // ─── Assert: Leo 不知道 Bobby 离开广场的事件 ───
 
-    // Leo's allowed facts should only contain public facts and his own state
-    // He should NOT have any local facts from 广场 or 酒馆
-    const leo广场LocalFacts = leoGrounding.allowedFacts.filter(f =>
+    // Leo may have participated in other 广场 events (he moved there during tick),
+    // but he should NOT know about the Bobby movement event specifically.
+    // The more specific check (line 69) already verifies he lacks moveEvent;
+    // here we confirm: no 广场 local event involving Bobby is in Leo's grounding.
+    const leoBobby广场Facts = leoGrounding.allowedFacts.filter(f =>
       f.location === '广场' && f.scope === 'local' && f.type === 'event'
+      && f.participants && f.participants.includes('bobby')
     );
-    expect(leo广场LocalFacts.length).toBe(0);
+    expect(leoBobby广场Facts.length).toBe(0);
 
     // ─── Assert: ConsistencyChecker ───
 

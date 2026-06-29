@@ -99,6 +99,12 @@ class EventDispatcher {
     if (params.reasonTrace !== undefined) event.reasonTrace = params.reasonTrace;
     if (params.stateDeltas !== undefined) event.stateDeltas = params.stateDeltas;
     if (params.metadata !== undefined) event.metadata = params.metadata;
+    // R29 P0-001 fix: propagate location field from draft events.
+    // R28 P1-004 added location to generateEncounterEvent/generateRandomEvent,
+    // but createEvent() was silently dropping it, making the R28 fix a no-op.
+    // Without location, CanonEventPipeline creates facts with empty location,
+    // causing location-meaning and future-tendency subsystems to be dead code.
+    if (params.location !== undefined) event.location = params.location;
 
     this.pendingEvents.push(event);
     return event;

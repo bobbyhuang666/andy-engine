@@ -10,7 +10,7 @@
     "nodeVersion": "26",
     "nativeMode": "disabled",
     "generationCommand": "npm run golden:regen",
-    "generatedAt": "2026-06-29T04:17:45.320Z"
+    "generatedAt": "2026-06-29T06:31:53.486Z"
   },
   "schemaVersion": "0.1.0",
   "worldId": "golden-campus-v1",
@@ -920,6 +920,7 @@
               "associations": [
                 "maya",
                 "自习室",
+                "自习室",
                 "在网吧"
               ],
               "eventId": "evt_38",
@@ -954,6 +955,7 @@
               "accessCount": 7,
               "associations": [
                 "maya",
+                "办公室",
                 "食堂",
                 "在网吧"
               ],
@@ -991,6 +993,7 @@
                 "maya",
                 "leo",
                 "食堂",
+                "食堂",
                 "在咖啡店"
               ],
               "eventId": "evt_56",
@@ -1025,6 +1028,7 @@
               "accessCount": 67,
               "associations": [
                 "maya",
+                "办公室",
                 "打工地点",
                 "在公园"
               ],
@@ -1056,10 +1060,11 @@
               "content": "手机突然响了一下，是条无聊的推送",
               "category": "random",
               "emotionTag": "neutral",
-              "importance": 0.01,
-              "accessCount": 2,
+              "importance": 0.08692707054926226,
+              "accessCount": 11,
               "associations": [
                 "maya",
+                "商场",
                 "商场",
                 "在校园广场"
               ],
@@ -1095,6 +1100,7 @@
               "accessCount": 32,
               "associations": [
                 "maya",
+                "打工地点",
                 "办公室",
                 "在校园广场"
               ],
@@ -1122,41 +1128,6 @@
               }
             },
             {
-              "id": "mem_maya_44",
-              "content": "手机突然响了一下，是条无聊的推送",
-              "category": "random",
-              "emotionTag": "happy",
-              "importance": 0.12379266025399192,
-              "accessCount": 25,
-              "associations": [
-                "maya",
-                "家",
-                "在校园广场"
-              ],
-              "eventId": "evt_64",
-              "emotionSnapshot": {
-                "joy": 0.3817365483794021,
-                "calm": 0.2627492445452516,
-                "anger": -0.2451382446045083,
-                "interest": 0.24151441638926782,
-                "contentment": 0.23757228267442448,
-                "frustration": -0.23481448142047626,
-                "excitement": 0.21938749140779276,
-                "satisfaction": 0.20333695166327978,
-                "hope": 0.18034658093065822,
-                "love": 0.14466693780314588
-              },
-              "semanticCategory": "社交互动",
-              "appraisal": {
-                "valence": 0.022674409862742557,
-                "suddenness": 0.3885,
-                "goalRelevance": 0.575,
-                "copingPotential": 0.7658908621178968,
-                "agency": "chance",
-                "importance": 0.007486080825579574
-              }
-            },
-            {
               "id": "mem_maya_55",
               "content": "阳光正好，心情也好了",
               "category": "random",
@@ -1165,6 +1136,7 @@
               "accessCount": 160,
               "associations": [
                 "maya",
+                "打工地点",
                 "图书馆",
                 "在校园广场"
               ],
@@ -1192,6 +1164,42 @@
               }
             },
             {
+              "id": "mem_maya_65",
+              "content": "手机突然响了一下，是条无聊的推送",
+              "category": "random",
+              "emotionTag": "happy",
+              "importance": 0.29391021127661476,
+              "accessCount": 16,
+              "associations": [
+                "maya",
+                "商场",
+                "咖啡店",
+                "在聊天"
+              ],
+              "eventId": "evt_64",
+              "emotionSnapshot": {
+                "joy": 0.5003191680713507,
+                "calm": 0.3484212669591243,
+                "anger": -0.27075133259225703,
+                "frustration": -0.2546990679905252,
+                "interest": 0.24771367889979246,
+                "contentment": 0.24734285512168974,
+                "sadness": -0.24050465357421905,
+                "satisfaction": 0.22669415043492933,
+                "excitement": 0.21181943089004673,
+                "hope": 0.1772971228321116
+              },
+              "semanticCategory": "社交互动",
+              "appraisal": {
+                "valence": 0.02610497278256109,
+                "suddenness": 0.3885,
+                "goalRelevance": 0.575,
+                "copingPotential": 0.7537004849295063,
+                "agency": "chance",
+                "importance": 0.007526928493842148
+              }
+            },
+            {
               "id": "mem_maya_108",
               "content": "闻到了一股好闻的味道",
               "category": "random",
@@ -1200,6 +1208,7 @@
               "accessCount": 26,
               "associations": [
                 "maya",
+                "教室",
                 "校园广场",
                 "在聊天"
               ],
@@ -1236,6 +1245,7 @@
               "associations": [
                 "maya",
                 "图书馆",
+                "图书馆",
                 "在公园"
               ],
               "eventId": "evt_82",
@@ -1270,6 +1280,7 @@
               "accessCount": 1,
               "associations": [
                 "maya",
+                "教室",
                 "图书馆",
                 "在公园"
               ],
@@ -1306,6 +1317,7 @@
               "associations": [
                 "maya",
                 "图书馆",
+                "图书馆",
                 "在公园"
               ],
               "eventId": "evt_83",
@@ -1340,6 +1352,7 @@
               "accessCount": 1,
               "associations": [
                 "maya",
+                "图书馆",
                 "图书馆",
                 "在公园"
               ],
@@ -1376,6 +1389,7 @@
               "associations": [
                 "maya",
                 "图书馆",
+                "图书馆",
                 "在公园"
               ],
               "eventId": "evt_83",
@@ -1410,6 +1424,7 @@
               "accessCount": 1,
               "associations": [
                 "maya",
+                "图书馆",
                 "图书馆",
                 "在公园"
               ],
@@ -1446,6 +1461,7 @@
               "associations": [
                 "maya",
                 "图书馆",
+                "图书馆",
                 "在公园"
               ],
               "eventId": "evt_83",
@@ -1480,6 +1496,7 @@
               "accessCount": 1,
               "associations": [
                 "maya",
+                "图书馆",
                 "图书馆",
                 "在公园"
               ],
@@ -1516,6 +1533,7 @@
               "associations": [
                 "maya",
                 "图书馆",
+                "图书馆",
                 "在公园"
               ],
               "eventId": "evt_83",
@@ -1551,6 +1569,7 @@
               "associations": [
                 "maya",
                 "图书馆",
+                "图书馆",
                 "在公园"
               ],
               "eventId": "evt_82",
@@ -1585,6 +1604,7 @@
               "accessCount": 1,
               "associations": [
                 "maya",
+                "图书馆",
                 "图书馆",
                 "在公园"
               ],
@@ -2968,6 +2988,7 @@
               "associations": [
                 "leo",
                 "便利店",
+                "便利店",
                 "看完了"
               ],
               "eventId": "evt_8",
@@ -3002,6 +3023,7 @@
               "accessCount": 8,
               "associations": [
                 "leo",
+                "教学楼",
                 "教学楼",
                 "到家了"
               ],
@@ -3038,6 +3060,7 @@
               "associations": [
                 "leo",
                 "办公室",
+                "办公室",
                 "在公园"
               ],
               "eventId": "evt_50",
@@ -3072,6 +3095,7 @@
               "accessCount": 9,
               "associations": [
                 "leo",
+                "食堂",
                 "操场",
                 "在公园"
               ],
@@ -3108,6 +3132,7 @@
               "associations": [
                 "leo",
                 "食堂",
+                "食堂",
                 "在校园广场"
               ],
               "eventId": "evt_47",
@@ -3142,6 +3167,7 @@
               "accessCount": 40,
               "associations": [
                 "leo",
+                "便利店",
                 "食堂",
                 "在校园广场"
               ],
@@ -3177,6 +3203,7 @@
               "accessCount": 7,
               "associations": [
                 "leo",
+                "办公室",
                 "公园",
                 "在校园广场"
               ],
@@ -3214,6 +3241,7 @@
                 "maya",
                 "leo",
                 "食堂",
+                "食堂",
                 "在校园广场"
               ],
               "eventId": "evt_56",
@@ -3249,6 +3277,7 @@
               "associations": [
                 "leo",
                 "食堂",
+                "食堂",
                 "在校园广场"
               ],
               "eventId": "evt_58",
@@ -3283,6 +3312,7 @@
               "accessCount": 4,
               "associations": [
                 "leo",
+                "便利店",
                 "网吧",
                 "在校园广场"
               ],
@@ -3319,6 +3349,7 @@
               "associations": [
                 "maya",
                 "leo",
+                "食堂",
                 "商场",
                 "在聊天"
               ],
@@ -3354,6 +3385,7 @@
               "accessCount": 2,
               "associations": [
                 "leo",
+                "食堂",
                 "商场",
                 "在聊天"
               ],
@@ -3389,6 +3421,7 @@
               "accessCount": 1036,
               "associations": [
                 "leo",
+                "家",
                 "宿舍",
                 "在聊天"
               ],
@@ -3424,6 +3457,7 @@
               "accessCount": 139,
               "associations": [
                 "leo",
+                "教室",
                 "宿舍",
                 "在聊天"
               ],
@@ -3459,6 +3493,7 @@
               "accessCount": 12,
               "associations": [
                 "leo",
+                "教室",
                 "操场",
                 "在聊天"
               ],
@@ -3494,6 +3529,7 @@
               "accessCount": 59,
               "associations": [
                 "leo",
+                "教室",
                 "操场",
                 "在聊天"
               ],
@@ -3530,6 +3566,7 @@
               "associations": [
                 "leo",
                 "教室",
+                "教室",
                 "在公园"
               ],
               "eventId": "evt_79",
@@ -3564,6 +3601,7 @@
               "accessCount": 1,
               "associations": [
                 "leo",
+                "网吧",
                 "回家路上",
                 "在公园"
               ],
@@ -3599,6 +3637,7 @@
               "accessCount": 1,
               "associations": [
                 "leo",
+                "教室",
                 "回家路上",
                 "在公园"
               ],
@@ -3634,6 +3673,7 @@
               "accessCount": 1,
               "associations": [
                 "leo",
+                "网吧",
                 "回家路上",
                 "在公园"
               ],
@@ -3669,6 +3709,7 @@
               "accessCount": 1,
               "associations": [
                 "leo",
+                "教室",
                 "回家路上",
                 "在公园"
               ],
@@ -3704,6 +3745,7 @@
               "accessCount": 1,
               "associations": [
                 "leo",
+                "网吧",
                 "回家路上",
                 "在公园"
               ],
@@ -3739,6 +3781,7 @@
               "accessCount": 1,
               "associations": [
                 "leo",
+                "教室",
                 "回家路上",
                 "在公园"
               ],
@@ -3774,6 +3817,7 @@
               "accessCount": 1,
               "associations": [
                 "leo",
+                "网吧",
                 "回家路上",
                 "在公园"
               ],
@@ -3809,6 +3853,7 @@
               "accessCount": 1,
               "associations": [
                 "leo",
+                "教室",
                 "回家路上",
                 "在公园"
               ],
@@ -5063,7 +5108,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "生活杂事"
+          "semanticCategory": "生活杂事",
+          "location": "便利店"
         },
         {
           "id": "evt_9",
@@ -5194,7 +5240,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "环境天气"
+          "semanticCategory": "环境天气",
+          "location": "教学楼"
         },
         {
           "id": "evt_19",
@@ -5445,7 +5492,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "日常琐事"
+          "semanticCategory": "日常琐事",
+          "location": "自习室"
         },
         {
           "id": "evt_39",
@@ -5564,7 +5612,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "美食享受"
+          "semanticCategory": "美食享受",
+          "location": "食堂"
         },
         {
           "id": "evt_48",
@@ -5599,7 +5648,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "生活杂事"
+          "semanticCategory": "生活杂事",
+          "location": "便利店"
         },
         {
           "id": "evt_50",
@@ -5621,7 +5671,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "身体感受"
+          "semanticCategory": "身体感受",
+          "location": "办公室"
         },
         {
           "id": "evt_51",
@@ -5669,7 +5720,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "日常琐事"
+          "semanticCategory": "日常琐事",
+          "location": "办公室"
         },
         {
           "id": "evt_54",
@@ -5743,7 +5795,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "社交互动"
+          "semanticCategory": "社交互动",
+          "location": "食堂"
         },
         {
           "id": "evt_57",
@@ -5777,7 +5830,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "社交互动"
+          "semanticCategory": "社交互动",
+          "location": "食堂"
         },
         {
           "id": "evt_59",
@@ -5824,7 +5878,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "环境天气"
+          "semanticCategory": "环境天气",
+          "location": "打工地点"
         },
         {
           "id": "evt_62",
@@ -5847,7 +5902,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "休闲娱乐"
+          "semanticCategory": "休闲娱乐",
+          "location": "家"
         },
         {
           "id": "evt_63",
@@ -5881,7 +5937,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "社交互动"
+          "semanticCategory": "社交互动",
+          "location": "商场"
         },
         {
           "id": "evt_65",
@@ -5904,7 +5961,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "日常琐事"
+          "semanticCategory": "日常琐事",
+          "location": "教室"
         },
         {
           "id": "evt_66",
@@ -5939,7 +5997,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "环境天气"
+          "semanticCategory": "环境天气",
+          "location": "图书馆"
         },
         {
           "id": "evt_68",
@@ -5998,7 +6057,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "身体感受"
+          "semanticCategory": "身体感受",
+          "location": "教室"
         },
         {
           "id": "evt_72",
@@ -6048,7 +6108,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "美食享受"
+          "semanticCategory": "美食享受",
+          "location": "教室"
         },
         {
           "id": "evt_75",
@@ -6095,7 +6156,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "身体感受"
+          "semanticCategory": "身体感受",
+          "location": "网吧"
         },
         {
           "id": "evt_78",
@@ -6130,7 +6192,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "自然风光"
+          "semanticCategory": "自然风光",
+          "location": "教室"
         },
         {
           "id": "evt_80",
@@ -6177,7 +6240,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "日常琐事"
+          "semanticCategory": "日常琐事",
+          "location": "图书馆"
         },
         {
           "id": "evt_83",
@@ -6200,7 +6264,8 @@
             }
           ],
           "cause": null,
-          "semanticCategory": "日常琐事"
+          "semanticCategory": "日常琐事",
+          "location": "图书馆"
         },
         {
           "id": "evt_84",

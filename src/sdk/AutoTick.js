@@ -28,8 +28,16 @@ class AutoTick {
     // R28 P1-002 fix: use seeded RNG fallback instead of Math.random.
     // Raw Math.random breaks determinism — same conversation replayed with
     // the same engine seed produces different tick counts between messages.
-    // Callers should pass their own seeded RNG for full determinism.
-    this._rng = options.rng || new RNG(0).next.bind(new RNG(0));
+    // R29 P1-001 fix: create single RNG instance and bind its next method.
+    // Previous pattern new RNG(0).next.bind(new RNG(0)) created two instances
+    // where the first was orphaned garbage. Callers should pass their own
+    // seeded RNG for full determinism.
+    if (options.rng) {
+      this._rng = options.rng;
+    } else {
+      const fallbackRng = new RNG(0);
+      this._rng = fallbackRng.next.bind(fallbackRng);
+    }
 
     this._lastMessageTime = null;
     this._lastSimTime = null;
