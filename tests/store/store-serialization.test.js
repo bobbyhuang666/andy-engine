@@ -119,13 +119,15 @@ describe('Serialization.serialize', () => {
 
     const envelope = Serialization.serialize(engine.world);
 
-    // Envelope 只有 3 个顶层字段
+    // Envelope 有 version, schemaVersion, timestamp, runtimeSnapshot 四个顶层字段
+    // R22: schemaVersion added for Stable Envelope compatibility
     const keys = Object.keys(envelope);
     expect(keys).toContain('version');
+    expect(keys).toContain('schemaVersion');
     expect(keys).toContain('timestamp');
     expect(keys).toContain('runtimeSnapshot');
     // 不应有其他字段泄漏
-    expect(keys.length).toBe(3);
+    expect(keys.length).toBe(4);
   });
 
   it('拒绝没有 toJSON 的对象', () => {
@@ -354,9 +356,11 @@ describe('运行时快照不透明性', () => {
   });
 
   it('不同版本的 runtimeSnapshot 结构可以不同', () => {
-    // 模拟旧版本快照
+    // R22: deserialize now validates version, so use current version
+    // but with different runtimeSnapshot structure
     const oldEnvelope = {
-      version: '0.0.1',
+      version: '0.1.0',
+      schemaVersion: '0.1.0',
       timestamp: '2026-01-01T00:00:00Z',
       runtimeSnapshot: {
         time: '2026-01-01T00:00:00Z',
@@ -396,14 +400,15 @@ describe('SnapshotStore 抽象接口', () => {
 // ═══════════════════════════════════════════
 
 describe('Envelope 结构稳定性', () => {
-  it('Envelope 只有 version, timestamp, runtimeSnapshot 三个字段', () => {
+  it('Envelope 有 version, schemaVersion, timestamp, runtimeSnapshot 四个字段', () => {
     const engine = createTestEngine();
     engine.tick();
 
     const envelope = Serialization.serialize(engine.world);
     const keys = Object.keys(envelope).sort();
 
-    expect(keys).toEqual(['runtimeSnapshot', 'timestamp', 'version']);
+    // R22: schemaVersion added for Stable Envelope compatibility
+    expect(keys).toEqual(['runtimeSnapshot', 'schemaVersion', 'timestamp', 'version']);
   });
 
   it('version 字段是字符串', () => {

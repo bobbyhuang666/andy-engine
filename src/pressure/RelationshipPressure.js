@@ -34,7 +34,11 @@ class RelationshipPressure {
     const { isolationCount, conflictRatio, decayHours } = { ...DEFAULT_THRESHOLDS, ...thresholds };
 
     // 孤立压力
-    const activeCount = relationships.filter(r => r.strength > 0.1).length;
+    // R22 P1 fix: treat NaN strength as active (don't silently drop)
+    const activeCount = relationships.filter(r => {
+      if (typeof r.strength !== 'number' || !Number.isFinite(r.strength)) return true; // treat NaN as potentially active
+      return r.strength > 0.1;
+    }).length;
     const isolation = activeCount < isolationCount
       ? Math.max(0, 1 - activeCount / isolationCount)
       : 0;
@@ -45,9 +49,12 @@ class RelationshipPressure {
     for (const rel of relationships) {
       if (!rel.impression) continue;
       const { positive = 0, negative = 0 } = rel.impression;
-      const total = positive + negative;
-      if (total > 0 && (negative / total) > conflictRatio) {
-        conflictSum += negative / total;
+      // R22 P1 fix: NaN guard for impression values
+      const pos = (typeof positive === 'number' && Number.isFinite(positive)) ? positive : 0;
+      const neg = (typeof negative === 'number' && Number.isFinite(negative)) ? negative : 0;
+      const total = pos + neg;
+      if (total > 0 && (neg / total) > conflictRatio) {
+        conflictSum += neg / total;
         conflictCount++;
       }
     }

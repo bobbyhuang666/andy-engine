@@ -78,36 +78,40 @@ function scoreCandidates(candidates, context) {
 // ═══════════════════════════════════════════
 
 function scoreNeed(candidate, context) {
+  // R22 fix: added 'work' → 'stimulation' mapping and comfort support.
+  // rest maps to both 'energy' and 'comfort'; score the more deficient one.
+  const needMap = {
+    'consume': ['hunger'],
+    'rest': ['energy', 'comfort'],
+    'socialize': ['social'],
+    'explore': ['stimulation'],
+    'work': ['stimulation'],
+  };
+
+  const needKeys = needMap[candidate.type];
+  if (!needKeys) return 0;
+
   if (context.pressureContext && context.pressureContext.needs) {
-    const needMap = {
-      'consume': 'hunger',
-      'rest': 'energy',
-      'socialize': 'social',
-      'explore': 'stimulation',
-    };
-    const needKey = needMap[candidate.type];
-    if (!needKey) return 0;
-    const pressure = context.pressureContext.needs[needKey];
-    if (pressure === undefined) return 0;
-    return Math.max(0, Math.min(1, pressure));
+    let maxPressure = 0;
+    for (const needKey of needKeys) {
+      const pressure = context.pressureContext.needs[needKey];
+      if (pressure !== undefined) {
+        maxPressure = Math.max(maxPressure, Math.max(0, Math.min(1, pressure)));
+      }
+    }
+    return maxPressure;
   }
 
   if (!context.needs) return 0;
 
-  const needMap = {
-    'consume': 'hunger',
-    'rest': 'energy',
-    'socialize': 'social',
-    'explore': 'stimulation',
-  };
-
-  const needKey = needMap[candidate.type];
-  if (!needKey) return 0;
-
-  const current = context.needs[needKey];
-  if (current === undefined) return 0;
-
-  return Math.max(0, 1 - current);
+  let maxDeficit = 0;
+  for (const needKey of needKeys) {
+    const current = context.needs[needKey];
+    if (current !== undefined) {
+      maxDeficit = Math.max(maxDeficit, Math.max(0, 1 - current));
+    }
+  }
+  return maxDeficit;
 }
 
 function scoreEmotion(candidate, context) {

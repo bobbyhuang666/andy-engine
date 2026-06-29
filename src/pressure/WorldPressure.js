@@ -45,8 +45,9 @@ class WorldPressure {
 
   static computeLocation(agent) {
     if (!agent) return 0;
-    if (typeof agent.locationPressure === 'number') return agent.locationPressure;
-    if (typeof agent.locationValence === 'number') return -agent.locationValence;
+    // R22 P1 fix: use Number.isFinite() to block NaN (typeof NaN === 'number' is true)
+    if (typeof agent.locationPressure === 'number' && Number.isFinite(agent.locationPressure)) return agent.locationPressure;
+    if (typeof agent.locationValence === 'number' && Number.isFinite(agent.locationValence)) return -agent.locationValence;
     return 0;
   }
 
@@ -62,9 +63,10 @@ class WorldPressure {
     if (!events || events.length === 0) return 0;
     let total = 0;
     for (const evt of events) {
-      if (typeof evt.pressure === 'number') {
+      // R22 P1 fix: use Number.isFinite() to block NaN
+      if (typeof evt.pressure === 'number' && Number.isFinite(evt.pressure)) {
         total += evt.pressure;
-      } else if (typeof evt.valence === 'number') {
+      } else if (typeof evt.valence === 'number' && Number.isFinite(evt.valence)) {
         total -= evt.valence;
       }
     }

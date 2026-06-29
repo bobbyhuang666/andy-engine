@@ -177,10 +177,14 @@ class AndyWorld {
 
     // ─── 调度器内部状态 ───
     // R9 fix: restore _scheduledEvents from serialized data
-    this._scheduledEvents = (savedState?.scheduledEvents || []).map(e => ({
-      ...e,
-      scheduledFor: e.scheduledFor instanceof Date ? e.scheduledFor : new Date(e.scheduledFor),
-    }));
+    // R22 P1 fix: guard against null/undefined scheduledFor.
+    // new Date(null) → epoch (fires immediately); new Date(undefined) → Invalid Date (never fires).
+    this._scheduledEvents = (savedState?.scheduledEvents || [])
+      .filter(e => e.scheduledFor != null) // skip null/undefined
+      .map(e => ({
+        ...e,
+        scheduledFor: e.scheduledFor instanceof Date ? e.scheduledFor : new Date(e.scheduledFor),
+      }));
     this._tickCallbacks = [];
     this._lastTickTime = null;
   }
@@ -675,8 +679,11 @@ class AndyWorld {
             }));
           }
         } else if (effect.type === 'emotion' && effect.delta) {
-          // R9 fix: apply emotion effects from social encounters (were silently dropped before).
-          deltas.push(new EmotionDelta(effect.target, effect.delta));
+          // R22 P0-3 fix: DO NOT produce EmotionDelta here.
+          // PerceptionRuntime.perceiveEvents (Phase 4, next tick) already applies
+          // encounter emotion effects with proper cognitive appraisal modulation.
+          // Producing EmotionDelta here causes double application (raw + appraised).
+          // Skip — let PerceptionRuntime handle emotion via the appraisal path.
         } else if (effect.type === 'memory' && effect.delta) {
           const d = effect.delta;
           if (d.kind === 'candidate') {

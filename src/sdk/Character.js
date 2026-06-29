@@ -273,7 +273,18 @@ class Character {
       fullReply += token;
     }
 
-    if (fullReply.trim().length === 0) return;
+    // R22 P1 fix: maintain conversation symmetry when LLM returns empty reply.
+    // Previously, empty reply was returned directly without recording assistant
+    // message, creating asymmetric conversation history (user message recorded
+    // but no assistant response). Now matches chat() behavior which returns "..."
+    // for empty replies and records both sides.
+    if (fullReply.trim().length === 0) {
+      const fallback = `[${this.name}沉默了一会儿]`;
+      yield fallback;
+      this._conversation.addAssistantMessage(fallback);
+      this._recordConversation(message, fallback);
+      return;
+    }
 
     // Apply consistency check before yielding any content
     let outputReply = fullReply;

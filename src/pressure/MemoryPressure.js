@@ -55,7 +55,9 @@ class MemoryPressure {
       // 最近记忆的时间衰减贡献
       if (mem.timestamp) {
         const age = now - new Date(mem.timestamp).getTime();
-        const hoursAge = age / (1000 * 60 * 60);
+        // R22 P1 fix: clamp hoursAge to >= 0 to prevent recencyWeight explosion
+        // when simTime is absent/earlier than mem.timestamp (causes negative age).
+        const hoursAge = Math.max(0, age / (1000 * 60 * 60));
         const recencyWeight = Math.exp(-hoursAge / 24);
         recencySum += recencyWeight * Math.abs(valence) * importance;
       }

@@ -12,9 +12,12 @@
  *   - 迁移必须是显式的外部管线，不在序列化中隐式执行
  */
 
-// R21 P0-2: align with CURRENT_SCHEMA_VERSION in validator.js (0.1.0).
-// Mismatch caused validateWorldSpec to reject all serialized envelopes.
-const ENVELOPE_VERSION = '0.1.0';
+// R22 P0-4 fix: import CURRENT_SCHEMA_VERSION from validator to avoid
+// independent declaration that can drift out of sync.
+const { CURRENT_SCHEMA_VERSION } = require('./world/validator');
+
+// Keep ENVELOPE_VERSION as alias for backward compatibility
+const ENVELOPE_VERSION = CURRENT_SCHEMA_VERSION;
 
 class Serialization {
   /**
@@ -29,7 +32,13 @@ class Serialization {
     }
 
     return {
+      // R22 P0-4 fix: emit both 'version' (legacy) and 'schemaVersion' (canonical)
+      // to ensure compatibility with both Serialization.deserialize and
+      // validateWorldState. Previously only 'version' was emitted, but
+      // WorldStateAdapter.toWorldState() emits 'schemaVersion', and
+      // validateWorldState requires 'schemaVersion'.
       version: ENVELOPE_VERSION,
+      schemaVersion: CURRENT_SCHEMA_VERSION,
       timestamp: new Date().toISOString(),
       runtimeSnapshot: world.toJSON(),
     };
@@ -49,8 +58,13 @@ class Serialization {
     if (!envelope || typeof envelope !== 'object') {
       throw new Error('Serialization.deserialize: envelope 必须是对象');
     }
-    if (!envelope.version) {
-      throw new Error('Serialization.deserialize: envelope 缺少 version 字段');
+    // R22 P0-4 fix: accept both 'version' and 'schemaVersion' keys
+    const ver = envelope.version || envelope.schemaVersion;
+    if (!ver) {
+      throw new Error('Serialization.deserialize: envelope 缺少 version/schemaVersion 字段');
+    }
+    if (ver !== CURRENT_SCHEMA_VERSION) {
+      throw new Error(`Serialization.deserialize: envelope 版本 ${ver} 不匹配当前版本 ${CURRENT_SCHEMA_VERSION}`);
     }
     if (!envelope.runtimeSnapshot) {
       throw new Error('Serialization.deserialize: envelope 缺少 runtimeSnapshot 字段');

@@ -30,8 +30,9 @@ class LocationPressure {
    * 计算位置固有压力
    */
   static computeInherent(agent) {
-    if (typeof agent.locationPressure === 'number') return agent.locationPressure;
-    if (typeof agent.locationValence === 'number') return -agent.locationValence;
+    // R22 P1 fix: use Number.isFinite() to block NaN
+    if (typeof agent.locationPressure === 'number' && Number.isFinite(agent.locationPressure)) return agent.locationPressure;
+    if (typeof agent.locationValence === 'number' && Number.isFinite(agent.locationValence)) return -agent.locationValence;
     return 0;
   }
 

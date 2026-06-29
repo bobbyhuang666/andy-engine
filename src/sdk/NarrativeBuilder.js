@@ -164,6 +164,18 @@ class NarrativeBuilder {
         triumph: '得意', interest: '感兴趣', desire: '渴望',
         awe: '敬畏', embarrassment: '尴尬', sympathy: '同情', confusion: '困惑',
       };
+      // R22 P1 fix: negative name mapping for when emotion intensity is below baseline.
+      // intensity > 0 means "above baseline" (e.g. joy=0.5 → happy),
+      // intensity < 0 means "below baseline" (e.g. joy=-0.3 → NOT happy → unhappy).
+      // Without this mapping, negative-intensity positive emotions like joy=-0.3
+      // would be labeled "开心" even though the agent feels the opposite.
+      const negEmotionNames = {
+        joy: '不开心', contentment: '不满足', calm: '不安',
+        excitement: '低落', hope: '失望', satisfaction: '不满意',
+        love: '不喜欢', pride: '自卑', relief: '仍感压力',
+        triumph: '挫败', interest: '无聊', amusement: '无趣',
+        gratitude: '不满', awe: '麻木',
+      };
       const intensityLabel = (abs) => {
         if (abs > 0.85) return '极度';
         if (abs > 0.7) return '非常';
@@ -176,10 +188,15 @@ class NarrativeBuilder {
       const positive = [];
       const negative = [];
       for (const e of affectFrame.emotions) {
-        const name = emotionNames[e.dimension] || e.dimension;
         const label = intensityLabel(Math.abs(e.intensity));
-        if (e.intensity > 0) positive.push(`${label}${name}`);
-        else negative.push(`${label}${name}`);
+        if (e.intensity > 0) {
+          const name = emotionNames[e.dimension] || e.dimension;
+          positive.push(`${label}${name}`);
+        } else {
+          // Below baseline: use negated name for positive-polarity emotions
+          const name = negEmotionNames[e.dimension] || emotionNames[e.dimension] || e.dimension;
+          negative.push(`${label}${name}`);
+        }
       }
       if (affectFrame.valence > 0.2 && positive.length > 0) {
         parts.push(`${positive[0]}的情绪主导着你的心境`);

@@ -63,13 +63,12 @@ describe('tickHash: 数值量化（9 位小数）', () => {
 });
 
 describe('tickHash: extractHashedFields 字段过滤', () => {
-  it('仅提取规范字段（worldClock/characters/relationships/canonFacts/positions）', () => {
+  it('仅提取规范字段（worldClock/characters/relationships/events）', () => {
     const ws = {
       worldClock: { time: 1 },
       characters: [],
       relationships: [],
-      canonFacts: [],
-      positions: {},
+      events: [],
     };
     const extracted = extractHashedFields(ws);
     expect(Object.keys(extracted).sort()).toEqual([...HASHED_FIELDS].sort());

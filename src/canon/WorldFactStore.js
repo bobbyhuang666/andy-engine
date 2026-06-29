@@ -149,7 +149,7 @@ class WorldFactStore {
       const fact = this._facts.get(id);
       if (fact) events.push(fact);
     }
-    events.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    events.sort((a, b) => this._tsMs(a.timestamp) - this._tsMs(b.timestamp));
 
     const removeCount = eventIds.size - Math.floor(MAX_EVENT_FACTS * 0.8);
     const evictedIds = [];
@@ -194,7 +194,16 @@ class WorldFactStore {
       updates.previousType = existing.relationType;
     }
 
-    const updated = { ...existing, ...updates, id: existing.id, type: existing.type };
+    // R22 P1 fix: deep copy array fields from updates to prevent external mutation
+    // of store internals. Without this, passing updates with array fields (participants,
+    // observers, tags) shares the external array reference with the store.
+    const safeUpdates = { ...updates };
+    if (Array.isArray(safeUpdates.participants)) safeUpdates.participants = [...safeUpdates.participants];
+    if (Array.isArray(safeUpdates.observers)) safeUpdates.observers = [...safeUpdates.observers];
+    if (Array.isArray(safeUpdates.tags)) safeUpdates.tags = [...safeUpdates.tags];
+    if (safeUpdates.timestamp instanceof Date) safeUpdates.timestamp = new Date(safeUpdates.timestamp.getTime());
+
+    const updated = { ...existing, ...safeUpdates, id: existing.id, type: existing.type };
 
     const baseCheck = validateFact(updated);
     if (!baseCheck.valid) {
@@ -277,10 +286,10 @@ class WorldFactStore {
 
     if (since) {
       const sinceTime = since instanceof Date ? since.getTime() : since;
-      events = events.filter(e => e.timestamp.getTime() >= sinceTime);
+      events = events.filter(e => this._tsMs(e.timestamp) >= sinceTime);
     }
 
-    events.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    events.sort((a, b) => this._tsMs(b.timestamp) - this._tsMs(a.timestamp));
 
     if (limit && limit > 0) {
       events = events.slice(0, limit);
@@ -354,7 +363,7 @@ class WorldFactStore {
 	      }
 	    }
 
-    result.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+    result.sort((a, b) => this._tsMs(b.timestamp) - this._tsMs(a.timestamp));
 
     if (options.limit && options.limit > 0) {
       return result.slice(0, options.limit);
@@ -378,13 +387,13 @@ class WorldFactStore {
     const result = [];
 
     for (const fact of this._facts.values()) {
-      if (fact.timestamp.getTime() < sinceTime) continue;
+      if (this._tsMs(fact.timestamp) < sinceTime) continue;
       if (types && !types.includes(fact.type)) continue;
-	      result.push(this._deepCopyFact(fact));
-	    }
+		      result.push(this._deepCopyFact(fact));
+		    }
 
-	    result.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-	    return result;
+		    result.sort((a, b) => this._tsMs(a.timestamp) - this._tsMs(b.timestamp));
+		    return result;
   }
 
   /**
@@ -639,7 +648,23 @@ class WorldFactStore {
   }
 
   /**
-   * Deep copy a fact object, cloning nested arrays (participants, observers, tags).
+   * Convert a timestamp (Date or number) to milliseconds.
+   * FactSchema accepts both Date and number for timestamp, but many call sites
+   * need the numeric ms value for comparison/sort. This helper avoids the
+   * TypeError when calling .getTime() on a number timestamp.
+   * @private
+   * @param {Date|number} ts
+   * @returns {number}
+   */
+  _tsMs(ts) {
+    if (ts instanceof Date) return ts.getTime();
+    if (typeof ts === 'number') return ts;
+    return 0;
+  }
+
+  /**
+   * Deep copy a fact object, cloning nested arrays (participants, observers, tags)
+   * and the Date timestamp.
    * Prevents external mutation of store internals via shared references.
    * @private
    * @param {Object} fact
@@ -647,6 +672,10 @@ class WorldFactStore {
    */
   _deepCopyFact(fact) {
     const copy = { ...fact };
+    // R22 fix: clone Date timestamp to prevent external mutation of internal state
+    if (copy.timestamp instanceof Date) {
+      copy.timestamp = new Date(copy.timestamp.getTime());
+    }
     if (Array.isArray(copy.participants)) copy.participants = [...copy.participants];
     if (Array.isArray(copy.observers)) copy.observers = [...copy.observers];
     if (Array.isArray(copy.tags)) copy.tags = [...copy.tags];

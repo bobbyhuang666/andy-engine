@@ -113,7 +113,12 @@ class FactEmitter {
         timestamp: now,
         source: FactSource.ENGINE,
         confidence: 1.0,
-        scope: FactScope.PUBLIC,
+        // R22 P1 fix: AGENT_STATE facts are semantically private — only the owning
+        // agent should perceive their own state. PUBLIC scope leaked agent state
+        // into getAllFacts/getFactsSince/getActiveFacts, requiring fragile type-specific
+        // filtering in downstream code. LOCAL + participants restricts visibility
+        // through the scope mechanism in getFactsForAgent Phase 2.
+        scope: FactScope.LOCAL,
         participants: [agentId],
       });
 

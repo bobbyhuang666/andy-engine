@@ -153,6 +153,19 @@ function computeDeltas(candidate, agentSnapshot) {
         }));
       }
       break;
+    case 'consume':
+      // R22 P0-1 fix: consume must produce NeedDelta for hunger,
+      // otherwise hunger-satisfaction loop is broken (agent picks consume
+      // when hungry but hunger never recovers → infinite consume loop).
+      deltas.push(new NeedDelta(agentId, { hunger: 0.3 }));
+      deltas.push(new EmotionDelta(agentId, { satisfaction: 0.05 }));
+      break;
+    case 'work':
+      // R22 P0-1 fix: work must produce NeedDelta for stimulation,
+      // otherwise work action has zero effect on agent state.
+      deltas.push(new NeedDelta(agentId, { stimulation: 0.3 }));
+      deltas.push(new EmotionDelta(agentId, { satisfaction: 0.02 }));
+      break;
     case 'continue':
     default:
       break;

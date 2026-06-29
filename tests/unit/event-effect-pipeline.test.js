@@ -118,10 +118,12 @@ describe('EventEffectPipeline', () => {
   });
 
   describe('computeStateDeltas', () => {
-    it('consume 在 Phase 35 中是 no-op delta', () => {
+    it('consume 产生 hunger delta', () => {
+      // R22 P0-1 fix: consume now produces NeedDelta({ hunger: 0.3 })
+      // and EmotionDelta({ satisfaction: 0.05 }) instead of being a no-op.
       const deltas = computeStateDeltas(mockCandidate, mockAgentSnapshot);
-      expect(deltas.need).toEqual({});
-      expect(deltas.emotion).toEqual({});
+      expect(deltas.need.hunger).toBe(0.3);
+      expect(deltas.emotion.satisfaction).toBe(0.05);
     });
 
     it('rest 产生 energy delta', () => {

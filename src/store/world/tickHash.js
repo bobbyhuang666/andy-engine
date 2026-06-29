@@ -15,12 +15,16 @@
 const crypto = require('crypto');
 
 // 参与 hash 的规范字段（worldState 顶层 key）
+// R22 P0-5 fix: replaced 'canonFacts' and 'positions' with 'events'.
+// canonFacts and positions never existed as top-level fields in Stable Envelope;
+// they were silently skipped by extractHashedFields, giving false integrity
+// guarantees. 'events' is an actual top-level Stable Envelope field.
+// Position data is already covered via 'characters[].position'.
 const HASHED_FIELDS = [
   'worldClock',
   'characters',
   'relationships',
-  'canonFacts',
-  'positions',
+  'events',
 ];
 
 // 量化精度（1e9 = 9 位小数，审计 Q2 裁定合适）
