@@ -353,6 +353,26 @@ class AndyBridge {
           // (encounter detection, schedule, social interactions).
           if (typeof state.position === 'string' && state.position.length > 0) {
             agent.position = state.position;
+            // RC-1 fix: sync SpatialEngine._coords + RegionGrid to the restored
+            // region. AndyBridge 序列化每个 agent 时只携带 position（区域名），
+            // 不携带连续坐标；恢复后 _coords 仍是 addAgent 时的区域中心默认值，
+            // 与 agent.position 不一致。下一 tick Phase 5 _syncRegions() 用陈旧
+            // _coords 反推旧区域 → emit regionChange → PositionDelta 把 agent.position
+            // 回滚到旧区域。这里把 _coords 对齐到恢复区域的中心（R41 SP-1 模式，
+            // regionCenter 不消费 RNG，不漂移 golden fixture），并同步 RegionGrid，
+            // 使 _coords 与 agent.position 一致，消除回滚。全部用存在性检查守卫，
+            // 离散模式（spatial 为 null）不崩溃。
+            const world = this.andy && this.andy.world;
+            if (world) {
+              if (world.regions && typeof world.regions.place === 'function') {
+                world.regions.place(agent.id, agent.position);
+              }
+              if (world.spatial && typeof world.spatial.setCoords === 'function' &&
+                  world.spatial.worldMap && typeof world.spatial.worldMap.regionCenter === 'function') {
+                const center = world.spatial.worldMap.regionCenter(agent.position);
+                world.spatial.setCoords(agent.id, center.x, center.y);
+              }
+            }
           }
           // R34 P2 fix: validate health with Number.isFinite, matching the
           // pattern used for all other numeric fields in _restoreAgents.

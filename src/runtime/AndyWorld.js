@@ -130,7 +130,11 @@ class AndyWorld {
 
     // ─── 连续坐标空间（可选）───
     this.spatial = null;
-    if (config.spatial === 'continuous') {
+    // SER-1 fix: 当 config 显式开启 continuous，或快照本身携带 spatial 状态
+    // （即原引擎处于 continuous 模式）时，创建 SpatialEngine。后者使
+    // AndyEngine.fromJSON(json) 无需调用方再传 { spatial: 'continuous' } 即可
+    // 重建连续坐标层；旧离散快照无 spatial 键 → 不创建（向后兼容）。
+    if (config.spatial === 'continuous' || (savedState && savedState.spatial)) {
       const spatialConfig = ANDY_DEFAULTS.spatial.continuous || {};
       const regionDefs = this._buildRegionDefs({
         regionCoords: this.domain.regionCoords,
@@ -152,6 +156,13 @@ class AndyWorld {
         adjacency: this._buildAdjacencyMap(this.domain.adjacency),
         rng: this.rng,
       });
+      // SER-1 fix: restore continuous typed-array state BEFORE the addAgent loop
+      // (which runs later in AndyEngine constructor). addAgent 对已存在的 agentId
+      // 幂等（见 SpatialEngine.addAgent），不会覆盖已恢复的连续坐标/速度。
+      // 旧快照无 spatial 键 → no-op，回退到 addAgent-at-region-center 行为（向后兼容）。
+      if (savedState && savedState.spatial) {
+        this.spatial.restore(savedState.spatial);
+      }
     }
 
     // ─── Agent 集合 ───
@@ -875,6 +886,13 @@ class AndyWorld {
       // addAgent() which re-places them, but direct AndyWorld restore skips that.
       regions: this.regions.snapshot(),
     };
+    // SER-1 fix: persist SpatialEngine continuous state (typed arrays).
+    // 仅在 continuous 模式（this.spatial 非 null）下发射；默认离散模式不发射，
+    // 保证默认 campus toJSON 输出不变、golden fixture 不受影响。
+    if (this.spatial) {
+      const spatialSnapshot = this.spatial.snapshot();
+      if (spatialSnapshot) data.spatial = spatialSnapshot;
+    }
     if (this.rng) {
       data.rngState = this.rng.getState();
     }

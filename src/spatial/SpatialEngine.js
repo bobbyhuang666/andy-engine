@@ -461,12 +461,95 @@ class SpatialEngine {
     };
   }
 
+  // ═══════════════════════════════════════════
+  // 序列化 / 恢复
+  // ═══════════════════════════════════════════
+
+  /**
+   * 序列化连续坐标状态为纯 JSON 可序列化对象
+   * （typed array → 普通 array，便于 JSON.stringify）。
+   *
+   * SER-1 fix: 此前 SpatialEngine 无任何序列化方法，AndyWorld.toJSON() 也不
+   * 发射 spatial 键，导致连续坐标 (_coords/_speeds/_moving/_targets) 在
+   * save/restore 后全部丢失，agent snap 到区域中心、速度被重置为默认。
+   *
+   * @returns {{agentIds:string[],coords:number[],targets:number[],speeds:number[],moving:number[],regionNames:string[]}|null}
+   */
+  snapshot() {
+    if (!this._coords) return null;
+    return {
+      agentIds: [...this._agentIds],
+      coords: Array.from(this._coords),
+      targets: Array.from(this._targets),
+      speeds: Array.from(this._speeds),
+      moving: Array.from(this._moving),
+      regionNames: [...this._regionNames],
+    };
+  }
+
+  /**
+   * 从快照恢复连续坐标状态（typed array 重建）。
+   *
+   * 守卫：data 缺失/null 时 no-op；长度不匹配时 no-op（不崩溃）。
+   * 注意：必须在 addAgent 循环之前调用；addAgent 对已存在的 agentId 幂等，
+   * 不会覆盖已恢复坐标。
+   *
+   * @param {Object} data - snapshot() 的输出
+   */
+  restore(data) {
+    if (!data || !data.agentIds) return;
+    const n = data.agentIds.length;
+    // 长度校验：所有 typed array 长度必须与 agentIds 一致
+    if (
+      !Array.isArray(data.coords) || data.coords.length !== n * 2 ||
+      !Array.isArray(data.targets) || data.targets.length !== n ||
+      !Array.isArray(data.speeds) || data.speeds.length !== n ||
+      !Array.isArray(data.moving) || data.moving.length !== n
+    ) {
+      // 长度不匹配 → 放弃恢复，回退到 addAgent-at-region-center 行为
+      return;
+    }
+
+    this._agentIds = [...data.agentIds];
+    this._agentIdToIdx.clear();
+    this._agentIds.forEach((id, idx) => this._agentIdToIdx.set(id, idx));
+
+    this._coords = new Float32Array(data.coords);
+    this._targets = new Int16Array(data.targets);
+    this._speeds = new Float32Array(data.speeds);
+    this._moving = new Uint8Array(data.moving);
+
+    this._regionNames = Array.isArray(data.regionNames) ? [...data.regionNames] : [];
+    this._regionNameToIdx.clear();
+    this._regionNames.forEach((name, idx) => this._regionNameToIdx.set(name, idx));
+
+    this._initialized = n > 0;
+
+    // 重建空间索引使查询即时生效
+    if (this._coords) {
+      this.grid.rebuild(this._coords, this._agentIds.length);
+    }
+  }
+
   /**
    * 新增 agent（动态注册）
+   *
+   * SER-1 fix: 幂等化 —— 若 agentId 已存在（restore 已放置该 agent），
+   * 跳过重新放置（避免用 regionCenter 覆盖已恢复的连续坐标、用 1.4 覆盖已恢复
+   * 的速度）。仅确保网格索引是最新的。
+   *
    * @param {string} agentId
    * @param {string} region - 初始区域
    */
   addAgent(agentId, region) {
+    // 幂等：restore 已放置该 agent → 不覆盖坐标/速度/目标
+    if (this._agentIdToIdx.has(agentId)) {
+      if (this._coords) {
+        this.grid.rebuild(this._coords, this._agentIds.length);
+      }
+      return;
+    }
+
     const idx = this._agentIds.length;
     this._agentIds.push(agentId);
     this._agentIdToIdx.set(agentId, idx);
