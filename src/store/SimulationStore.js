@@ -240,18 +240,34 @@ class SimulationStore {
     // 1. 刷出故事缓冲
     this._flushStories();
 
-    // 2. 保存最终快照
-    this._saveSnapshot();
-
-    // 3. 保存元数据
-    this.db.set('tick_count', String(this.tickCount));
-    if (this.virtualTime) {
-      this.db.set('virtual_time', String(this.virtualTime.getTime()));
+    // R39 P1 fix: final snapshot 失败必须向调用方传播。
+    // 原实现 _saveSnapshot 吞掉错误,shutdown 正常 resolve,调用方误以为安全落盘。
+    // 现在用 throwOnFailure 让 final snapshot 失败时抛出,但 db.close() 仍执行
+    // (finally 块),避免连接泄漏。
+    let snapshotError = null;
+    try {
+      this._saveSnapshot({ throwOnFailure: true });
+    } catch (e) {
+      snapshotError = e;
     }
 
-    // 4. 关闭数据库
+    // 2. 保存元数据
+    try {
+      this.db.set('tick_count', String(this.tickCount));
+      if (this.virtualTime) {
+        this.db.set('virtual_time', String(this.virtualTime.getTime()));
+      }
+    } catch (e) {
+      diagnostics.collect({ type: 'metadata-save-failed', error: e.message });
+      if (!snapshotError) snapshotError = e;
+    }
+
+    // 3. 关闭数据库 (无论如何都要关闭,避免连接泄漏)
     this.db.close();
     this.db = null;
+
+    // 4. 若 snapshot/metadata 失败,传播错误
+    if (snapshotError) throw snapshotError;
   }
 
   // ═══════════════════════════════════════════
@@ -266,16 +282,26 @@ class SimulationStore {
     this.db.saveStories(stories);
   }
 
-  /** 保存当前快照 */
-  _saveSnapshot() {
-    if (!this._snapshotFn) return;
+  /** 保存当前快照
+   * @param {Object} [opts]
+   * @param {boolean} [opts.throwOnFailure=false] - R39 P1: final snapshot 失败时抛出,
+   *   避免 shutdown() 吞掉落盘错误导致调用方误以为安全落盘。
+   * @returns {boolean} 是否成功保存
+   */
+  _saveSnapshot(opts = {}) {
+    if (!this._snapshotFn) return true;
 
     try {
       const data = this._snapshotFn();
       this.db.saveSnapshot(this.tickCount, this.virtualTime?.getTime() || Date.now(), data);
       this.db.prune(this.snapshotKeepCount);
+      return true;
     } catch (e) {
       diagnostics.collect({ type: 'snapshot-save-failed', error: e.message });
+      if (opts.throwOnFailure) {
+        throw new Error(`SimulationStore snapshot save failed: ${e.message}`);
+      }
+      return false;
     }
   }
 

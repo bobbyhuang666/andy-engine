@@ -41,12 +41,15 @@ class AndyBridge {
     const storePath = options.persistence?.path || options.dbPath || ':memory:';
 
     if (storeType === 'memory') {
-      // 直接使用 MemoryStore，不需要 SimulationStore
+      // R39 P1 fix: 用 storeType:'memory' 让 SimulationStore.init() 正确创建 MemoryStore,
+      // 而不是手动覆盖 this.store.db。原实现手动覆盖 db 后,init() 会因 storeType 默认
+      // 'sqlite' 而重新 new SQLiteStore,覆盖掉 MemoryStore,破坏 memory fallback 语义。
+      // 构造期也同步创建 db,使构造后即可确认 memory 模式(无需等 init),且 init() 因
+      // storeType='memory' 不会覆盖。
       this.store = new SimulationStore({
-        dbPath: ':memory:',
+        storeType: 'memory',
         snapshotInterval: options.snapshotInterval ?? 12,
       });
-      // 覆盖内部 db 为 MemoryStore
       this.store.db = new MemoryStore();
     } else {
       // 尝试使用 SQLite，如果失败则回退到 MemoryStore
@@ -59,10 +62,9 @@ class AndyBridge {
         if (e.message && e.message.includes('better-sqlite3')) {
           console.warn('SQLite not available, using memory store');
           this.store = new SimulationStore({
-            dbPath: ':memory:',
+            storeType: 'memory',
             snapshotInterval: options.snapshotInterval ?? 12,
           });
-          this.store.db = new MemoryStore();
         } else {
           throw e;
         }

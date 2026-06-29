@@ -443,8 +443,11 @@ class WorldFactStore {
    * @returns {Object}
    */
   toJSON() {
+    // R39 P1 fix: 用 _deepCopyFact 替代浅 spread,防止 participants/observers/tags
+    // 数组共享引用泄漏。原实现 { ...f } 只拷贝顶层,嵌套数组仍指向 store 内部,
+    // 调用方修改 toJSON() 返回的 participants 会反向污染 canonical fact store。
     const facts = Array.from(this._facts.values()).map(f => {
-      const serialized = { ...f };
+      const serialized = this._deepCopyFact(f);
       if (serialized.timestamp instanceof Date) {
         serialized.timestamp = serialized.timestamp.toISOString();
       }

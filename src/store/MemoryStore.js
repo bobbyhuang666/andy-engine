@@ -167,10 +167,14 @@ class MemoryStore {
     // 删除同 tick 的旧快照（模拟 INSERT OR REPLACE）
     this.snapshots = this.snapshots.filter(s => s.tick !== tick);
 
+    // R39 P1 fix: 拷贝 Buffer 防止共享引用污染。
+    // 原实现直接存入 data 引用,保存后修改原 Buffer 会反向污染 store 内部快照。
+    const dataCopy = Buffer.isBuffer(data) ? Buffer.from(data) : data;
+
     this.snapshots.push({
       tick,
       virtualTime,
-      data,
+      data: dataCopy,
       meta: meta ? JSON.stringify(meta) : null,
       createdAt: Date.now(),
     });
@@ -187,10 +191,14 @@ class MemoryStore {
     const sorted = [...this.snapshots].sort((a, b) => b.tick - a.tick);
     const snapshot = sorted[0];
 
+    // R39 P1 fix: 拷贝 Buffer 防止共享引用污染。
+    // 原实现返回内部 data 引用,修改 load 出来的 Buffer 会污染 store。
+    const dataCopy = Buffer.isBuffer(snapshot.data) ? Buffer.from(snapshot.data) : snapshot.data;
+
     return {
       tick: snapshot.tick,
       virtualTime: snapshot.virtualTime,
-      data: snapshot.data,
+      data: dataCopy,
       meta: snapshot.meta ? JSON.parse(snapshot.meta) : null,
       createdAt: snapshot.createdAt,
     };
@@ -205,10 +213,13 @@ class MemoryStore {
     const snapshot = this.snapshots.find(s => s.tick === tick);
     if (!snapshot) return null;
 
+    // R39 P1 fix: 拷贝 Buffer 防止共享引用污染。
+    const dataCopy = Buffer.isBuffer(snapshot.data) ? Buffer.from(snapshot.data) : snapshot.data;
+
     return {
       tick: snapshot.tick,
       virtualTime: snapshot.virtualTime,
-      data: snapshot.data,
+      data: dataCopy,
       meta: snapshot.meta ? JSON.parse(snapshot.meta) : null,
       createdAt: snapshot.createdAt,
     };

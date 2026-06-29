@@ -99,7 +99,11 @@ class KnowledgeStore {
    */
   getSource(agentId, factId) {
     // R18 KNOW-001 fix: check if fact still exists in store (consistent with hasKnowledge)
-    if (!this.factStore.getFactById(factId)) return null;
+    // R39 P1 fix: also reject invalidated facts, consistent with hasKnowledge().
+    // 原 getSource 只检查 fact 存在,不检查 _invalidated,导致失效 fact 的 source
+    // 仍可被读取,与 hasKnowledge() 语义不一致。
+    const fact = this.factStore.getFactById(factId);
+    if (!fact || fact._invalidated) return null;
     const evidence = this._evidence.get(`${agentId}:${factId}`);
     return evidence ? evidence.source : null;
   }
@@ -112,7 +116,9 @@ class KnowledgeStore {
    */
   getEvidence(agentId, factId) {
     // R18 KNOW-001 fix: check if fact still exists in store (consistent with hasKnowledge)
-    if (!this.factStore.getFactById(factId)) return null;
+    // R39 P1 fix: also reject invalidated facts, consistent with hasKnowledge().
+    const fact = this.factStore.getFactById(factId);
+    if (!fact || fact._invalidated) return null;
     // R14 fix: return shallow copy to prevent external mutation of store internals
     const ev = this._evidence.get(`${agentId}:${factId}`);
     return ev ? { ...ev } : null;
@@ -122,10 +128,21 @@ class KnowledgeStore {
    * 获取角色知道的所有事实 ID
    * R20 M14: return a defensive copy instead of the internal Set reference.
    * Without this, callers can directly mutate the store's internal state.
+   * R39 P1 fix: filter out invalidated facts, consistent with hasKnowledge().
+   * 原 getKnownFactIds 返回内部 Set 的拷贝但不过滤 invalidated,导致调用方拿到的
+   * ID 集合包含已失效的 fact,与 hasKnowledge() 返回 false 的 fact 矛盾。
    */
   getKnownFactIds(agentId) {
     const internal = this._knowledge.get(agentId);
-    return internal ? new Set(internal) : new Set();
+    if (!internal) return new Set();
+    const filtered = new Set();
+    for (const factId of internal) {
+      const fact = this.factStore.getFactById(factId);
+      if (fact && !fact._invalidated) {
+        filtered.add(factId);
+      }
+    }
+    return filtered;
   }
 
   /**
