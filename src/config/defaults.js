@@ -330,7 +330,12 @@ const EMOTION_OPPOSITES = {
   frustration: 'hope',
   nervousness: 'relief',
   relief: 'nervousness',
-  excitement: 'boredom',
+  // R32 fix: excitement's opposite was boredom (asymmetric: boredom→interest).
+  // Psychologically, excitement opposes calm (high-arousal positive vs
+  // low-arousal neutral). This creates symmetric pairs:
+  //   excitement ↔ calm, anger ↔ calm (shared opposite is valid —
+  //   both anger and excitement are high-arousal, calm is low-arousal).
+  excitement: 'calm',
 };
 
 // ═══════════════════════════════════════════

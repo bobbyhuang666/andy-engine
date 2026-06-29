@@ -155,6 +155,13 @@ class NeedsSystem {
     // Step 1: 自然衰减
     for (const [need, rate] of Object.entries(this._decayRates)) {
       const current = this.needs[need];
+      // R32 fix: guard against NaN in current (Math.max(0, NaN) = NaN).
+      // Constructor NaN defense only runs once; tick() can receive NaN from
+      // EffectCommitter or external modification.
+      if (!Number.isFinite(current)) {
+        this.needs[need] = 0.5;
+        continue;
+      }
       const effectiveRate = rate * (0.5 + current * 0.5);
       this.needs[need] = Math.max(0, current - effectiveRate * hoursElapsed);
     }
@@ -173,7 +180,11 @@ class NeedsSystem {
 
       if (recovery > 0) {
         const multiplier = (this._recoveryMultipliers && this._recoveryMultipliers[need]) || 1.0;
-        this.needs[need] = Math.min(1, this.needs[need] + recovery * multiplier * hoursElapsed);
+        const current = this.needs[need];
+        // R32 fix: guard against NaN (Math.min(1, NaN) = NaN)
+        if (Number.isFinite(current)) {
+          this.needs[need] = Math.min(1, current + recovery * multiplier * hoursElapsed);
+        }
       }
     }
   }
@@ -194,6 +205,11 @@ class NeedsSystem {
     // Step 1: 自然衰减（与 tick() 完全相同）
     for (const [need, rate] of Object.entries(this._decayRates)) {
       const current = this.needs[need];
+      // R32 fix: guard against NaN (same as tick())
+      if (!Number.isFinite(current)) {
+        this.needs[need] = 0.5;
+        continue;
+      }
       const effectiveRate = rate * (0.5 + current * 0.5);
       this.needs[need] = Math.max(0, current - effectiveRate * hoursElapsed);
     }
@@ -202,7 +218,11 @@ class NeedsSystem {
     const rates = this.getRecoveryRatesForBehavior(behaviorVector);
     for (const [need, rate] of Object.entries(rates)) {
       if (rate > 0) {
-        this.needs[need] = Math.min(1, this.needs[need] + rate * hoursElapsed);
+        const current = this.needs[need];
+        // R32 fix: guard against NaN (Math.min(1, NaN) = NaN)
+        if (Number.isFinite(current)) {
+          this.needs[need] = Math.min(1, current + rate * hoursElapsed);
+        }
       }
     }
   }

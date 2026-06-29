@@ -413,6 +413,9 @@ class SpatialEngine {
   setCoords(agentId, x, y) {
     const idx = this._agentIdToIdx.get(agentId);
     if (idx === undefined) return;
+    // R32 fix: reject NaN coordinates — they permanently corrupt the spatial
+    // index (NaN distances make agents invisible to the encounter system).
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
     this._coords[idx * 2] = x;
     this._coords[idx * 2 + 1] = y;
     // 重建网格使查询即时生效

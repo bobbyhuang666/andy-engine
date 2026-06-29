@@ -39,11 +39,18 @@ class EmotionVector {
     this.baseline = { ...personality.emotionBaseline };
 
     if (savedState) {
-      this.current = { ...savedState.current };
-      this.baseline = { ...savedState.baseline };
-      // 中期情绪状态（mood）：持续数小时的"情绪余韵"
-      // 参考 ALMA (Gebhard 2005) + PSYA (2025) 的情绪层次模型
-      this.mood = savedState.mood ? { ...savedState.mood } : { ...this.baseline };
+      // R32 P0-003 fix: validate savedState values for NaN.
+      // NaN from corrupted save data is permanent — _clamp() uses Math.max/min
+      // which returns NaN when given NaN, and mood reads lack || 0 fallback.
+      this.current = {};
+      this.mood = {};
+      this.baseline = {};
+      for (const dim of EMOTION_DIMENSIONS) {
+        const base = Number.isFinite(savedState.baseline?.[dim]) ? savedState.baseline[dim] : (personality.emotionBaseline[dim] || 0);
+        this.baseline[dim] = base;
+        this.current[dim] = Number.isFinite(savedState.current?.[dim]) ? savedState.current[dim] : base;
+        this.mood[dim] = Number.isFinite(savedState.mood?.[dim]) ? savedState.mood[dim] : base;
+      }
       this.stress = Number.isFinite(savedState?.stress) ? savedState.stress : 2;
       this._pinkNoiseState = savedState._pinkNoiseState || new Array(16).fill(0);
     } else {
@@ -168,18 +175,23 @@ class EmotionVector {
     const baseMoodLambda = lambda / 6;
     for (const dim of EMOTION_DIMENSIONS) {
       const base = this.baseline[dim] || 0;
-      const moodExcess = this.mood[dim] - base;
+      // R32 P0-001 fix: use || 0 fallback for mood reads (matching current reads).
+      // Without this, NaN in mood is permanent — Math operations on NaN produce NaN,
+      // and _clamp()'s Math.max/min cannot repair NaN values.
+      const moodExcess = (this.mood[dim] || 0) - base;
       let moodLambda = baseMoodLambda;
       if (moodExcess < 0 && NEGATIVE_DIMS.has(dim)) {
         moodLambda *= negativityBiasFactor; // 负面心境衰减更慢
       }
       const moodFactor = Math.exp(-moodLambda * dt);
-      this.mood[dim] = base + (this.mood[dim] - base) * moodFactor;
+      this.mood[dim] = base + ((this.mood[dim] || 0) - base) * moodFactor;
     }
 
     // mood 截断：非负语义维度 + 常规 [-1, 1] 范围
+    // R32 fix: repair NaN before clamping (Math.max/min with NaN returns NaN)
     for (const dim of EMOTION_DIMENSIONS) {
       if (this.mood[dim] !== undefined) {
+        if (!Number.isFinite(this.mood[dim])) this.mood[dim] = this.baseline[dim] || 0;
         const lower = NON_NEGATIVE_DIMS.has(dim) ? 0 : -1;
         this.mood[dim] = Math.max(lower, Math.min(1, this.mood[dim]));
       }
@@ -484,12 +496,16 @@ class EmotionVector {
    * @private
    */
   _clamp() {
+    // R32 P0-001 fix: Math.max/min with NaN returns NaN, so NaN values
+    // in current/stress/mood were permanent. Now we repair NaN before clamping.
     for (const dim of EMOTION_DIMENSIONS) {
       if (this.current[dim] !== undefined) {
+        if (!Number.isFinite(this.current[dim])) this.current[dim] = this.baseline[dim] || 0;
         const lower = NON_NEGATIVE_DIMS.has(dim) ? 0 : -1;
         this.current[dim] = Math.max(lower, Math.min(1, this.current[dim]));
       }
     }
+    if (!Number.isFinite(this.stress)) this.stress = 2;
     this.stress = Math.max(0, Math.min(10, this.stress));
   }
 
@@ -511,7 +527,9 @@ class EmotionVector {
     const inertia = this.personality.behavior.emotionalInertia || cfg.inertia;
 
     for (const [dim, delta] of Object.entries(effects)) {
-      if (this.current[dim] !== undefined && typeof delta === 'number') {
+      // R32 P0-002 fix: typeof NaN === 'number' is true, so NaN deltas
+      // were accepted and propagated to current/mood permanently.
+      if (this.current[dim] !== undefined && typeof delta === 'number' && Number.isFinite(delta)) {
         // 认知评价调制：同一事件对不同情绪维度有不同影响
         let appraisalMult = 1;
         if (appraisalModifiers && appraisalModifiers[dim] !== undefined) {
@@ -531,8 +549,10 @@ class EmotionVector {
     }
     this._clamp();
     // mood 也需要边界截断（含非负下界）
+    // R32 fix: repair NaN before clamping (consistent with _timeDecay mood clamp)
     for (const dim of EMOTION_DIMENSIONS) {
       if (this.mood[dim] !== undefined) {
+        if (!Number.isFinite(this.mood[dim])) this.mood[dim] = this.baseline[dim] || 0;
         const lower = NON_NEGATIVE_DIMS.has(dim) ? 0 : -1;
         this.mood[dim] = Math.max(lower, Math.min(1, this.mood[dim]));
       }
