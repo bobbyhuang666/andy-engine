@@ -10,7 +10,7 @@
     "nodeVersion": "26",
     "nativeMode": "disabled",
     "generationCommand": "npm run golden:regen",
-    "generatedAt": "2026-06-29T06:31:53.486Z"
+    "generatedAt": "2026-06-29T06:39:43.560Z"
   },
   "schemaVersion": "0.1.0",
   "worldId": "golden-campus-v1",
@@ -5001,7 +5001,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_1",
@@ -5013,7 +5014,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在图书馆",
+          "to": "有点困"
         },
         {
           "id": "evt_2",
@@ -5025,7 +5028,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "attentionDeployment"
         },
         {
           "id": "evt_3",
@@ -5037,7 +5041,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在图书馆",
+          "to": "有点困"
         },
         {
           "id": "evt_4",
@@ -5049,7 +5055,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_5",
@@ -5061,7 +5068,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "有点困",
+          "to": "看完了"
         },
         {
           "id": "evt_6",
@@ -5073,7 +5082,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "attentionDeployment"
         },
         {
           "id": "evt_7",
@@ -5085,7 +5095,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "有点困",
+          "to": "看完了"
         },
         {
           "id": "evt_8",
@@ -5121,7 +5133,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_10",
@@ -5133,7 +5146,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_11",
@@ -5145,7 +5159,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_12",
@@ -5157,7 +5172,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "attentionDeployment"
         },
         {
           "id": "evt_13",
@@ -5169,7 +5185,8 @@
           "content": "想着等下做什么好呢",
           "effects": [],
           "cause": null,
-          "semanticCategory": "内心思绪"
+          "semanticCategory": "内心思绪",
+          "thoughtType": "白日梦"
         },
         {
           "id": "evt_14",
@@ -5181,7 +5198,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_15",
@@ -5193,7 +5211,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "看完了",
+          "to": "到家了"
         },
         {
           "id": "evt_16",
@@ -5205,7 +5225,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_17",
@@ -5217,7 +5238,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "看完了",
+          "to": "到家了"
         },
         {
           "id": "evt_18",
@@ -5253,7 +5276,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_20",
@@ -5265,7 +5289,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "attentionDeployment"
         },
         {
           "id": "evt_21",
@@ -5277,7 +5302,8 @@
           "content": "希望这样的日子能多一些",
           "effects": [],
           "cause": null,
-          "semanticCategory": "内心思绪"
+          "semanticCategory": "内心思绪",
+          "thoughtType": "白日梦"
         },
         {
           "id": "evt_22",
@@ -5289,7 +5315,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_23",
@@ -5301,7 +5328,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_24",
@@ -5313,7 +5341,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "到家了",
+          "to": "做好了"
         },
         {
           "id": "evt_25",
@@ -5325,7 +5355,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_26",
@@ -5337,7 +5368,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "到家了",
+          "to": "做好了"
         },
         {
           "id": "evt_27",
@@ -5349,7 +5382,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_28",
@@ -5361,7 +5395,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_29",
@@ -5373,7 +5408,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_30",
@@ -5385,7 +5421,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_31",
@@ -5397,7 +5434,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_32",
@@ -5409,7 +5447,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_33",
@@ -5421,7 +5460,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "做好了",
+          "to": "在网吧"
         },
         {
           "id": "evt_34",
@@ -5433,7 +5474,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "attentionDeployment"
         },
         {
           "id": "evt_35",
@@ -5445,7 +5487,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "做好了",
+          "to": "在吃饭"
         },
         {
           "id": "evt_36",
@@ -5457,7 +5501,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_37",
@@ -5469,7 +5514,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_38",
@@ -5505,7 +5551,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_40",
@@ -5517,7 +5564,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "attentionDeployment"
         },
         {
           "id": "evt_41",
@@ -5529,7 +5577,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_42",
@@ -5541,7 +5590,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在吃饭",
+          "to": "吃完了"
         },
         {
           "id": "evt_43",
@@ -5553,7 +5604,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_44",
@@ -5565,7 +5617,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_45",
@@ -5577,7 +5630,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "吃完了",
+          "to": "在咖啡店"
         },
         {
           "id": "evt_46",
@@ -5589,7 +5644,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_47",
@@ -5625,7 +5681,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在咖啡店",
+          "to": "在公园"
         },
         {
           "id": "evt_49",
@@ -5684,7 +5742,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_52",
@@ -5696,7 +5755,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在公园",
+          "to": "在校园广场"
         },
         {
           "id": "evt_53",
@@ -5733,7 +5794,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在网吧",
+          "to": "在咖啡店"
         },
         {
           "id": "evt_55",
@@ -5745,7 +5808,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_56",
@@ -5808,7 +5872,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在咖啡店",
+          "to": "在公园"
         },
         {
           "id": "evt_58",
@@ -5843,7 +5909,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "attentionDeployment"
         },
         {
           "id": "evt_60",
@@ -5855,7 +5922,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在校园广场",
+          "to": "在聊天"
         },
         {
           "id": "evt_61",
@@ -5915,7 +5984,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在公园",
+          "to": "在校园广场"
         },
         {
           "id": "evt_64",
@@ -5974,7 +6045,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_67",
@@ -6010,7 +6082,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在校园广场",
+          "to": "在聊天"
         },
         {
           "id": "evt_69",
@@ -6022,7 +6096,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_70",
@@ -6034,7 +6109,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_71",
@@ -6085,7 +6161,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在聊天",
+          "to": "在校园广场"
         },
         {
           "id": "evt_74",
@@ -6121,7 +6199,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_76",
@@ -6133,7 +6212,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在校园广场",
+          "to": "在公园"
         },
         {
           "id": "evt_77",
@@ -6169,7 +6250,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "attentionDeployment"
         },
         {
           "id": "evt_79",
@@ -6205,7 +6287,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在聊天",
+          "to": "在校园广场"
         },
         {
           "id": "evt_81",
@@ -6217,7 +6301,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在校园广场",
+          "to": "在公园"
         },
         {
           "id": "evt_82",
@@ -6277,7 +6363,8 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "情绪调节"
+          "semanticCategory": "情绪调节",
+          "strategy": "reappraisal"
         },
         {
           "id": "evt_85",
@@ -6289,7 +6376,9 @@
           "content": "",
           "effects": [],
           "cause": null,
-          "semanticCategory": "行为转变"
+          "semanticCategory": "行为转变",
+          "from": "在公园",
+          "to": "吃完了"
         }
       ],
       "_nextId": 86

@@ -418,7 +418,11 @@ class EmotionVector {
       const current = this.current[dim] || 0;
       const base = this.baseline[dim] || 0;
       if (Math.abs(current) > 0.5) {
-        this.baseline[dim] = base + (current - base) * rate;
+        // R30 P1 fix: clamp baseline to [-1, 1] after drift.
+        // Without clamp, sustained extreme emotion (e.g. joy=1.0 for thousands
+        // of ticks) slowly creeps baseline above 1.0. adaptBaseline() already
+        // clamps; _baselineDrift should be consistent.
+        this.baseline[dim] = Math.max(-1, Math.min(1, base + (current - base) * rate));
       }
     }
   }

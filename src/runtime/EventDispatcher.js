@@ -79,6 +79,7 @@ class EventDispatcher {
    * @returns {Object} 事件对象
    */
   createEvent(params) {
+    // Core fields: always present with defaults.
     const event = {
       id: `evt_${this._nextId++}`,
       time: params.time || this._simTime || new Date(),
@@ -92,19 +93,20 @@ class EventDispatcher {
       semanticCategory: this._classifySemanticCategory(params.type, params.content),
     };
 
-    // Phase 34: action_selected audit metadata.
-    // These fields are copied only when present and do not affect dispatch semantics.
-    if (params.agentId !== undefined) event.agentId = params.agentId;
-    if (params.action !== undefined) event.action = params.action;
-    if (params.reasonTrace !== undefined) event.reasonTrace = params.reasonTrace;
-    if (params.stateDeltas !== undefined) event.stateDeltas = params.stateDeltas;
-    if (params.metadata !== undefined) event.metadata = params.metadata;
-    // R29 P0-001 fix: propagate location field from draft events.
-    // R28 P1-004 added location to generateEncounterEvent/generateRandomEvent,
-    // but createEvent() was silently dropping it, making the R28 fix a no-op.
-    // Without location, CanonEventPipeline creates facts with empty location,
-    // causing location-meaning and future-tendency subsystems to be dead code.
-    if (params.location !== undefined) event.location = params.location;
+    // R30 P0 fix: propagate all event-specific fields from draft events.
+    // Previous pattern of copying fields one-by-one was fragile — R29 fixed
+    // location, but state_change.from/to, regulation.strategy, encounter
+    // tier/distance, and mind_wander.thoughtType were still silently dropped.
+    // Now we propagate any field not already in the core set above.
+    const CORE_FIELDS = new Set([
+      'id', 'time', 'type', 'scope', 'participants', 'observers',
+      'content', 'effects', 'cause', 'semanticCategory',
+    ]);
+    for (const key of Object.keys(params)) {
+      if (!CORE_FIELDS.has(key) && params[key] !== undefined) {
+        event[key] = params[key];
+      }
+    }
 
     this.pendingEvents.push(event);
     return event;
