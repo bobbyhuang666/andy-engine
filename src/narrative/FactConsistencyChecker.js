@@ -393,9 +393,11 @@ class FactConsistencyChecker {
         }
       }
       // ObservationFact: 添加观察者的位置
-      if (fact.type === FactType.OBSERVATION && fact.location && fact.observerId) {
+      // R24 P1 fix: ObservationFacts store location in fact.context, not fact.location.
+      // createObservationFact (FactSchema.js:243-259) puts location in context field.
+      if (fact.type === FactType.OBSERVATION && fact.context && fact.observerId) {
         if (!agentKnownLocations.has(fact.observerId)) agentKnownLocations.set(fact.observerId, new Set());
-        agentKnownLocations.get(fact.observerId).add(fact.location);
+        agentKnownLocations.get(fact.observerId).add(fact.context);
       }
     }
 

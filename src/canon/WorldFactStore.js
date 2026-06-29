@@ -190,14 +190,16 @@ class WorldFactStore {
       throw new Error('StaticEnvFact is immutable');
     }
 
-    if (existing.type === FactType.RELATIONSHIP && updates.relationType && updates.relationType !== existing.relationType) {
-      updates.previousType = existing.relationType;
-    }
-
     // R22 P1 fix: deep copy array fields from updates to prevent external mutation
     // of store internals. Without this, passing updates with array fields (participants,
     // observers, tags) shares the external array reference with the store.
     const safeUpdates = { ...updates };
+    // R24 P1 fix: set previousType on safeUpdates, NOT on updates, to avoid
+    // mutating the caller's object (which would leak stale previousType into
+    // subsequent calls reusing the same updates object).
+    if (existing.type === FactType.RELATIONSHIP && safeUpdates.relationType && safeUpdates.relationType !== existing.relationType) {
+      safeUpdates.previousType = existing.relationType;
+    }
     if (Array.isArray(safeUpdates.participants)) safeUpdates.participants = [...safeUpdates.participants];
     if (Array.isArray(safeUpdates.observers)) safeUpdates.observers = [...safeUpdates.observers];
     if (Array.isArray(safeUpdates.tags)) safeUpdates.tags = [...safeUpdates.tags];
@@ -467,10 +469,13 @@ class WorldFactStore {
 
     for (const f of data.facts) {
       // R12: deep-copy each fact to prevent mutating input + shared reference
-      const fact = { ...f };
+      // R24 P1 fix: use _deepCopyFact instead of shallow spread to properly
+      // clone array fields (participants, observers, tags) and Date timestamps.
+      let fact = { ...f };
       if (typeof fact.timestamp === 'string') {
         fact.timestamp = new Date(fact.timestamp);
       }
+      fact = store._deepCopyFact(fact);
       // R18 AE-002 fix: validate deserialized facts to prevent invalid data
       // from bypassing the addFact validation pipeline.
       const baseCheck = validateFact(fact);

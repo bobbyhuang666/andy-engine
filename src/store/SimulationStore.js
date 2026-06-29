@@ -123,7 +123,9 @@ class SimulationStore {
    * @param {Story[]} newStories - 本 tick 产生的故事
    */
   onTick(tickResult, newStories = []) {
-    this.tickCount = tickResult.tickNumber || this.tickCount + 1;
+    // R24 P1 fix: use ?? instead of || to correctly handle tickNumber=0.
+    // 0 || expr evaluates to expr; 0 ?? expr evaluates to 0.
+    this.tickCount = tickResult.tickNumber ?? this.tickCount + 1;
     this.virtualTime = tickResult.time ? new Date(tickResult.time) : this.virtualTime;
 
     // 追加故事到缓冲

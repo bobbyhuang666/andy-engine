@@ -164,11 +164,15 @@ class NarrativeBuilder {
         triumph: '得意', interest: '感兴趣', desire: '渴望',
         awe: '敬畏', embarrassment: '尴尬', sympathy: '同情', confusion: '困惑',
       };
-      // R22 P1 fix: negative name mapping for when emotion intensity is below baseline.
-      // intensity > 0 means "above baseline" (e.g. joy=0.5 → happy),
-      // intensity < 0 means "below baseline" (e.g. joy=-0.3 → NOT happy → unhappy).
-      // Without this mapping, negative-intensity positive emotions like joy=-0.3
-      // would be labeled "开心" even though the agent feels the opposite.
+      // R24 P1 fix: categorize emotions by dimension polarity (positive/negative valence),
+      // NOT by intensity direction (above/below baseline). Previously, sadness with
+      // intensity>0 went into positive[] and joy with intensity<0 went into negative[],
+      // producing wrong narrative descriptions (e.g. "sadness dominates" when valence>0).
+      const POSITIVE_DIMS = new Set(['joy', 'contentment', 'satisfaction', 'excitement',
+        'calm', 'hope', 'love', 'pride', 'gratitude', 'relief', 'triumph', 'amusement']);
+      const NEGATIVE_DIMS = new Set(['sadness', 'anger', 'fear', 'disgust',
+        'nervousness', 'frustration', 'guilt', 'shame', 'horror', 'boredom', 'loneliness']);
+      // Negated names for positive-polarity emotions when below baseline
       const negEmotionNames = {
         joy: '不开心', contentment: '不满足', calm: '不安',
         excitement: '低落', hope: '失望', satisfaction: '不满意',
@@ -189,13 +193,32 @@ class NarrativeBuilder {
       const negative = [];
       for (const e of affectFrame.emotions) {
         const label = intensityLabel(Math.abs(e.intensity));
-        if (e.intensity > 0) {
-          const name = emotionNames[e.dimension] || e.dimension;
-          positive.push(`${label}${name}`);
+        const isPositiveDim = POSITIVE_DIMS.has(e.dimension);
+        const isNegativeDim = NEGATIVE_DIMS.has(e.dimension);
+
+        if (isPositiveDim) {
+          if (e.intensity > 0) {
+            // Positive emotion above baseline → feels good
+            positive.push(`${label}${emotionNames[e.dimension] || e.dimension}`);
+          } else {
+            // Positive emotion below baseline → feels bad (absence of positive)
+            negative.push(`${label}${negEmotionNames[e.dimension] || emotionNames[e.dimension] || e.dimension}`);
+          }
+        } else if (isNegativeDim) {
+          if (e.intensity > 0) {
+            // Negative emotion above baseline → feels bad
+            negative.push(`${label}${emotionNames[e.dimension] || e.dimension}`);
+          } else {
+            // Negative emotion below baseline → feels good (absence of negative)
+            positive.push(`${label}${emotionNames[e.dimension] || e.dimension}`);
+          }
         } else {
-          // Below baseline: use negated name for positive-polarity emotions
-          const name = negEmotionNames[e.dimension] || emotionNames[e.dimension] || e.dimension;
-          negative.push(`${label}${name}`);
+          // Neutral/ambiguous dimension: use intensity direction
+          if (e.intensity > 0) {
+            positive.push(`${label}${emotionNames[e.dimension] || e.dimension}`);
+          } else {
+            negative.push(`${label}${emotionNames[e.dimension] || e.dimension}`);
+          }
         }
       }
       if (affectFrame.valence > 0.2 && positive.length > 0) {

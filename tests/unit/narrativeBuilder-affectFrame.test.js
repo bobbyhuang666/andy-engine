@@ -105,9 +105,10 @@ describe('NarrativeBuilder AffectFrame Integration', () => {
       health: 80,
     };
 
+    // R24: sadness with intensity > 0 (above baseline) → feels sad → goes into negative[]
     const affectFrame = {
       emotions: [
-        { dimension: 'sadness', intensity: -0.5 },
+        { dimension: 'sadness', intensity: 0.5 },
         { dimension: 'joy', intensity: 0.1 },
       ],
       valence: -0.4,

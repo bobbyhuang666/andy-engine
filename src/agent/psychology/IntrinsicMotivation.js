@@ -99,8 +99,16 @@ class IntrinsicMotivation {
    * @returns {Object} { drive, newEvents, emotionEffects }
    */
   tick({ position, state, hour, hoursElapsed, simTime, needsState }) {
-    // Store simTime for deterministic fallback in getNovelty()
-    if (simTime) this._lastSimTime = simTime.getTime();
+    // R24 P0 fix: guard against null simTime. 6 downstream call sites call
+    // simTime.getTime() unconditionally, which crashes when env.simTime is null.
+    // Use _lastSimTime as fallback, or Date.now() as last resort.
+    if (simTime) {
+      this._lastSimTime = simTime.getTime();
+    } else if (!this._lastSimTime) {
+      this._lastSimTime = Date.now();
+    }
+    // Provide a safe simTime for downstream methods
+    const safeSimTime = simTime || new Date(this._lastSimTime);
     const result = {
       drive: null,
       newEvents: [],
@@ -111,25 +119,25 @@ class IntrinsicMotivation {
     this._noveltyCache = {};
 
     // ─── 1. 记录当前位置访问 ───
-    this._recordVisit(position, hoursElapsed, simTime);
+    this._recordVisit(position, hoursElapsed, safeSimTime);
 
     // ─── 2. 好奇心驱力衰减 ───
     this._decayCuriosity(hoursElapsed);
 
     // ─── 3. 更新目标进度 ───
-    this._updateGoals(position, state, simTime);
+    this._updateGoals(position, state, safeSimTime);
 
     // ─── 4. 尝试生成新目标（周期性）───
     this._ticksSinceGoal++;
     if (this._ticksSinceGoal >= this._cfg.goalGenerationInterval) {
-      this._maybeGenerateGoal(position, hour, simTime);
+      this._maybeGenerateGoal(position, hour, safeSimTime);
       this._ticksSinceGoal = 0;
     }
 
     // ─── 4.5 新奇体验满足好奇心 ───
     // 在当前位置有新奇感时，好奇心被持续满足
     // 这形成了正反馈循环：探索 → 好奇心满足 → 继续探索
-    const currentNovelty = this.getNovelty(position, simTime);
+    const currentNovelty = this.getNovelty(position, safeSimTime);
     if (currentNovelty > 0.3) {
       const satisfyAmount = this._cfg.curiositySatisfyOnNovelty * currentNovelty * hoursElapsed;
       this.satisfyCuriosity(satisfyAmount);
