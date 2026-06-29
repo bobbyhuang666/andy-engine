@@ -208,11 +208,16 @@ class EffectCommitter {
    * @private
    */
   _applyFutureTendencyDelta(delta) {
-    const agent = this.agents?.get?.(delta.agentId);
+    const agent = this.agents?.get(delta.agentId);
     if (!agent || !agent.futureTendency || typeof agent.futureTendency.updateTendency !== 'function') return;
     if (!delta.location) return;
 
-    agent.futureTendency.updateTendency(delta.location, delta.delta, delta.importance);
+    // R35 P1 fix: validate importance with Number.isFinite. NaN importance
+    // causes `dv * NaN = NaN` in updateTendency, and Math.max(-1, NaN) = NaN,
+    // permanently corrupting the tendency array (decay preserves NaN).
+    const importance = typeof delta.importance === 'number' && Number.isFinite(delta.importance)
+      ? delta.importance : 0.1;
+    agent.futureTendency.updateTendency(delta.location, delta.delta, importance);
   }
 }
 

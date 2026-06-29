@@ -49,7 +49,12 @@ class KnowledgeStore {
     // 已经是 object，补全默认值
     return {
       source: sourceOrEvidence.source || 'direct',
-      confidence: Number.isFinite(sourceOrEvidence.confidence) ? sourceOrEvidence.confidence : (EVIDENCE_CONFIDENCE[sourceOrEvidence.source] ?? 1.0),
+      // R35 P2 fix: clamp confidence to [0,1]. Number.isFinite rejects NaN but
+      // allows out-of-range values (e.g., 2.0, -0.5) which corrupt downstream
+      // probability calculations and weighted decisions.
+      confidence: Number.isFinite(sourceOrEvidence.confidence)
+        ? Math.max(0, Math.min(1, sourceOrEvidence.confidence))
+        : (EVIDENCE_CONFIDENCE[sourceOrEvidence.source] ?? 1.0),
       learnedAt: Number.isFinite(sourceOrEvidence.learnedAt) ? sourceOrEvidence.learnedAt : 0,
       propagatedFrom: sourceOrEvidence.propagatedFrom ?? null,
       eventId: sourceOrEvidence.eventId ?? null,

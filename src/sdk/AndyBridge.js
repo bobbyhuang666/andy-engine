@@ -346,13 +346,23 @@ class AndyBridge {
               }
             }
           }
-          if (state.position !== undefined) agent.position = state.position;
+          // R35 P1 fix: validate position is a non-empty string. Invalid position
+          // (number, object, empty string) breaks all region-based subsystems
+          // (encounter detection, schedule, social interactions).
+          if (typeof state.position === 'string' && state.position.length > 0) {
+            agent.position = state.position;
+          }
           // R34 P2 fix: validate health with Number.isFinite, matching the
           // pattern used for all other numeric fields in _restoreAgents.
           if (typeof state.health === 'number' && Number.isFinite(state.health)) {
             agent.health = state.health;
           }
-          if (Number.isFinite(state.socialEnergy)) agent.socialEnergy = state.socialEnergy;
+          // R35 P2 fix: clamp socialEnergy to [0,1] at restore time. Out-of-range
+          // values (e.g., 2.0) affect schedule decisions for one tick before
+          // PhysiologyRuntime self-corrects.
+          if (Number.isFinite(state.socialEnergy)) {
+            agent.socialEnergy = Math.max(0, Math.min(1, state.socialEnergy));
+          }
           // R9: restore behaviorField B vector
           if (state.behaviorField && state.behaviorField.B && agent.behaviorField) {
             for (let i = 0; i < Math.min(state.behaviorField.B.length, agent.behaviorField.B.length); i++) {
@@ -390,8 +400,14 @@ class AndyBridge {
             }
           }
           // R9: restore stateMachine currentState
+          // R35 P1 fix: validate currentState against domain states. An invalid
+          // state (not in domain.states) causes wrong schedule, motivation, and
+          // emotional decisions until the next BehaviorField label change.
           if (state.stateMachine && state.stateMachine.currentState && agent.stateMachine) {
-            agent.stateMachine.currentState = state.stateMachine.currentState;
+            const domainStates = agent.domain?.states;
+            if (!domainStates || domainStates[state.stateMachine.currentState]) {
+              agent.stateMachine.currentState = state.stateMachine.currentState;
+            }
           }
           // R9: restore tick counters
           if (Number.isFinite(state._ticksSinceReflection)) {

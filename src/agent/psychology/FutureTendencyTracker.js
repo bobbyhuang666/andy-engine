@@ -109,7 +109,14 @@ class FutureTendencyTracker {
     const tracker = new FutureTendencyTracker();
     tracker.decayRate = data.decayRate || 0.95;
     for (const [region, tendency] of Object.entries(data.tendencies || {})) {
-      tracker._tendencies.set(region, [...tendency]);  // R11: spread to avoid shared reference
+      // R35 P2 fix: validate tendency array elements for NaN. Corrupted JSON
+      // like [NaN, 0, 0, 0] bypasses updateTendency's guard when loaded via
+      // fromJSON. NaN in tendency is permanent (decay preserves NaN).
+      if (Array.isArray(tendency)) {
+        tracker._tendencies.set(region, tendency.map(v =>
+          typeof v === 'number' && Number.isFinite(v) ? v : 0
+        ));
+      }
     }
     return tracker;
   }

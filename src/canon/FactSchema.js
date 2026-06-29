@@ -78,8 +78,10 @@ function validateFact(fact) {
     errors.push(`source must be one of: ${FACT_SOURCES.join(', ')}`);
   }
 
-  if (typeof fact.confidence !== 'number' || fact.confidence < 0 || fact.confidence > 1) {
-    errors.push('confidence must be a number between 0 and 1');
+  // R35 P1 fix: typeof NaN === 'number' is true, and NaN < 0 / NaN > 1 are both
+  // false, so NaN passes this check. Use Number.isFinite to reject NaN/Infinity.
+  if (typeof fact.confidence !== 'number' || !Number.isFinite(fact.confidence) || fact.confidence < 0 || fact.confidence > 1) {
+    errors.push('confidence must be a finite number between 0 and 1');
   }
 
   if (!FACT_SCOPES.includes(fact.scope)) {

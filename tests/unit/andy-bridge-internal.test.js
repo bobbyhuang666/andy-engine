@@ -159,12 +159,13 @@ describe('AndyBridge._restoreAgents', () => {
     const bridge = makeBridge();
     const agent = {};
     bridge.andy = fakeAndy({ a: agent });
-    const good = JSON.stringify({ id: 'a', emotion: { valence: -0.5 }, position: { x: 2 }, health: 50, socialEnergy: 0.8 });
+    // R35: position must be a non-empty string (region name), not an object
+    const good = JSON.stringify({ id: 'a', emotion: { valence: -0.5 }, position: 'library', health: 50, socialEnergy: 0.8 });
     const corrupt = '{bad json';
     const data = Buffer.from(good + '\n---\n' + corrupt);
     bridge._restoreAgents(data);
     // emotion is NOT restored in fallback (preserves class instances like EmotionVector)
-    expect(agent.position).toEqual({ x: 2 });
+    expect(agent.position).toBe('library');
     expect(agent.health).toBe(50);
     expect(agent.socialEnergy).toBe(0.8);
   });
