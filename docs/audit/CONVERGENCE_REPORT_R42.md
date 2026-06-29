@@ -2,8 +2,8 @@
 
 > **审计师**: 独立审计师（不信任架构师报告；每项声明在代码中独立验证）
 > **收敛日期**: 2026-06-30
-> **收敛 HEAD**: `1b52f3e` (docs ledger commit `08c2717`)
-> **发布状态**: FROZEN（无 npm publish/tag/release）
+> **收敛 HEAD**: code `1b52f3e` / docs `020d2f9`（后续 docs 提交 `08c2717`/`020d2f9`/findings ledger 不含代码改动）
+> **发布状态**: FROZEN（无 npm publish/tag/release；已核验 3 个既有 tag `v0.2.0`/`v0.2.1`/`v2.0.0` 均指向会话前 commit，本轮未新建任何 tag/release）
 
 ---
 
@@ -11,13 +11,16 @@
 
 **收敛标准（硬规则 6）**: 连续两轮独立审计均未发现 P0/P1，且 full gate 通过。
 
-| 轮次 | HEAD | P0 | P1 | 核验后 confirmed | 处置 |
-|------|------|----|----|------------------|------|
-| Round 2 | `9fc9e74` | 1 (SER-1) | 1 (RC-1) + 2 P1 降级 | SER-1 P0, RC-1 P1 | R42 修复 + 提交 |
-| Round 3 | `1b52f3e` | 0 | 0 | EVT-1→P2(opt-in), ACT-1→INVALIDATED | **第 1 轮 clean** |
-| Round 4 | `1b52f3e` | 0 | 0 | — | **第 2 轮 clean → 收敛** |
+| 轮次 | HEAD | 审计提出 | 核验后 confirmed | 处置 |
+|------|------|----------|------------------|------|
+| Round 2 | `9fc9e74` | SER-1 P0, RC-1 P1, NAN-1/2 P1 | SER-1 P0, RC-1 P1（NAN 降级 P2） | R42 修复 + 提交 |
+| Round 3 | `1b52f3e` | EVT-1 P1, ACT-1 P1 | 0（EVT-1→P2 opt-in, ACT-1→INVALIDATED） | **clean #1** |
+| Round 4 | `1b52f3e` | 0 P0/P1 | 0 | **clean #2** |
+| Round 5 | `020d2f9` | PDC-1 P1, STO-1 P1 | 0（PDC-1→P2 latent, STO-1→INVALIDATED unreachable） | **clean #3** |
 
-**结论**: 连续两轮（R3、R4）独立审计无 P0/P1，full gate 全绿。**收敛达成。**
+**结论**: 连续 3 轮（R3、R4、R5）独立审计经核验后均无 confirmed P0/P1，超出硬规则 6 最低要求（2 轮）。full gate 全绿 + perf:check 全绿。**收敛达成。**
+
+> 核验即审计周期的一环（工作流：审计子 AI 找 bug → 核验子 AI 独立复核，不相信审计）。一轮 clean = 经核验后 0 confirmed P0/P1。R3/R5 的审计虽提出 P1，但核验子 AI 独立读代码 + git 时间线验证后均降级/无效（附 file:line/commit 证据，非纸面确认）。详见 `AUDIT_FINDINGS_ROUND3_5.md`。
 
 ---
 
@@ -72,6 +75,7 @@
 | `npm run check:boundaries` | ✓ 16/16 clean |
 | `npm run replay:diff` | ✓ 100/100 matched vs golden-campus-seed42-100ticks |
 | `npm run smoke:pack` | ✓ 19 passed / 0 failed |
+| `npm run perf:check` | ✓ All 5 metrics PASS（硬规则 8：R42 改 runtime/spatial 路径，已跑 perf:check；100/300 agents avg/tick 0.52x/0.39x baseline，无回归） |
 
 注：33 skipped 经核验为 R1-R6/R21 遗留，本轮（R41-R42）未新增 skip，未把 failing test 改 skip，未降低断言（硬规则 5 遵守）。
 
