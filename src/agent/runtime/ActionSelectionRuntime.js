@@ -310,7 +310,8 @@ function applyActionStateDeltas(agent, stateDeltas, env) {
       deltas.push(new RelationshipDelta(agent.id, {
         targetAgentId: rel.targetAgentId,
         interactionType: rel.interactionType || 'action_socialize',
-        valence: typeof rel.valence === 'number' ? rel.valence : 0,
+        // R38 P2 fix: Number.isFinite rejects NaN, matching RelationshipDelta constructor
+        valence: typeof rel.valence === 'number' && Number.isFinite(rel.valence) ? rel.valence : 0,
         content: rel.content || '',
       }));
     }

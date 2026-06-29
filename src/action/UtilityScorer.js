@@ -176,9 +176,10 @@ function scoreMemory(candidate, context) {
     const relevance = computeMemoryRelevance(mem, candidate);
     if (relevance <= 0) continue;
 
-    const importance = typeof mem.importance === 'number' ? mem.importance : 0.5;
-    const activation = typeof mem.activation === 'number' ? mem.activation : 0.5;
-    const valence = typeof mem.valence === 'number' ? mem.valence : 0;
+    // R38 P2 fix: Number.isFinite rejects NaN (typeof NaN === 'number' is true)
+    const importance = typeof mem.importance === 'number' && Number.isFinite(mem.importance) ? mem.importance : 0.5;
+    const activation = typeof mem.activation === 'number' && Number.isFinite(mem.activation) ? mem.activation : 0.5;
+    const valence = typeof mem.valence === 'number' && Number.isFinite(mem.valence) ? mem.valence : 0;
 
     const direction = valence >= 0 ? 1 : -1;
     const magnitude = importance * activation * relevance;
@@ -244,12 +245,13 @@ function scoreHabit(candidate, context) {
   // Only score habit candidates
   if (candidate.source !== 'habit') return 0;
   
-  // Get confidence from metadata
-  const confidence = 
-    candidate.metadata?.confidence ?? 
-    candidate.confidence ?? 
-    candidate.habitStrength ?? 
-    0.5;
+  // R38 P1 fix: NaN ?? 0.5 = NaN (nullish coalescing doesn't catch NaN).
+  // NaN confidence makes score NaN, silently excluding candidate from selection
+  // (UtilitySelector filters on !isNaN(total)). Validate with Number.isFinite.
+  const confidence = (() => {
+    const v = candidate.metadata?.confidence ?? candidate.confidence ?? candidate.habitStrength;
+    return typeof v === 'number' && Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0.5;
+  })();
   
   // Clamp to reasonable range and scale
   // Habit score should be meaningful but not dominate other dimensions
@@ -270,8 +272,9 @@ function scoreGoal(candidate, context) {
     const relevance = computeGoalRelevance(goal, candidate);
     if (relevance <= 0) continue;
 
-    const priority = typeof goal.priority === 'number' ? goal.priority : 0.5;
-    const weight = typeof goal.weight === 'number' ? goal.weight : 1.0;
+    // R38 P2 fix: Number.isFinite rejects NaN (typeof NaN === 'number' is true)
+    const priority = typeof goal.priority === 'number' && Number.isFinite(goal.priority) ? goal.priority : 0.5;
+    const weight = typeof goal.weight === 'number' && Number.isFinite(goal.weight) ? goal.weight : 1.0;
 
     totalScore += priority * weight * relevance;
   }
