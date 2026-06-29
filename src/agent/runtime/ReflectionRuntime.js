@@ -26,18 +26,24 @@ function reflect(agent) {
     }
   }
 
-  // 2. Emotion pattern recognition
+  // 2. Emotion pattern recognition → baseline adaptation
+  // R28 P1-001 fix: route through EmotionVector.adaptBaseline() instead of
+  // directly writing emotion.baseline[dim]. Direct writes bypassed EmotionVector's
+  // ownership and created undocumented dual drift (20x rate vs _baselineDrift).
   const currentValence = agent.emotion.getValence();
   const adaptRate = 0.002;
+  const baselineDrift = {};
   for (const dim of ['joy', 'sadness', 'anger', 'fear', 'calm', 'nervousness']) {
     const current = agent.emotion.current[dim] || 0;
     const base = agent.emotion.baseline[dim] || 0;
     const diff = current - base;
 
     if (Math.abs(diff) > 0.2) {
-      agent.emotion.baseline[dim] = base + diff * adaptRate;
+      baselineDrift[dim] = diff * adaptRate;
     }
   }
+  // Baseline reset protection (clamp) is now handled by adaptBaseline's clampMax param
+  agent.emotion.adaptBaseline(baselineDrift, 0.4);
 
   // 3. Stress reappraisal
   if (currentValence > 0.1 && agent.socialEnergy > 0.3) {
@@ -47,11 +53,9 @@ function reflect(agent) {
     agent.emotion.setStress(agent.emotion.stress + 0.1);
   }
 
-  // 4. Baseline reset protection
-  for (const dim of EMOTION_DIMENSIONS) {
-    const base = agent.emotion.baseline[dim] || 0;
-    agent.emotion.baseline[dim] = Math.max(-0.4, Math.min(0.4, base));
-  }
+  // R28 P1-001 fix: baseline reset protection is now handled by
+  // adaptBaseline's clampMax parameter, so the direct write loop is removed.
+  // Previously: for (dim of EMOTION_DIMENSIONS) agent.emotion.baseline[dim] = Math.max(-0.4, Math.min(0.4, base))
 }
 
 /**

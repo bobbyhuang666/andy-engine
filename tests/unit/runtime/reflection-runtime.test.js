@@ -29,6 +29,7 @@ function makeAgent(overrides = {}) {
       getValence: () => 0,
       setStress: () => {},
       applyEffect: () => {},
+      adaptBaseline: () => {}, // R28 P1-001: added for route-through fix
     },
     socialEnergy: 0.5,
     position: '宿舍',
@@ -78,20 +79,25 @@ describe('ReflectionRuntime.reflect', () => {
     expect(satisfied.called).toBe(true);
   });
   it('adapts baseline when current deviates from baseline by >0.2', () => {
+    let adaptCalled = false;
+    let adaptArgs = null;
     const agent = makeAgent({
       emotion: {
         current: { joy: 0.5, sadness: 0, anger: 0, fear: 0, calm: 0, nervousness: 0, loneliness: 0 },
         baseline: { joy: 0.1, sadness: 0, anger: 0, fear: 0, calm: 0, nervousness: 0, loneliness: 0 },
         stress: 0, getValence: () => 0, setStress: () => {}, applyEffect: () => {},
+        adaptBaseline: (driftMap, clampMax) => { adaptCalled = true; adaptArgs = { driftMap, clampMax }; },
       },
     });
     reflect(agent);
-    expect(agent.emotion.baseline.joy).toBeGreaterThan(0.1); // adapted toward current
+    expect(adaptCalled).toBe(true);
+    expect(adaptArgs.driftMap.joy).toBeCloseTo(0.0008, 6); // (0.5-0.1)*0.002
+    expect(adaptArgs.clampMax).toBe(0.4);
   });
   it('reduces stress when valence>0.1 and socialEnergy>0.3', () => {
     let stressSet = null;
     const agent = makeAgent({
-      emotion: { current: {}, baseline: {}, stress: 5, getValence: () => 0.5, setStress: (v) => { stressSet = v; }, applyEffect: () => {} },
+      emotion: { current: {}, baseline: {}, stress: 5, getValence: () => 0.5, setStress: (v) => { stressSet = v; }, applyEffect: () => {}, adaptBaseline: () => {} },
       socialEnergy: 0.5,
     });
     reflect(agent);
@@ -100,25 +106,26 @@ describe('ReflectionRuntime.reflect', () => {
   it('increases stress when loneliness>0.3', () => {
     let stressSet = null;
     const agent = makeAgent({
-      emotion: { current: { loneliness: 0.5 }, baseline: {}, stress: 5, getValence: () => 0, setStress: (v) => { stressSet = v; }, applyEffect: () => {} },
+      emotion: { current: { loneliness: 0.5 }, baseline: {}, stress: 5, getValence: () => 0, setStress: (v) => { stressSet = v; }, applyEffect: () => {}, adaptBaseline: () => {} },
     });
     reflect(agent);
     expect(stressSet).toBe(5.1); // 5 + 0.1
   });
-  it('clamps baseline to [-0.4, 0.4]', () => {
+  it('clamps baseline to [-0.4, 0.4] via adaptBaseline', () => {
+    let adaptCalled = false;
+    let adaptArgs = null;
     const agent = makeAgent({
       emotion: {
         current: { joy: 0.9 }, baseline: { joy: 0.9, sadness: 0, anger: 0, fear: 0, calm: 0, nervousness: 0, loneliness: 0 },
         stress: 0, getValence: () => 0.8, setStress: () => {}, applyEffect: () => {},
+        adaptBaseline: (driftMap, clampMax) => { adaptCalled = true; adaptArgs = { driftMap, clampMax }; },
       },
       socialEnergy: 0.5,
     });
     reflect(agent);
-    // joy baseline adapted then clamped; all baselines within [-0.4, 0.4]
-    for (const v of Object.values(agent.emotion.baseline)) {
-      expect(v).toBeGreaterThanOrEqual(-0.4);
-      expect(v).toBeLessThanOrEqual(0.4);
-    }
+    // R28 P1-001: clamp is now done by adaptBaseline's clampMax parameter
+    expect(adaptCalled).toBe(true);
+    expect(adaptArgs.clampMax).toBe(0.4);
   });
 });
 
@@ -153,7 +160,7 @@ describe('ReflectionRuntime.assessStateConsequences', () => {
       },
       emotion: {
         current: {}, baseline: {}, stress: 0, getValence: () => 0,
-        setStress: () => {}, applyEffect: (eff) => { applied.called = true; },
+        setStress: () => {}, applyEffect: (eff) => { applied.called = true; }, adaptBaseline: () => {},
       },
     });
     assessStateConsequences(agent);

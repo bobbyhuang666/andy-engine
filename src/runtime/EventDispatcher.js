@@ -180,8 +180,10 @@ class EventDispatcher {
         valence = 0.5 + this._rand() * 0.3;
       }
 
-      // 区域加成（从 domain 取社交区域）
-      const socialRegions = this.domain.placeTypes.social || ['酒馆', '广场'];
+      // R28 P1-003 fix: remove hardcoded campus domain terms from core runtime.
+      // The fallback was ['酒馆', '广场'] (tavern, plaza) which violates the
+      // domain-agnostic rule. If domain doesn't define social regions, there are none.
+      const socialRegions = this.domain.placeTypes.social || [];
       if (socialRegions.includes(region)) {
         if (valence > 0) {
           const tpl = si.withGoodFriendTemplate || ((r) => `和好朋友一起在${r}，聊得很开心`);
@@ -281,6 +283,7 @@ class EventDispatcher {
     const event = {
       type: 'social',
       scope: 'local',
+      location: region, // R28 P1-004 fix: include location so CanonEventPipeline can create proper facts
       participants: [agentA, agentB],
       content,
       effects: [
@@ -405,6 +408,7 @@ class EventDispatcher {
     return {
       type: 'random',
       scope: 'local',
+      location: region, // R28 P1-004 fix: include location so CanonEventPipeline can create proper facts
       participants: [agentId],
       content: chosen.content,
       effects: [

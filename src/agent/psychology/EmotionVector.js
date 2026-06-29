@@ -424,6 +424,26 @@ class EmotionVector {
   }
 
   /**
+   * R28 P1-001 fix: Public API for reflection-driven baseline adaptation.
+   * Previously, ReflectionRuntime directly wrote to emotion.baseline[dim],
+   * bypassing EmotionVector's ownership and creating an undocumented dual
+   * drift mechanism at 20x the designed rate. This method gives ReflectionRuntime
+   * a proper seam while keeping EmotionVector in control of its internal state.
+   *
+   * @param {Object} driftMap - { dimension: driftAmount } where driftAmount is
+   *   the absolute amount to add to baseline (NOT a delta relative to current).
+   * @param {number} clampMax - maximum absolute baseline value after adaptation
+   */
+  adaptBaseline(driftMap, clampMax = 0.4) {
+    if (!driftMap || typeof driftMap !== 'object') return;
+    for (const [dim, drift] of Object.entries(driftMap)) {
+      if (!Number.isFinite(drift)) continue;
+      if (!(dim in this.baseline)) continue;
+      this.baseline[dim] = Math.max(-clampMax, Math.min(clampMax, (this.baseline[dim] || 0) + drift));
+    }
+  }
+
+  /**
    * Step 9: 速度限制
    * 限制每个维度在单个 tick 内的最大变化量
    * 但不阻碍向基线方向的自然衰减（允许惯性滤波和时间衰减生效）

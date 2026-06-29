@@ -10,6 +10,8 @@
  *   - 对话中：每条消息间推进 1-3 tick（模拟思考和反应时间）
  */
 
+const { RNG } = require('../shared/rng');
+
 class AutoTick {
   /**
    * @param {Object} options
@@ -23,7 +25,11 @@ class AutoTick {
     this.maxCatchupTicks = Math.max(1, options.maxCatchupTicks || 288);
     this.chatTickMin = Math.max(0, options.chatTickMin ?? 1);
     this.chatTickMax = Math.max(this.chatTickMin, options.chatTickMax ?? 3);
-    this._rng = options.rng || Math.random;
+    // R28 P1-002 fix: use seeded RNG fallback instead of Math.random.
+    // Raw Math.random breaks determinism — same conversation replayed with
+    // the same engine seed produces different tick counts between messages.
+    // Callers should pass their own seeded RNG for full determinism.
+    this._rng = options.rng || new RNG(0).next.bind(new RNG(0));
 
     this._lastMessageTime = null;
     this._lastSimTime = null;
