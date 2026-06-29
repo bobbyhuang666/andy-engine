@@ -85,7 +85,15 @@ class NeedsSystem {
       this._recoveryMultipliers = NeedsSystem._calcRecoveryMultipliers(ocean);
     }
 
-    // NaN 防御：验证 _decayRates 和 _recoveryMultipliers 内部值
+    // NaN 防御：验证 needs、_decayRates 和 _recoveryMultipliers 内部值
+    // R31 P1 fix: this.needs from corrupted save data can contain NaN,
+    // and Math.max(0, NaN) = NaN propagates permanently through tick().
+    const defaultNeeds = { hunger: 0.8, energy: 0.9, social: 0.6, comfort: 0.7, stimulation: 0.5 };
+    for (const key of Object.keys(this.needs)) {
+      if (!Number.isFinite(this.needs[key])) {
+        this.needs[key] = defaultNeeds[key] || 0.5;
+      }
+    }
     const freshDecayRates = NeedsSystem._calcDecayRates(ocean);
     const freshRecoveryMultipliers = NeedsSystem._calcRecoveryMultipliers(ocean);
     for (const key of Object.keys(this._decayRates)) {
