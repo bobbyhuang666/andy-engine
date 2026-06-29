@@ -12,7 +12,9 @@
  *   - 迁移必须是显式的外部管线，不在序列化中隐式执行
  */
 
-const ENVELOPE_VERSION = '0.2.0';
+// R21 P0-2: align with CURRENT_SCHEMA_VERSION in validator.js (0.1.0).
+// Mismatch caused validateWorldSpec to reject all serialized envelopes.
+const ENVELOPE_VERSION = '0.1.0';
 
 class Serialization {
   /**

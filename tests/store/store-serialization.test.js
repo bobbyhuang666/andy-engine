@@ -81,9 +81,10 @@ describe('Serialization.serialize', () => {
     expect(typeof envelope.runtimeSnapshot).toBe('object');
   });
 
-  it('version 是 0.2.0', () => {
-    expect(ENVELOPE_VERSION).toBe('0.2.0');
-    expect(Serialization.getVersion()).toBe('0.2.0');
+  // R21 P0-2: ENVELOPE_VERSION aligned with CURRENT_SCHEMA_VERSION (0.1.0)
+  it('version 是 0.1.0', () => {
+    expect(ENVELOPE_VERSION).toBe('0.1.0');
+    expect(Serialization.getVersion()).toBe('0.1.0');
   });
 
   it('timestamp 是有效的 ISO 8601', () => {
@@ -168,7 +169,7 @@ describe('Serialization.deserialize', () => {
 
   it('拒绝缺少 runtimeSnapshot 的 envelope', () => {
     expect(() => {
-      Serialization.deserialize({ version: '0.2.0' });
+      Serialization.deserialize({ version: '0.1.0' });
     }).toThrow(/runtimeSnapshot/);
   });
 
@@ -305,7 +306,7 @@ describe('store/ 向后兼容性', () => {
     const store = await import('../../store/index.js');
 
     expect(store.Serialization).toBeDefined();
-    expect(store.ENVELOPE_VERSION).toBe('0.2.0');
+    expect(store.ENVELOPE_VERSION).toBe('0.1.0');
     expect(store.SaveLoad).toBeDefined();
   });
 
@@ -318,7 +319,7 @@ describe('store/ 向后兼容性', () => {
   it('internal src/store/Serialization module 有效 (非 public export)', async () => {
     const mod = await import('../../src/store/Serialization.js');
     expect(mod.Serialization).toBeDefined();
-    expect(mod.ENVELOPE_VERSION).toBe('0.2.0');
+    expect(mod.ENVELOPE_VERSION).toBe('0.1.0');
   });
 });
 
@@ -355,7 +356,7 @@ describe('运行时快照不透明性', () => {
   it('不同版本的 runtimeSnapshot 结构可以不同', () => {
     // 模拟旧版本快照
     const oldEnvelope = {
-      version: '0.2.0',
+      version: '0.0.1',
       timestamp: '2026-01-01T00:00:00Z',
       runtimeSnapshot: {
         time: '2026-01-01T00:00:00Z',

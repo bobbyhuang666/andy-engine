@@ -38,9 +38,11 @@ class MemoryPressure {
     for (const mem of memories) {
       if (!mem) continue;
 
-      const importance = typeof mem.importance === 'number' ? mem.importance : 0.5;
-      const activation = typeof mem.activation === 'number' ? mem.activation : 0.5;
-      const valence = typeof mem.valence === 'number' ? mem.valence : 0;
+      // R21 P1-8: NaN guard. typeof NaN === 'number' is true, so NaN values
+      // would pass the type check and propagate to all outputs (sum/average).
+      const importance = (typeof mem.importance === 'number' && Number.isFinite(mem.importance)) ? mem.importance : 0.5;
+      const activation = (typeof mem.activation === 'number' && Number.isFinite(mem.activation)) ? mem.activation : 0.5;
+      const valence = (typeof mem.valence === 'number' && Number.isFinite(mem.valence)) ? mem.valence : 0;
 
       const weight = importance * activation;
 

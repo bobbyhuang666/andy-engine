@@ -100,7 +100,9 @@ describe('G6: persistence version constants are frozen', () => {
     expect(CURRENT_SCHEMA_VERSION).toBe('0.1.0');
   });
 
-  it('ENVELOPE_VERSION is pinned to 0.2.0', () => {
-    expect(ENVELOPE_VERSION).toBe('0.2.0');
+  // R21 P0-2: ENVELOPE_VERSION aligned with CURRENT_SCHEMA_VERSION (0.1.0).
+  // Mismatch caused validateWorldSpec to reject all serialized envelopes.
+  it('ENVELOPE_VERSION is pinned to 0.1.0', () => {
+    expect(ENVELOPE_VERSION).toBe('0.1.0');
   });
 });

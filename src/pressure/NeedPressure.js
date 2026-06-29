@@ -27,7 +27,9 @@ class NeedPressure {
 
     for (const key of needKeys) {
       const value = needs[key];
-      if (typeof value === 'number') {
+      // R21 P1-8: NaN guard. typeof NaN === 'number' is true, so NaN would
+      // bypass the type check and propagate to total.
+      if (typeof value === 'number' && Number.isFinite(value)) {
         const p = Math.max(0, Math.min(1, 1 - value));
         pressure[key] = p;
         sum += p;
@@ -57,8 +59,9 @@ class NeedPressure {
 
     for (const key of needKeys) {
       const value = needs[key];
-      if (typeof value === 'number') {
-        const p = 1 - value;
+      // R21 P1-8: NaN guard + clamp to [0,1] consistent with compute()
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        const p = Math.max(0, Math.min(1, 1 - value));
         if (p > maxPressure) {
           maxPressure = p;
           maxKey = key;

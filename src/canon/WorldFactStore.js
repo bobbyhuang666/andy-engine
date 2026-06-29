@@ -350,7 +350,7 @@ class WorldFactStore {
         // this agent (e.g., via observers), only the owning agent should see it.
         if (fact.type === FactType.AGENT_STATE && fact.agentId !== agentId) continue;
 	        if (options.types && !options.types.includes(fact.type)) continue;
-	        result.push({ ...fact });
+		        result.push(this._deepCopyFact(fact));
 	      }
 	    }
 

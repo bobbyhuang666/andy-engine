@@ -1,10 +1,12 @@
 /**
  * ExploreCandidateProvider — generates explore candidates from intrinsic curiosity
  *
- * R20 P0 fix: uses seeded RNG to pick a target region for exploration,
+ * R20/R21 P0 fix: uses seeded RNG to pick a target region for exploration,
  * making no-schedule agent movement seed-dependent (deterministic).
  * Without a target, explore actions produce no position change in the
  * effect pipeline, and the agent's trajectory becomes seed-independent.
+ *
+ * R21: fixed method name — DomainRegistry.getRegions(), not getRegionNames().
  */
 
 const { CandidateProvider } = require('./CandidateProvider');
@@ -17,12 +19,12 @@ class ExploreCandidateProvider extends CandidateProvider {
     if (!context.intrinsic || typeof context.intrinsic.curiosity !== 'number') return [];
     if (context.intrinsic.curiosity < 0.3) return [];
 
-    // R20 P0: pick a seeded-random target region so explore actions
+    // R20/R21 P0: pick a seeded-random target region so explore actions
     // produce seed-dependent position changes. Without this, no-schedule
     // agents always traverse regions in the same list order regardless of seed.
     let target = null;
-    if (context.rng && context.domain && typeof context.domain.getRegionNames === 'function') {
-      const regions = context.domain.getRegionNames();
+    if (context.rng && context.domain && typeof context.domain.getRegions === 'function') {
+      const regions = context.domain.getRegions();
       const currentPos = context.agent?.position || null;
       // Prefer regions different from current position
       const candidates = currentPos

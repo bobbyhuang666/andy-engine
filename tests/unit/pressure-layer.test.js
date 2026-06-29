@@ -247,15 +247,17 @@ describe('MemoryPressure', () => {
 
 describe('RelationshipPressure', () => {
   describe('compute', () => {
-    it('无关系时返回高孤立压力', () => {
+    // R21 P1-14: new agents have no relationships yet — this is normal,
+    // not pathological. Return 0 isolation instead of hardcoded 0.8.
+    it('无关系时返回零孤立压力', () => {
       const pressure = RelationshipPressure.compute({ relationships: [] });
-      expect(pressure.isolation).toBe(0.8);
-      expect(pressure.total).toBe(0.8);
+      expect(pressure.isolation).toBe(0);
+      expect(pressure.total).toBe(0);
     });
 
-    it('null agent 返回高孤立压力', () => {
+    it('null agent 返回零孤立压力', () => {
       const pressure = RelationshipPressure.compute(null);
-      expect(pressure.isolation).toBe(0.8);
+      expect(pressure.isolation).toBe(0);
     });
 
     it('有活跃关系时孤立压力为 0', () => {

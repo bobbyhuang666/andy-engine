@@ -24,7 +24,10 @@ class RelationshipPressure {
    */
   static compute(agentSnapshot, thresholds = DEFAULT_THRESHOLDS) {
     if (!agentSnapshot || !agentSnapshot.relationships || agentSnapshot.relationships.length === 0) {
-      return { isolation: 0.8, conflict: 0, decay: 0, total: 0.8 };
+      // R21 P1-14: new agents have no relationships yet — this is normal,
+      // not pathological. Return 0 isolation instead of hardcoded 0.8 to
+      // avoid excessive pressure on newly created agents.
+      return { isolation: 0, conflict: 0, decay: 0, total: 0 };
     }
 
     const relationships = agentSnapshot.relationships;

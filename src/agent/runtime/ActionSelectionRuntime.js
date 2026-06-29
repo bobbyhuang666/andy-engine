@@ -38,11 +38,45 @@ function validateActionSelectionConfig(actionCfg, rng, agentId) {
 
 /**
  * Build action selection context (read-only snapshot of agent state).
+ * R21 P0-3: complete all fields required by providers and scorers.
+ * Previously missing: proceduralMemory, currentHour, dayOfWeek,
+ * currentPosition, currentValence (HabitCandidateProvider dead code),
+ * worldPressure (WorldPressureCandidateProvider dead code),
+ * pressureContext, futureTendency, locationMeaning, world (5 scorer
+ * dimensions always returning 0), and schedule.currentActivity.
  * @param {Object} agent
  * @param {Object} env
  * @returns {Object}
  */
 function buildActionContext(agent, env) {
+  const currentActivity = agent.schedule
+    ? agent.schedule.getCurrentActivity(env.hour, env.dayOfWeek, env.simDate)
+    : null;
+
+  // Build PressureContext from snapshot for scorers
+  let pressureContext = null;
+  try {
+    const { PressureContext } = require('../../pressure/PressureContext');
+    pressureContext = PressureContext.fromSnapshot({
+      world: { time: env.simTime, weather: env.weather },
+      agent: {
+        id: agent.id,
+        position: agent.position,
+        needs: agent.needs ? agent.needs.needs : {},
+        emotion: agent.emotion ? agent.emotion.current : {},
+        memory: agent.memory,
+        socialGraph: agent.socialGraph,
+        behaviorField: agent.behaviorField,
+        futureTendency: agent.futureTendency,
+        locationMeaningInfluence: agent.behaviorField._locationMeaningInfluence,
+      },
+      events: [],
+      simTime: env.simTime,
+    });
+  } catch (_) {
+    // PressureContext construction is best-effort; scorers handle null
+  }
+
   return {
     agent: {
       id: agent.id,
@@ -67,8 +101,16 @@ function buildActionContext(agent, env) {
       ? agent.socialGraph.getRelationships(agent.id)
       : [],
     goals: [],
-    worldPressure: null,
-    schedule: agent.schedule.getCurrentActivity(env.hour, env.dayOfWeek, env.simDate),
+    // R21 P0-3: provide real worldPressure (previously null → WorldPressureCandidateProvider dead code)
+    worldPressure: pressureContext ? pressureContext.world : null,
+    // R21 P0-3: provide pressureContext for 5 scorer dimensions (need, relationship,
+    // memory, location, world) that always returned 0 without it
+    pressureContext: pressureContext ? pressureContext.toScorerContext() : null,
+    // R21 P0-3: provide schedule with currentActivity (ScheduleCandidateProvider
+    // expects context.schedule.currentActivity, not a bare string)
+    schedule: {
+      currentActivity: currentActivity,
+    },
     intrinsic: {
       curiosity: agent.intrinsicMotivation.curiosity,
     },
@@ -77,8 +119,22 @@ function buildActionContext(agent, env) {
       dayOfWeek: env.dayOfWeek,
       weather: env.weather,
     },
+    // R21 P0-3: fields required by HabitCandidateProvider (was dead code)
+    proceduralMemory: agent.proceduralMemory || null,
+    currentHour: env.hour,
+    dayOfWeek: env.dayOfWeek,
+    currentPosition: agent.position,
+    currentValence: agent.emotion.getValence(),
+    // R21 P0-3: fields required by scorer tendency/location dimensions
+    futureTendency: agent.futureTendency || null,
+    locationMeaning: agent.behaviorField._locationMeaningInfluence || null,
     domain: agent.domain,
     rng: agent._rng,
+    // R21 P0-3: world context for scoreTime/scoreConstraint (previously missing)
+    world: {
+      time: env.simTime ? env.simTime.toISOString() : null,
+      weather: env.weather,
+    },
   };
 }
 

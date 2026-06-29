@@ -214,8 +214,11 @@ class CanonEventPipeline {
       // 3. 仅 PUBLIC scope
       if (fact.scope !== FactScope.PUBLIC) continue;
 
-      // 4. 不传播他人 AGENT_STATE
-      if (fact.type === FactType.AGENT_STATE && fact.agentId !== tellerId) continue;
+      // 4. 不传播 AGENT_STATE（无论是自己还是他人的）
+      // R21 P1-6: AGENT_STATE 是私有知识，即使自己的也不应通过
+      // gossip 的 "told" 路径传播给听者。旧代码只跳过他人的，
+      // 允许自己的 AGENT_STATE 泄漏给听者，违反认知边界设计。
+      if (fact.type === FactType.AGENT_STATE) continue;
 
       // 5. 告知者必须 hasKnowledge（已经通过 tellerFacts 确保）
 
