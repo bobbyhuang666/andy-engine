@@ -58,20 +58,14 @@ class ScheduleHandler {
             // inertia loss and gradient discontinuity. setAttractor adds a
             // temporary potential well that steers B toward the target smoothly.
             agent.behaviorField.setAttractor(targetCenter, 10.0, 5);
+            // R18 AUDIT-002 fix: removed duplicate state_change event + stateMachine
+            // history push. ScheduleHandler's job is to influence behavior via
+            // attractor; AgentRuntime.tick() steps 6-7 handle state_change events
+            // and stateMachine history when the label actually changes after
+            // behaviorField.tick(). This avoids duplicate state_change events
+            // and inconsistent history entries on the same tick.
             if (prevLabel !== scheduleResult.altState) {
               result.stateChanged = true;
-              result.newEvents.push({
-                type: 'state_change',
-                from: prevLabel,
-                to: scheduleResult.altState,
-                time: env.simTime?.toISOString(),
-              });
-              agent.stateMachine.stateEnteredAt = env.simTime || new Date();
-              agent.stateMachine.history.push({
-                from: prevLabel,
-                to: scheduleResult.altState,
-                at: (env.simTime || new Date()).toISOString(),
-              });
             }
           }
         }

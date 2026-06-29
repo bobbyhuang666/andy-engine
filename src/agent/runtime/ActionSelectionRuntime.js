@@ -259,6 +259,8 @@ function applyActionStateDeltas(agent, stateDeltas, env) {
 
   // Commit all deltas through EffectCommitter
   if (deltas.length > 0) {
+    // R18 AUDIT-003 fix: track position changes so caller can sync RegionGrid.
+    const positionBefore = agent.position;
     // Reuse agent-cached committer to reduce GC pressure; update world ref for current simTime
     if (!agent._effectCommitter) {
       const agents = new Map([[agent.id, agent]]);
@@ -270,6 +272,12 @@ function applyActionStateDeltas(agent, stateDeltas, env) {
       agent._effectCommitter.world.time = env.simTime || null;
     }
     agent._effectCommitter.commit(new EffectResult({ event: {}, deltas, reasonTrace: {} }));
+    // R18 AUDIT-003 fix: EffectCommitter._applyPositionDelta updates agent.position
+    // but the stub world lacks regions/spatial, so RegionGrid is not synced.
+    // Set env._regionChanged flag so AndyWorld.step() can sync after this tick.
+    if (agent.position !== positionBefore && env && typeof env._setRegionChanged === 'function') {
+      env._setRegionChanged(agent.id, agent.position);
+    }
   }
 }
 

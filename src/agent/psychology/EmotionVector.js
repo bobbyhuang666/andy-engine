@@ -24,7 +24,7 @@ const { RNG } = require('../../shared/rng');
 const POSITIVE_DIMS = new Set(['joy', 'contentment', 'satisfaction', 'excitement',
   'calm', 'hope', 'love', 'pride', 'gratitude', 'relief', 'triumph', 'amusement']);
 const NEGATIVE_DIMS = new Set(['sadness', 'anger', 'fear', 'disgust',
-  'nervousness', 'frustration', 'guilt', 'shame', 'horror', 'boredom']);
+  'nervousness', 'frustration', 'guilt', 'shame', 'horror', 'boredom', 'loneliness']);
 const NON_NEGATIVE_DIMS = new Set(['loneliness', 'boredom', 'nervousness', 'guilt', 'shame', 'embarrassment']);
 
 class EmotionVector {
@@ -548,7 +548,7 @@ class EmotionVector {
     const positive = ['joy', 'contentment', 'satisfaction', 'excitement', 'calm',
                       'hope', 'love', 'pride', 'gratitude', 'relief', 'triumph', 'amusement'];
     const negative = ['sadness', 'anger', 'fear', 'disgust', 'loneliness',
-                      'nervousness', 'frustration', 'guilt', 'shame', 'horror'];
+                      'nervousness', 'frustration', 'guilt', 'shame', 'horror', 'boredom'];
 
     let sum = 0;
     let count = 0;
@@ -712,7 +712,7 @@ class EmotionVector {
   getMoodString() {
     // 计算 mood 的效价
     const positive = ['joy', 'contentment', 'satisfaction', 'excitement', 'calm', 'hope'];
-    const negative = ['sadness', 'anger', 'fear', 'loneliness', 'nervousness', 'frustration'];
+    const negative = ['sadness', 'anger', 'fear', 'loneliness', 'nervousness', 'frustration', 'boredom'];
 
     let sum = 0;
     let count = 0;

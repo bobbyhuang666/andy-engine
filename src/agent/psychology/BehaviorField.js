@@ -150,13 +150,21 @@ class BehaviorField {
     if (savedState) {
       this.B = savedState.B.map(v => Number.isFinite(v) ? v : 0.15);
       this.velocity = savedState.velocity.map(v => Number.isFinite(v) ? v : 0);
-      this._prevB = savedState._prevB ? [...savedState._prevB] : [...savedState.B];
+      this._prevB = savedState._prevB ? [...savedState._prevB] : [...this.B];
       // Validate saved _lastLabel exists in current domain states
       this._lastLabel = (savedState._lastLabel && this.domain.states[savedState._lastLabel])
         ? savedState._lastLabel
         : fallbackLabel;
       this._tickCount = savedState._tickCount || 0;
       this._lastLabelConfidence = savedState._lastLabelConfidence ?? 0;
+
+      // R18 AUDIT-001 fix: restore attractor state from savedState.
+      // Previously only restored via fromJSON(), but restoreSubsystems
+      // uses the constructor path, causing attractor loss on save/restore.
+      this._attractor = (savedState._attractor && savedState._attractor.target)
+        ? { target: [...savedState._attractor.target], strength: savedState._attractor.strength }
+        : null;
+      this._attractorTicksLeft = savedState._attractorTicksLeft || 0;
     } else {
       // 初始位置：休息状态附近
       this.B = [0.15, 0.08, 0.15, 0.08];
@@ -165,6 +173,9 @@ class BehaviorField {
       this._lastLabel = fallbackLabel;
       this._tickCount = 0;
       this._lastLabelConfidence = 0;
+
+      this._attractor = null;
+      this._attractorTicksLeft = 0;
     }
 
     // 缓存
@@ -178,10 +189,7 @@ class BehaviorField {
     // 未来行为倾向（延迟初始化）
     this._futureTendency = null;
 
-    // R13 C2 fix: 外部吸引子（ScheduleHandler 等通过此接口施加梯度，
-    // 而非直接设置 B/velocity，保持 Langevin 动力学一致性）
-    this._attractor = null; // { target: [4], strength: number, duration: number }
-    this._attractorTicksLeft = 0;
+    // attractor 状态已在 savedState 分支中恢复，此处不再无条件覆写
   }
 
   /**

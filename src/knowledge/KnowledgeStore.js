@@ -93,6 +93,8 @@ class KnowledgeStore {
    * @returns {string|null}
    */
   getSource(agentId, factId) {
+    // R18 KNOW-001 fix: check if fact still exists in store (consistent with hasKnowledge)
+    if (!this.factStore.getFactById(factId)) return null;
     const evidence = this._evidence.get(`${agentId}:${factId}`);
     return evidence ? evidence.source : null;
   }
@@ -104,6 +106,8 @@ class KnowledgeStore {
    * @returns {Evidence|null}
    */
   getEvidence(agentId, factId) {
+    // R18 KNOW-001 fix: check if fact still exists in store (consistent with hasKnowledge)
+    if (!this.factStore.getFactById(factId)) return null;
     // R14 fix: return shallow copy to prevent external mutation of store internals
     const ev = this._evidence.get(`${agentId}:${factId}`);
     return ev ? { ...ev } : null;

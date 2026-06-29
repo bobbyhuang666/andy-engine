@@ -19,6 +19,57 @@ class FactConsistencyChecker {
   }
 
   /**
+   * R18 CONSIST-001 + CONSIST-003 fix: Build a unified name lookup structure
+   * that maps both agent IDs and display names (lowercased) to canonical info.
+   * This fixes:
+   * - Case mismatch: IDs stored as-is but looked up with toLowerCase()
+   * - ID vs display name: FactConsistencyChecker was using agentIds to build
+   *   regex patterns, but LLM output uses display names
+   *
+   * @param {Object} grounding - grounding package with metadata
+   * @returns {Object} { nameToId: Map<string, string>, idToDisplayName: Map<string, string> }
+   * @private
+   */
+  _buildNameLookup(grounding) {
+    const nameToId = new Map(); // lowercase name → agentId
+    const idToDisplayName = new Map(); // agentId → display name
+
+    // Primary source: grounding.metadata.agentNames (agentId → displayName mapping)
+    const agentNames = grounding.metadata?.agentNames || {};
+    for (const [agentId, displayName] of Object.entries(agentNames)) {
+      nameToId.set(agentId.toLowerCase(), agentId);
+      if (displayName) {
+        nameToId.set(displayName.toLowerCase(), agentId);
+        idToDisplayName.set(agentId, displayName);
+      }
+    }
+
+    // Secondary: extract from facts (fallback when agentNames not provided)
+    for (const fact of grounding.allowedFacts || []) {
+      const ids = [];
+      if (fact.agentId) ids.push(fact.agentId);
+      if (fact.participants) ids.push(...fact.participants);
+      if (fact.observers) ids.push(...fact.observers);
+      if (fact.observerId) ids.push(fact.observerId);
+      if (fact.targetId) ids.push(fact.targetId);
+      if (fact.agentA) ids.push(fact.agentA);
+      if (fact.agentB) ids.push(fact.agentB);
+      for (const id of ids) {
+        const key = id.toLowerCase();
+        if (!nameToId.has(key)) nameToId.set(key, id);
+      }
+    }
+
+    // Add self from metadata
+    if (grounding.metadata?.agentId) {
+      const selfId = grounding.metadata.agentId;
+      nameToId.set(selfId.toLowerCase(), selfId);
+    }
+
+    return { nameToId, idToDisplayName };
+  }
+
+  /**
    * 校验 LLM 输出
    * @param {string} llmOutput - LLM 生成的文本
    * @param {Object} grounding - 角色的 grounding package
@@ -73,29 +124,8 @@ class FactConsistencyChecker {
   _checkCharacterNames(text, grounding) {
     const violations = [];
 
-    // 收集已知角色名
-    const knownNames = new Set();
-
-    // 从 allowedFacts 中提取
-    for (const fact of grounding.allowedFacts) {
-      if (fact.type === FactType.AGENT_STATE && fact.agentId) {
-        knownNames.add(fact.agentId);
-      }
-      if (fact.type === FactType.RELATIONSHIP) {
-        if (fact.agentA) knownNames.add(fact.agentA);
-        if (fact.agentB) knownNames.add(fact.agentB);
-        if (fact.from) knownNames.add(fact.from);
-        if (fact.to) knownNames.add(fact.to);
-      }
-      if (fact.participants) {
-        for (const p of fact.participants) knownNames.add(p);
-      }
-    }
-
-    // 从 grounding metadata 中添加当前角色
-    if (grounding.metadata && grounding.metadata.agentId) {
-      knownNames.add(grounding.metadata.agentId);
-    }
+    // R18 CONSIST-003 fix: use unified name lookup (handles both IDs and display names)
+    const { nameToId } = this._buildNameLookup(grounding);
 
     // Match Chinese names (2-4 chars) before action verbs or at sentence boundaries
     const namePattern = /[，。！？\s]([一-龥]{2,4})(?=[说聊问答告诉来了去了见到])/g;
@@ -110,7 +140,8 @@ class FactConsistencyChecker {
       const commonWords = ['大家', '别人', '对方', '朋友', '人们'];
       if (commonWords.includes(name)) continue;
 
-      if (!knownNames.has(name)) {
+      // R18 fix: lookup with lowercase to handle case-insensitive matching
+      if (!nameToId.has(name.toLowerCase())) {
         violations.push({
           type: 'unknown_character',
           name,
@@ -369,13 +400,9 @@ class FactConsistencyChecker {
     }
 
     // 构建已知角色名集合
-    const knownAgentNames = new Set();
-    for (const fact of grounding.allowedFacts) {
-      if (fact.type === FactType.AGENT_STATE && fact.agentId) knownAgentNames.add(fact.agentId);
-      if (fact.participants) for (const p of fact.participants) knownAgentNames.add(p);
-      if (fact.observers) for (const o of fact.observers) knownAgentNames.add(o);
-    }
-    if (selfId) knownAgentNames.add(selfId);
+    // R18 CONSIST-001 fix: use _buildNameLookup for case-insensitive matching
+    const { nameToId } = this._buildNameLookup(grounding);
+    const knownAgentNames = nameToId; // Map: lowercase name → agentId
 
     // 匹配 "AgentName在LocationName" 模式
     const claimPattern = /([一-龥]{2,4}|[A-Za-z]{2,10})\s*[在去了到]\s*([一-龥]{2,6})/g;
@@ -395,11 +422,13 @@ class FactConsistencyChecker {
 
       const normalizedName = agentName.toLowerCase();
 
-      // 不是已知角色 → 交给 _checkCharacterNames 处理
-      if (!knownAgentNames.has(normalizedName)) continue;
+      // R18 CONSIST-001 fix: use nameToId for case-insensitive matching.
+      // nameToId maps lowercase names to canonical agentIds.
+      const canonicalId = knownAgentNames.get(normalizedName);
+      if (!canonicalId) continue;
 
       // 检查该 agent-location 声明是否被 allowedFacts 支撑
-      const knownLocs = agentKnownLocations.get(normalizedName);
+      const knownLocs = agentKnownLocations.get(canonicalId);
       if (!knownLocs || !knownLocs.has(location)) {
         violations.push({
           type: 'unsupported_claim',
@@ -447,15 +476,8 @@ class FactConsistencyChecker {
     }
 
     // Collect all known agent names from allowedFacts
-    const knownAgentNames = new Set();
-    for (const fact of grounding.allowedFacts) {
-      if (fact.type === FactType.AGENT_STATE && fact.agentId) knownAgentNames.add(fact.agentId);
-      if (fact.participants) for (const p of fact.participants) knownAgentNames.add(p);
-      if (fact.observers) for (const o of fact.observers) knownAgentNames.add(o);
-      if (fact.observerId) knownAgentNames.add(fact.observerId);
-      if (fact.targetId) knownAgentNames.add(fact.targetId);
-    }
-    if (selfId) knownAgentNames.add(selfId);
+    // R18 CONSIST-003 fix: use _buildNameLookup to get both IDs and display names
+    const { nameToId, idToDisplayName } = this._buildNameLookup(grounding);
 
     // Build justification sets from evidence
     for (const fact of grounding.allowedFacts) {
@@ -529,65 +551,73 @@ class FactConsistencyChecker {
     const commonNonAgents = ['大家', '别人', '对方', '朋友', '人们', '我们', '他们', '她们', '自己'];
 
     // Check each known agent
-    for (const agentName of knownAgentNames) {
-      if (agentName === selfId) continue; // Self is always ok
-      if (commonNonAgents.includes(agentName)) continue;
+    // R18 CONSIST-003 fix: iterate over unique agent IDs and use display names
+    // for regex pattern matching (LLM output uses display names, not IDs)
+    const uniqueAgentIds = new Set(nameToId.values());
+    for (const agentId of uniqueAgentIds) {
+      if (agentId === selfId) continue; // Self is always ok
+      if (commonNonAgents.includes(agentId)) continue;
+
+      // Use display name if available, otherwise fall back to agentId
+      const matchName = idToDisplayName.get(agentId) || agentId;
 
       // Check emotion expressions: Name[很/有点/非常/挺/比较]emotion
-      if (!emotionNeedsJustifiable.has(agentName)) {
+      // R18 CONSIST-003 fix: use matchName (display name) for regex patterns,
+      // agentId for justifiable set lookups and violation agent field.
+      if (!emotionNeedsJustifiable.has(agentId)) {
         for (const emotion of emotionWords) {
           const emotionPatterns = [
-            new RegExp(`${agentName}(很|有点|非常|挺|比较|极度|特别|真)${emotion}`),
-            new RegExp(`${agentName}感到${emotion}`),
-            new RegExp(`${agentName}觉得${emotion}`),
+            new RegExp(`${matchName}(很|有点|非常|挺|比较|极度|特别|真)${emotion}`),
+            new RegExp(`${matchName}感到${emotion}`),
+            new RegExp(`${matchName}觉得${emotion}`),
           ];
           for (const pattern of emotionPatterns) {
             if (pattern.test(text)) {
               violations.push({
                 type: 'agent_state_leak',
-                agent: agentName,
+                agent: matchName,
                 stateType: 'emotion',
-                message: `表达了${agentName}的情绪状态，但你没有证据知道对方的情绪`,
+                message: `表达了${matchName}的情绪状态，但你没有证据知道对方的情绪`,
               });
               break;
             }
           }
-          if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) break;
+          if (violations.some(v => v.agent === matchName && v.type === 'agent_state_leak')) break;
         }
       }
 
-      if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) continue;
+      if (violations.some(v => v.agent === matchName && v.type === 'agent_state_leak')) continue;
 
       // Check needs expressions: Name + needsWord
-      if (!emotionNeedsJustifiable.has(agentName)) {
+      if (!emotionNeedsJustifiable.has(agentId)) {
         for (const needs of needsWords) {
           const needsPatterns = [
-            new RegExp(`${agentName}${needs}`),
+            new RegExp(`${matchName}${needs}`),
           ];
           for (const pattern of needsPatterns) {
             if (pattern.test(text)) {
               violations.push({
                 type: 'agent_state_leak',
-                agent: agentName,
+                agent: matchName,
                 stateType: 'needs',
-                message: `表达了${agentName}的需求状态，但你没有证据知道对方的需求`,
+                message: `表达了${matchName}的需求状态，但你没有证据知道对方的需求`,
               });
               break;
             }
           }
-          if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) break;
+          if (violations.some(v => v.agent === matchName && v.type === 'agent_state_leak')) break;
         }
 
         // Also check "Name想XX" for needsWithPrefix
-        if (!violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) {
+        if (!violations.some(v => v.agent === matchName && v.type === 'agent_state_leak')) {
           for (const needs of needsWithPrefix) {
-            const pattern = new RegExp(`${agentName}想${needs}`);
+            const pattern = new RegExp(`${matchName}想${needs}`);
             if (pattern.test(text)) {
               violations.push({
                 type: 'agent_state_leak',
-                agent: agentName,
+                agent: matchName,
                 stateType: 'needs',
-                message: `表达了${agentName}的需求状态，但你没有证据知道对方的需求`,
+                message: `表达了${matchName}的需求状态，但你没有证据知道对方的需求`,
               });
               break;
             }
@@ -595,27 +625,27 @@ class FactConsistencyChecker {
         }
       }
 
-      if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) continue;
+      if (violations.some(v => v.agent === matchName && v.type === 'agent_state_leak')) continue;
 
       // Check activity expressions: Name正在/在+activity
-      if (!activityJustifiable.has(agentName)) {
+      if (!activityJustifiable.has(agentId)) {
         for (const activity of activityWords) {
           const activityPatterns = [
-            new RegExp(`${agentName}正在${activity}`),
-            new RegExp(`${agentName}在${activity}`),
+            new RegExp(`${matchName}正在${activity}`),
+            new RegExp(`${matchName}在${activity}`),
           ];
           for (const pattern of activityPatterns) {
             if (pattern.test(text)) {
               violations.push({
                 type: 'agent_state_leak',
-                agent: agentName,
+                agent: matchName,
                 stateType: 'activity',
-                message: `表达了${agentName}的活动状态，但你没有证据知道对方的活动`,
+                message: `表达了${matchName}的活动状态，但你没有证据知道对方的活动`,
               });
               break;
             }
           }
-          if (violations.some(v => v.agent === agentName && v.type === 'agent_state_leak')) break;
+          if (violations.some(v => v.agent === matchName && v.type === 'agent_state_leak')) break;
         }
       }
     }

@@ -35,9 +35,16 @@ class FutureTendencyTracker {
       this._tendencies.set(region, [0, 0, 0, 0]);
     }
 
+    // R18 AE-005 fix: validate delta array length to prevent NaN corruption.
+    // Short arrays (length < DIMS) would cause delta[d] = undefined → NaN.
+    if (!Array.isArray(delta) || delta.length < DIMS) {
+      return;
+    }
+
     const current = this._tendencies.get(region);
     for (let d = 0; d < DIMS; d++) {
-      current[d] += delta[d] * importance;
+      const dv = Number.isFinite(delta[d]) ? delta[d] : 0;
+      current[d] += dv * importance;
       current[d] = Math.max(-this.maxTendency, Math.min(this.maxTendency, current[d]));
     }
   }

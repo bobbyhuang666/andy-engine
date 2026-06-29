@@ -273,8 +273,22 @@ class Character {
     }
 
     if (fullReply.trim().length > 0) {
-      this._conversation.addAssistantMessage(fullReply);
-      this._recordConversation(message, fullReply);
+      // R18 CONSIST-002 fix: apply consistency check to streamed replies too.
+      // chat() already checks consistency, but chatStream was missing it,
+      // allowing LLM hallucinations to reach the user unchecked.
+      let checkedReply = fullReply;
+      if (this._engine.checkConsistency) {
+        const consistency = this._engine.checkConsistency(fullReply, this.id);
+        if (!consistency.valid && consistency.severity === 'reject') {
+          // For streaming, we've already yielded the original tokens.
+          // Append a correction message instead of replacing (can't un-yield).
+          const correction = `\n[${this.name}沉默了一会儿]`;
+          yield correction;
+          checkedReply = `[${this.name}沉默了一会儿]`;
+        }
+      }
+      this._conversation.addAssistantMessage(checkedReply);
+      this._recordConversation(message, checkedReply);
     }
   }
   getContext(options = {}) {

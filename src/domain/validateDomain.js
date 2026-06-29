@@ -325,6 +325,100 @@ function validateDomain(domain, options = {}) {
     }
   }
 
+  // ─── R18 SPATIAL-04 fix: validate region/state references in additional fields ───
+
+  // placeMapping
+  if (domain.placeMapping) {
+    if (typeof domain.placeMapping !== 'object') {
+      addError('placeMapping', '必须是对象');
+    } else {
+      for (const [place, value] of Object.entries(domain.placeMapping)) {
+        // defaultState is a state reference, not a region
+        if (place === 'defaultState') {
+          if (typeof value === 'string' && !stateSet.has(value)) {
+            addWarning(`placeMapping.${place}`, `引用了不存在的状态 "${value}"`);
+          }
+          continue;
+        }
+        // defaultRegion and other string values are region references
+        if (typeof value === 'string' && !regionSet.has(value)) {
+          addWarning(`placeMapping.${place}`, `引用了不存在的区域 "${value}"`);
+        }
+      }
+    }
+  }
+
+  // placeTypes
+  if (domain.placeTypes) {
+    if (typeof domain.placeTypes !== 'object') {
+      addError('placeTypes', '必须是对象');
+    } else {
+      for (const [type, regions] of Object.entries(domain.placeTypes)) {
+        if (Array.isArray(regions)) {
+          for (const region of regions) {
+            if (!regionSet.has(region)) {
+              addWarning(`placeTypes.${type}`, `引用了不存在的区域 "${region}"`);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // skipBehavior
+  if (domain.skipBehavior) {
+    if (typeof domain.skipBehavior !== 'object') {
+      addError('skipBehavior', '必须是对象');
+    } else {
+      for (const [skipType, config] of Object.entries(domain.skipBehavior)) {
+        if (!config || typeof config !== 'object') continue;
+        if (Array.isArray(config.states)) {
+          for (const state of config.states) {
+            if (!stateSet.has(state)) {
+              addWarning(`skipBehavior.${skipType}.states`, `引用了不存在的状态 "${state}"`);
+            }
+          }
+        }
+        if (Array.isArray(config.regions)) {
+          for (const region of config.regions) {
+            if (!regionSet.has(region)) {
+              addWarning(`skipBehavior.${skipType}.regions`, `引用了不存在的区域 "${region}"`);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // needRegionConfig
+  if (domain.needRegionConfig) {
+    if (typeof domain.needRegionConfig !== 'object') {
+      addError('needRegionConfig', '必须是对象');
+    } else {
+      for (const [need, config] of Object.entries(domain.needRegionConfig)) {
+        if (!config || typeof config !== 'object') continue;
+        if (typeof config.region === 'string' && !regionSet.has(config.region)) {
+          addWarning(`needRegionConfig.${need}.region`, `引用了不存在的区域 "${config.region}"`);
+        }
+      }
+    }
+  }
+
+  // intrinsicMotivationConfig
+  if (domain.intrinsicMotivationConfig) {
+    if (typeof domain.intrinsicMotivationConfig !== 'object') {
+      addError('intrinsicMotivationConfig', '必须是对象');
+    } else {
+      if (Array.isArray(domain.intrinsicMotivationConfig.explorationStates)) {
+        for (const state of domain.intrinsicMotivationConfig.explorationStates) {
+          if (!stateSet.has(state)) {
+            addWarning('intrinsicMotivationConfig.explorationStates', `引用了不存在的状态 "${state}"`);
+          }
+        }
+      }
+    }
+  }
+
   return _result(errors, warnings, throwOnError);
 }
 

@@ -332,10 +332,10 @@ class WorldFactStore {
       // AGENT_STATE is epistemically private: only the owning agent sees their own state
       if (fact.type === FactType.AGENT_STATE && fact.agentId !== agentId) continue;
       if (fact._invalidated) continue;
-      if (options.types && !options.types.includes(fact.type)) continue;
-      seen.add(id);
-      result.push(fact);
-    }
+	      if (options.types && !options.types.includes(fact.type)) continue;
+	      seen.add(id);
+	      result.push({ ...fact });
+	    }
 
     // Phase 2: Non-public facts known to this agent (use _byAgent index instead of full scan)
     if (knownIds) {
@@ -346,10 +346,10 @@ class WorldFactStore {
         // AGENT_STATE epistemic privacy: even if this fact is indexed for
         // this agent (e.g., via observers), only the owning agent should see it.
         if (fact.type === FactType.AGENT_STATE && fact.agentId !== agentId) continue;
-        if (options.types && !options.types.includes(fact.type)) continue;
-        result.push(fact);
-      }
-    }
+	        if (options.types && !options.types.includes(fact.type)) continue;
+	        result.push({ ...fact });
+	      }
+	    }
 
     result.sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 
@@ -377,11 +377,11 @@ class WorldFactStore {
     for (const fact of this._facts.values()) {
       if (fact.timestamp.getTime() < sinceTime) continue;
       if (types && !types.includes(fact.type)) continue;
-      result.push(fact);
-    }
+	      result.push({ ...fact });
+	    }
 
-    result.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-    return result;
+	    result.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+	    return result;
   }
 
   /**
@@ -459,9 +459,19 @@ class WorldFactStore {
       if (typeof fact.timestamp === 'string') {
         fact.timestamp = new Date(fact.timestamp);
       }
+      // R18 AE-002 fix: validate deserialized facts to prevent invalid data
+      // from bypassing the addFact validation pipeline.
+      const baseCheck = validateFact(fact);
+      if (!baseCheck.valid) {
+        continue; // skip invalid facts rather than crash
+      }
+      const typeCheck = validateTypeFields(fact);
+      if (!typeCheck.valid) {
+        continue; // skip facts with invalid type-specific fields
+      }
       store._facts.set(fact.id, fact);
       store._byType.get(f.type).add(f.id);
-      store._indexAgents(f);
+      store._indexAgents(fact);
       if (f.type === FactType.EVENT) {
         store._eventIndex.set(f.eventId, f.id);
       }
@@ -620,7 +630,8 @@ class WorldFactStore {
     if (!ids) return [];
     // Filter out undefined entries (can occur if fact was evicted but index
     // not yet cleaned, or during partial mutation). R6 fix.
-    return Array.from(ids).map(id => this._facts.get(id)).filter(Boolean);
+    // R18 AE-001 fix: return shallow copies to prevent external mutation.
+    return Array.from(ids).map(id => this._facts.get(id)).filter(Boolean).map(f => ({ ...f }));
   }
 
   /** @private */

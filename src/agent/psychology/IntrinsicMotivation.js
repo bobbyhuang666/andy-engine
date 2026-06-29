@@ -827,6 +827,9 @@ class IntrinsicMotivation {
       explorationHistory: this.explorationHistory.slice(-50),
       _ticksSinceGoal: this._ticksSinceGoal,
       _lastGoalId: this._lastGoalId,
+      // R18 IM-001 fix: persist _lastSimTime to prevent incorrect novelty
+      // calculation after save/restore when simTime is not passed to getNovelty()
+      _lastSimTime: this._lastSimTime,
     };
   }
 

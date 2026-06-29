@@ -92,6 +92,13 @@ class FactProvider {
       },
     };
 
+    // R18 CONSIST-003 fix: include agentId→displayName mapping so
+    // FactConsistencyChecker can match LLM output (which uses display names)
+    // against structured fact data (which uses internal agent IDs).
+    if (options.agentNames) {
+      metadata.agentNames = options.agentNames;
+    }
+
     // Compute evidenceSummary when knowledgeStore exists
     if (this.knowledgeStore && allowedFacts.length > 0) {
       const counts = {};
