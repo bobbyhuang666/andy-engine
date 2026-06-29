@@ -20,7 +20,14 @@ describe('Aliveness Metrics Smoke', () => {
     // R18 fix: 30 ticks can still be too few for narrative accumulation,
     // especially with setAttractor making behavior changes more gradual.
     // 50 ticks provides more reliable event history.
-    for (let i = 0; i < 50; i++) {
+    // R40 fix: 50 ticks was still seed-flaky — memory consolidation is
+    // periodic (ReflectionRuntime), and for some seeds (e.g. 'continuity-test')
+    // no memory consolidates within 50 ticks, leaving the narrative as a bare
+    // state descriptor (length ~3) and failing the hasContent assertion.
+    // 100 ticks reliably lets reflection+consolidation produce memories across
+    // all tested seeds (min narrative length 14). This honors the test's intent
+    // (narrative references past events) without weakening the >10 assertion.
+    for (let i = 0; i < 100; i++) {
       engine.tick();
     }
     

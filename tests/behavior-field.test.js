@@ -854,6 +854,10 @@ describe('Phase 2: BehaviorField 接入 Agent.tick()', () => {
     expect(restoredAgent.behaviorField.label).toBe(label_before);
   });
 
+  // R40: per-test timeout raised to 30000ms. This stress loop runs ~700ms solo
+  // but is CPU-contended under the full parallel suite (observed 12.7s, flaking
+  // against the 10s global testTimeout). Assertions unchanged; only the timeout
+  // is widened for this known long-running stress test.
   it('20 agents × 288 ticks（1天）无崩溃', () => {
     const engine = new AndyEngine({ startTime: new Date('2025-06-01T08:00:00') });
     const mbtiTypes = ['INFP', 'ENFP', 'INTJ', 'ESTP', 'ISFJ', 'ENTP', 'ISTJ', 'ESFP'];
@@ -880,7 +884,7 @@ describe('Phase 2: BehaviorField 接入 Agent.tick()', () => {
       }
       expect(typeof agent.behaviorField.label).toBe('string');
     }
-  });
+  }, 30000);
 
   it('BehaviorField label 与 StateMachine currentState 语义一致', () => {
     const engine = new AndyEngine({ startTime: new Date('2025-06-01T14:00:00') });

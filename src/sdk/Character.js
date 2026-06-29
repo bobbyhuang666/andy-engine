@@ -197,8 +197,14 @@ class Character {
     // 5.5 一致性校验（如果启用事实系统）
     if (this._engine.checkConsistency) {
       const consistency = this._engine.checkConsistency(reply, this.id);
-      if (!consistency.valid && consistency.severity === 'reject') {
-        reply = `[${this.name}沉默了一会儿]`;
+      if (!consistency.valid) {
+        // R39 P1 fix (B2): 拦截 reject AND rewrite 两种 severity。
+        // 原实现只拦截 reject,rewrite 级违规内容被原样返回给用户,违反
+        // "consistency invalid 不外泄"目标。当前无 rewrite 改写实现,rewrite
+        // 一律降级为沉默(与 reject 一致),确保违规内容不流出。与 chatStream 对齐。
+        if (consistency.severity === 'reject' || consistency.severity === 'rewrite') {
+          reply = `[${this.name}沉默了一会儿]`;
+        }
       }
     }
 
@@ -290,8 +296,14 @@ class Character {
     let outputReply = fullReply;
     if (this._engine.checkConsistency) {
       const consistency = this._engine.checkConsistency(fullReply, this.id);
-      if (!consistency.valid && consistency.severity === 'reject') {
-        outputReply = `[${this.name}沉默了一会儿]`;
+      if (!consistency.valid) {
+        // R39 P1 fix: 拦截 reject AND rewrite 两种 severity。
+        // 原实现只拦截 reject,rewrite 级违规内容被原样 yield 给用户,违反
+        // "consistency invalid 不外泄"目标。当前无 rewrite 改写实现,rewrite
+        // 一律降级为沉默(与 reject 一致),确保违规内容不流出。
+        if (consistency.severity === 'reject' || consistency.severity === 'rewrite') {
+          outputReply = `[${this.name}沉默了一会儿]`;
+        }
       }
     }
 

@@ -50,6 +50,15 @@ class RuntimeContext {
       if (this.world.regions && typeof this.world.regions.place === 'function') {
         this.world.regions.place(agentId, newPosition);
       }
+      // R40/B1 fix: continuous spatial 模式下，active writeback 只同步 RegionGrid，
+      // 不同步 SpatialEngine._coords，导致 Phase 5 SpatialEngine.tick()→_syncRegions()
+      // 用陈旧坐标反推出旧区域，用 PositionDelta(to:旧区域) 把 agent.position 回滚。
+      // 这里把连续坐标对齐到目标区域中心 (regionCenter 不消费 RNG，不破坏确定性，
+      // 不漂移 golden fixture)，使 pointToRegion(coords)===newPosition，回滚消失。
+      if (this.world.spatial && typeof this.world.spatial.setCoords === 'function') {
+        const center = this.world.spatial.worldMap.regionCenter(newPosition);
+        this.world.spatial.setCoords(agentId, center.x, center.y);
+      }
     };
 
     return env;
