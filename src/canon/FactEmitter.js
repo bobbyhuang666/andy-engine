@@ -240,6 +240,20 @@ class FactEmitter {
     const now = this._getSimTime();
 
     const agentIds = socialGraph.getAllAgentIds ? socialGraph.getAllAgentIds() : [];
+
+    // R39 perf fix: 原实现把 this.store.getRelationshipFacts() 放在双重循环内部,
+    // 每对关系都全量取 + 深拷贝 + 线性 find,导致 O(关系数 × fact数) 乘法爆炸。
+    // 50 agents ≈ 1225 对关系,每 tick 调 1225 次 getRelationshipFacts(),实测
+    // 50a×50t 耗时 23-31s(审计性能测试超 30s 阈值)。
+    // 修复:循环外取一次,建 agent pair → fact 索引,循环内 O(1) 查。
+    const existingFacts = this.store.getRelationshipFacts();
+    const pairIndex = new Map();
+    for (const f of existingFacts) {
+      // 用有序 pair 作 key,使 (A,B) 与 (B,A) 命中同一条
+      const key = f.agentA < f.agentB ? `${f.agentA}|${f.agentB}` : `${f.agentB}|${f.agentA}`;
+      pairIndex.set(key, f);
+    }
+
     for (const agentId of agentIds) {
       const rels = socialGraph.getRelationships(agentId);
       for (const rel of rels) {
@@ -259,11 +273,8 @@ class FactEmitter {
           participants: [agentId, otherId],
         });
 
-        const existingFacts = this.store.getRelationshipFacts();
-        const existing = existingFacts.find(
-          f => (f.agentA === agentId && f.agentB === otherId) ||
-               (f.agentA === otherId && f.agentB === agentId)
-        );
+        const pairKey = agentId < otherId ? `${agentId}|${otherId}` : `${otherId}|${agentId}`;
+        const existing = pairIndex.get(pairKey);
 
         if (existing) {
           const updated = this.store.updateFact(existing.id, {
@@ -274,6 +285,8 @@ class FactEmitter {
           facts.push(updated || fact);
         } else {
           this.store.addFact(fact);
+          // 新增的 fact 加入索引,避免同 tick 后续重复添加
+          pairIndex.set(pairKey, fact);
           facts.push(fact);
         }
       }

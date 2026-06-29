@@ -83,21 +83,23 @@ class ScheduleHandler {
         result.regionChanged = true;
         agent.position = needRegion;
       }
-    } else if (imResult.drive && imResult.drive.urgency > 0.1) {
-      const timeRules = agent.domain ? agent.domain.timeRules : null;
-      const lateNight = timeRules?.periods?.lateNight;
-      const nightStart = lateNight?.start ?? 22;
-      const nightEnd = lateNight?.end ?? 6;
-      const isNight = nightStart > nightEnd
-        ? (env.hour >= nightStart || env.hour < nightEnd)
-        : (env.hour >= nightStart && env.hour < nightEnd);
+    } else if (imResult.drive && imResult.drive.urgency > 0) {
+      // R39 P0 fix: 探索驱力门槛从 0.1 降到 0。
+      // IM 已通过 curiosityThreshold (默认 0.25) 做过门控,这里再加 0.1 门槛会
+      // 让 curiosity 略微衰减(0.5→0.35)后的 agent 永久丧失探索能力,卡在初始
+      // 区域不动。导致无 schedule agent 在 200 tick 内只访问 1 个位置,且不同
+      // seed 因永远不消耗 RNG 而产生相同轨迹(审计 P0 失败)。
+      //
+      // 同时移除夜间对探索的硬性拦截。原逻辑在 lateNight 时段(默认 22-6)完全
+      // 跳过探索,但 agent 在深夜仍可能因好奇心起身(如去便利店/操场),只用
+      // isSleeping 状态拦截即可——睡眠中的 agent 不该被探索唤醒。
       const currentState = agent.stateMachine.currentState;
       const stateDef = agent.domain ? agent.domain.states[currentState] : null;
       const isSleeping = stateDef
         ? stateDef.category === 'sleep'
         : false;
 
-      if (!isNight && !isSleeping) {
+      if (!isSleeping) {
         const explorationRegions = imResult.drive.targetRegions;
         if (explorationRegions && explorationRegions.length > 0) {
           // R20 P0: use seeded RNG to pick target instead of always [0].
