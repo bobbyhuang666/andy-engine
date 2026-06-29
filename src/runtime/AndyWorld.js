@@ -442,6 +442,18 @@ class AndyWorld {
             this.regions.place(agentId, fallback);
           }
         }
+        // R40/SP-1 fix: continuous spatial 模式下,schedule/need/IM 路径设 agent.position
+        // 并置 regionChanged=true,但不同步 SpatialEngine._coords。Phase 5
+        // SpatialEngine.tick()->_syncRegions() 用陈旧坐标反推旧区域,用
+        // PositionDelta(to:旧区域) 把 agent.position 回滚。这里把连续坐标对齐到
+        // 目标区域中心 (regionCenter 不消费 RNG,不漂移 golden fixture),使
+        // pointToRegion(coords)===agent.position,回滚消失。
+        // active action-selection 路径已由 RuntimeContext._setRegionChanged 同步,
+        // 这里覆盖 schedule/need/IM 等其余 regionChanged 路径。
+        if (this.spatial && typeof this.spatial.setCoords === 'function') {
+          const center = this.spatial.worldMap.regionCenter(agent.position);
+          this.spatial.setCoords(agentId, center.x, center.y);
+        }
       }
     }
     result.phase.agentThink = { agentCount: this.agents.size, results: agentResults };

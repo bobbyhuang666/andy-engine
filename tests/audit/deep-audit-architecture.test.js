@@ -291,7 +291,11 @@ describe('审计: 写回违规检测', () => {
       const lines = content.split('\n');
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
-        if (!line.startsWith('//') && line.includes('.position') && line.includes('=') && !line.includes('===')) {
+        // R40: 收紧启发式 — 只匹配真正的写回 (agent.position = X),不再把
+        // 读取 agent.position 的行 (如 regionCenter(agent.position)) 误判为写回。
+        // 原启发式 (includes '=' && includes 'agent.position') 把 6 处读取误计,
+        // 使 SP-1 修复新增的一处读取触发假阳性。改用正则匹配赋值 LHS。
+        if (!line.startsWith('//') && /\.position\s*=/.test(line) && !line.includes('===')) {
           positionWrites.push(`${entry}:${i + 1}: ${line}`);
         }
       }
@@ -310,7 +314,12 @@ describe('审计: 写回违规检测', () => {
     const lines = content.split('\n');
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i].trim();
-      if (!line.startsWith('//') && line.includes('agent.position') && line.includes('=') && !line.includes('===')) {
+      // R40: 收紧启发式 — 只匹配真正的写回 (agent.position = X),不再把
+      // 读取 agent.position 的行误判为写回。原启发式把 6 处读取误计 (如
+      // regions.place(id, agent.position)、regionCenter(agent.position)),
+      // 使阈值 ≤7 仅因误计数量巧合而通过。改用正则匹配赋值 LHS 后,真实写回
+      // 仅 fallback 赋值 2 处,远低于阈值,且 SP-1 修复不再触发假阳性。
+      if (!line.startsWith('//') && /agent\.position\s*=/.test(line) && !line.includes('===')) {
         positionWrites.push(`AndyWorld.js:${i + 1}: ${line}`);
       }
     }
@@ -318,6 +327,8 @@ describe('审计: 写回违规检测', () => {
     console.log('⚠️  AndyWorld position 写回:', positionWrites);
     // R8: bumped from 3 to 7 — RegionGrid fallback adds position assignments
     // in addAgent() and step() region-change handler (lines 200, 204, 406, 409-410).
+    // R40: 收紧启发式后真实写回为 fallback 赋值;阈值保留 7 作为上限守卫,
+    // 不再因读取行误计而虚高。
     expect(positionWrites.length).toBeLessThanOrEqual(7);
   });
 
