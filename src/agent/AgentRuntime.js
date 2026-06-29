@@ -81,7 +81,14 @@ class AgentRuntime {
       throw new Error(`AgentRuntime.tick(): agent "${agent.id}" received invalid env (null or non-object). This indicates a bug in the tick context builder.`);
     }
 
-    const hoursElapsed = Math.max(0, (env.minutesElapsed || 5) / 60);
+    // R33 P0 fix: validate minutesElapsed is a finite number.
+    // Previous guard (env.minutesElapsed || 5) handled 0/NaN/null but NOT
+    // truthy non-numbers (strings, objects). NaN from "5"/60 silently
+    // poisons all downstream consumers (needs, emotion, memory, etc.).
+    const rawMinutes = env.minutesElapsed;
+    const minutesElapsed = typeof rawMinutes === 'number' && Number.isFinite(rawMinutes) && rawMinutes >= 0
+      ? rawMinutes : 5;
+    const hoursElapsed = minutesElapsed / 60;
 
     // 注入模拟时间
     if (env.simTime) {

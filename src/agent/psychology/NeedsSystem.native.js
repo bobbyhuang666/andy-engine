@@ -99,9 +99,20 @@ class NeedsSystemNative {
     this._ns = new _NativeCtor(oceanJson, configJson, savedJson);
 
     // JS mirror
-    this.needs = savedState ? { ...savedState.needs } : {
-      hunger: 0.8, energy: 0.9, social: 0.6, comfort: 0.7, stimulation: 0.5,
-    };
+    // R33 P0 fix: validate savedState.needs for NaN (same as NeedsSystem.js)
+    const defaultNeeds = { hunger: 0.8, energy: 0.9, social: 0.6, comfort: 0.7, stimulation: 0.5 };
+    if (savedState) {
+      this.needs = {};
+      for (const [key, val] of Object.entries(savedState.needs || {})) {
+        this.needs[key] = Number.isFinite(val) ? val : (defaultNeeds[key] || 0.5);
+      }
+      // Ensure all default needs are present
+      for (const key of Object.keys(defaultNeeds)) {
+        if (this.needs[key] === undefined) this.needs[key] = defaultNeeds[key];
+      }
+    } else {
+      this.needs = { ...defaultNeeds };
+    }
     this._syncFromNative();
   }
 
@@ -172,6 +183,12 @@ class NeedsSystemNative {
     // Step 1: natural decay (same as tick())
     for (const [need, rate] of Object.entries(this._decayRates)) {
       const current = this.needs[need];
+      // R33 P0 fix: guard against NaN (Math.max(0, NaN) = NaN).
+      // Same fix as NeedsSystem.js tickWithBehavior().
+      if (!Number.isFinite(current)) {
+        this.needs[need] = 0.5;
+        continue;
+      }
       const effectiveRate = rate * (0.5 + current * 0.5);
       this.needs[need] = Math.max(0, current - effectiveRate * hoursElapsed);
     }
@@ -180,7 +197,11 @@ class NeedsSystemNative {
     const rates = this.getRecoveryRatesForBehavior(behaviorVector);
     for (const [need, rate] of Object.entries(rates)) {
       if (rate > 0) {
-        this.needs[need] = Math.min(1, this.needs[need] + rate * hoursElapsed);
+        const current = this.needs[need];
+        // R33 fix: guard against NaN (Math.min(1, NaN) = NaN)
+        if (Number.isFinite(current)) {
+          this.needs[need] = Math.min(1, current + rate * hoursElapsed);
+        }
       }
     }
   }

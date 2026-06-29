@@ -39,7 +39,11 @@ function recordExternalExperience(agent, event, options = {}) {
         'participants', '_region', '_currentState', 'timestamp', 'id',
         'activation', 'accessCount', 'lastAccessed', 'createdAt',
       ]);
+      // R33 P0 fix: reject prototype-polluting keys from untrusted input.
+      // Setting memory.__proto__ replaces the object's prototype (prototype
+      // pollution). Also reject 'constructor' and 'prototype' for safety.
       for (const key of Object.keys(event)) {
+        if (key === '__proto__' || key === 'constructor' || key === 'prototype') continue;
         if (!_reserved.has(key) && !(key in memory)) memory[key] = event[key];
       }
     }

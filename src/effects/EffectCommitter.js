@@ -92,7 +92,10 @@ class EffectCommitter {
     if (!agent || !agent.needs || !agent.needs.needs) return;
 
     for (const [name, value] of Object.entries(delta.changes)) {
-      if (typeof agent.needs.needs[name] === 'number' && typeof value === 'number') {
+      // R33 P0 fix: typeof NaN === 'number' is true, so NaN values passed
+      // through, making Math.max(0, Math.min(1, NaN)) = NaN permanently.
+      // Use Number.isFinite to reject NaN/Infinity.
+      if (Number.isFinite(agent.needs.needs[name]) && Number.isFinite(value)) {
         agent.needs.needs[name] = Math.max(0, Math.min(1, agent.needs.needs[name] + value));
       }
     }
