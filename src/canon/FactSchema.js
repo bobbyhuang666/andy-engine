@@ -125,7 +125,10 @@ function createBaseFact(overrides = {}) {
     type: overrides.type || FactType.EVENT,
     timestamp,
     source: overrides.source || FactSource.ENGINE,
-    confidence: overrides.confidence ?? 1.0,
+    // R37 P1 fix: NaN ?? 1.0 = NaN (nullish coalescing only catches null/undefined).
+    // Same bug class as importance/priority (R36 fix). Use Number.isFinite.
+    confidence: typeof overrides.confidence === 'number' && Number.isFinite(overrides.confidence)
+      ? overrides.confidence : 1.0,
     scope: overrides.scope || FactScope.PUBLIC,
     participants: overrides.participants || [],
     observers: overrides.observers || [],
@@ -213,7 +216,10 @@ function createRelationshipFact(data, base = {}) {
     agentA: data.agentA,
     agentB: data.agentB,
     relationType: data.relationType,
-    strength: data.strength,
+    // R37 P1 fix: validate strength with Number.isFinite, matching RELATIONSHIP
+    // validateTypeFields pattern (line 403). NaN strength corrupts relationship weight.
+    strength: typeof data.strength === 'number' && Number.isFinite(data.strength)
+      ? data.strength : 0.5,
     previousType: data.previousType || null,
   };
 }
@@ -360,7 +366,10 @@ function createLocationMeaningFact(data, base = {}) {
     }),
     location: data.location,
     meaningType: data.meaningType,
-    weight: data.weight,
+    // R37 P1 fix: validate weight with Number.isFinite, matching LOCATION_MEANING
+    // validateTypeFields pattern (line 431). NaN weight corrupts behavior influence.
+    weight: typeof data.weight === 'number' && Number.isFinite(data.weight)
+      ? data.weight : 0.5,
     reason: data.reason || '',
   };
 }
@@ -380,7 +389,9 @@ function createInvalidatedFact(data, base = {}) {
       type: FactType.INVALIDATED,
       timestamp: data.timestamp,
       source: data.source,
-      confidence: data.confidence ?? 1.0,
+      // R37 P1 fix: same NaN guard as createBaseFact confidence
+      confidence: typeof data.confidence === 'number' && Number.isFinite(data.confidence)
+        ? data.confidence : 1.0,
       scope: data.scope,
       participants: data.participants,
       observers: data.observers,

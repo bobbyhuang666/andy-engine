@@ -23,12 +23,16 @@ function recordExternalExperience(agent, event, options = {}) {
     normalized.type = event.type || event.category || 'social';
     normalized.category = event.category || event.type || 'social';
     normalized.emotionTag = event.emotionTag || 'neutral';
-    normalized.importance = typeof event.importance === 'number' ? event.importance : 0.5;
+    // R37 P1 fix: typeof NaN === 'number' is true. Use Number.isFinite to
+    // reject NaN, matching PersonalMemory.addExperience and MemoryDelta guards.
+    normalized.importance = typeof event.importance === 'number' && Number.isFinite(event.importance)
+      ? event.importance : 0.5;
     normalized.participants = event.participants || [agent.id];
     normalized._region = agent.position;
     normalized._currentState = agent.stateMachine.currentState;
 
-    const importance = typeof options.importance === 'number'
+    // R37 P1 fix: same NaN guard as event.importance above
+    const importance = typeof options.importance === 'number' && Number.isFinite(options.importance)
       ? options.importance
       : normalized.importance;
 

@@ -102,13 +102,16 @@ class IntrinsicMotivation {
     // R24 P0 fix: guard against null simTime. 6 downstream call sites call
     // simTime.getTime() unconditionally, which crashes when env.simTime is null.
     // Use _lastSimTime as fallback, or Date.now() as last resort.
-    if (simTime) {
+    // R37 P1 fix: Invalid Date is truthy but getTime() returns NaN.
+    // Validate with Number.isFinite before accepting.
+    if (simTime && Number.isFinite(simTime.getTime?.())) {
       this._lastSimTime = simTime.getTime();
     } else if (!this._lastSimTime) {
       this._lastSimTime = Date.now();
     }
     // Provide a safe simTime for downstream methods
-    const safeSimTime = simTime || new Date(this._lastSimTime);
+    const safeSimTime = (simTime && Number.isFinite(simTime.getTime?.()))
+      ? simTime : new Date(this._lastSimTime);
     const result = {
       drive: null,
       newEvents: [],

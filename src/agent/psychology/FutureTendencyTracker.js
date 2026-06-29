@@ -108,8 +108,11 @@ class FutureTendencyTracker {
   static fromJSON(data) {
     const tracker = new FutureTendencyTracker();
     // R36 P2 fix: use ?? instead of || to preserve intentional decayRate=0.
-    // 0 || 0.95 = 0.95 (wrong), 0 ?? 0.95 = 0 (correct).
-    tracker.decayRate = data.decayRate ?? 0.95;
+    // R37 P1 fix: NaN ?? 0.95 = NaN (nullish coalescing doesn't catch NaN).
+    // NaN decayRate makes decay() produce NaN * tendency = NaN permanently.
+    const decayRate = data.decayRate ?? 0.95;
+    tracker.decayRate = typeof decayRate === 'number' && Number.isFinite(decayRate)
+      ? decayRate : 0.95;
     for (const [region, tendency] of Object.entries(data.tendencies || {})) {
       // R35 P2 fix: validate tendency array elements for NaN. Corrupted JSON
       // like [NaN, 0, 0, 0] bypasses updateTendency's guard when loaded via

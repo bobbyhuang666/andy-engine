@@ -53,8 +53,12 @@ class ProceduralMemory {
    * 更新模拟时间
    * @param {Date} simTime
    */
+  // R37 P1 fix: validate simTime produces finite timestamp, matching
+  // PersonalMemory.setSimTime (R34 fix). Invalid Date → getTime() returns
+  // NaN → _simTime becomes NaN → tick() computes NaN hoursSinceLastSeen.
   setSimTime(simTime) {
-    this._simTime = simTime.getTime();
+    const ts = simTime?.getTime?.();
+    this._simTime = Number.isFinite(ts) ? ts : this._simTime;
   }
 
   // ═══════════════════════════════════════════

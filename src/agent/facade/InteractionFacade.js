@@ -14,7 +14,14 @@
 function interact(agent, other, interactionType = 'talk') {
   const valence = calculateInteractionValence(agent, other, interactionType);
 
-  const otherMood = other.emotion?.getValence?.() ?? 0;
+  // R37 P1 fix: NaN ?? 0 = NaN (nullish coalescing doesn't catch NaN).
+  // If getValence returns NaN from corrupted emotion, NaN propagates into
+  // moodInfluence and emotionDelta, silently producing zero emotional effect
+  // (applyEffect rejects NaN deltas). Use Number.isFinite to default to 0.
+  const otherMood = (() => {
+    const v = other.emotion?.getValence?.();
+    return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+  })();
   const moodInfluence = otherMood * 0.3;
 
   const emotionDelta = {
@@ -56,7 +63,11 @@ function interact(agent, other, interactionType = 'talk') {
  * @returns {number}
  */
 function calculateInteractionValence(agent, other, type) {
-  const myValence = agent.emotion?.getValence?.() ?? 0;
+  // R37 P1 fix: same NaN guard as otherMood above
+  const myValence = (() => {
+    const v = agent.emotion?.getValence?.();
+    return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+  })();
 
   let baseValence = 0.3;
   baseValence += myValence * 0.2;

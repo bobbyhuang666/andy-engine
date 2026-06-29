@@ -135,6 +135,10 @@ function updateHealth(agent, hoursElapsed, env) {
     healthDelta *= recoveryMod;
   }
 
+  // R37 P1 fix: Math.max(0.1, Math.min(1.0, NaN)) = NaN. If health is NaN from
+  // prior corruption, this makes it permanent. Add NaN recovery, matching
+  // EmotionRegulation.tick pattern (if !Number.isFinite, reset to default).
+  if (!Number.isFinite(agent.health)) agent.health = 0.8;
   agent.health = Math.max(0.1, Math.min(1.0, agent.health + healthDelta));
 
   // Sick event generation — domain-agnostic: use activity level instead of
@@ -154,6 +158,8 @@ function updateHealth(agent, hoursElapsed, env) {
  * @param {number} hoursElapsed
  */
 function updateSocialEnergy(agent, hoursElapsed) {
+  // R37 P1 fix: NaN recovery for socialEnergy, matching health fix above.
+  if (!Number.isFinite(agent.socialEnergy)) agent.socialEnergy = 0.7;
   const sociality = agent.behaviorField.B[DIM_SOCIALITY];
   const isSocial = sociality > 0.4;
 

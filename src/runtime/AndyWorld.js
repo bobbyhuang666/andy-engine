@@ -667,7 +667,11 @@ class AndyWorld {
       for (const effect of event.effects) {
         if (effect.type === 'relationship' && effect.delta) {
           const d = effect.delta;
-          if (typeof d.target === 'string' && typeof d.valence === 'number') {
+          // R37 P2 fix: use Number.isFinite instead of typeof for valence,
+          // matching the pattern used in EffectCommitter and RelationshipDelta.
+          // typeof NaN === 'number' is true; downstream guards catch it but
+          // this provides defense-in-depth.
+          if (typeof d.target === 'string' && typeof d.valence === 'number' && Number.isFinite(d.valence)) {
             const pairKey = [effect.target, d.target].sort().join('_');
             if (seenRelPairs.has(pairKey)) continue;
             seenRelPairs.add(pairKey);
