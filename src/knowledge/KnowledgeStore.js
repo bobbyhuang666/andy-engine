@@ -115,9 +115,12 @@ class KnowledgeStore {
 
   /**
    * 获取角色知道的所有事实 ID
+   * R20 M14: return a defensive copy instead of the internal Set reference.
+   * Without this, callers can directly mutate the store's internal state.
    */
   getKnownFactIds(agentId) {
-    return this._knowledge.get(agentId) || new Set();
+    const internal = this._knowledge.get(agentId);
+    return internal ? new Set(internal) : new Set();
   }
 
   /**

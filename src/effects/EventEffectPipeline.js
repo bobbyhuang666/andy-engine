@@ -20,6 +20,7 @@ const { EmotionDelta } = require('./EmotionDelta');
 const { MemoryDelta } = require('./MemoryDelta');
 const { RelationshipDelta } = require('./RelationshipDelta');
 const { LocationMeaningDelta } = require('./LocationMeaningDelta');
+const { PositionDelta } = require('./PositionDelta');
 const { FutureTendencyDelta } = require('./FutureTendencyDelta');
 
 /**
@@ -120,12 +121,23 @@ function computeDeltas(candidate, agentSnapshot) {
       deltas.push(new EmotionDelta(agentId, { calm: 0.03 }));
       break;
     case 'move':
+    case 'explore':
       if (candidate.target) {
+        // R20 M17: produce PositionDelta directly for position changes,
+        // not just LocationMeaningDelta. Without this, 'move' and 'explore'
+        // actions in event/dryRunEffects mode never produce a position delta,
+        // and the LocationMeaningDelta→stateDeltas.location conversion path
+        // only works in active mode's applyActionStateDeltas.
+        deltas.push(new PositionDelta(agentId, {
+          to: candidate.target,
+          from: agentSnapshot?.agent?.position || null,
+          reason: `action_${candidate.type}`,
+        }));
         deltas.push(new LocationMeaningDelta(agentId, {
           location: candidate.target,
           meaningType: 'movement_target',
           weight: 0,
-          reason: 'action_move',
+          reason: `action_${candidate.type}`,
           from: agentSnapshot?.agent?.position || null,
           to: candidate.target,
         }));

@@ -139,25 +139,30 @@ class AndyBridge {
     const simTime = this.store.virtualTime ? new Date(this.store.virtualTime) : undefined;
     const options = { rng: this._rng, simTime };
 
-    // 1. 消费情绪信号缓冲 → 注入 agent
+    // R20 M13: call store.onTick BEFORE reading tickCount so stories are
+    // tagged with the current tick, not the previous one. The old code read
+    // tickCount before onTick, producing off-by-one labels.
+    // 1. 交给 SimulationStore（缓冲 + 定期持久化）
+    this.store.onTick(tickResult, stories);
+
+    const currentTick = this.store.tickCount;
+
+    // 2. 消费情绪信号缓冲 → 注入 agent
     const signal = this.signalBuffer.consume();
     if (signal) {
       this._applySignalToAgent(signal);
       const signalStory = this.storyGenerator.generateFromSignal(
         signal.storyText,
         signal.mergedEffect,
-        this.store.tickCount,
+        currentTick,
         options,
       );
       if (signalStory) stories.push(signalStory);
     }
 
-    // 2. 从 tick 结果生成故事
+    // 3. 从 tick 结果生成故事
     const tickStories = this.storyGenerator.generateFromTick(tickResult, this.agentId, options);
     if (tickStories) stories.push(...tickStories);
-
-    // 3. 交给 SimulationStore（缓冲 + 定期持久化）
-    this.store.onTick(tickResult, stories);
 
     return { stories, signalConsumed: signal };
   }

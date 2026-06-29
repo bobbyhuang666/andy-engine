@@ -100,7 +100,12 @@ class ScheduleHandler {
       if (!isNight && !isSleeping) {
         const explorationRegions = imResult.drive.targetRegions;
         if (explorationRegions && explorationRegions.length > 0) {
-          const target = explorationRegions[0];
+          // R20 P0: use seeded RNG to pick target instead of always [0].
+          // Always picking [0] made no-schedule agent trajectories seed-independent
+          // because _getExplorationRegions returns the same novelty-ranked order
+          // regardless of seed (novelty is identical before any exploration).
+          const idx = Math.floor(agent.rand() * explorationRegions.length);
+          const target = explorationRegions[idx];
           // R7 fix: validate region before moving agent
           if (target !== agent.position && ScheduleHandler._isValidRegion(agent, target)) {
             result.regionChanged = true;

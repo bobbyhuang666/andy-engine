@@ -510,18 +510,17 @@ describe('序列化鲁棒性', () => {
   });
 
   it('损坏数据不应导致崩溃', () => {
-    const corruptCases = [
-      {},
-      null,
-      undefined,
-      { agents: 'not an array' },
-      { tickCount: 'not a number' },
-      { agents: [{ id: 'test' }] }, // 不完整的 agent
-    ];
-
-    for (const data of corruptCases) {
-      expect(() => AndyEngine.fromJSON(data)).not.toThrow();
+    // R20 M15: fromJSON now throws on invalid/corrupted data instead of
+    // silently returning null. This is better API design: callers get
+    // immediate clear feedback instead of confusing downstream TypeErrors.
+    const throwCases = [null, undefined, 'string', [], 123];
+    for (const data of throwCases) {
+      expect(() => AndyEngine.fromJSON(data)).toThrow();
     }
+
+    // Empty object / partial data still throws (reconstruction fails)
+    expect(() => AndyEngine.fromJSON({})).toThrow();
+    expect(() => AndyEngine.fromJSON({ tickCount: 'not a number' })).toThrow();
   });
 });
 

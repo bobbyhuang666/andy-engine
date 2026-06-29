@@ -519,18 +519,20 @@ class AndyEngine {
    * @param {Object} data - 之前 toJSON() 的输出
    * @param {Object} [config] - 可选配置覆盖
    * @returns {AndyEngine}
+   * @throws {Error} on invalid or corrupted input data
    */
   static fromJSON(data, config = {}) {
-    // R13 C3 fix: validate input data to prevent crashes from corrupted/empty payloads.
-    // Returns null for invalid input instead of throwing (graceful degradation).
+    // R20 M15: throw on invalid input instead of returning null.
+    // Returning null forced every caller to add null checks, and missing
+    // checks produced confusing downstream TypeErrors. Throwing gives
+    // immediate, clear feedback at the boundary.
     if (!data || typeof data !== 'object' || Array.isArray(data)) {
-      return null;
+      throw new Error('AndyEngine.fromJSON(): invalid input — expected a non-null object');
     }
     try {
       return new AndyEngine(config, data);
     } catch (e) {
-      // Corrupted data that passes structural check but fails during reconstruction
-      return null;
+      throw new Error(`AndyEngine.fromJSON(): reconstruction failed — ${e.message}`);
     }
   }
 }

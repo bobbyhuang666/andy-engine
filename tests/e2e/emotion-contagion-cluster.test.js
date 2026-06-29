@@ -155,13 +155,14 @@ describe('Emotion Contagion Cluster E2E', () => {
     expect(sadnessVariance).toBeLessThan(initialSadnessVariance);
 
     // Tighter verification (empirically stable with this seed):
-    // Joy converges to ≤10% of initial variance
-    // Sadness converges to ≤10% of initial variance
-    // (Adjusted from 5% after 'loneliness' joined NEGATIVE_DIMS,
-    //  which changes negative-emotion contagion dynamics.)
+    // Joy converges to ≤25% of initial variance
+    // Sadness converges to ≤35% of initial variance
+    // (Adjusted from 10%/10% after R20 P0 fix: seeded RNG in IM exploration
+    //  causes agents to sometimes move to different regions, reducing
+    //  contagion exposure. The 50% threshold remains the primary contract.)
     // These tighter bounds are verified deterministic; if seed changes,
     // the 50% threshold remains the primary contract.
-    expect(joyVariance).toBeLessThanOrEqual(initialJoyVariance * 0.1);
-    expect(sadnessVariance).toBeLessThanOrEqual(initialSadnessVariance * 0.1);
+    expect(joyVariance).toBeLessThanOrEqual(initialJoyVariance * 0.25);
+    expect(sadnessVariance).toBeLessThanOrEqual(initialSadnessVariance * 0.35);
   });
 });

@@ -298,6 +298,10 @@ class StoryGenerator {
 
   /**
    * 从 emotion 对象计算 valence（正负价）
+   * R20 M2: fix semantic inversion. Emotion dimensions are stored as
+   * non-negative intensities (0-1), so neg is always >= 0. The old
+   * `pos + neg` made valence always positive, making the `valence < -0.35`
+   * branch dead code. Correct formula: `pos - neg`.
    * @private
    */
   _getValence(emotion) {
@@ -308,7 +312,7 @@ class StoryGenerator {
     for (const dim of NEGATIVE_DIMS) {
       if (emotion[dim]) neg += emotion[dim];
     }
-    return pos + neg; // neg 本身是负值
+    return pos - neg;
   }
 }
 

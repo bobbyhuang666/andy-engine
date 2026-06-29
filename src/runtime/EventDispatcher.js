@@ -572,8 +572,15 @@ class EventDispatcher {
    * eventIndex 是 dispatch 时由 eventLog 重建的 Map 缓存，不持久化（fromJSON 主动重建）。
    */
   toJSON() {
+    // R20 M1: serialize full eventLog (up to maxEventLogSize) instead of
+    // only last 100. The old slice(-100) caused 99% data loss on every
+    // save/restore cycle when maxEventLogSize was 10000 (default 2000).
+    const maxSize = cfg.maxEventLogSize || 2000;
+    const toSerialize = this.eventLog.length > maxSize
+      ? this.eventLog.slice(-maxSize)
+      : this.eventLog;
     return {
-      eventLog: this.eventLog.slice(-100).map(e => ({
+      eventLog: toSerialize.map(e => ({
         ...e,
         semanticCategory: e.semanticCategory,
         // R12: deep-copy array fields to prevent shared reference mutation

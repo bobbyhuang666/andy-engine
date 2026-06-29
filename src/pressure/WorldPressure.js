@@ -24,7 +24,12 @@ class WorldPressure {
       total: 0,
     };
 
-    pressure.total = pressure.time + pressure.location + pressure.crowding + pressure.event;
+    // R20 M9: clamp total to [0, 1]. Without clamping, the sum of
+    // individual pressure components (range [-1, 2.4]) could produce
+    // total values outside the [0, 1] contract, violating consumer assumptions.
+    pressure.total = Math.max(0, Math.min(1,
+      pressure.time + pressure.location + pressure.crowding + pressure.event
+    ));
 
     return pressure;
   }

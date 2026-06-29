@@ -115,6 +115,18 @@ class AndyWorld {
     for (const [regionA, regionB, distance] of this.domain.adjacency || []) {
       this.regions.setAdjacent(regionA, regionB, distance);
     }
+    // R20 M16: restore RegionGrid occupancy from saved state.
+    // Without this, direct AndyWorld restore produces region-less agents
+    // that are invisible to encounters, contagion, and social interaction.
+    if (savedState && savedState.regions && typeof savedState.regions === 'object') {
+      for (const [region, agentIds] of Object.entries(savedState.regions)) {
+        if (Array.isArray(agentIds)) {
+          for (const agentId of agentIds) {
+            this.regions.place(agentId, region);
+          }
+        }
+      }
+    }
 
     // ─── 连续坐标空间（可选）───
     this.spatial = null;
@@ -640,8 +652,13 @@ class AndyWorld {
     // bidirectional Relationship object, so only one recordInteraction per pair.
     const seenRelPairs = new Set();
 
+    // R20 M3: process both 'social' and 'random' event types.
+    // Random events (from EventDispatcher.generateRandomEvent) carry emotion
+    // deltas but were silently dropped because only type==='social' was checked.
+    const PROCESSABLE_TYPES = new Set(['social', 'random']);
+
     for (const event of dispatched) {
-      if (event.type !== 'social' || !event.effects) continue;
+      if (!PROCESSABLE_TYPES.has(event.type) || !event.effects) continue;
 
       for (const effect of event.effects) {
         if (effect.type === 'relationship' && effect.delta) {
@@ -726,7 +743,10 @@ class AndyWorld {
       inputs[neighborId] = {
         emotion: blendedEmotion,
         weight,
-        expressiveness: neighbor._behavior.expressiveness,
+        // R20 M4: null guard for _behavior — a corrupted agent with undefined
+        // _behavior would throw TypeError here, cascading to skip all neighbors
+        // in the same region (not just the corrupted one).
+        expressiveness: neighbor._behavior?.expressiveness ?? 0.2,
       };
       count++;
     }
@@ -826,6 +846,11 @@ class AndyWorld {
       ),
       socialGraph: this.socialGraph.toJSON(),
       events: this.eventDispatcher.toJSON(),
+      // R20 M16: persist RegionGrid occupancy. Without this, restoring AndyWorld
+      // (bypassing AndyEngine) produces region-less agents invisible to the
+      // interaction pipeline. AndyEngine.fromJSON restores agents then calls
+      // addAgent() which re-places them, but direct AndyWorld restore skips that.
+      regions: this.regions.snapshot(),
     };
     if (this.rng) {
       data.rngState = this.rng.getState();

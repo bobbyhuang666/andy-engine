@@ -96,9 +96,22 @@ class EffectResult {
           };
           break;
         case 'locationMeaning':
+          // Only set location from LocationMeaningDelta if no PositionDelta
+          // has already set it (PositionDelta takes precedence for position).
+          if (!stateDeltas.location) {
+            stateDeltas.location = {
+              from: delta.from || null,
+              to: delta.to || delta.location,
+              reason: delta.reason,
+            };
+          }
+          break;
+        case 'position':
+          // R20 M17: PositionDelta directly sets location state.
+          // Takes precedence over LocationMeaningDelta for the to/from fields.
           stateDeltas.location = {
             from: delta.from || null,
-            to: delta.to || delta.location,
+            to: delta.to,
             reason: delta.reason,
           };
           break;

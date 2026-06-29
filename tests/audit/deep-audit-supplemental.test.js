@@ -481,8 +481,13 @@ describe('JSON 序列化/反序列化鲁棒性', () => {
   });
 
   it('反序列化损坏数据应优雅处理', () => {
+    // R20 M15: fromJSON now throws on invalid data instead of returning null.
+    // This provides immediate, clear feedback at the boundary instead of
+    // requiring callers to add null checks.
     const corruptData = { notAValidEngine: true, garbage: [1, 2, 3] };
-    expect(() => AndyEngine.fromJSON(corruptData)).not.toThrow();
+    expect(() => AndyEngine.fromJSON(corruptData)).toThrow();
+    expect(() => AndyEngine.fromJSON(null)).toThrow();
+    expect(() => AndyEngine.fromJSON('string')).toThrow();
   });
 });
 

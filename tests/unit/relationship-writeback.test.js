@@ -90,15 +90,25 @@ describe('Phase 38: Minimal Relationship Writeback Gate', () => {
 
   // ─── 2. dryRunEffects socialize: same delta, relationship NOT mutated ───
   it('dryRunEffects socialize: delta computed, relationship unchanged', () => {
-    const dry = createEngineWithTwoAgents('rel-dry', DRY_RUN);
+    // R20: use a seed where alice and bob stay co-located after IM-driven movement.
+    // The P0 fix (seed-dependent IM exploration) now makes agents move to different
+    // regions with different seeds, so encounters only happen when co-located.
+    // Seed 'rel-dry-2' keeps both agents in the same region after the first tick.
+    const dry = createEngineWithTwoAgents('rel-dry-2', DRY_RUN);
     const alice = dry.getAgent('alice');
     const bob = dry.getAgent('bob');
     alice._candidateProviderManager = stubProvider([makeSocializeCandidate('bob')]);
     bob._candidateProviderManager = stubEmptyProvider();
     alice._socialGraphRef = dry.world.socialGraph;
 
+    // Pre-create relationship so test doesn't depend on encounter happening
+    // (encounter probability varies with position / seed / IM drive)
+    if (!dry.world.socialGraph.getRelationship('alice', 'bob')) {
+      dry.world.socialGraph.getOrCreateRelationship('alice', 'bob');
+    }
+
     const relBefore = dry.world.socialGraph.getRelationship('alice', 'bob');
-    const countBefore = relBefore ? relBefore.interactionCount : 0;
+    const countBefore = relBefore.interactionCount;
 
     dry.tick();
 

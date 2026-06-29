@@ -525,10 +525,25 @@ describe('Phase 5: typed pipeline functions', () => {
     expect(deltas.some(d => d.type === 'emotion')).toBe(true);
   });
 
-  it('move produces locationMeaning delta', () => {
+  it('move produces position and locationMeaning deltas', () => {
+    // R20 M17: move now produces both PositionDelta and LocationMeaningDelta.
+    // PositionDelta carries the actual position change; LocationMeaningDelta
+    // carries the semantic meaning of the movement.
     const deltas = computeDeltas({ type: 'move', source: 'schedule', target: 'cafe' }, { id: 'a1' });
-    expect(deltas).toHaveLength(1);
-    expect(deltas[0].type).toBe('locationMeaning');
+    expect(deltas).toHaveLength(2);
+    const types = deltas.map(d => d.type);
+    expect(types).toContain('position');
+    expect(types).toContain('locationMeaning');
+    const posDelta = deltas.find(d => d.type === 'position');
+    expect(posDelta.to).toBe('cafe');
+  });
+
+  it('explore produces position and locationMeaning deltas', () => {
+    const deltas = computeDeltas({ type: 'explore', source: 'intrinsic', target: 'library' }, { id: 'a1' });
+    expect(deltas).toHaveLength(2);
+    const types = deltas.map(d => d.type);
+    expect(types).toContain('position');
+    expect(types).toContain('locationMeaning');
   });
 
   it('socialize produces relationship delta', () => {
