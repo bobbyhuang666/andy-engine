@@ -160,6 +160,11 @@ class EmotionVectorNative {
     for (const [dim, delta] of entries) {
       const idx = this._dimNameToIdx[dim];
       if (idx === undefined) continue;
+      // R36 P1 fix: reject NaN delta values before packing to native. The JS
+      // version of applyEffect uses Number.isFinite(delta) guard (R32 P0-002).
+      // Without this, NaN is packed as IEEE 754 NaN and sent to Rust, which
+      // may produce NaN outputs that _unpackResult must then repair.
+      if (typeof delta !== 'number' || !Number.isFinite(delta)) continue;
       buf.writeDoubleLE(idx, off); off += 8;
       buf.writeDoubleLE(delta, off); off += 8;
     }
@@ -199,11 +204,24 @@ class EmotionVectorNative {
     const arr = new Float64Array(buf.buffer, buf.byteOffset, buf.byteLength / 8);
     const dims = EMOTION_DIMENSIONS;
     let off = 0;
-    for (let i = 0; i < dims.length; i++) this.current[dims[i]] = arr[off++];
-    for (let i = 0; i < dims.length; i++) this.mood[dims[i]] = arr[off++];
-    for (let i = 0; i < dims.length; i++) this.baseline[dims[i]] = arr[off++];
-    this.stress = arr[off++];
-    for (let i = 0; i < 16; i++) this._pinkNoiseState[i] = arr[off++];
+    // R36 P1 fix: validate native output with Number.isFinite. If the Rust
+    // computation produces NaN (e.g., from NaN input or numerical overflow),
+    // it propagates permanently into JS mirror objects. The JS version
+    // self-heals via _clamp(), but native _unpackResult wrote unconditionally.
+    for (let i = 0; i < dims.length; i++) {
+      const v = arr[off++];
+      this.current[dims[i]] = Number.isFinite(v) ? v : (this.baseline[dims[i]] || 0);
+    }
+    for (let i = 0; i < dims.length; i++) {
+      const v = arr[off++];
+      this.mood[dims[i]] = Number.isFinite(v) ? v : (this.baseline[dims[i]] || 0);
+    }
+    for (let i = 0; i < dims.length; i++) {
+      const v = arr[off++];
+      if (Number.isFinite(v)) this.baseline[dims[i]] = v;
+    }
+    this.stress = Number.isFinite(arr[off]) ? arr[off] : 2; off++;
+    for (let i = 0; i < 16; i++) this._pinkNoiseState[i] = Number.isFinite(arr[off]) ? arr[off] : 0; off++;
   }
 
   setStress(stress) {

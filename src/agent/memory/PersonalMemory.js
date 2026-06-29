@@ -91,13 +91,20 @@ class PersonalMemory {
         this.appraisalBiases = savedMemories.appraisalBiases.map(b => ({ ...b }));
       }
     } else {
+      // R36 P2 fix: validate seed memory timestamps, matching savedMemories safeDate.
+      // A truthy but non-parseable timestamp string (e.g., "yesterday") produces
+      // Invalid Date, corrupting ACT-R base-level activation.
+      const safeDate = (v) => {
+        const d = new Date(v);
+        return Number.isFinite(d.getTime()) ? d : new Date(this._simTime || 0);
+      };
       this.memories = seedMemories.map((m, i) => ({
         id: `seed_${i}`,
         content: m.content || m,
         category: m.category || 'background',
         emotionTag: m.emotionTag || 'neutral',
         importance: m.importance || 0.8,
-        timestamp: new Date(m.timestamp || this._simTime || 0),
+        timestamp: safeDate(m.timestamp || this._simTime || 0),
         lastAccessed: new Date(this._simTime || 0),
         presentations: [new Date(this._simTime || 0)],
         accessCount: 1,

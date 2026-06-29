@@ -70,7 +70,18 @@ function validateFact(fact) {
     errors.push(`type must be one of: ${FACT_TYPES.join(', ')}`);
   }
 
-  if (!(fact.timestamp instanceof Date) && typeof fact.timestamp !== 'number') {
+  // R36 P1 fix: typeof NaN === 'number' is true, so NaN timestamp passes validation.
+  // For numeric timestamps, require Number.isFinite; Date timestamps are validated
+  // by checking getTime() is finite.
+  if (fact.timestamp instanceof Date) {
+    if (!Number.isFinite(fact.timestamp.getTime())) {
+      errors.push('timestamp Date must be valid (not Invalid Date)');
+    }
+  } else if (typeof fact.timestamp === 'number') {
+    if (!Number.isFinite(fact.timestamp)) {
+      errors.push('timestamp must be a finite number');
+    }
+  } else {
     errors.push('timestamp must be a Date or number');
   }
 
@@ -285,7 +296,10 @@ function createMemoryFact(data, base = {}) {
     }),
     agentId: data.agentId,
     content: data.content,
-    importance: data.importance ?? 0.5,
+    // R36 P1 fix: NaN ?? 0.5 = NaN (nullish coalescing only catches null/undefined).
+    // Use Number.isFinite to reject NaN/Infinity, matching the confidence fix pattern.
+    importance: typeof data.importance === 'number' && Number.isFinite(data.importance)
+      ? data.importance : 0.5,
     emotionTag: data.emotionTag || 'neutral',
     category: data.category || 'general',
   };
@@ -316,7 +330,9 @@ function createRuleFact(data, base = {}) {
     ruleId: data.ruleId,
     description: data.description,
     category: data.category || 'general',
-    priority: data.priority ?? 0.5,
+    // R36 P1 fix: same NaN guard as importance
+    priority: typeof data.priority === 'number' && Number.isFinite(data.priority)
+      ? data.priority : 0.5,
     active: data.active ?? true,
   };
 }
@@ -414,10 +430,18 @@ function validateTypeFields(fact) {
     case FactType.MEMORY:
       if (!fact.agentId) errors.push('memory: agentId is required');
       if (!fact.content) errors.push('memory: content is required');
+      // R36 P1 fix: validate importance for NaN (same class as confidence fix)
+      if (fact.importance !== undefined && (typeof fact.importance !== 'number' || !Number.isFinite(fact.importance) || fact.importance < 0 || fact.importance > 1)) {
+        errors.push('memory: importance must be a finite number between 0 and 1');
+      }
       break;
     case FactType.RULE:
       if (!fact.ruleId) errors.push('rule: ruleId is required');
       if (!fact.description) errors.push('rule: description is required');
+      // R36 P1 fix: validate priority for NaN
+      if (fact.priority !== undefined && (typeof fact.priority !== 'number' || !Number.isFinite(fact.priority) || fact.priority < 0 || fact.priority > 1)) {
+        errors.push('rule: priority must be a finite number between 0 and 1');
+      }
       break;
     case FactType.LOCATION_MEANING:
       if (!fact.location) errors.push('location_meaning: location is required');
