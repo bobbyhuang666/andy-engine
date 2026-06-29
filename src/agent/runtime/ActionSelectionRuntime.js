@@ -259,9 +259,12 @@ function applyActionStateDeltas(agent, stateDeltas, env) {
 
   const deltas = [];
 
-  // 1. Need deltas (only energy allowed)
-  if (stateDeltas.need && typeof stateDeltas.need.energy === 'number') {
-    deltas.push(new NeedDelta(agent.id, { energy: stateDeltas.need.energy }));
+  // 1. Need deltas — forward all need fields, not just energy
+  // R23 P1 fix: previously only forwarded energy, which silently dropped
+  // hunger (consume), stimulation (work/explore), social (socialize),
+  // and comfort deltas. This negated R22 P0-1 fix in active mode.
+  if (stateDeltas.need && Object.keys(stateDeltas.need).length > 0) {
+    deltas.push(new NeedDelta(agent.id, { ...stateDeltas.need }));
   }
 
   // 2. Emotion deltas

@@ -62,13 +62,19 @@ function selectAction(scoredCandidates, { temperature = 0.5, rng = null, agentId
   const probabilities = weights.map(w => w / totalWeight);
 
   let cumulative = 0;
-  let selectedIndex = 0;
+  let selectedIndex = -1;
   for (let i = 0; i < probabilities.length; i++) {
     cumulative += probabilities[i];
     if (draw < cumulative) {
       selectedIndex = i;
       break;
     }
+  }
+  // R23 P1 fix: floating-point rounding can make cumulative < 1.0,
+  // so draw may fall in the gap after the last probability.
+  // Fallback to the last candidate instead of silently selecting [0].
+  if (selectedIndex === -1) {
+    selectedIndex = valid.length - 1;
   }
 
   const selected = valid[selectedIndex];

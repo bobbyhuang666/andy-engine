@@ -391,7 +391,10 @@ function scoreTime(candidate, context) {
 
 function scoreConstraint(candidate, context) {
   if (candidate.constraints) {
-    if (candidate.constraints.timeRange && context.world) {
+    // R23 P1 fix: guard against null/undefined world.time.
+    // new Date(null) → epoch (hour=0), new Date(undefined) → Invalid Date.
+    // Skip constraint evaluation when time is unavailable, matching scoreTime's pattern.
+    if (candidate.constraints.timeRange && context.world && context.world.time) {
       const hour = new Date(context.world.time).getUTCHours();
       const [min, max] = candidate.constraints.timeRange;
       if (hour < min || hour >= max) return -1;

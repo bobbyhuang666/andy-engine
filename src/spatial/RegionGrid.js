@@ -175,26 +175,34 @@ class RegionGrid {
    * 获取指定跳数内的所有相邻区域
    * @private
    */
+  // R23 P1 fix: respect stored distance values in BFS traversal.
+  // Previously, _getAdjacentRegions did a pure hop-count BFS and ignored
+  // the distance parameter from setAdjacent(). Now uses Dijkstra-style
+  // cumulative distance to correctly weight edges.
   _getAdjacentRegions(region, maxHops) {
     const result = [];
-    const visited = new Set([region]);
-    let frontier = [region];
+    // dist map: region → cumulative distance from start
+    const dist = new Map([[region, 0]]);
+    // priority queue (simple array, sorted on extraction)
+    const queue = [{ region, d: 0 }];
 
-    for (let hop = 0; hop < maxHops; hop++) {
-      const nextFrontier = [];
-      for (const current of frontier) {
-        const adjMap = this._distances.get(current);
-        if (adjMap) {
-          for (const [neighbor] of adjMap) {
-            if (!visited.has(neighbor)) {
-              visited.add(neighbor);
-              result.push(neighbor);
-              nextFrontier.push(neighbor);
-            }
+    while (queue.length > 0) {
+      queue.sort((a, b) => a.d - b.d);
+      const { region: current, d: currentDist } = queue.shift();
+
+      if (currentDist > maxHops) continue;
+      if (current !== region) result.push(current);
+
+      const adjMap = this._distances.get(current);
+      if (adjMap) {
+        for (const [neighbor, distance] of adjMap) {
+          const newDist = currentDist + distance;
+          if (newDist <= maxHops && (!dist.has(neighbor) || newDist < dist.get(neighbor))) {
+            dist.set(neighbor, newDist);
+            queue.push({ region: neighbor, d: newDist });
           }
         }
       }
-      frontier = nextFrontier;
     }
 
     return result;

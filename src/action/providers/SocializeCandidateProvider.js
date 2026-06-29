@@ -18,9 +18,11 @@ class SocializeCandidateProvider extends CandidateProvider {
     // Without target, EventEffectPipeline.computeDeltas() skips
     // RelationshipDelta production (line 147: if (candidate.target)),
     // making socialize actions have zero relationship effect.
+    // R23 P1 fix: use context.agent.id (not context.agentId which is undefined).
+    const myId = context.agent?.id || context.agentId;
     const targetRel = nearby[0];
     const targetId = targetRel.getOther
-      ? targetRel.getOther(context.agentId)
+      ? targetRel.getOther(myId)
       : (targetRel.agentB || targetRel.from || targetRel.target);
 
     return [new ActionCandidate({

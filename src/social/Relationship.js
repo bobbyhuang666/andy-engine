@@ -32,7 +32,12 @@ class Relationship {
     if (savedState) {
       this.type = savedState.type || 'stranger';
       this.strength = Number.isFinite(savedState.strength) ? savedState.strength : cfg.initialStrength;
-      this.lastInteraction = new Date(savedState.lastInteraction);
+      // R23 P0 fix: guard against undefined/null lastInteraction.
+      // new Date(undefined) → Invalid Date → toISOString() crashes;
+      // new Date(null) → epoch (1970) which silently corrupts recency.
+      this.lastInteraction = (savedState.lastInteraction != null)
+        ? new Date(savedState.lastInteraction)
+        : new Date();
       this._hoursSinceLastInteraction = savedState._hoursSinceLastInteraction || 0;
       this.interactionCount = savedState.interactionCount || 0;
       this._relationalInteractions = savedState._relationalInteractions || 0;

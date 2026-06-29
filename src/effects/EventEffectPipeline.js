@@ -100,7 +100,8 @@ function computeDeltas(candidate, agentSnapshot) {
 
   switch (candidate.type) {
     case 'rest':
-      deltas.push(new NeedDelta(agentId, { energy: 0.4 }));
+      // R23 P1 fix: also recover comfort, matching scoreNeed's rest→comfort mapping
+      deltas.push(new NeedDelta(agentId, { energy: 0.4, comfort: 0.2 }));
       deltas.push(new EmotionDelta(agentId, { calm: 0.1, joy: 0.05 }));
       break;
     case 'observe':
