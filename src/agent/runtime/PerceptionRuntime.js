@@ -24,7 +24,11 @@ function perceiveEvents(agent, events) {
     const appraisal = Appraisal.evaluate(event, agent);
 
     // Step 2: Appraisal-modulated emotion reaction
-    for (const effect of event.effects) {
+    // R34 P2 fix: defensive guard against events without effects array.
+    // EventDispatcher always sets effects: [], but events from other sources
+    // (injected, deserialized) may lack this field, which would crash the
+    // entire perception loop for that agent.
+    for (const effect of (event.effects || [])) {
       if (effect.target === agent.id && effect.type === 'emotion') {
         agent.emotion.applyEffect(effect.delta, 1, appraisal.emotionModifier);
       }

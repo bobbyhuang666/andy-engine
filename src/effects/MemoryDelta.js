@@ -26,7 +26,11 @@ class MemoryDelta extends StateDelta {
     this.target = payload.target || null;
     this.content = payload.content || '';
     this.category = payload.category || null;
-    this.importance = typeof payload.importance === 'number' ? payload.importance : null;
+    // R34 P2 fix: Number.isFinite rejects NaN (typeof NaN === 'number' is true).
+    // NaN importance propagates to PersonalMemory.addExperience, corrupting
+    // memory ranking and retrieval priority.
+    this.importance = typeof payload.importance === 'number' && Number.isFinite(payload.importance)
+      ? payload.importance : null;
     this.emotionTag = payload.emotionTag || null;
   }
 

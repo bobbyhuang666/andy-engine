@@ -106,15 +106,21 @@ class EmotionVectorNative {
     }
 
     if (savedState) {
-      // Overwrite with saved values
+      // R34 P1 fix: validate saved values with Number.isFinite, matching
+      // the R32 fix in EmotionVector.js. `!== undefined` passes NaN through,
+      // poisoning all emotion calculations.
       if (savedState.current) {
         for (const dim of EMOTION_DIMENSIONS) {
-          if (savedState.current[dim] !== undefined) this.current[dim] = savedState.current[dim];
+          if (typeof savedState.current[dim] === 'number' && Number.isFinite(savedState.current[dim])) {
+            this.current[dim] = savedState.current[dim];
+          }
         }
       }
       if (savedState.mood) {
         for (const dim of EMOTION_DIMENSIONS) {
-          if (savedState.mood[dim] !== undefined) this.mood[dim] = savedState.mood[dim];
+          if (typeof savedState.mood[dim] === 'number' && Number.isFinite(savedState.mood[dim])) {
+            this.mood[dim] = savedState.mood[dim];
+          }
         }
       }
     }
@@ -201,6 +207,8 @@ class EmotionVectorNative {
   }
 
   setStress(stress) {
+    // R34: match EmotionVector.js NaN guard
+    if (!Number.isFinite(stress)) stress = 2;
     this.stress = Math.max(0, Math.min(10, stress));
     this._ev.setStress(this.stress);
   }

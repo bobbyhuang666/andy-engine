@@ -60,17 +60,32 @@ class PersonalMemory {
 
     if (savedMemories) {
       const memArray = Array.isArray(savedMemories) ? savedMemories : (savedMemories.memories || []);
-      this.memories = memArray.map(m => ({
-        ...m,
-        timestamp: new Date(m.timestamp),
-        lastAccessed: new Date(m.lastAccessed),
-        presentations: (m.presentations || []).map(t => new Date(t)),
-        semanticCategory: m.semanticCategory || null,
-        // R12: deep-copy nested objects to prevent shared reference mutation
-        associations: [...(m.associations || [])],
-        emotionSnapshot: { ...(m.emotionSnapshot || {}) },
-        appraisal: m.appraisal ? { ...m.appraisal } : null,
-      }));
+      this.memories = memArray.map(m => {
+        // R34 P1 fix: validate timestamps from saved data. Invalid Date
+        // propagates into ACT-R base-level activation, tick decay, and
+        // prompt generation, producing NaN throughout the memory system.
+        const safeDate = (v) => {
+          const d = new Date(v);
+          return Number.isFinite(d.getTime()) ? d : new Date(this._simTime || 0);
+        };
+        return {
+          ...m,
+          timestamp: safeDate(m.timestamp),
+          lastAccessed: safeDate(m.lastAccessed),
+          presentations: (m.presentations || []).map(t => safeDate(t)),
+          semanticCategory: m.semanticCategory || null,
+          // R34 P2 fix: validate importance from saved data.
+          importance: typeof m.importance === 'number' && Number.isFinite(m.importance) ? m.importance : 0.5,
+          // R12: deep-copy nested objects to prevent shared reference mutation
+          associations: [...(m.associations || [])],
+          // R34 P2 fix: validate emotionSnapshot numeric values.
+          emotionSnapshot: m.emotionSnapshot
+            ? Object.fromEntries(Object.entries(m.emotionSnapshot).map(([k, v]) =>
+                [k, typeof v === 'number' && Number.isFinite(v) ? v : 0]))
+            : {},
+          appraisal: m.appraisal ? { ...m.appraisal } : null,
+        };
+      });
       if (!Array.isArray(savedMemories) && savedMemories.appraisalBiases) {
         // R12: deep-copy appraisalBiases to prevent shared reference
         this.appraisalBiases = savedMemories.appraisalBiases.map(b => ({ ...b }));
@@ -148,7 +163,11 @@ class PersonalMemory {
    * @param {Date} simTime
    */
   setSimTime(simTime) {
-    this._simTime = simTime.getTime();
+    // R34 P1 fix: validate simTime produces a finite timestamp.
+    // Invalid Date → getTime() returns NaN → _simTime becomes NaN →
+    // all memory timestamps, decay, and ACT-R activation produce NaN.
+    const ts = simTime?.getTime?.();
+    this._simTime = Number.isFinite(ts) ? ts : this._simTime;
   }
 
   /**

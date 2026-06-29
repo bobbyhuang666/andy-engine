@@ -19,7 +19,11 @@ class RelationshipDelta extends StateDelta {
     super('relationship', 'relationship', agentId);
     this.targetAgentId = payload.targetAgentId;
     this.interactionType = payload.interactionType || 'unknown';
-    this.valence = payload.valence || 0;
+    // R34 P2 fix: use Number.isFinite instead of falsy coercion.
+    // `payload.valence || 0` replaces both NaN and 0 with 0, losing the
+    // semantic intent of a neutral (valence=0) interaction.
+    this.valence = typeof payload.valence === 'number' && Number.isFinite(payload.valence)
+      ? payload.valence : 0;
     this.content = payload.content || '';
   }
 

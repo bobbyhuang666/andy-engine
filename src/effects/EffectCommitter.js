@@ -125,7 +125,11 @@ class EffectCommitter {
       participants: [delta.agentId],
     };
     if (delta.category) memEvent.category = delta.category;
-    if (typeof delta.importance === 'number') memEvent.importance = delta.importance;
+    // R34 P2 fix: Number.isFinite rejects NaN importance before it reaches
+    // PersonalMemory.addExperience (typeof NaN === 'number' is true).
+    if (typeof delta.importance === 'number' && Number.isFinite(delta.importance)) {
+      memEvent.importance = delta.importance;
+    }
     if (delta.emotionTag) memEvent.emotionTag = delta.emotionTag;
     agent.memory.addExperience(memEvent, agent.emotion);
   }
@@ -146,9 +150,12 @@ class EffectCommitter {
 
     const relationship = graph.getOrCreateRelationship(delta.agentId, delta.targetAgentId);
     if (typeof relationship.recordInteraction === 'function') {
+      // R34 P2 fix: Number.isFinite rejects NaN (typeof NaN === 'number' is true)
+      const valence = typeof delta.valence === 'number' && Number.isFinite(delta.valence)
+        ? delta.valence : 0;
       relationship.recordInteraction(
         delta.interactionType || 'unknown',
-        typeof delta.valence === 'number' ? delta.valence : 0,
+        valence,
         delta.content || '',
         this.world?.time || null
       );
@@ -185,9 +192,14 @@ class EffectCommitter {
     if (!factStore || typeof factStore.updateLocationMeaning !== 'function') return;
     if (!delta.location) return;
 
+    // R34 P2 fix: validate weight is finite before passing to factStore.
+    // This was the one delta path without downstream NaN protection.
+    const weight = typeof delta.weight === 'number' && Number.isFinite(delta.weight)
+      ? delta.weight : 0;
+
     factStore.updateLocationMeaning(delta.location, {
       type: delta.meaningType,
-      weight: delta.weight,
+      weight,
       reason: delta.reason,
     });
   }

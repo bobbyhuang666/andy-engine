@@ -347,7 +347,11 @@ class AndyBridge {
             }
           }
           if (state.position !== undefined) agent.position = state.position;
-          if (state.health !== undefined) agent.health = state.health;
+          // R34 P2 fix: validate health with Number.isFinite, matching the
+          // pattern used for all other numeric fields in _restoreAgents.
+          if (typeof state.health === 'number' && Number.isFinite(state.health)) {
+            agent.health = state.health;
+          }
           if (Number.isFinite(state.socialEnergy)) agent.socialEnergy = state.socialEnergy;
           // R9: restore behaviorField B vector
           if (state.behaviorField && state.behaviorField.B && agent.behaviorField) {

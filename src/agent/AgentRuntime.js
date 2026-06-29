@@ -177,7 +177,11 @@ class AgentRuntime {
     this.handlers.health.tick(context);
 
     // ─── 10. 情绪演化 ───
-    agent.emotion.tick(hoursElapsed, env.hour, contagionInputs);
+    // R34 P2 fix: validate env.hour. If NaN/undefined, _circadianModulation
+    // computes NaN which propagates through emotion tick. _clamp() repairs at
+    // end of tick, but one tick of garbage computations is still wasteful.
+    const hourOfDay = typeof env.hour === 'number' && Number.isFinite(env.hour) ? env.hour : 12;
+    agent.emotion.tick(hoursElapsed, hourOfDay, contagionInputs);
 
     // ─── 11. 情绪调节资源恢复 ───
     agent.emotionRegulation.tick(hoursElapsed, agent.stateMachine.currentState, agent.domain);
@@ -190,7 +194,7 @@ class AgentRuntime {
 
     // ─── 14. 程序性记忆 ───
     agent.proceduralMemory.recordAction({
-      hour: env.hour,
+      hour: hourOfDay,
       dayOfWeek: env.dayOfWeek,
       position: agent.position,
       state: agent.stateMachine.currentState,
