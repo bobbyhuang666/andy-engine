@@ -265,31 +265,30 @@ class Character {
     ];
 
     const llm = options.llm ? new LLMAdapter(options.llm) : this._llm;
-    let fullReply = "";
 
+    // R19: Buffer the full reply first, then check consistency before yielding.
+    // This prevents rejected/hallucinated content from reaching the user.
+    let fullReply = "";
     for await (const token of llm.chatStream(messages)) {
       fullReply += token;
-      yield token;
     }
 
-    if (fullReply.trim().length > 0) {
-      // R18 CONSIST-002 fix: apply consistency check to streamed replies too.
-      // chat() already checks consistency, but chatStream was missing it,
-      // allowing LLM hallucinations to reach the user unchecked.
-      let checkedReply = fullReply;
-      if (this._engine.checkConsistency) {
-        const consistency = this._engine.checkConsistency(fullReply, this.id);
-        if (!consistency.valid && consistency.severity === 'reject') {
-          // For streaming, we've already yielded the original tokens.
-          // Append a correction message instead of replacing (can't un-yield).
-          const correction = `\n[${this.name}沉默了一会儿]`;
-          yield correction;
-          checkedReply = `[${this.name}沉默了一会儿]`;
-        }
+    if (fullReply.trim().length === 0) return;
+
+    // Apply consistency check before yielding any content
+    let outputReply = fullReply;
+    if (this._engine.checkConsistency) {
+      const consistency = this._engine.checkConsistency(fullReply, this.id);
+      if (!consistency.valid && consistency.severity === 'reject') {
+        outputReply = `[${this.name}沉默了一会儿]`;
       }
-      this._conversation.addAssistantMessage(checkedReply);
-      this._recordConversation(message, checkedReply);
     }
+
+    // Only now yield the verified (or corrected) content
+    yield outputReply;
+
+    this._conversation.addAssistantMessage(outputReply);
+    this._recordConversation(message, outputReply);
   }
   getContext(options = {}) {
     const worldContext = this._engine.getWorldContext(this.id);

@@ -109,10 +109,12 @@ class WorldFactStore {
       throw new Error(`EventFact ${fact.eventId} already exists (append-only)`);
     }
 
-    this._facts.set(fact.id, fact);
+    // R19: store a deep copy to prevent external mutation of store internals
+    const stored = this._deepCopyFact(fact);
+    this._facts.set(fact.id, stored);
     this._byType.get(fact.type).add(fact.id);
 
-    this._indexAgents(fact);
+    this._indexAgents(stored);
 
     if (fact.type === FactType.EVENT) {
       this._eventIndex.set(fact.eventId, fact.id);
@@ -120,7 +122,7 @@ class WorldFactStore {
       this._evictEventFacts();
     }
 
-    return fact;
+    return this._deepCopyFact(stored);
   }
 
   /**
@@ -211,7 +213,8 @@ class WorldFactStore {
     this._facts.set(id, updated);
     this._indexAgents(updated);
 
-    return updated;
+    // R19: return deep copy to prevent external mutation of store internals
+    return this._deepCopyFact(updated);
   }
 
   // ═══════════════════════════════════════════
@@ -229,14 +232,14 @@ class WorldFactStore {
       for (const t of types) {
         const ids = this._byType.get(t);
         if (ids) {
-          // R14 fix: return shallow copies to prevent external mutation of store internals
-          for (const id of ids) result.push({ ...this._facts.get(id) });
+          // R19: return deep copies to prevent external mutation of store internals
+          for (const id of ids) result.push(this._deepCopyFact(this._facts.get(id)));
         }
       }
       return result;
     }
-    // R14 fix: return shallow copies to prevent external mutation of store internals
-    return Array.from(this._facts.values()).map(f => ({ ...f }));
+    // R19: return deep copies to prevent external mutation of store internals
+    return Array.from(this._facts.values()).map(f => this._deepCopyFact(f));
   }
 
   /**
@@ -334,7 +337,7 @@ class WorldFactStore {
       if (fact._invalidated) continue;
 	      if (options.types && !options.types.includes(fact.type)) continue;
 	      seen.add(id);
-	      result.push({ ...fact });
+	      result.push(this._deepCopyFact(fact));
 	    }
 
     // Phase 2: Non-public facts known to this agent (use _byAgent index instead of full scan)
@@ -377,7 +380,7 @@ class WorldFactStore {
     for (const fact of this._facts.values()) {
       if (fact.timestamp.getTime() < sinceTime) continue;
       if (types && !types.includes(fact.type)) continue;
-	      result.push({ ...fact });
+	      result.push(this._deepCopyFact(fact));
 	    }
 
 	    result.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
@@ -390,9 +393,9 @@ class WorldFactStore {
    * @returns {Object|null}
    */
   getFactById(id) {
-    // R14 fix: return shallow copy to prevent external mutation of store internals
+    // R19: return deep copy to prevent external mutation of store internals
     const fact = this._facts.get(id);
-    return fact ? { ...fact } : null;
+    return fact ? this._deepCopyFact(fact) : null;
   }
 
   // ═══════════════════════════════════════════
@@ -560,10 +563,11 @@ class WorldFactStore {
     const fact = this._facts.get(factId);
     if (!fact) return null;
 
+    // R19: return deep copies to prevent external mutation of store internals
     return {
-      current: fact,
+      current: this._deepCopyFact(fact),
       invalidated: fact._invalidated || false,
-      invalidation: fact._invalidationId ? this._facts.get(fact._invalidationId) : null,
+      invalidation: fact._invalidationId ? this._deepCopyFact(this._facts.get(fact._invalidationId)) : null,
     };
   }
 
@@ -630,8 +634,23 @@ class WorldFactStore {
     if (!ids) return [];
     // Filter out undefined entries (can occur if fact was evicted but index
     // not yet cleaned, or during partial mutation). R6 fix.
-    // R18 AE-001 fix: return shallow copies to prevent external mutation.
-    return Array.from(ids).map(id => this._facts.get(id)).filter(Boolean).map(f => ({ ...f }));
+    // R18 AE-001 fix: return deep copies to prevent external mutation.
+    return Array.from(ids).map(id => this._facts.get(id)).filter(Boolean).map(f => this._deepCopyFact(f));
+  }
+
+  /**
+   * Deep copy a fact object, cloning nested arrays (participants, observers, tags).
+   * Prevents external mutation of store internals via shared references.
+   * @private
+   * @param {Object} fact
+   * @returns {Object}
+   */
+  _deepCopyFact(fact) {
+    const copy = { ...fact };
+    if (Array.isArray(copy.participants)) copy.participants = [...copy.participants];
+    if (Array.isArray(copy.observers)) copy.observers = [...copy.observers];
+    if (Array.isArray(copy.tags)) copy.tags = [...copy.tags];
+    return copy;
   }
 
   /** @private */

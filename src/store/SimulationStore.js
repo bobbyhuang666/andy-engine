@@ -19,12 +19,14 @@
  */
 
 const { SQLiteStore } = require('./SQLiteStore');
+const { MemoryStore } = require('./MemoryStore');
 const { diagnostics } = require('../shared/Diagnostics');
 
 class SimulationStore {
   /**
    * @param {Object} options
-   * @param {string} options.dbPath - SQLite 文件路径
+   * @param {string} options.dbPath - SQLite 文件路径，':memory:' for in-memory
+   * @param {string} [options.storeType] - 'memory' for pure MemoryStore, 'sqlite' or omitted for SQLiteStore
    * @param {number} options.snapshotInterval - 每多少 tick 保存一次快照 (default: 12)
    * @param {number} options.storyFlushInterval - 每多少 tick 刷出故事缓冲 (default: 1)
    * @param {number} options.maxStoryBuffer - 内存中最多缓存多少条故事 (default: 200)
@@ -33,6 +35,7 @@ class SimulationStore {
    */
   constructor(options = {}) {
     this.dbPath = options.dbPath || ':memory:';
+    this.storeType = options.storeType || 'sqlite';
     this.snapshotInterval = options.snapshotInterval ?? 12;
     this.storyFlushInterval = options.storyFlushInterval ?? 1;
     this.maxStoryBuffer = options.maxStoryBuffer ?? 200;
@@ -65,7 +68,22 @@ class SimulationStore {
     this._restoreFn = onRestore || (() => {});
 
     // 打开数据库
-    this.db = new SQLiteStore(this.dbPath);
+    // R19: respect storeType='memory' — use MemoryStore instead of SQLiteStore
+    // when user explicitly requests in-memory storage without SQLite dependency.
+    if (this.storeType === 'memory') {
+      this.db = new MemoryStore();
+    } else {
+      try {
+        this.db = new SQLiteStore(this.dbPath);
+      } catch (e) {
+        if (e.message && e.message.includes('better-sqlite3')) {
+          diagnostics.warn('SQLite not available, falling back to MemoryStore');
+          this.db = new MemoryStore();
+        } else {
+          throw e;
+        }
+      }
+    }
 
     // 从元数据恢复状态
     const savedTick = this.db.get('tick_count');

@@ -11,6 +11,11 @@ class WorldClock {
    */
   constructor(startTime = new Date()) {
     this.time = new Date(startTime);
+    if (isNaN(this.time.getTime())) {
+      throw new Error(
+        `Invalid startTime: ${startTime}. Must be a valid Date, ISO string, or timestamp.`
+      );
+    }
     this.tickCount = 0;
   }
 
@@ -20,7 +25,7 @@ class WorldClock {
    * @returns {Date} 推进后的时间
    */
   advance(minutes = 5) {
-    if (minutes < 0) minutes = 0;
+    if (typeof minutes !== 'number' || !Number.isFinite(minutes) || minutes < 0) minutes = 0;
     this.time = new Date(this.time.getTime() + minutes * 60 * 1000);
     this.tickCount++;
     return this.time;

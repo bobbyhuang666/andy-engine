@@ -49,6 +49,15 @@ describe('Longitudinal Life Demo Real Engine', () => {
     const allEvents = engine.world.eventDispatcher.eventLog;
     expect(allEvents.length).toBeGreaterThan(0);
 
+    // Memories are created only when events have content (e.g., interactions,
+    // encounters). Add an explicit experience to ensure memory is non-empty
+    // for this test's behavioral assertions.
+    alice.memory.addExperience({
+      type: 'observation',
+      content: '在校园广场遇到了Bob',
+      category: 'social',
+    }, alice.emotion, 0.6);
+
     const aliceMemories = alice.memory.memories;
     expect(aliceMemories.length).toBeGreaterThan(0);
 

@@ -29,7 +29,12 @@ class Schedule {
     this._todayVariations = {};
 
     if (savedState) {
-      this._todayVariations = savedState._todayVariations || {};
+      // R19: deep-copy variations to prevent shared reference from savedState
+      const vars = savedState._todayVariations || {};
+      this._todayVariations = {};
+      for (const [k, v] of Object.entries(vars)) {
+        this._todayVariations[k] = v ? { ...v } : null;
+      }
       this._lastVariationDate = savedState._lastVariationDate || null;
     }
   }

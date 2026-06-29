@@ -12,7 +12,13 @@ class RuntimeConfig {
    * @param {Object} [config] - 用户配置（覆盖 defaults）
    */
   constructor(config = {}) {
-    this.tickMinutes = config.tickMinutes ?? ANDY_DEFAULTS.tick.intervalMinutes;
+    const tickMinutes = config.tickMinutes ?? ANDY_DEFAULTS.tick.intervalMinutes;
+    if (typeof tickMinutes !== 'number' || !Number.isFinite(tickMinutes) || tickMinutes <= 0) {
+      throw new Error(
+        `Invalid tickMinutes: ${tickMinutes}. Must be a positive finite number.`
+      );
+    }
+    this.tickMinutes = tickMinutes;
     this.enableFacts = config.enableFacts ?? false;
     this.actionSelection = {
       ...ANDY_DEFAULTS.actionSelection,

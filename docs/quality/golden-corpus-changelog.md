@@ -23,3 +23,4 @@
 |---|---|---|---|---|---|
 | 2026-06-26 | b34b7fe | tests/fixtures/golden-campus-seed42-100ticks.json | 0-99 | W3 首版生成（含 _meta + tickHashes 升级，seed42/100ticks 基线） | W3 |
 | 2026-06-26 | W1 | tests/fixtures/golden-campus-seed42-100ticks.json | 0-99 | W1 runtimeSnapshot 持久化扩展（EventDispatcher._nextId + Agent._ticksSinceReflection/_ticksSinceDriftCheck + PersonalMemory.presentations 完整 + memory.appraisal）intentional drift，replay-diff 100/100 tickHash 一致 | W1 |
+| 2026-06-28 | 1061a47 | tests/fixtures/golden-campus-seed42-100ticks.json | 0-99 | R18 修复导致序列化格式变更：BehaviorField 新增 _attractor/_attractorTicksLeft 持久化；IntrinsicMotivation 新增 _lastSimTime 持久化；eventLog/rngState 随之漂移。npm run golden:regen 重生成，tickHash 100/100 一致 | R18 |

@@ -31,10 +31,9 @@ class RuntimeContext {
   /**
    * 构建 Agent.tick() 所需的环境参数
    * @param {number} minutesElapsed
-   * @param {Object} [result] - tick result object for regionChanged propagation
    * @returns {Object}
    */
-  buildAgentEnv(minutesElapsed, result = null) {
+  buildAgentEnv(minutesElapsed) {
     const env = {
       hour: this.clock.time.getHours() + this.clock.time.getMinutes() / 60,
       dayOfWeek: this.clock.dayOfWeek,
@@ -44,14 +43,14 @@ class RuntimeContext {
       simDate: this.clock.time.toDateString(),
     };
 
-    // R18 AUDIT-003 fix: provide a callback for ActionSelectionRuntime to
-    // signal position changes. AndyWorld.step() checks result.regionChanged
-    // after each agent tick to sync RegionGrid.
-    if (result) {
-      env._setRegionChanged = (agentId, newPosition) => {
-        result.regionChanged = true;
-      };
-    }
+    // R19: Provide a callback for ActionSelectionRuntime to signal position
+    // changes. This directly syncs RegionGrid so the agent's spatial state
+    // stays consistent regardless of whether AndyWorld.step() reads result.
+    env._setRegionChanged = (agentId, newPosition) => {
+      if (this.world.regions && typeof this.world.regions.place === 'function') {
+        this.world.regions.place(agentId, newPosition);
+      }
+    };
 
     return env;
   }

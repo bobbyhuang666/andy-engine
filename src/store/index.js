@@ -31,8 +31,8 @@ function createStore(options = {}) {
   const { type = 'auto', ...rest } = options;
 
   if (type === 'memory') {
-    // 使用内存存储，但需要包装在 SimulationStore 中以保持接口一致
-    const store = new SimulationStore({ ...rest, dbPath: ':memory:' });
+    // R19: Use pure MemoryStore (no SQLite dependency) when type='memory'
+    const store = new SimulationStore({ ...rest, storeType: 'memory' });
     return store;
   }
 
@@ -46,11 +46,7 @@ function createStore(options = {}) {
   } catch (e) {
     if (e.message && e.message.includes('better-sqlite3')) {
       console.warn('SQLite not available, using memory store');
-      // 创建一个使用 MemoryStore 的 SimulationStore
-      const store = new SimulationStore({ ...rest, dbPath: ':memory:' });
-      // 覆盖其内部 db 为 MemoryStore
-      store.db = new MemoryStore();
-      return store;
+      return new SimulationStore({ ...rest, storeType: 'memory' });
     }
     throw e;
   }

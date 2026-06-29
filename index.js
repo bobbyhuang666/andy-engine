@@ -335,11 +335,19 @@ class AndyEngine {
       this.world.knowledgeStore
     );
 
+    // R19: Build agentId→displayName mapping so consistency checker
+    // can match Chinese names (e.g. "鲍勃") in LLM output.
+    const agentNames = {};
+    for (const [id, a] of this.world.agents) {
+      if (a.name) agentNames[id] = a.name;
+    }
+
     const grounding = provider.getGroundingPackage(agentId, {
       time: this.world.time,
       ...options,
       currentRegion: options.currentRegion || (agent ? agent.position : null),
       agent,
+      agentNames,
     });
 
     if (agent) {

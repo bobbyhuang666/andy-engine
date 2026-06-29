@@ -129,11 +129,11 @@ npm publish --tag latest
 
 ## Current Status
 
-**Status**: Ready for alpha publish
+**Status**: 🔒 FROZEN — Not ready for publish. R18/R19 found critical bugs; convergence not yet achieved.
 
-**Version**: 2.0.0
+**Version**: 2.0.1
 
-**Recommendation**: Publish as alpha first, then next, then latest
+**Recommendation**: Do not publish until independent audit confirms zero P1 bugs.
 
 **Notes**:
 - No macOS metadata

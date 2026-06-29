@@ -1,8 +1,9 @@
 # Andy Engine 闭环质量系统 — 收敛报告
 
-> **审计周期**: R1 → R17  
-> **审计模式**: 审计子AI找bug → 核验子AI复核 → 执行子AI修confirmed bug → 核验子AI验证修复 → 循环  
-> **最终状态**: ✅ 收敛确认  
+> **⚠️ SUPERSEDED**: 本报告的收敛结论已被推翻。R18 独立复审发现 20 个新 bug（10 P1 + 10 P2），R19 又修了 7 个 P1。收敛声明撤回。请参见 `docs/audit/R18_INDEPENDENT_REAUDIT_REPORT.md` 和 `docs/audit/R19_TARGETED_REPAIR_REPORT.md`。
+> **审计周期**: R1 → R17
+> **审计模式**: 审计子AI找bug → 核验子AI复核 → 执行子AI修confirmed bug → 核验子AI验证修复 → 循环
+> **最终状态**: ~~✅ 收敛确认~~ ❌ 收敛被推翻（R18/R19 发现新 P1）
 
 ---
 

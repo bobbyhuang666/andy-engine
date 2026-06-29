@@ -36,11 +36,16 @@ class ProceduralMemory {
     this._simTime = 0;
 
     if (savedState) {
+      // R19: deep-copy patterns to prevent shared reference from savedState
       for (const [key, pattern] of Object.entries(savedState.patterns || {})) {
-        if (!Number.isFinite(pattern.strength)) pattern.strength = 0.5;
-        this.patterns.set(key, pattern);
+        const p = { ...pattern };
+        if (!Number.isFinite(p.strength)) p.strength = 0.5;
+        this.patterns.set(key, p);
       }
-      this._recentActions = Array.isArray(savedState._recentActions) ? savedState._recentActions.slice(-50) : [];
+      // R19: deep-copy action entries to prevent shared reference from savedState
+      this._recentActions = Array.isArray(savedState._recentActions)
+        ? savedState._recentActions.slice(-50).map(a => ({ ...a }))
+        : [];
     }
   }
 

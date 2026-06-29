@@ -643,8 +643,14 @@ function generateMarkdown() {
 
 const md = generateMarkdown();
 const reportPath = path.join(ROOT, 'docs', 'LEGACY_REMOVAL_REPORT.md');
-fs.writeFileSync(reportPath, md, 'utf8');
-console.log(`Markdown report written to: ${reportPath}`);
+// R19: Only write the report when --write flag is provided.
+// A "dry-run" script should not have filesystem side effects by default.
+if (process.argv.includes('--write')) {
+  fs.writeFileSync(reportPath, md, 'utf8');
+  console.log(`Markdown report written to: ${reportPath}`);
+} else {
+  console.log(`Markdown report generated (not written — use --write to save to ${reportPath})`);
+}
 
 // Exit with non-zero if gate fails
 process.exit(gatePass ? 0 : 1);
