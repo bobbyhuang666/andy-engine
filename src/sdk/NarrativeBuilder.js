@@ -180,6 +180,14 @@ class NarrativeBuilder {
         triumph: '挫败', interest: '无聊', amusement: '无趣',
         gratitude: '不满', awe: '麻木',
       };
+      // Negated names for negative-polarity emotions when below baseline
+      // (absence of negative → positive valence)
+      const negNegEmotionNames = {
+        sadness: '不再难过', anger: '不再生气', fear: '不再害怕',
+        disgust: '不再厌恶', nervousness: '不再紧张',
+        frustration: '不再烦躁', guilt: '不再内疚', shame: '不再羞耻',
+        horror: '不再恐惧', boredom: '不再无聊', loneliness: '不再孤独',
+      };
       const intensityLabel = (abs) => {
         if (abs > 0.85) return '极度';
         if (abs > 0.7) return '非常';
@@ -210,7 +218,7 @@ class NarrativeBuilder {
             negative.push(`${label}${emotionNames[e.dimension] || e.dimension}`);
           } else {
             // Negative emotion below baseline → feels good (absence of negative)
-            positive.push(`${label}${emotionNames[e.dimension] || e.dimension}`);
+            positive.push(`${label}${negNegEmotionNames[e.dimension] || emotionNames[e.dimension] || e.dimension}`);
           }
         } else {
           // Neutral/ambiguous dimension: use intensity direction
