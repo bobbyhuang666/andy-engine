@@ -1772,6 +1772,62 @@ _decayRates or behaviorVector inputs.
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. |
 | Status | Fixed and verified. |
 
+## R103 - SDK Boundary + Store Layer Audit
+
+This section records the R103 audit results. All 5 findings were independently
+verified as false positives, documented intentional behavior, or maintainability
+debt. Zero confirmed bugs.
+
+### R103-SDK-BOUNDARY-1 (DEFERRED — known limitation)
+
+| Field | Detail |
+|---|---|
+| ID | R103-SDK-BOUNDARY-1 |
+| Severity | Medium — deferred |
+| Audit finding | `AndyBridge._applySignalToAgent()` directly writes `agent.emotion.current[dim]` when `applyEffect` is unavailable. |
+| Disposition | Documented intentional fallback for isolated test environments (line 290-291 comment). Only triggers when `applyEffect` is unavailable — production paths use committer or `applyEffect`. Finite guard + clamping present. Tracked as known limitation of fallback path; not a new bug. |
+| Status | Deferred as known limitation. No code change. |
+
+### R103-STORE-DEADCONFIG-3 (DEFERRED — design debt)
+
+| Field | Detail |
+|---|---|
+| ID | R103-STORE-DEADCONFIG-3 |
+| Severity | Medium — deferred |
+| Audit finding | `decay()` default parameters (decayFactor=0.95, minImportance=0.05, maxAgeDays=30) duplicated across SQLiteStore.js, MemoryStore.js, and SimulationStore._decayStories(). |
+| Disposition | Maintainability debt, not a correctness bug. Centralizing requires adding config to store constructors and changing 3+ call sites — out of scope for no-quota audit round. Recorded as design debt for future config abstraction refactor. |
+| Status | Deferred as design debt. No code change this round. |
+
+### R103-STORE-DEADCONFIG-4 (NO ACTION)
+
+| Field | Detail |
+|---|---|
+| ID | R103-STORE-DEADCONFIG-4 |
+| Severity | Low |
+| Audit finding | SQLite pragmas (journal_mode, synchronous, cache_size, temp_store) hardcoded in SQLiteStore constructor. |
+| Disposition | Acceptable defaults for single-agent dev use. 64MB cache is reasonable. Configurable pragmas would be useful for production tuning but not a correctness issue. |
+| Status | No action. Tracked as future improvement. |
+
+### R103-EFFECTS-BOUNDARY-5 (FALSE POSITIVE)
+
+| Field | Detail |
+|---|---|
+| ID | R103-EFFECTS-BOUNDARY-5 |
+| Severity | Low — false positive |
+| Audit finding | `_applyPositionDelta` lacks numeric guard on `agent.id` when calling `regions.place()`. |
+| Disposition | False positive — `agent.id` is set in Agent constructor as a string. Guards present: `if (!agent) return`, `if (typeof delta.to !== 'string' || !delta.to) return`, `domain.hasRegion(delta.to)` check. |
+| Status | Rejected. No action taken. |
+
+### R103-SDK-BOUNDARY-2 (NO ACTION — documented intentional)
+
+| Field | Detail |
+|---|---|
+| ID | R103-SDK-BOUNDARY-2 |
+| Severity | Low |
+| Audit finding | `_restoreAgents()` directly writes `agent.needs.needs[need]` bypassing effect pipeline. |
+| Disposition | Documented intentional for snapshot-restore path. Finite guard + _clamp() present. Side effects correctly deferred to next tick. |
+| Status | No action. Documented intentional boundary exception. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
