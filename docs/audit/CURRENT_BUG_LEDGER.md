@@ -1067,7 +1067,7 @@ and two latent regression fixes exposed by epoch-0 timestamps.
 
 ## Current Gate Results
 
-Last verified after R89 NaN guard + stress homeostatic drift (commit `addba1b`):
+Last verified after R90 config propagation: emotion + IM injection (commit `6275421`):
 
 | Gate | Result |
 |---|---|
@@ -1126,6 +1126,8 @@ Last verified after R89 NaN guard + stress homeostatic drift (commit `addba1b`):
 | AndyWorld canon pipeline error containment R88 tests | `tests/unit/runtime/runtime.test.js`, `tests/unit/runtime/event-dispatcher-branches.test.js` -> 60 passed |
 | AgentRuntime hoursElapsed NaN guard R89 tests | `tests/unit/handlers/agent-runtime.test.js` -> 35 passed |
 | EmotionVector stress homeostatic drift R89 tests | `tests/unit/behavior-field.test.js` -> 66 passed |
+| EmotionVector config injection R90 tests | `tests/unit/behavior-field.test.js`, emotion-contagion-cluster -> 35 passed |
+| IntrinsicMotivation config injection R90 tests | All IM-related tests across 92 test files -> 1345 passed |
 | `npm test` | 193 files passed / 1 skipped; 3233 passed / 28 skipped |
 | `npm run test:domain` | 82 passed |
 | `npm run check:boundaries` | All boundary checks passed |
@@ -1219,6 +1221,42 @@ and stress homeostatic drift replacing hard reset.
 | Severity | P2 |
 | Audit finding | `boredom` was missing from the `negative` array in `getValence()`, excluded from valence calculation despite being psychologically negative. |
 | Status | Already fixed in prior code — `boredom` is correctly listed in `EmotionVector.js:595` negative array and `getMoodString()`. No action needed. |
+
+## R90 - Config Propagation: Emotion + IntrinsicMotivation User Override
+
+This section records two P1 fixes for silent config override failures:
+EmotionVector and IntrinsicMotivation both used module-level ANDY_DEFAULTS
+with no user config injection path.
+
+### R90-EMOTION-CONFIG-1
+
+| Field | Detail |
+|---|---|
+| ID | R90-EMOTION-CONFIG-1 |
+| Severity | P1 |
+| Audit finding | `EmotionVector` used module-level `ANDY_DEFAULTS.emotion` (line 21) with no user config injection path. Constructor signature `(personality, savedState, rng)` had no config parameter. A user passing `{ emotion: { decayLambda: 2.5, inertia: 0.9 } }` had those values silently ignored — all emotions used ANDY_DEFAULTS. |
+| Evidence | `EmotionVector.js:21` — `const cfg = ANDY_DEFAULTS.emotion;` module-level, never overridden; `AgentSubsystemFactory.js:39` — `new EmotionVector(personality, null, rng)` no config passed; 9 references to `cfg.*` throughout class methods. |
+| Verification verdict | Confirmed by independent Verification AI. Fix adds `emotionConfig` 4th parameter, creates `this._cfg = { ...cfg, ...(emotionConfig || {}) }`, replaces all `cfg.*` references with `this._cfg.*`. AgentSubsystemFactory threads `config.emotion`. Follows NeedsSystem config injection pattern. All tests pass. |
+| Fix | Added `emotionConfig` parameter to EmotionVector constructor (JS + native). Merged user config over ANDY_DEFAULTS. Replaced all module-level `cfg` references with `this._cfg`. Threaded through AgentSubsystemFactory `createSubsystems` and `restoreSubsystems`. |
+| Files | `src/agent/psychology/EmotionVector.js`; `src/agent/psychology/EmotionVector.native.js`; `src/agent/lifecycle/AgentSubsystemFactory.js` |
+| Regression test | 35 emotion-related tests pass across 5 test files. Config override verified: user values override defaults, null config falls through to ANDY_DEFAULTS. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R90-IM-CONFIG-1
+
+| Field | Detail |
+|---|---|
+| ID | R90-IM-CONFIG-1 |
+| Severity | P1 |
+| Audit finding | `IntrinsicMotivation` used module-level `ANDY_DEFAULTS.intrinsicMotivation` (line 43) with only domain-level config path (`this.domain.intrinsicMotivationConfig`). Module-level `cfg` was used for ALL parameters — user config never reached the actual parameter reads. A user passing `{ intrinsicMotivation: { curiosityDecayRate: 0.05 } }` had those values silently ignored. |
+| Evidence | `IntrinsicMotivation.js:43` — `const cfg = ANDY_DEFAULTS.intrinsicMotivation;`; `IntrinsicMotivation.js:49` — `this._imConfig = this.domain.intrinsicMotivationConfig;` (domain only, not used for params); `AgentSubsystemFactory.js:45` — `new IntrinsicMotivation(personality, null, domain, rng)` no config passed. |
+| Verification verdict | Confirmed by independent Verification AI. Fix adds 5th `config` parameter, creates three-way merge: `{ ...cfg, ...domainConfig, ...userConfig }` (user > domain > defaults). Replaces `this._cfg = cfg` with `this._cfg = this._imConfig`. Threaded through AgentSubsystemFactory. All 1345 tests pass. |
+| Fix | Added `config` 5th parameter to IntrinsicMotivation constructor. Three-way merge: user config > domain config > ANDY_DEFAULTS. Replaced `this._cfg = cfg` with merged `this._imConfig`. Threaded through AgentSubsystemFactory `createSubsystems` and `restoreSubsystems`. |
+| Files | `src/agent/psychology/IntrinsicMotivation.js`; `src/agent/lifecycle/AgentSubsystemFactory.js` |
+| Regression test | 1345 tests pass across 92 test files. No regressions. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
 
 ## Active Latent / Deferred Backlog
 

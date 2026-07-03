@@ -55,6 +55,8 @@ This changes sequencing:
 | Canon pipeline error containment | Closed in R88 | `AndyWorld.step()` Phase 8 had no try/catch around event consequence processing. Wrapped in try/catch following Phase 4 agent loop pattern; one bad event no longer crashes the entire world step. |
 | hoursElapsed NaN guard | Closed in R89 | `AgentRuntime` computed `hoursElapsed = minutesElapsed / 60` without finite guard; NaN propagated through needs, emotions, social graph, behavior field. Added `Number.isFinite` guard defaulting to 0. |
 | Stress homeostatic drift | Closed in R89 | Stress was hard-reset to 2.0 baseline every tick, preventing natural stress reduction from positive events. Replaced with gradual drift (10%/hour toward baseline) in EmotionVector._timeDecay(). |
+| Emotion config injection | Closed in R90 | EmotionVector used module-level ANDY_DEFAULTS.emotion with no user config path. Added emotionConfig parameter, merged with defaults, threaded through AgentSubsystemFactory. Follows NeedsSystem pattern. |
+| IntrinsicMotivation config injection | Closed in R90 | IntrinsicMotivation used module-level ANDY_DEFAULTS with only domain-level config. Added three-way merge (user > domain > defaults) via config parameter, threaded through AgentSubsystemFactory. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 
