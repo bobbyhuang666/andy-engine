@@ -180,6 +180,7 @@ class FactConsistencyChecker {
 
     // 从 allowedFacts 中提取
     for (const fact of grounding.allowedFacts) {
+      if (!fact) continue; // R113-007: guard against null entries in allowedFacts
       if (fact.type === FactType.STATIC_ENV && fact.object) {
         knownLocations.add(fact.object);
       }
@@ -227,7 +228,8 @@ class FactConsistencyChecker {
 
     // 收集已知事件描述
     const knownEvents = new Set();
-    for (const fact of grounding.allowedFacts) {
+    for (const fact of grounding.allowedFacts || []) {
+      if (!fact) continue; // R113-007: guard against null entries in allowedFacts
       if (fact.type === FactType.EVENT && fact.description) {
         knownEvents.add(fact.description);
       }
@@ -336,7 +338,8 @@ class FactConsistencyChecker {
         const newEvent = match[1];
         // 检查是否在已知事件中
         let found = false;
-        for (const fact of grounding.allowedFacts) {
+        for (const fact of grounding.allowedFacts || []) {
+          if (!fact) continue; // R113-007: guard against null entries in allowedFacts
           if (fact.type === FactType.EVENT && fact.description && fact.description.includes(newEvent)) {
             found = true;
             break;
@@ -380,6 +383,7 @@ class FactConsistencyChecker {
     const selfId = grounding.metadata && grounding.metadata.agentId;
 
     for (const fact of grounding.allowedFacts) {
+      if (!fact) continue; // R113-007: guard against null entries in allowedFacts
       // 仅添加 SELF 的 agent_state（私有知识）
       if (fact.type === FactType.AGENT_STATE && fact.agentId === selfId && (fact.position || fact.region)) {
         if (!agentKnownLocations.has(selfId)) agentKnownLocations.set(selfId, new Set());
@@ -491,6 +495,7 @@ class FactConsistencyChecker {
 
     // Build justification sets from evidence
     for (const fact of grounding.allowedFacts) {
+      if (!fact) continue; // R113-007: guard against null entries in allowedFacts
       if (fact.type === FactType.EVENT) {
         // narrator physically present at the event → can infer emotion/needs from observed behavior
         const narratorPresent =
@@ -731,6 +736,7 @@ class FactConsistencyChecker {
     const inferredFacts = [];
 
     for (const fact of grounding.allowedFacts) {
+      if (!fact) continue; // R113-007: guard against null entries in allowedFacts
       if (!fact._evidence) continue;
       const src = fact._evidence.source;
       const desc = fact.description || '';

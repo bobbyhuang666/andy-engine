@@ -92,6 +92,10 @@ This changes sequencing:
 | _pinkNoiseDrift amplitude guard | Closed in R110 | `_pinkNoiseDrift()` used unvalidated `noiseAmplitude` multiplier; NaN amplitude contaminated all emotion dimensions. Added `Number.isFinite(amp)` guard → early return. |
 | IntrinsicMotivation curiosityDecayRate guard | Closed in R111 | `_decayCuriosity()` used `cfg.curiosityDecayRate` unvalidated; NaN rate propagated to curiosity via `effectiveRate * hoursElapsed`. Added `Number.isFinite(decayRate)` guard → early return. |
 | Personality ocean NaN override guard | Closed in R111 | `Personality` constructor copied `config.ocean[dim]` without finite check; NaN overrides bypassed MBTI defaults. Added `Number.isFinite()` guard in constructor + validate.js range check now rejects NaN (typeof NaN === 'number' is true, NaN < 0 and NaN > 1 are both false). |
+| EffectCommitter _applyNeedDelta null guard | Closed in R113 | `_applyNeedDelta()` called `Object.entries(delta.changes)` without null guard. Added `if (!delta.changes || typeof delta.changes !== 'object') return;`. |
+| PersonalMemory addAppraisalBias NaN guard | Closed in R113 | `addAppraisalBias()` stored `valenceShift`/`decay` without finite check; NaN propagated through bias accumulation and decay. Added `Number.isFinite()` guards with safe defaults. |
+| FactConsistencyChecker allowedFacts null guard | Closed in R113 | 7 loops iterating `grounding.allowedFacts` lacked null-entry guards. Added `if (!fact) continue;` to all iterations. |
+| SimulationStore story importance sort NaN guard | Closed in R113 | `?? 0` doesn't catch NaN importance values, causing unpredictable sort ordering. Changed to `Number.isFinite()` guards. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

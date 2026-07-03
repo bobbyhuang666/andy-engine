@@ -154,10 +154,14 @@ class PersonalMemory {
    * @param {string} [bias.reason] - 触发原因
    */
   addAppraisalBias(bias) {
+    // R113-002: guard against NaN/Infinity valenceShift and decay (defense-in-depth;
+    // these values could come from corrupted delta data or direct construction).
+    const valenceShift = Number.isFinite(bias.valenceShift) ? bias.valenceShift : 0;
+    const decay = Number.isFinite(bias.decay) ? bias.decay : 0.0005;
     this.appraisalBiases.push({
       eventType: bias.eventType,
-      valenceShift: bias.valenceShift,
-      decay: bias.decay || 0.0005,
+      valenceShift,
+      decay,
       reason: bias.reason || '',
       createdAt: this._simTime,
     });

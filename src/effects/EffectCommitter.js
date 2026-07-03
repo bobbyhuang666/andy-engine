@@ -90,6 +90,8 @@ class EffectCommitter {
   _applyNeedDelta(delta) {
     const agent = this.agents?.get?.(delta.agentId);
     if (!agent || !agent.needs || !agent.needs.needs) return;
+    // R113-001: guard against null/undefined delta.changes (e.g. corrupted JSON).
+    if (!delta.changes || typeof delta.changes !== 'object') return;
 
     for (const [name, value] of Object.entries(delta.changes)) {
       // R33 P0 fix: typeof NaN === 'number' is true, so NaN values passed

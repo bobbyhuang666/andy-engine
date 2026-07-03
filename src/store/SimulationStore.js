@@ -195,8 +195,8 @@ class SimulationStore {
       }
     }
 
-    // 按重要性排序
-    merged.sort((a, b) => (b.importance ?? 0) - (a.importance ?? 0));
+    // 按重要性排序（R113-009: Number.isFinite guards against NaN importance)
+    merged.sort((a, b) => (Number.isFinite(b.importance) ? b.importance : 0) - (Number.isFinite(a.importance) ? a.importance : 0));
     return merged.slice(0, limit);
   }
 

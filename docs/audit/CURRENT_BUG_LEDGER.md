@@ -2118,6 +2118,80 @@ This section records the R110 audit findings. All 5 findings confirmed and fixed
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
 | Status | Fixed and verified. |
 
+### R111-NAN-2
+
+| Field | Detail |
+|---|---|
+| ID | R111-NAN-2 |
+| Severity | Medium |
+| Audit finding | `Personality` constructor copies `config.ocean[dim]` without `Number.isFinite()` check. NaN overrides bypass MBTI defaults (e.g. `config.ocean.neuroticism = NaN` → `this.ocean.neuroticism = NaN`). `validate.js` range check also had blind spot: `typeof NaN === 'number'` is true, and `NaN < 0` / `NaN > 1` are both false, so NaN passed through undetected. |
+| Evidence | Personality.js:51-53 — ocean override without finite check; validate.js:340 — `typeof NaN === 'number'` passes, `NaN < 0` and `NaN > 1` both false |
+| Fix | Added `Number.isFinite(config.ocean[dim])` guard in Personality constructor. Added `!Number.isFinite(value)` check in validate.js personality.ocean range validator. |
+| Files | `src/agent/psychology/Personality.js:51-53`, `src/config/validate.js:340` |
+| Regression test | Existing personality tests use valid ocean values. Guard is defensive for corrupted config. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+## R113 - Effect/Social/Knowledge Edge Cases
+
+This section records the R113 audit findings. 3 Medium and 1 Low finding fixed.
+
+### R113-001
+
+| Field | Detail |
+|---|---|
+| ID | R113-001 |
+| Severity | Medium |
+| Audit finding | `EffectCommitter._applyNeedDelta()` calls `Object.entries(delta.changes)` without checking if `delta.changes` is null/undefined/non-object. Corrupted JSON or manual delta construction could produce `changes: null`, throwing TypeError. |
+| Evidence | EffectCommitter.js:94 — `Object.entries(delta.changes)` without null guard |
+| Fix | Added `if (!delta.changes || typeof delta.changes !== 'object') return;` before the loop. |
+| Files | `src/effects/EffectCommitter.js:94` |
+| Regression test | Existing effect tests use valid delta objects. Guard is defensive for corrupted data. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R113-002
+
+| Field | Detail |
+|---|---|
+| ID | R113-002 |
+| Severity | Medium |
+| Audit finding | `PersonalMemory.addAppraisalBias()` stores `bias.valenceShift` and `bias.decay` without `Number.isFinite()` validation. NaN values propagate through `getAppraisalBias()` accumulation and `tickAppraisalBiases()` decay multiplication, corrupting appraisal bias totals that feed into EmotionVector.applyEffect. |
+| Evidence | PersonalMemory.js:157-160 — raw storage without finite check; lines 179, 191 — accumulation/decay with NaN produces NaN |
+| Fix | Added `Number.isFinite()` guards in `addAppraisalBias()`: `valenceShift` defaults to 0, `decay` defaults to 0.0005 if not finite. |
+| Files | `src/agent/memory/PersonalMemory.js:157-163` |
+| Regression test | Existing bias tests use finite values. Guard is defensive for corrupted delta data. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R113-007
+
+| Field | Detail |
+|---|---|
+| ID | R113-007 |
+| Severity | Medium |
+| Audit finding | `FactConsistencyChecker` has 7 loops iterating `grounding.allowedFacts` without null-entry guards. If a malformed grounding object contains null entries, accessing `fact.type`, `fact.description`, etc. throws TypeError. |
+| Evidence | FactConsistencyChecker.js:182, 230, 339, 382, 493, 733 — 6 of 7 loops lacked `if (!fact) continue;` |
+| Fix | Added `if (!fact) continue;` guard at the start of all 7 `allowedFacts` iteration loops. |
+| Files | `src/narrative/FactConsistencyChecker.js:182, 230, 339, 382, 493, 733` (and line 56 which already had `|| []` guard) |
+| Regression test | Existing consistency tests use well-formed grounding. Guard is defensive for malformed input. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R113-009
+
+| Field | Detail |
+|---|---|
+| ID | R113-009 |
+| Severity | Low |
+| Audit finding | `SimulationStore.getStoriesForAgent()` sorts stories by `(b.importance ?? 0) - (a.importance ?? 0)`. The `??` operator catches null/undefined but not NaN. NaN importance produces NaN sort comparison, causing unpredictable ordering and potentially dropping important stories below the `limit` cutoff. |
+| Evidence | SimulationStore.js:199 — `?? 0` doesn't catch NaN |
+| Fix | Changed to `(Number.isFinite(b.importance) ? b.importance : 0) - (Number.isFinite(a.importance) ? a.importance : 0)`. |
+| Files | `src/store/SimulationStore.js:199` |
+| Regression test | Existing story tests use finite importance. Guard is defensive for corrupted story data. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
