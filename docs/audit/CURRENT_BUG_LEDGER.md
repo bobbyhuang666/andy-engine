@@ -2006,6 +2006,30 @@ This section records one P1 NaN propagation guard fix in ReflectionRuntime.
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
 | Status | Fixed and verified. |
 
+## R109 - Config Merge + Effect Pipeline Re-Audit
+
+This section records the R109 audit results. Config merges verified correct.
+Effect pipeline clean. Zero confirmed bugs.
+
+### R109-MERGE-EDGE-CASES (CLEAN)
+
+| Field | Detail |
+|---|---|
+| ID | R109-MERGE-EDGE-CASES |
+| Severity | N/A — clean |
+| Finding | All merge functions (`mergeEffectConfig`, `mergeEmotionConfig`, `_mergeNeedsConfig`, `mergeRelationshipConfig`) verified correct for their actual data shapes. Shallow merge per flat sub-object is sufficient — no deep-merge bugs found. Partial user overrides correctly preserve non-overridden defaults. |
+| Status | Clean. No action. |
+
+### R109-EFFECT-PIPELINE-DOUBLE-TRANSFORM (FALSE POSITIVE)
+
+| Field | Detail |
+|---|---|
+| ID | R109-EFFECT-PIPELINE-DOUBLE-TRANSFORM |
+| Severity | N/A — false positive |
+| Audit finding | `ActionSelectionRuntime` double-transforms typed deltas → legacy format → typed deltas, allegedly dropping `FutureTendencyDelta`. |
+| Disposition | False positive — `FutureTendencyDelta` is produced by the event consequence pipeline (`applyEventConsequences`), not the action pipeline (`applyActionEffect`). These are separate paths with separate delta types. The double-transform is intentional for backward compatibility with the active mode path. |
+| Status | Rejected. No action. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
