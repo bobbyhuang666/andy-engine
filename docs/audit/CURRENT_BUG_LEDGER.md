@@ -20,8 +20,8 @@
 | External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
-| Current gate snapshot | 2026-07-03 no-quota + external-free verification: `npm test` 3228 passed / 28 skipped; R48 store/replay/config suite 464 passed; R49 action/effects/writeback suite 355 passed; R50 domain/config suite 82 + 128 passed; R51 runtime/social/spatial suite 116 passed; R52 public API/package suite 167 passed; R53 external-audit regression suite 245 passed / 4 skipped; R54 SDK/narrative/grounding suite 206 passed; R55 native/store/package suite 47 passed; R56 SDK/LLM provider suite 100 passed; R57 persistence/bridge suite 93 passed; R58 long-run facts/knowledge suite 189 passed; R59 perf gate suite 5 passed; R60 package subpath type suite 83 passed; R61 Node baseline/package suite 83 passed; R62 fact-retention suite 88 passed; R63 social/Dunbar suite 32 passed; R64 action canonicalization suite 223 passed / 11 skipped; R65 ScheduleHandler writeback suite 97 passed; R66 PerceptionRuntime memory writeback suite 77 passed; R67 PerceptionRuntime effects writeback suite 108 passed; R68 env service boundary suite 99 passed; R69 public facade writeback suite 161 passed; R70 SDK/bridge/narrative suite 226 passed; R71 internal stress writeback suite 98 passed; R72 discrete emotion writeback suite 107 passed; R74 boundary guard suite 58 passed; R75 RNG/time boundary guard suite 59 passed; R76 UTC accessor boundary guard suite 60 passed; R77 memory write boundary guard suite 61 passed; R78 position write boundary guard suite 62 passed; R79 relationship interaction boundary guard suite 63 passed; R80 fact/knowledge write authority suite 64 passed; R81 action provider read-only suite 65 passed; R82 narrative/LLM world-write suite 66 passed; R83 canonical SDK data mutation suite 67 passed; R84 WorldFactStore zero-copy perf suite 64 passed; R84 EventDispatcher simTime suite 60 passed; R84 StateMachine epoch fallback suite 35 passed; full test/domain/boundary/typecheck clean; boundaries clean including env service, canonical `src/sdk` memory guard, direct emotion exception guard, direct memory experience guard, direct position guard, direct relationship interaction guard, fact/knowledge write authority guard, action provider read-only guard, narrative/LLM world-write guard, canonical SDK relationship/facts/knowledge mutation guard, core runtime Date.now/Math.random guard, and core UTC accessor guard; replay diff 100/100 matched; smoke 19/19; perf all PASS in 3-run median mode (100 agents 0.53x baseline, 300 agents 0.38x baseline); `git diff --check` clean |
-| Current caveat | R43-R73 baseline committed at `2260fd6`; R74-R83 boundary guard hardening committed at `c108562`; R84 perf/determinism fixes committed at `3ff5024`. Worktree is clean. |
+| Current gate snapshot | 2026-07-03 no-quota + external-free verification: `npm test` 3233 passed / 28 skipped; R48 store/replay/config suite 464 passed; R49 action/effects/writeback suite 355 passed; R50 domain/config suite 82 + 128 passed; R51 runtime/social/spatial suite 116 passed; R52 public API/package suite 167 passed; R53 external-audit regression suite 245 passed / 4 skipped; R54 SDK/narrative/grounding suite 206 passed; R55 native/store/package suite 47 passed; R56 SDK/LLM provider suite 100 passed; R57 persistence/bridge suite 93 passed; R58 long-run facts/knowledge suite 189 passed; R59 perf gate suite 5 passed; R60 package subpath type suite 83 passed; R61 Node baseline/package suite 83 passed; R62 fact-retention suite 88 passed; R63 social/Dunbar suite 32 passed; R64 action canonicalization suite 223 passed / 11 skipped; R65 ScheduleHandler writeback suite 97 passed; R66 PerceptionRuntime memory writeback suite 77 passed; R67 PerceptionRuntime effects writeback suite 108 passed; R68 env service boundary suite 99 passed; R69 public facade writeback suite 161 passed; R70 SDK/bridge/narrative suite 226 passed; R71 internal stress writeback suite 98 passed; R72 discrete emotion writeback suite 107 passed; R74 boundary guard suite 58 passed; R75 RNG/time boundary guard suite 59 passed; R76 UTC accessor boundary guard suite 60 passed; R77 memory write boundary guard suite 61 passed; R78 position write boundary guard suite 62 passed; R79 relationship interaction boundary guard suite 63 passed; R80 fact/knowledge write authority suite 64 passed; R81 action provider read-only suite 65 passed; R82 narrative/LLM world-write suite 66 passed; R83 canonical SDK data mutation suite 67 passed; R84 WorldFactStore zero-copy perf suite 64 passed; R84 EventDispatcher simTime suite 60 passed; R84 StateMachine epoch fallback suite 35 passed; R85 AutoTick determinism suite 75 passed; R85 type declaration hardening suite typecheck clean + consumer typecheck clean; R85 AndyBridge partial restore documentation suite 23 passed; full test/domain/boundary/typecheck clean; boundaries clean including env service, canonical `src/sdk` memory guard, direct emotion exception guard, direct memory experience guard, direct position guard, direct relationship interaction guard, fact/knowledge write authority guard, action provider read-only guard, narrative/LLM world-write guard, canonical SDK relationship/facts/knowledge mutation guard, core runtime Date.now/Math.random guard, and core UTC accessor guard; replay diff 100/100 matched; smoke 19/19; perf all PASS in 3-run median mode (100 agents 0.57x baseline, 300 agents 0.40x baseline); `git diff --check` clean |
+| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`. Worktree is clean. |
 
 ## How To Use This Ledger
 
@@ -881,6 +881,57 @@ staleness, and StateMachine wall-clock fallback.
 | Re-verification | Targeted tests: 35 passed. Full `npm test`: 3228 passed / 28 skipped. Typecheck clean. |
 | Status | Fixed and verified in commit `3ff5024`. |
 
+## R85 - SDK Determinism + Type Declaration Hardening
+
+This section records three no-quota fixes from an internal free-model audit plus
+local verification: AutoTick wall-clock determinism, .d.ts type declaration
+mismatches, and AndyBridge partial restore documentation.
+
+### R85-12-AUTOTICK-DETERMINISM-1
+
+| Field | Detail |
+|---|---|
+| ID | R85-12-AUTOTICK-DETERMINISM-1 |
+| Severity | P1 |
+| Audit finding | `AutoTick.calculateTicksToAdvance()` used `Date.now()` for wall-clock elapsed time between messages, breaking seeded determinism for `Character.chat()`/`chatStream()`. `_lastSimTime` was already serialized but never used in the tick calculation. |
+| Evidence | `AutoTick.js:53` — `const now = Date.now();`; `AutoTick.js:63-64` — `const elapsedMs = now - this._lastMessageTime;`; `Character.js:154` — `this._autoTick.advance(this._engine)` without virtual time injection. |
+| Verification verdict | Confirmed by independent Verification AI. `_lastSimTime` is written but never read in `calculateTicksToAdvance()`. No injection mechanism exists. This is the single biggest SDK determinism blocker: wall-clock elapsed time between runs can differ arbitrarily, producing wildly different tick counts even with identical seeded RNG. |
+| Fix | Added optional `now` parameter to `calculateTicksToAdvance(engine, now)` and `advance(engine, now)`. When provided (ms since epoch), replaces `Date.now()`. `Character.chat()` and `chatStream()` now pass `this._engine.world.time.getTime()` as deterministic virtual time. `Date.now()` fallback preserved for backward compatibility. 4 regression tests added. |
+| Files | `src/sdk/AutoTick.js`; `src/sdk/Character.js`; `tests/sdk.test.js` |
+| Regression test | Same simTime → same tick count (chat-in-progress); same sim-time delta → same catch-up ticks; virtual vs wall-clock paths both valid; serialization round-trip preserves `_lastSimTime`. |
+| Re-verification | Targeted tests: 75 passed. Full `npm test`: 3233 passed / 28 skipped. Perf all PASS (100 agents 0.57x baseline, 300 agents 0.40x baseline). |
+| Status | Fixed and verified in commit `62db2c7`. |
+
+### R85-1/4/5/6-TYPE-DECL-HARDENING-1
+
+| Field | Detail |
+|---|---|
+| ID | R85-1/4/5/6-TYPE-DECL-HARDENING-1 |
+| Severity | P1/P2 |
+| Audit finding | Multiple `.d.ts` files had mismatches with runtime implementation: `CanonEventPipeline` constructor declared 2 params but runtime takes 3; `FactEmitter` constructor missing; `WorldFactStore` had 15+ missing methods and wrong method names (`factCount` phantom, `getFact`→should be `getFactById`); `KnowledgeStore` declared non-existent `getKnowledge`/`knowsAbout`; `CharacterConfig`/`AndyConfig` missing `enableFacts`/`seed`/`rng`; `Andy.load` missing options param; `AndyBridge` entirely absent from types; `StateDelta` missing `target`/`agentId`/`timestamp`/`toJSON`/`'position'`; `EffectCommitter` and all delta classes absent from root `.d.ts`. |
+| Evidence | `facts/index.d.ts:99-101` — 2-param constructor vs runtime 3-param; `facts/index.d.ts:67` — `factCount` property phantom (runtime has `size` getter); `facts/index.d.ts:95` — `getKnowledge` doesn't exist at runtime; `sdk/types.d.ts:71-106` — `CharacterConfig` missing `enableFacts`/`seed`/`rng`; `sdk/types.d.ts:188-197` — `AndyConfig` missing same fields; `sdk/types.d.ts:230` — `Andy.load` missing options; `index.d.ts:249-252` — `StateDelta` incomplete. |
+| Verification verdict | Confirmed by independent Verification AI. Both `npm run typecheck` and `npm run typecheck:consumer` pass after fixes. R85-1 downgraded to P2 because `factEmitter` is stored but never dereferenced in `CanonEventPipeline` class — no runtime crash, but type-safety gap remains. |
+| Fix | Expanded and corrected all `.d.ts` declarations to match runtime: CanonEventPipeline 3-param constructor, correct `processEvent` return, added `processEvents`/`toJSON`/`fromJSON`; FactEmitter constructor; WorldFactStore 15+ methods, `factCount→size`, `getFact→getFactById`, `getFactsByAgent→getFactsForAgent`; KnowledgeStore removed non-existent methods, added `hasKnowledge`/`getKnownFacts`/etc.; CharacterConfig/AndyConfig added `enableFacts`/`seed`/`rng`/`LLMFunction`; CharacterContext `groundingPackage`; Andy.load options; AndyBridge full class; StateDelta fields + `toJSON` + `'position'`; EffectCommitter + all delta classes declared. |
+| Files | `facts/index.d.ts`; `index.d.ts`; `sdk/types.d.ts` |
+| Regression test | Consumer typecheck script now imports all expanded subpaths; type-smoke tests verify new declarations compile. |
+| Re-verification | `npm run typecheck` clean; `npm run typecheck:consumer` clean. Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified in commit `62db2c7`. |
+
+### R85-15-BRIDGE-RESTORE-DOC-1
+
+| Field | Detail |
+|---|---|
+| ID | R85-15-BRIDGE-RESTORE-DOC-1 |
+| Severity | P2 |
+| Audit finding | `AndyBridge._restoreAgents()` drops ~12 serialized fields (memory, personality, schedule, intrinsicMotivation, emotionRegulation, proceduralMemory, futureTendency, _actionTraceHistory, _perceivedEventIds, isOnline, name, appraisalBiases). Existing JSDoc acknowledged some but not all missing fields. `init()` return value gave no warning about partial restore. |
+| Evidence | `AndyBridge.js:293-306` — `_serializeAgents` saves full `agent.toJSON()`; `AndyBridge.js:318-461` — `_restoreAgents` only restores emotion/needs/position/health/socialEnergy/behaviorField/stateMachine/tick counters; `AndyBridge.js:308-317` — JSDoc lists only 6 of 12 missing fields; `AndyBridge.js:94-97` — init returns only `{restoredTick, restoredTime}` with no warning. |
+| Verification verdict | Confirmed by independent Verification AI as P2 (not P1). The gap is partially documented; many missing fields (personality, schedule) are static or reconstructed at agent construction. Most impactful dynamic fields (memory, proceduralMemory, intrinsicMotivation, futureTendency) are silently lost. Canonical full restore path (`AndyEngine.fromJSON()`) exists as alternative. |
+| Fix | Updated `_restoreAgents` JSDoc to list all 12 non-restored fields. Added `console.warn` in `init()` when restoring from snapshot (tickCount > 0), listing missing fields and directing users to `AndyEngine.fromJSON()` for full state reconstruction. 1 regression test added. |
+| Files | `src/sdk/AndyBridge.js`; `tests/unit/andy-bridge-internal.test.js` |
+| Regression test | Verifies `console.warn` message contains `memory`, `personality`, `futureTendency`, `appraisalBiases` when restoring from snapshot. |
+| Re-verification | Targeted tests: 23 passed. Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified in commit `62db2c7`. |
+
 ## Current Gate Results
 
 Last verified after R84 perf/determinism hardening (commit `3ff5024`):
@@ -928,7 +979,10 @@ Last verified after R84 perf/determinism hardening (commit `3ff5024`):
 | WorldFactStore zero-copy perf R84 tests | `tests/facts/world-fact-store.test.js` plus `tests/facts/fact-emitter-event-fallback.test.js` -> 64 passed |
 | EventDispatcher simTime R84 tests | `tests/unit/runtime/event-dispatcher-branches.test.js` plus `tests/unit/runtime/runtime.test.js` -> 60 passed |
 | StateMachine epoch fallback R84 tests | `tests/unit/handlers/agent-runtime.test.js` plus `tests/unit/runtime/reflection-runtime.test.js` -> 35 passed |
-| `npm test` | 193 files passed / 1 skipped; 3228 passed / 28 skipped |
+| AutoTick determinism R85 tests | `tests/sdk.test.js` -> 75 passed |
+| Type declaration hardening R85 tests | `npm run typecheck` clean; `npm run typecheck:consumer` clean |
+| AndyBridge partial restore documentation R85 tests | `tests/unit/andy-bridge-internal.test.js` -> 23 passed |
+| `npm test` | 193 files passed / 1 skipped; 3233 passed / 28 skipped |
 | `npm run test:domain` | 82 passed |
 | `npm run check:boundaries` | All boundary checks passed |
 | `npm run smoke:pack` | 19 passed / 0 failed |
@@ -955,12 +1009,15 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | TICKHASH-DATE-1 | P2 diagnostic | `tickHash.canonicalize(Date)` erased Date values to `{}`. | Fixed in R48; keep row until next release freeze review confirms no downstream fixture migration needed. |
 | FACT-RETENTION | P2/P1 design | Non-EVENT facts can grow without global retention policy. | Needs design: cap/TTL/compaction semantics. |
 | SOCIAL-DUNBAR | P2/P1 design | Shared bidirectional `Relationship` means Dunbar demotion is symmetric, which may not match per-agent social capacity semantics. | Needs design: shared edge vs per-agent perception. |
-| R84-ANDYBRIDGE-RESTORE-1 | P2 | `AndyBridge._restoreAgents` drops ~10 serialized fields (personality, memory, schedule, emotionRegulation, intrinsicMotivation, futureTendency, _actionTraceHistory, _perceivedEventIds, appraisalBiases). Documented as partial restore; full continuity requires bridge-mediated save/restore cycle. | Deferred: documented partial restore; not in default persistence path. |
+| R84-ANDYBRIDGE-RESTORE-1 | P2 | `AndyBridge._restoreAgents` drops ~12 serialized fields (memory, personality, schedule, emotionRegulation, proceduralMemory, futureTendency, _actionTraceHistory, _perceivedEventIds, isOnline, name, appraisalBiases). R85-15 added complete JSDoc + console.warn in init(); full restore requires `AndyEngine.fromJSON()`. | Deferred: documented partial restore with warning; not in default persistence path. |
 | R84-CHARACTER-SAVE-LLM-1 | P2 | `Character.save()` omits `_defaultLLM` config; standalone Character round-trip loses LLM provider/apiKey. `Andy.save()` correctly persists it at wrapper level. | Deferred: affects standalone Character save only; Andy multi-character path is correct. |
 | R84-WORLD-SNAPSHOT-1 | P3 | `AndyWorld.snapshot()` output is not safe for round-trip restore (missing events full, spatial, rngState, _restoreConfig, factStore, etc.). `toJSON()` is correct for persistence; `snapshot()` is a footgun for external consumers. | Deferred: internal code uses `toJSON()`; `snapshot()` API consumers at own risk. |
 | R84-SOCIALGRAPH-SNAPSHOT-1 | P3 | `SocialGraph.snapshot()` drops `_tickCount`; `toJSON()` preserves it. `snapshot()`→`fromJSON()` round-trip resets Dunbar timing. | Deferred: internal code uses `toJSON()`; not currently wired to restore. |
 | R84-FACTEMITTER-DEADCODE-1 | P3 | `emitMemoryFacts()` is defined but never called from `AndyWorld.step()` or any `src/` runtime path. Dead code on the hot path surface. | Deferred: zero runtime impact; cleanup when fact emission is next touched. |
-| R84-TYPE-DECL-MISMATCH-1 | P2/P3 | `sdk/types.d.ts` missing `groundingPackage`, `enableFacts`, `seed`, `rng` on CharacterConfig/AndyConfig; `Andy.load` missing options param; `AndyBridge` entirely absent; `facts/index.d.ts` CanonEventPipeline constructor arity crash (2 vs 3 params) and wrong `processEvent` return shape; `WorldFactStore.factCount` phantom property. | Deferred: opt-in facts/SDK paths; TS consumers can work around with type assertions. Raise to P1 if publish decision reopens. |
+| R85-CONVERSATIONLOG-DATE-1 | P2 | `ConversationLog` uses `Date.now()` for message timestamps. Timestamps are embedded in `toJSON()` output but `_trim()` uses message count not timestamps, so behavioral determinism is preserved. Output is not bit-identical across runs. | Deferred: SDK tooling path; not in core simulation loop. Add `now` injection if publish decision reopens. |
+| R85-EMOTIONSIGNALBUFFER-DATE-1 | P2 | `EmotionSignalBuffer` defaults to `Date.now()` when no `now` function provided. `AndyBridge` doesn't inject `now`, so bridge-mediated conversations have wall-clock-dependent `pending` timestamps. | Deferred: SDK tooling path; `EmotionSignalBuffer` has `now` injection point but `AndyBridge` doesn't use it. Low behavioral impact. |
+| R85-AUTOTICK-DEFAULT-PATH-1 | P2 | `AutoTick.calculateTicksToAdvance()` now accepts optional `now` parameter for determinism, but default path still uses `Date.now()`. Non-SDK callers who don't inject `now` get wall-clock-dependent tick counts. | Deferred: backward-compatible default; only SDK `Character.chat()`/`chatStream()` inject virtual time. External AutoTick users can opt into determinism via `now` param. |
+| R85-ANDYTOWN-DATE-1 | P2 | `AndyTownAdapter` uses `Date.now()` for cache expiry. Inherently wall-clock-dependent; not in core simulation path. | Deferred: network I/O adapter; cache expiry is inherently non-deterministic. |
 | R84-UTC-GETTERS-1 | P2 design | `UtilityScorer.js:427,448` still uses `getUTCHours()` fallback; `WorldPressure.js:42` uses `getHours()` on constructed Date. R76 boundary guard locks the exact count, but UTC/local semantics remain a design debt item (TZ-1 family). | Deferred: active runtime always provides `environment.hour` from local time; falls back only on missing context. Tracked under TZ-1. |
 
 ## Rules For Future Entries
