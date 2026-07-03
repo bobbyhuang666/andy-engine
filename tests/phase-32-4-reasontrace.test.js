@@ -5,7 +5,15 @@
 import { describe, it, expect } from 'vitest';
 import AndyEngine from '../index.js';
 import { ANDY_DEFAULTS } from '../src/config/defaults.js';
-import { isSerializable } from '../agent/action/ReasonTrace.js';
+
+function isSerializable(value) {
+  try {
+    JSON.stringify(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 describe('Phase 32.4: ReasonTrace 完整化', () => {
   describe('keyReasons with values', () => {

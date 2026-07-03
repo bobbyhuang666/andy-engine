@@ -33,7 +33,7 @@ class LLMAdapter {
         this.baseUrl = config.baseUrl || 'http://localhost:11434/v1';
       } else {
         // 用 ?? 而非 ||：apiKey: '' 应该保留空字符串（用户显式清空），不应回退到环境变量
-        this.apiKey = config.apiKey ?? process.env.OPENAI_API_KEY ?? process.env.ANTHROPIC_API_KEY ?? '';
+        this.apiKey = config.apiKey ?? LLMAdapter._defaultApiKey(this.provider);
       }
 
       this.model = config.model || LLMAdapter._defaultModel(this.provider);
@@ -115,18 +115,31 @@ class LLMAdapter {
       throw lastError;
     }
 
-    switch (this.provider) {
-      case 'openai':
-      case 'openai-compatible':
-      case 'ollama':
-        yield* this._streamOpenAI(messages);
-        break;
-      case 'anthropic':
-        yield* this._streamAnthropic(messages);
-        break;
-      default:
-        throw new Error(`Streaming not supported for provider: ${this.provider}`);
+    let anyTokenYielded = false;
+    let lastError = null;
+    for (let attempt = 0; attempt <= this.maxRetries; attempt++) {
+      try {
+        const stream = this.provider === 'anthropic'
+          ? this._streamAnthropic(messages)
+          : this._streamOpenAI(messages);
+        for await (const token of stream) {
+          anyTokenYielded = true;
+          yield token;
+        }
+        // P1 fix: 零 token 流 (所有 SSE parse fail 或空 body) 不能静默成功。
+        // 抛有意义错误以触发 retry；已 yield token 时不会走到此处 (提前 return)。
+        if (!anyTokenYielded) {
+          throw new Error('LLMAdapter.chatStream(): stream completed with zero tokens');
+        }
+        return;
+      } catch (e) {
+        lastError = e;
+        if (anyTokenYielded) throw e;
+        if (attempt < this.maxRetries) await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+      }
     }
+    // P1 fix: lastError 为 null (无异常但零 token) 时抛出有意义错误，不 throw null。
+    throw lastError || new Error('LLMAdapter.chatStream(): all attempts failed to produce tokens');
   }
 
   // ═══════════════════════════════════════════
@@ -175,26 +188,19 @@ class LLMAdapter {
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+      const lines = LLMAdapter._drainSseLines(buffer);
+      buffer = lines.remainder;
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6).trim();
-        if (data === '[DONE]') return;
-
-        try {
-          const parsed = JSON.parse(data);
-          const content = parsed.choices?.[0]?.delta?.content;
-          if (content) yield content;
-        } catch (e) {
-          // Non-fatal: SSE stream may contain partial/malformed chunks.
-          // Log at debug level rather than silently swallowing.
-          if (typeof process !== 'undefined' && process.env?.DEBUG_LLM_STREAM) {
-            process.stderr.write(`[LLMAdapter/OpenAI stream parse] ${e.message}\n`);
-          }
-        }
+      for (const line of lines.complete) {
+        const content = LLMAdapter._parseOpenAIStreamLine(line);
+        if (content === LLMAdapter.STREAM_DONE) return;
+        if (content) yield content;
       }
+    }
+
+    if (buffer.trim()) {
+      const content = LLMAdapter._parseOpenAIStreamLine(buffer);
+      if (content !== LLMAdapter.STREAM_DONE && content) yield content;
     }
   }
 
@@ -248,24 +254,18 @@ class LLMAdapter {
       if (done) break;
 
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+      const lines = LLMAdapter._drainSseLines(buffer);
+      buffer = lines.remainder;
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        try {
-          const parsed = JSON.parse(line.slice(6));
-          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
-            yield parsed.delta.text;
-          }
-        } catch (e) {
-          // Non-fatal: SSE stream may contain partial/malformed chunks.
-          // Log at debug level rather than silently swallowing.
-          if (typeof process !== 'undefined' && process.env?.DEBUG_LLM_STREAM) {
-            process.stderr.write(`[LLMAdapter/Anthropic stream parse] ${e.message}\n`);
-          }
-        }
+      for (const line of lines.complete) {
+        const content = LLMAdapter._parseAnthropicStreamLine(line);
+        if (content) yield content;
       }
+    }
+
+    if (buffer.trim()) {
+      const content = LLMAdapter._parseAnthropicStreamLine(buffer);
+      if (content) yield content;
     }
   }
 
@@ -305,6 +305,55 @@ class LLMAdapter {
       'ollama': 'http://localhost:11434/v1',
     }[provider] || '';
   }
+
+  static _defaultApiKey(provider) {
+    if (provider === 'anthropic') {
+      return process.env.ANTHROPIC_API_KEY ?? '';
+    }
+    return process.env.OPENAI_API_KEY ?? '';
+  }
+
+  static _drainSseLines(buffer) {
+    const lines = buffer.split('\n');
+    return {
+      complete: lines.slice(0, -1),
+      remainder: lines.at(-1) || '',
+    };
+  }
+
+  static _parseOpenAIStreamLine(line) {
+    if (!line.startsWith('data: ')) return '';
+    const data = line.slice(6).trim();
+    if (data === '[DONE]') return LLMAdapter.STREAM_DONE;
+
+    try {
+      const parsed = JSON.parse(data);
+      return parsed.choices?.[0]?.delta?.content || '';
+    } catch (e) {
+      LLMAdapter._debugStreamParse('OpenAI', e);
+      return '';
+    }
+  }
+
+  static _parseAnthropicStreamLine(line) {
+    if (!line.startsWith('data: ')) return '';
+
+    try {
+      const parsed = JSON.parse(line.slice(6));
+      return parsed.type === 'content_block_delta' ? parsed.delta?.text || '' : '';
+    } catch (e) {
+      LLMAdapter._debugStreamParse('Anthropic', e);
+      return '';
+    }
+  }
+
+  static _debugStreamParse(provider, error) {
+    if (typeof process !== 'undefined' && process.env?.DEBUG_LLM_STREAM) {
+      process.stderr.write(`[LLMAdapter/${provider} stream parse] ${error.message}\n`);
+    }
+  }
 }
+
+LLMAdapter.STREAM_DONE = Symbol('STREAM_DONE');
 
 module.exports = LLMAdapter;

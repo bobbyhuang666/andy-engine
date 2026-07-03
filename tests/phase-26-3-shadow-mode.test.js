@@ -15,8 +15,16 @@
 
 import { describe, it, expect } from 'vitest';
 import AndyEngine from '../index.js';
-import { isSerializable } from '../agent/action/ReasonTrace.js';
 import tavern from '../presets/tavern/index.js';
+
+function isSerializable(value) {
+  try {
+    JSON.stringify(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function createTestEngine(seed, domain) {
   const config = {

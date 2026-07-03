@@ -41,7 +41,7 @@
   "files": [
     "index.js",
     "index.d.ts",
-    "agent/",
+    "agent/Agent.js",
     "store/",
     "sdk/",
     "facts/",
@@ -71,7 +71,7 @@
   "author": "bobbyhuang666",
   "license": "AGPL-3.0-only",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "optionalDependencies": {
     "better-sqlite3": "^12.10.0"
@@ -95,8 +95,14 @@
       "types": "./domain/index.d.ts",
       "require": "./domain/index.js"
     },
-    "./domain/validate": "./src/domain/validateDomain.js",
-    "./domain/registry": "./src/domain/DomainRegistry.js",
+    "./domain/validate": {
+      "types": "./src/domain/validateDomain.d.ts",
+      "require": "./src/domain/validateDomain.js"
+    },
+    "./domain/registry": {
+      "types": "./src/domain/DomainRegistry.d.ts",
+      "require": "./src/domain/DomainRegistry.js"
+    },
     "./facts": {
       "types": "./facts/index.d.ts",
       "require": "./facts/index.js"
@@ -105,9 +111,18 @@
       "types": "./store/index.d.ts",
       "require": "./store/index.js"
     },
-    "./config/defaults": "./src/config/defaults.js",
-    "./presets/campus": "./presets/campus/index.js",
-    "./presets/tavern": "./presets/tavern/index.js"
+    "./config/defaults": {
+      "types": "./src/config/defaults.d.ts",
+      "require": "./src/config/defaults.js"
+    },
+    "./presets/campus": {
+      "types": "./presets/campus/index.d.ts",
+      "require": "./presets/campus/index.js"
+    },
+    "./presets/tavern": {
+      "types": "./presets/tavern/index.d.ts",
+      "require": "./presets/tavern/index.js"
+    }
   },
   "types": "index.d.ts"
 }

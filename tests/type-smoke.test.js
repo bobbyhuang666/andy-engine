@@ -74,4 +74,44 @@ describe('Type Safety Smoke', () => {
     expect(config.compilerOptions.target).toBe('ES2022');
     expect(config.compilerOptions.module).toBe('commonjs');
   });
+
+  it('P1-3: index.d.ts exposes FactScope.INTERNAL (3-value union, not 2-value)', () => {
+    const dtsPath = path.resolve(process.cwd(), 'index.d.ts');
+    const content = readFileSync(dtsPath, 'utf-8');
+    // Must contain all three scopes, and must NOT be the legacy 2-value form.
+    expect(content).toMatch(/'public' \| 'local' \| 'internal'/);
+    expect(content).not.toMatch(/'public' \| 'local';/);
+  });
+
+  it('P1-3: facts/index.d.ts exposes FactScope.INTERNAL', () => {
+    const dtsPath = path.resolve(process.cwd(), 'facts/index.d.ts');
+    expect(existsSync(dtsPath)).toBe(true);
+    const content = readFileSync(dtsPath, 'utf-8');
+    expect(content).toMatch(/'public' \| 'local' \| 'internal'/);
+    expect(content).toContain('FactScope');
+  });
+
+  it('R52: store/index.d.ts is importable by strict consumers without Node globals', () => {
+    const dtsPath = path.resolve(process.cwd(), 'store/index.d.ts');
+    expect(existsSync(dtsPath)).toBe(true);
+    const content = readFileSync(dtsPath, 'utf-8');
+    expect(content).toContain('declare const AndyStore');
+    expect(content).toContain('export = AndyStore');
+    expect(content).not.toMatch(/export =\s*\{/);
+    expect(content).not.toMatch(/\bBuffer\b/);
+  });
+
+  it('R55: store/index.d.ts exposes runtime-backed store method names', () => {
+    const dtsPath = path.resolve(process.cwd(), 'store/index.d.ts');
+    const content = readFileSync(dtsPath, 'utf-8');
+    expect(content).toContain('loadLatest(): SnapshotData | null');
+    expect(content).toContain('loadAt(tick: number): SnapshotData | null');
+    expect(content).toContain('get(key: string): string | null');
+    expect(content).toContain('set(key: string, value: string): void');
+    expect(content).toContain('createStore(options?: StoreOptions): SimulationStore');
+    expect(content).toContain('createMemoryStore(): SQLiteStore | MemoryStore');
+    expect(content).toContain('save(world: any, metadata?: any): any');
+    expect(content).toContain('load(snapshotId: string, config?: any): any');
+    expect(content).toContain('listSnapshots(): any[]');
+  });
 });

@@ -95,6 +95,12 @@ export interface CharacterConfig {
   scenario?: string;
   /** 共享的 AndyEngine 实例（可使用 custom-domain engine） */
   engine?: object;
+  /** 启用 facts/grounding 语义层（默认 false，保持 opt-in） */
+  enableFacts?: boolean;
+  /** Seed for deterministic simulation setup */
+  seed?: string | number;
+  /** RNG instance or random function for deterministic simulation setup */
+  rng?: object | (() => number);
   /** 模拟开始时间 */
   startTime?: Date;
   /** 初始天气 */
@@ -112,6 +118,8 @@ export interface CharacterContext {
   narrative: string;
   /** 世界上下文数据 */
   worldContext: WorldContext;
+  /** facts/grounding package；未启用 facts 时为 null */
+  groundingPackage?: object | null;
   /** 对话历史 */
   conversationHistory: Array<{ role: string; content: string }>;
 }
@@ -150,7 +158,7 @@ export class Character {
    * @param options - 可选配置
    * @returns 角色回复
    */
-  chat(message: string, options?: { llm?: LLMConfig }): Promise<string>;
+  chat(message: string, options?: { llm?: LLMConfig | LLMFunction }): Promise<string>;
 
   /**
    * 流式对话（逐 token 产出）
@@ -158,7 +166,7 @@ export class Character {
    * @param options - 可选配置
    * @returns 逐 token 产出的异步迭代器
    */
-  chatStream(message: string, options?: { llm?: LLMConfig }): AsyncGenerator<string>;
+  chatStream(message: string, options?: { llm?: LLMConfig | LLMFunction }): AsyncGenerator<string>;
 
   /**
    * 获取角色当前状态
@@ -178,7 +186,7 @@ export class Character {
   /**
    * 从保存的状态恢复角色
    */
-  static load(state: object, llmConfig?: LLMConfig): Character;
+  static load(state: object, options?: LLMConfig | LLMFunction | { domain?: DomainConfig; llm?: LLMConfig | LLMFunction }): Character;
 }
 
 // ═══════════════════════════════════════════
@@ -187,13 +195,19 @@ export class Character {
 
 export interface AndyConfig {
   /** 默认 LLM 配置 */
-  llm?: LLMConfig;
+  llm?: LLMConfig | LLMFunction;
   /** 模拟开始时间 */
   startTime?: Date;
   /** 初始天气 */
   weather?: string;
   /** 自定义 domain 配置（默认使用 presets/campus） */
   domain?: DomainConfig;
+  /** 启用 facts/grounding 语义层（默认 false，保持 opt-in） */
+  enableFacts?: boolean;
+  /** Seed for deterministic simulation setup */
+  seed?: string | number;
+  /** RNG instance or random function for deterministic simulation setup */
+  rng?: object | (() => number);
 }
 
 export class Andy {
@@ -227,7 +241,7 @@ export class Andy {
   save(): object;
 
   /** 从保存的状态恢复 */
-  static load(state: object): Andy;
+  static load(state: object, options?: { domain?: DomainConfig; llm?: LLMConfig | LLMFunction }): Andy;
 }
 
 // ═══════════════════════════════════════════

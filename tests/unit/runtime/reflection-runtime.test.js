@@ -7,7 +7,7 @@
  * agent stub + getDefaultDomain (campus STATES),hermetic。
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 // CJS require:与运行时同一模块实例,确保 v8 coverage 正确归因
 const { createRequire } = await import('node:module');
 const require = createRequire(import.meta.url);
@@ -103,6 +103,25 @@ describe('ReflectionRuntime.reflect', () => {
     reflect(agent);
     expect(stressSet).toBe(4.8); // 5 - 0.2
   });
+  it('routes stress reappraisal through EffectCommitter when env is available', () => {
+    const setStress = vi.fn();
+    const commit = vi.fn();
+    const agent = makeAgent({
+      id: 'reflect-agent',
+      emotion: { current: {}, baseline: {}, stress: 5, getValence: () => 0.5, setStress, applyEffect: () => {}, adaptBaseline: () => {} },
+      socialEnergy: 0.5,
+    });
+    reflect(agent, { effectCommitter: { commit } });
+    expect(commit).toHaveBeenCalledWith({
+      deltas: [expect.objectContaining({
+        type: 'emotion',
+        target: 'agent',
+        agentId: 'reflect-agent',
+        stress: 4.8,
+      })],
+    });
+    expect(setStress).not.toHaveBeenCalled();
+  });
   it('increases stress when loneliness>0.3', () => {
     let stressSet = null;
     const agent = makeAgent({
@@ -165,5 +184,33 @@ describe('ReflectionRuntime.assessStateConsequences', () => {
     });
     assessStateConsequences(agent);
     expect(applied.called).toBe(true);
+  });
+  it('routes consequence recall emotion through EffectCommitter when env is available', () => {
+    const applyEffect = vi.fn();
+    const commit = vi.fn();
+    const agent = makeAgent({
+      id: 'consequence-agent',
+      stateMachine: { currentState: '在发呆' },
+      memory: {
+        retrieve: () => ({ memories: [], recallEmotionDelta: { joy: 0.1 } }),
+        _getValence: () => 0,
+        _getArousal: () => 0,
+      },
+      emotion: {
+        current: {}, baseline: {}, stress: 0, getValence: () => 0,
+        setStress: () => {}, applyEffect, adaptBaseline: () => {},
+      },
+    });
+    assessStateConsequences(agent, { effectCommitter: { commit } });
+    expect(commit).toHaveBeenCalledWith({
+      deltas: [expect.objectContaining({
+        type: 'emotion',
+        target: 'agent',
+        agentId: 'consequence-agent',
+        changes: { joy: 0.1 },
+        multiplier: 0.5,
+      })],
+    });
+    expect(applyEffect).not.toHaveBeenCalled();
   });
 });

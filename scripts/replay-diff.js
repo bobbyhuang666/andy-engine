@@ -23,28 +23,43 @@ const START_TIME = new Date('2026-09-01T08:00:00Z');
 const SEED = 42;
 const TICKS = 100;
 const DEFAULT_FIXTURE = path.join(ROOT, 'tests', 'fixtures', 'golden-campus-seed42-100ticks.json');
+const GOLDEN_REPLAY_TZ = 'Asia/Shanghai';
+
+function withGoldenReplayTimezone(fn) {
+  const hadTZ = Object.prototype.hasOwnProperty.call(process.env, 'TZ');
+  const previousTZ = process.env.TZ;
+  process.env.TZ = GOLDEN_REPLAY_TZ;
+  try {
+    return fn();
+  } finally {
+    if (hadTZ) process.env.TZ = previousTZ;
+    else delete process.env.TZ;
+  }
+}
 
 /**
  * 跑当前回放并产 per-tick hash 序列。
  * 复用 W3 的 computeTickHash，不重写 hash 逻辑。
  */
 function runCurrentReplay() {
-  // 延迟 require 避免影响测试 import 缓存
-  const AndyEngine = require('../index.js');
-  const { toWorldState } = require('../store/index.js');
-  const { computeTickHash } = require('../src/store/world/tickHash.js');
+  return withGoldenReplayTimezone(() => {
+    // 延迟 require 避免影响测试 import 缓存
+    const AndyEngine = require('../index.js');
+    const { toWorldState } = require('../store/index.js');
+    const { computeTickHash } = require('../src/store/world/tickHash.js');
 
-  const engine = new AndyEngine({ seed: SEED, startTime: START_TIME });
-  engine.createCharacter({ id: 'maya', name: 'Maya', mbti: 'INFP', schedule: 'student' });
-  engine.createCharacter({ id: 'leo', name: 'Leo', mbti: 'ESTP', schedule: 'student' });
+    const engine = new AndyEngine({ seed: SEED, startTime: START_TIME });
+    engine.createCharacter({ id: 'maya', name: 'Maya', mbti: 'INFP', schedule: 'student' });
+    engine.createCharacter({ id: 'leo', name: 'Leo', mbti: 'ESTP', schedule: 'student' });
 
-  const tickHashes = [];
-  for (let i = 0; i < TICKS; i++) {
-    engine.tick();
-    const envelope = toWorldState(engine, 'golden-campus-v1');
-    tickHashes.push(computeTickHash(envelope, i));
-  }
-  return tickHashes;
+    const tickHashes = [];
+    for (let i = 0; i < TICKS; i++) {
+      engine.tick();
+      const envelope = toWorldState(engine, 'golden-campus-v1');
+      tickHashes.push(computeTickHash(envelope, i));
+    }
+    return tickHashes;
+  });
 }
 
 /**

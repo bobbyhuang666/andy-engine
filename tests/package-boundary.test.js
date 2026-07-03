@@ -37,8 +37,10 @@ describe('Package Boundary', () => {
       if (domainEntry.types) {
         expect(existsSync(path.join(process.cwd(), domainEntry.types))).toBe(true);
       }
-      expect(pkg.exports['./domain/validate']).toBe('./src/domain/validateDomain.js');
-      expect(pkg.exports['./domain/registry']).toBe('./src/domain/DomainRegistry.js');
+      expect(pkg.exports['./domain/validate'].require || pkg.exports['./domain/validate']).toBe('./src/domain/validateDomain.js');
+      expect(pkg.exports['./domain/validate'].types).toBe('./src/domain/validateDomain.d.ts');
+      expect(pkg.exports['./domain/registry'].require || pkg.exports['./domain/registry']).toBe('./src/domain/DomainRegistry.js');
+      expect(pkg.exports['./domain/registry'].types).toBe('./src/domain/DomainRegistry.d.ts');
       const factsEntry = pkg.exports['./facts'];
       expect(factsEntry.require || factsEntry).toBe('./facts/index.js');
       if (factsEntry.types) {
@@ -49,9 +51,12 @@ describe('Package Boundary', () => {
       if (storeEntry.types) {
         expect(existsSync(path.join(process.cwd(), storeEntry.types))).toBe(true);
       }
-      expect(pkg.exports['./config/defaults']).toBe('./src/config/defaults.js');
-      expect(pkg.exports['./presets/tavern']).toBe('./presets/tavern/index.js');
-      expect(pkg.exports['./presets/campus']).toBe('./presets/campus/index.js');
+      expect(pkg.exports['./config/defaults'].require || pkg.exports['./config/defaults']).toBe('./src/config/defaults.js');
+      expect(pkg.exports['./config/defaults'].types).toBe('./src/config/defaults.d.ts');
+      expect(pkg.exports['./presets/tavern'].require || pkg.exports['./presets/tavern']).toBe('./presets/tavern/index.js');
+      expect(pkg.exports['./presets/tavern'].types).toBe('./presets/tavern/index.d.ts');
+      expect(pkg.exports['./presets/campus'].require || pkg.exports['./presets/campus']).toBe('./presets/campus/index.js');
+      expect(pkg.exports['./presets/campus'].types).toBe('./presets/campus/index.d.ts');
     });
 
     it('all exports point to existing files', () => {
@@ -69,10 +74,15 @@ describe('Package Boundary', () => {
     });
 
     it('includes required public and canonical directories', () => {
-      const required = ['index.js', 'agent/', 'sdk/', 'domain/', 'facts/', 'store/', 'presets/', 'src/'];
+      const required = ['index.js', 'agent/Agent.js', 'sdk/', 'domain/', 'facts/', 'store/', 'presets/', 'src/'];
       for (const dir of required) {
         expect(pkg.files).toContain(dir);
       }
+    });
+
+    it('does not publish retired agent/action implementation files', () => {
+      expect(pkg.files).not.toContain('agent/');
+      expect(pkg.files).not.toContain('agent/action/');
     });
 
     it('does not include retired top-level implementation directories', () => {
@@ -251,6 +261,22 @@ describe('Package Boundary', () => {
       expect(content).toContain('addAgent(config: AgentConfig)');
       expect(content).toContain('getWorldContext(agentId: string): WorldContext');
       expect(content).toContain('tick(): TickResult');
+    });
+
+    it('domain/index.d.ts DomainRegistry methods match runtime public methods', async () => {
+      const content = readFileSync(path.join(process.cwd(), 'domain/index.d.ts'), 'utf-8');
+      const declaredMethods = [...content.matchAll(/^  ([A-Za-z]\w*)\([^)]*\):/gm)]
+        .map(match => match[1])
+        .sort();
+
+      const { DomainRegistry } = await import('../src/domain/DomainRegistry.js');
+      const runtimeMethods = Object.entries(Object.getOwnPropertyDescriptors(DomainRegistry.prototype))
+        .filter(([name, descriptor]) => name !== 'constructor' && !name.startsWith('_') && typeof descriptor.value === 'function')
+        .map(([name]) => name)
+        .sort();
+
+      expect(declaredMethods).toContain('getRegions');
+      expect(declaredMethods).toEqual(runtimeMethods);
     });
   });
 

@@ -5,6 +5,8 @@
  */
 
 const { diagnostics } = require('../../shared/Diagnostics');
+const { MemoryDelta } = require('../../effects/MemoryDelta');
+const { getEffectCommitter } = require('../runtime/EffectCommitterResolver');
 
 /**
  * Record an external experience as a memory.
@@ -36,7 +38,17 @@ function recordExternalExperience(agent, event, options = {}) {
       ? options.importance
       : normalized.importance;
 
-    const memory = agent.memory.addExperience(normalized, agent.emotion, importance);
+    const delta = new MemoryDelta(agent.id, {
+      kind: 'candidate',
+      type: normalized.type,
+      content: normalized.content,
+      event: normalized,
+      category: normalized.category,
+      importance,
+      emotionTag: normalized.emotionTag,
+    });
+    getEffectCommitter(agent).commit({ deltas: [delta] });
+    const memory = delta.committedMemory || null;
     if (memory) {
       const _reserved = new Set([
         'content', 'type', 'category', 'emotionTag', 'importance',

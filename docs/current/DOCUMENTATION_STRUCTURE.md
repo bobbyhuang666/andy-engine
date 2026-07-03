@@ -1,77 +1,105 @@
 # Documentation Structure
 
-This document describes the documentation structure for Andy Engine.
+This document defines the live documentation layout for Andy Engine.
 
-## Directory Structure
+Andy Engine has accumulated many phase plans, audit reports, diagnosis reports, and
+execution cards. The current rule is: active guidance stays easy to find; historical
+evidence is archived, not deleted.
 
-```
+## Directory Map
+
+```text
 docs/
-├── current/           # Current core documentation
-├── rfc/               # RFC documents (future features)
-├── archive/           # Archived documents (historical)
-├── DOMAIN.md          # Domain system documentation
-├── PERFORMANCE.md     # Performance documentation
-└── ...                # Other core documentation
+├── *.md                    Core public/engineering documentation
+├── current/                Active governance, contracts, and handoff docs
+├── rfc/                    Open or foundational RFCs
+├── audit/                  Current/high-signal audit entry points
+├── quality/                Generated quality reports and manifests
+└── archive/                Pointer to external historical archive
 ```
 
-## Current Documentation (docs/current/)
+## Core Documentation
 
-Core documentation that is actively referenced:
+Files directly under `docs/` are stable references that should remain visible:
 
-1. **NEED_TARGET_CONTRACT.md** — Documents the two need target systems
-2. **ALIVENESS_METRICS_v0_1.md** — Defines 5 basic metrics for evaluating character "aliveness"
-3. **DOCUMENTATION_TRUTH_PASS.md** — Summary of documentation status
+- `DOMAIN.md`
+- `PUBLIC_API_CONTRACT.md`
+- `SERIALIZATION_CONTRACT.md`
+- `WORLD_SCHEMA.md`
+- `PERFORMANCE.md`
+- `TESTING_ARCHITECTURE.md`
+- `LEGACY_REMOVAL_REPORT.md`
 
-## RFC Documents (docs/rfc/)
+These documents should describe current behavior, not phase history.
 
-RFC documents for future features:
+## Current Documents
 
-1. **AFFECT_COMPILER_RFC.md** — AffectCompiler design
-2. **GROUNDING_CHECKER_V2_RFC.md** — Grounding checker v2 design
-3. **KNOWLEDGE_PROPAGATION_RFC.md** — Knowledge propagation design
-4. **RNG_STRICTNESS_RFC.md** — RNG strictness design
-5. **SEMANTIC_PROFILE_RFC.md** — Semantic profile design
+`docs/current/` is for documents that actively guide ongoing engineering:
 
-## Archive Documents (docs/archive/)
+- governance and handoff manuals;
+- active contracts not broad enough for top-level `docs/`;
+- current release/readiness checklists;
+- current documentation truth-pass notes.
 
-Historical documents that are no longer actively referenced:
+Do not keep completed wave reports, old task cards, or root-cause investigations in
+`docs/current/`.
 
-1. **CLEAN_ARCHITECTURE_FINAL_AUDIT.md** — Architecture audit (historical)
-2. **LEGACY_REMOVAL_REPORT.md** — Legacy removal report (historical)
-3. **RELEASE_ROADMAP_ALPHA4_TO_V2.md** — Release roadmap (historical)
-4. **INTRINSIC_MOTIVATION_SPLIT_PLAN.md** — Intrinsic motivation split plan (historical)
+See `docs/current/README.md` for the current file list.
 
-## Core Documentation (docs/)
+## RFC Documents
 
-Core documentation that is always relevant:
+`docs/rfc/` contains open, foundational, or future-facing RFCs.
 
-1. **DOMAIN.md** — Domain system documentation
-2. **PERFORMANCE.md** — Performance documentation
-3. **PUBLIC_API_CONTRACT.md** — Public API contract
-4. **WORLD_SCHEMA.md** — World schema documentation
-5. **PERSISTENCE.md** — Persistence documentation
+Move an RFC out of `docs/rfc/` when:
 
-## Documentation Rules
+- it has been implemented and no longer needs to drive future design;
+- it was superseded by later diagnosis;
+- it was only a direction-selection brief for a completed phase.
 
-1. **docs/current/** — Only include documents that are actively referenced
-2. **docs/rfc/** — Include all RFC documents, even if not yet implemented
-3. **docs/archive/** — Include historical documents that are no longer actively referenced
-4. **docs/** — Include core documentation that is always relevant
+Implemented RFCs go to the external archive's `implemented-rfcs/` directory.
+Superseded RFCs go to the external archive's `superseded-rfcs/` directory.
 
-## Documentation Updates
+See `docs/rfc/README.md`.
 
-When updating documentation:
+## Audit Documents
 
-1. **New core documentation** — Add to docs/current/
-2. **New RFC** — Add to docs/rfc/
-3. **Archive old documentation** — Move to docs/archive/
-4. **Update existing documentation** — Update in place
+`docs/audit/` is for current/high-signal audit artifacts only.
 
-## Documentation Validation
+Round-by-round historical reports and old bug ledgers belong in the external archive's
+`audit-rounds/` directory.
 
-When validating documentation:
+See `docs/audit/README.md`.
 
-1. **Check docs/current/** — Ensure all documents are accurate
-2. **Check docs/rfc/** — Ensure all RFCs are up-to-date
-3. **Check docs/archive/** — Ensure archived documents are clearly marked
-4. **Check docs/** — Ensure core documentation is accurate
+## Archive Documents
+
+`docs/archive/` contains only a pointer README. Historical evidence has been moved
+outside the repository so full-repo AI audits do not load obsolete context by default.
+
+External archive:
+
+```text
+/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01
+```
+
+Archive docs are useful context, but they must not override:
+
+1. source code;
+2. `AGENTS.md`;
+3. current tests and command output;
+4. active docs under `docs/current/`;
+5. top-level public contracts.
+
+See `docs/archive/README.md`.
+
+## Maintenance Rules
+
+1. New long-lived contract: add to top-level `docs/` or `docs/current/`.
+2. New RFC: add to `docs/rfc/`.
+3. Temporary execution plan: move to the external archive after completion.
+4. Completed wave/task card: move to the external archive.
+5. Root-cause report after closure: move to the external archive.
+6. Old audit round: move to the external archive.
+7. Update the relevant README whenever a document changes category.
+
+Prefer moving and indexing over deleting. Delete only when a document is clearly
+duplicative and its evidence is fully preserved elsewhere.

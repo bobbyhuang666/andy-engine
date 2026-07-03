@@ -11,9 +11,20 @@
 
 import { describe, it, expect, vi } from 'vitest';
 import { SimulationStore } from '../../src/store/SimulationStore.js';
+// CJS require (not ESM import) so we share the same module instance that
+// SimulationStore's internal require() uses — vitest's deps.inline can split
+// ESM-imported and CJS-required versions of the same file into two singletons.
+const { diagnostics } = require('../../src/shared/Diagnostics.js');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
 
 function makeStore(opts = {}) {
   return new SimulationStore({ dbPath: ':memory:', ...opts });
+}
+
+function makeTempDbPath(name) {
+  return path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'andy-store-')), `${name}.db`);
 }
 
 const ISO = '2026-09-01T08:00:00Z';
@@ -108,6 +119,31 @@ describe('SimulationStore — onTick branches', () => {
     await store.init();
     expect(() => store.onTick({ tickNumber: 1, time: ISO }, [])).not.toThrow();
   });
+
+  it('normalizes zero intervals so stories still flush and snapshots can save', async () => {
+    const snapshotSpy = vi.fn(() => Buffer.from('snap'));
+    const store = makeStore({
+      storyFlushInterval: 0,
+      snapshotInterval: 0,
+      storyDecayInterval: 0,
+    });
+    await store.init({ onSnapshot: snapshotSpy });
+    const story = { tick: 1, timestamp: MS, agentId: 'a', content: 'flush-me', importance: 0.8 };
+    store.onTick({ tickNumber: 1, time: ISO }, [story]);
+    expect(store.storyFlushInterval).toBe(1);
+    expect(store.snapshotInterval).toBe(12);
+    expect(store.storyDecayInterval).toBe(288);
+    expect(store.storyBuffer).toHaveLength(0);
+    expect(store.getStoriesForAgent('a').some(s => s.content === 'flush-me')).toBe(true);
+    expect(snapshotSpy).not.toHaveBeenCalled();
+  });
+
+  it('normalizes fractional positive intervals to at least one tick', () => {
+    const store = makeStore({ storyFlushInterval: 0.5, snapshotInterval: 0.5, storyDecayInterval: 0.5 });
+    expect(store.storyFlushInterval).toBe(1);
+    expect(store.snapshotInterval).toBe(1);
+    expect(store.storyDecayInterval).toBe(1);
+  });
 });
 
 describe('SimulationStore — getStoriesForAgent merge/dedup', () => {
@@ -200,5 +236,215 @@ describe('SimulationStore — getStoriesForBobby deprecated alias', () => {
     store.getStoriesForBobby('a', 48, 3);
     expect(spy).toHaveBeenCalledWith('a', 48, 3);
     spy.mockRestore();
+  });
+});
+
+describe('SimulationStore — _flushStories buffer safety', () => {
+  it('keeps storyBuffer when db.saveStories throws (no data loss)', async () => {
+    const store = makeStore({ storyFlushInterval: 999 });
+    await store.init();
+    const story = { tick: 1, timestamp: MS, agentId: 'a', content: 'precious', importance: 0.8 };
+    store.storyBuffer.push(story);
+    store.db.saveStories = () => { throw new Error('db write boom'); };
+
+    diagnostics.clear();
+
+    expect(() => store._flushStories()).toThrow(/db write boom/);
+    // buffer retained — the story is NOT lost
+    expect(store.storyBuffer).toHaveLength(1);
+    expect(store.storyBuffer[0].content).toBe('precious');
+
+    const collected = diagnostics.getCollected();
+    expect(collected).toHaveLength(1);
+    expect(collected[0].type).toBe('story-flush-failed');
+    expect(collected[0].error).toBe('db write boom');
+  });
+
+  it('clears storyBuffer after successful write', async () => {
+    const store = makeStore({ storyFlushInterval: 999 });
+    await store.init();
+    store.storyBuffer.push(
+      { tick: 1, timestamp: MS, agentId: 'a', content: 'ok1', importance: 0.5 },
+      { tick: 2, timestamp: MS, agentId: 'a', content: 'ok2', importance: 0.5 },
+    );
+    store._flushStories();
+    expect(store.storyBuffer).toHaveLength(0);
+    // persisted to db
+    const stories = store.getStoriesForAgent('a');
+    expect(stories.some(s => s.content === 'ok1')).toBe(true);
+    expect(stories.some(s => s.content === 'ok2')).toBe(true);
+  });
+
+  it('is a no-op when buffer is empty', async () => {
+    const store = makeStore();
+    await store.init();
+    expect(store.storyBuffer).toHaveLength(0);
+    expect(() => store._flushStories()).not.toThrow();
+  });
+});
+
+// ═══════════════════════════════════════════
+// P0 regression: shutdown ensures db.close() in finally path
+// ═══════════════════════════════════════════
+describe('P0: shutdown ensures db.close() when _flushStories throws', () => {
+  it('calls db.close() and propagates error when _flushStories throws', async () => {
+    const store = makeStore();
+    await store.init();
+    store.storyBuffer.push({ tick: 1, timestamp: MS, agentId: 'a', content: 'x', importance: 0.5 });
+    store.db.saveStories = () => { throw new Error('db write boom'); };
+
+    let closeCalled = false;
+    const origClose = store.db.close.bind(store.db);
+    store.db.close = () => { closeCalled = true; origClose(); };
+
+    let thrown = false;
+    try {
+      await store.shutdown();
+    } catch (e) {
+      thrown = true;
+      expect(e.message).toBe('db write boom');
+    }
+    expect(thrown).toBe(true);
+    expect(closeCalled).toBe(true);
+    expect(store.db).toBeNull();
+  });
+
+  it('db.close() still called when both _flushStories and _saveSnapshot throw', async () => {
+    const store = makeStore();
+    await store.init({ onSnapshot: () => { throw new Error('snapshot boom'); } });
+    store.storyBuffer.push({ tick: 1, timestamp: MS, agentId: 'a', content: 'x', importance: 0.5 });
+    store.db.saveStories = () => { throw new Error('flush boom'); };
+
+    let closeCalled = false;
+    const origClose = store.db.close.bind(store.db);
+    store.db.close = () => { closeCalled = true; origClose(); };
+
+    let thrown = false;
+    try {
+      await store.shutdown();
+    } catch (e) {
+      thrown = true;
+      // firstError (flush) takes priority over snapshotError
+      expect(e.message).toBe('flush boom');
+    }
+    expect(thrown).toBe(true);
+    expect(closeCalled).toBe(true);
+    expect(store.db).toBeNull();
+  });
+
+  it('propagates snapshotError when flush succeeds but snapshot fails', async () => {
+    const store = makeStore();
+    await store.init({ onSnapshot: () => { throw new Error('snapshot final fail'); } });
+    store.tickCount = 5;
+    store.virtualTime = new Date(MS);
+
+    let closeCalled = false;
+    const origClose = store.db.close.bind(store.db);
+    store.db.close = () => { closeCalled = true; origClose(); };
+
+    let thrown = false;
+    try {
+      await store.shutdown();
+    } catch (e) {
+      thrown = true;
+      expect(e.message).toContain('SimulationStore snapshot save failed');
+    }
+    expect(thrown).toBe(true);
+    expect(closeCalled).toBe(true);
+    expect(store.db).toBeNull();
+  });
+
+  it('does not advance persisted meta when final snapshot fails', async () => {
+    const dbPath = makeTempDbPath('snapshot-fail-meta');
+
+    const store = makeStore({ dbPath });
+    await store.init({ onSnapshot: () => Buffer.from('tick-2') });
+    store.tickCount = 2;
+    store.virtualTime = new Date(MS);
+    await store.shutdown();
+
+    const failing = makeStore({ dbPath });
+    await failing.init({ onSnapshot: () => { throw new Error('snapshot boom'); } });
+    failing.tickCount = 5;
+    failing.virtualTime = new Date(MS + 3000);
+
+    await expect(failing.shutdown()).rejects.toThrow(/SimulationStore snapshot save failed/);
+
+    const restored = makeStore({ dbPath });
+    const result = await restored.init();
+
+    expect(result.restoredTick).toBe(2);
+    expect(restored.tickCount).toBe(2);
+    expect(restored.virtualTime.getTime()).toBe(MS);
+    await restored.shutdown();
+  });
+});
+
+// ═══════════════════════════════════════════
+// P2 regression: init corrupt meta guard
+// ═══════════════════════════════════════════
+describe('P2: init recovers from corrupt meta (NaN guard)', () => {
+  it('tickCount falls back to 0 and virtualTime to null when meta is corrupt string', async () => {
+    const dbPath = makeTempDbPath('corrupt-meta-1');
+    const store = makeStore({ dbPath });
+    await store.init();
+    // Manually write corrupt meta strings that look truthy but are non-numeric
+    store.db.set('tick_count', 'not-a-number');
+    store.db.set('virtual_time', 'garbage');
+    await store.shutdown();
+
+    // Simulate a fresh init reading the corrupt meta from the same durable DB.
+    const store2 = makeStore({ dbPath });
+    const result = await store2.init();
+
+    expect(result.restoredTick).toBe(0);
+    expect(result.restoredTime).toBeNull();
+    expect(store2.tickCount).toBe(0);
+    expect(store2.virtualTime).toBeNull();
+    // tickCount must not be NaN
+    expect(Number.isNaN(store2.tickCount)).toBe(false);
+    await store2.shutdown();
+  });
+
+  it('onTick after corrupt meta does not produce NaN tickCount', async () => {
+    const dbPath = makeTempDbPath('corrupt-meta-2');
+    const store = makeStore({ dbPath });
+    await store.init();
+    store.db.set('tick_count', 'garbage-123');
+    store.db.set('virtual_time', 'garbage-time');
+    await store.shutdown();
+
+    const store2 = makeStore({ dbPath });
+    await store2.init();
+
+    expect(store2.tickCount).toBe(0);
+    store2.onTick({ tickNumber: 1, time: ISO });
+    expect(store2.tickCount).toBe(1);
+    expect(Number.isNaN(store2.tickCount)).toBe(false);
+    await store2.shutdown();
+  });
+
+  it('getStats after corrupt meta init does not throw or produce NaN', async () => {
+    const dbPath = makeTempDbPath('corrupt-meta-3');
+    const store = makeStore({ dbPath });
+    await store.init();
+    store.db.set('tick_count', 'bad');
+    store.db.set('virtual_time', 'bad');
+    store.db.saveStories([
+      { tick: 1, timestamp: MS - 3600 * 1000, agentId: 'a', content: 'safe', importance: 0.5 },
+    ]);
+    await store.shutdown();
+
+    const store2 = makeStore({ dbPath });
+    await store2.init();
+
+    expect(store2.tickCount).toBe(0);
+    expect(store2.virtualTime).toBeNull();
+
+    // getStats uses virtualTime?.getTime() || Date.now() — must not throw or return NaN
+    const stats = store2.getStats('a');
+    expect(stats.total).toBeGreaterThanOrEqual(0);
+    expect(Number.isNaN(stats.total)).toBe(false);
+    await store2.shutdown();
   });
 });

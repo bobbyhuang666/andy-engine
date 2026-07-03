@@ -41,20 +41,31 @@ echo "3. Testing No-SQLite consumer..."
 mkdir -p test-no-sqlite
 cd test-no-sqlite
 npm init -y > /dev/null 2>&1
-npm install "$TARBALL" > /dev/null 2>&1
+npm install "$TARBALL" --omit=optional > /dev/null 2>&1
 
 node -e "
 const { createStore } = require('andy-engine/store');
-try {
+(async () => {
   const store = createStore({ dbPath: ':memory:' });
-  console.log('No-SQLite: createStore succeeded (SQLite available)');
-} catch (e) {
-  if (e.message.includes('better-sqlite3')) {
-    console.log('No-SQLite: OK (optional dependency error as expected)');
-  } else {
-    throw e;
+  const result = await store.init({
+    onSnapshot: () => new Uint8Array([1, 2, 3]),
+    onRestore: () => {}
+  });
+  if (!store.db || store.db.constructor.name !== 'MemoryStore') {
+    throw new Error('No-SQLite: expected MemoryStore fallback after init()');
   }
-}
+  if (result.restoredTick !== 0 || result.hasSnapshot !== false) {
+    throw new Error('No-SQLite: unexpected init result');
+  }
+  store.onTick({ tickNumber: 1, time: Date.now() }, [
+    { tick: 1, timestamp: Date.now(), agentId: 'a', content: 'hello' }
+  ]);
+  await store.shutdown();
+  console.log('No-SQLite: OK (init() fell back to MemoryStore)');
+})().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});
 "
 
 cd ..
@@ -68,12 +79,32 @@ npm install "$TARBALL" typescript > /dev/null 2>&1
 
 cat > test.ts << 'EOF'
 import AndyEngine = require('andy-engine');
+import store = require('andy-engine/store');
+import { validateDomain as validateDomainSubpath } from 'andy-engine/domain/validate';
+import { DomainRegistry as DomainRegistrySubpath } from 'andy-engine/domain/registry';
+import defaults = require('andy-engine/config/defaults');
+import campus = require('andy-engine/presets/campus');
+import tavern = require('andy-engine/presets/tavern');
 
 const engine = new AndyEngine({ seed: 'test' });
 const agent = engine.createCharacter({ id: 'test', name: 'Test', mbti: 'INFP' });
 engine.tick();
 const agents = engine.getAllAgents();
 const grounding = engine.getGroundingPackage('test');
+const memory = new store.MemoryStore();
+memory.saveSnapshot(1, Date.now(), new Uint8Array([1, 2, 3]));
+const latest = memory.loadLatest();
+const latestAlias = memory.loadLatestSnapshot();
+memory.set('key', 'value');
+memory.saveMeta('legacy', 'ok');
+const metaValue: string | null = memory.get('key');
+const legacyMeta: string | null = memory.loadMeta('legacy');
+const campusResult = validateDomainSubpath(campus, { strict: true });
+const tavernRegistry = new DomainRegistrySubpath(tavern, { validate: false });
+if (!latest || !latestAlias || metaValue !== 'value' || legacyMeta !== 'ok' || !campusResult.valid || !tavernRegistry.hasRegion('酒馆') || !defaults.ANDY_DEFAULTS) {
+  throw new Error('store type/runtime smoke failed');
+}
+memory.close();
 console.log('TypeScript: OK');
 EOF
 

@@ -9,12 +9,15 @@
  * 用 agent stub + getDefaultDomain() (campus),hermetic。
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+import fs from 'node:fs';
+import path from 'node:path';
 // CJS require 经直接路径:与运行时 require 同一模块实例,确保 v8 coverage 正确归因
 const { createRequire } = await import('node:module');
 const require = createRequire(import.meta.url);
 const ScheduleHandler = require('../../../src/agent/handlers/ScheduleHandler.js');
 const { getDefaultDomain } = require('../../../src/domain/DomainRegistry.js');
+const { EffectCommitter } = require('../../../src/effects/EffectCommitter.js');
 
 const campusDomain = getDefaultDomain();
 
@@ -32,7 +35,12 @@ function makeAgent(overrides = {}) {
       getValence: () => 0,
     },
     stateMachine: { currentState: '在发呆' },
-    behaviorField: { B: [0.5, 0.5, 0.5, 0.5], velocity: [0, 0, 0, 0], label: '在发呆' },
+    behaviorField: {
+      B: [0.5, 0.5, 0.5, 0.5],
+      velocity: [0, 0, 0, 0],
+      label: '在发呆',
+      setAttractor: () => {},
+    },
     memory: { addExperience: () => {} },
     proceduralMemory: { query: () => null },
     schedule: { getCurrentActivity: () => ({ inSchedule: false }), entries: [] },
@@ -41,6 +49,101 @@ function makeAgent(overrides = {}) {
     ...overrides,
   };
 }
+
+describe('ScheduleHandler.tick — EffectCommitter writeback', () => {
+  it('moves via PositionDelta and signals regionChanged', () => {
+    const agent = makeAgent({
+      position: '宿舍',
+      schedule: { getCurrentActivity: () => ({ inSchedule: true, region: '图书馆', activity: '自习' }), entries: [] },
+    });
+    const world = {
+      time: new Date('2026-07-02T10:00:00+08:00'),
+      regions: { place: () => true },
+    };
+    world.effectCommitter = new EffectCommitter({ world, agents: new Map([[agent.id, agent]]) });
+    let synced = null;
+    const result = { regionChanged: false, stateChanged: false, newEvents: [] };
+
+    new ScheduleHandler(agent).tick({
+      env: {
+        hour: 10,
+        dayOfWeek: 1,
+        simDate: 'Thu Jul 02 2026',
+        simTime: world.time,
+        effectCommitter: world.effectCommitter,
+        effectWorld: world,
+        _setRegionChanged: (agentId, position) => { synced = { agentId, position }; },
+      },
+      needsDrive: null,
+      imResult: {},
+      result,
+    });
+
+    expect(agent.position).toBe('图书馆');
+    expect(result.regionChanged).toBe(true);
+    expect(synced).toEqual({ agentId: 'a1', position: '图书馆' });
+  });
+
+  it('records skip memories via MemoryDelta while preserving emitted event', () => {
+    const addExperience = vi.fn();
+    const agent = makeAgent({
+      position: '宿舍',
+      health: 0.1,
+      rand: () => 0,
+      memory: { addExperience },
+      schedule: { getCurrentActivity: () => ({ inSchedule: true, region: '教室', activity: '上课' }), entries: [] },
+      domain: {
+        hasRegion: (region) => ['宿舍', '教室'].includes(region),
+        states: {},
+        placeTypes: { work: [] },
+        skipBehavior: {
+          sick: { memories: ['今天身体很差，只能请假休息'] },
+        },
+      },
+    });
+    const world = { time: new Date('2026-07-02T10:00:00+08:00') };
+    world.effectCommitter = new EffectCommitter({ world, agents: new Map([[agent.id, agent]]) });
+    const result = { regionChanged: false, stateChanged: false, newEvents: [] };
+
+    new ScheduleHandler(agent).tick({
+      env: {
+        hour: 10,
+        dayOfWeek: 1,
+        simDate: 'Thu Jul 02 2026',
+        simTime: world.time,
+        effectCommitter: world.effectCommitter,
+        effectWorld: world,
+      },
+      needsDrive: null,
+      imResult: {},
+      result,
+    });
+
+    expect(addExperience).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: '今天身体很差，只能请假休息',
+        type: 'illness',
+        scope: 'local',
+        _region: '宿舍',
+      }),
+      agent.emotion,
+      null
+    );
+    expect(result.newEvents).toHaveLength(1);
+    expect(result.newEvents[0].content).toBe('今天身体很差，只能请假休息');
+  });
+
+  it('does not directly assign position or call memory.addExperience', () => {
+    const file = path.join(import.meta.dirname, '../../../src/agent/handlers/ScheduleHandler.js');
+    const source = fs.readFileSync(file, 'utf8')
+      .split('\n')
+      .filter(line => !line.trim().startsWith('*') && !line.trim().startsWith('//'))
+      .join('\n');
+
+    expect(source).not.toMatch(/\bagent\.position\s*=/);
+    expect(source).not.toContain('agent.memory.addExperience(');
+  });
+});
 
 // ═══════════════════════════════════════════
 // checkSchedule — sick branch

@@ -11,13 +11,13 @@ class ReflectionHandler {
     this.agent = agent;
   }
 
-  tick() {
+  tick(context = null) {
     const agent = this.agent;
 
     // Periodic reflection
     agent._ticksSinceReflection++;
     if (agent._ticksSinceReflection >= agent._reflectionInterval) {
-      reflect(agent);
+      reflect(agent, context?.env || null);
       agent._ticksSinceReflection = 0;
     }
 

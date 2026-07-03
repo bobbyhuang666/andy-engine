@@ -77,7 +77,8 @@
 
 ### 10. Compatibility
 
-- [ ] Works on Node.js 18+
+- [ ] Published package baseline is Node.js 20+
+- [ ] SQLite optional persistence is Node.js 20+ because `better-sqlite3` 12.x does not support Node.js 18
 - [ ] Works on Node.js 20+
 - [ ] Works on Node.js 22+
 - [ ] Works on Ubuntu
@@ -129,11 +130,34 @@ npm publish --tag latest
 
 ## Current Status
 
-**Status**: 🔒 FROZEN — Not ready for publish. R18/R19 found critical bugs; convergence not yet achieved.
+**Status**: 🔒 FROZEN — publish/tag/release is not an active goal and requires explicit user approval to reopen.
+
+Current ledger status: R68 no-quota local and agnes verification completed on 2026-07-03.
+Core gates exited 0 (`npm test`, `test:domain`, boundaries, smoke pack, replay diff,
+typecheck, consumer typecheck, fresh consumer matrix, SQLite smoke, `git diff --check`).
+`perf:check` exited 0 in default 3-run median mode with no WARN.
+Secondary public subpath TypeScript declarations are now covered by fresh
+tarball consumer checks. The published package baseline is now Node.js 20+.
+Long-run fact retention has been rechecked; full `npm test` is currently
+3197 passed / 28 skipped. The package whitelist now publishes `agent/Agent.js`
+without the retired `agent/action/*` implementation files; dry-run tarball size
+is 198 files. Legacy phase tests have been migrated to canonical `src/action`,
+and the repo-local `agent/action` implementation files have been removed.
+Deep-audit ScheduleHandler direct writes now route through typed deltas and
+`EffectCommitter` with regression coverage. Deep-audit PerceptionRuntime
+experience-memory writes now route through `MemoryDelta` / `EffectCommitter`
+with appraisal importance preserved. Perception emotion, stress, and
+appraisal-bias effects now route through typed deltas / `EffectCommitter`.
+The runtime `env._world` backdoor has been removed from `src/agent` and
+`src/runtime`; explicit `effectCommitter` / `effectWorld` services are now used
+and guarded by `check:boundaries`.
 
 **Version**: 2.0.1
 
-**Recommendation**: Do not publish until independent audit confirms zero P1 bugs.
+**Recommendation**: Do not publish now. Continue polish-first hardening until the
+active scope has no confirmed P0/P1 bugs, architecture boundary leaks are closed
+or consciously deferred, and the user explicitly reopens publish/tag/release
+planning.
 
 **Notes**:
 - No macOS metadata

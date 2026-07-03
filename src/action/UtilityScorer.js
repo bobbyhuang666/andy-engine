@@ -8,9 +8,37 @@
  * Design invariants:
  *   - Pure function: no side effects, no state modification
  *   - No Math.random(), no Date.now()
- *   - No domain-specific terms
  *   - Reads only from context snapshots
+ *   - All scorers must return a finite number; NaN/Infinity inputs are
+ *     coerced to a safe fallback so action selection never silently drops
+ *     candidates due to NaN propagation through Math.max/min.
  */
+
+/**
+ * Return `value` if it is a finite number, otherwise `fallback`.
+ * Guards against NaN/Infinity leaking through arithmetic + Math.max/min.
+ * @param {*} value
+ * @param {number} fallback
+ * @returns {number}
+ */
+function finiteOr(value, fallback) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+/**
+ * Clamp `value` to [min, max]; if value is not a finite number, return `fallback`.
+ * @param {*} value
+ * @param {number} min
+ * @param {number} max
+ * @param {number} fallback
+ * @returns {number}
+ */
+function clampFinite(value, min, max, fallback) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
+  if (value < min) return min;
+  if (value > max) return max;
+  return value;
+}
 
 /**
  * @typedef {Object} ScoringContext
@@ -96,7 +124,8 @@ function scoreNeed(candidate, context) {
     for (const needKey of needKeys) {
       const pressure = context.pressureContext.needs[needKey];
       if (pressure !== undefined) {
-        maxPressure = Math.max(maxPressure, Math.max(0, Math.min(1, pressure)));
+        // NaN-safe: Math.min(1, NaN)=NaN would poison maxPressure via Math.max.
+        maxPressure = Math.max(maxPressure, clampFinite(pressure, 0, 1, 0));
       }
     }
     return maxPressure;
@@ -108,7 +137,9 @@ function scoreNeed(candidate, context) {
   for (const needKey of needKeys) {
     const current = context.needs[needKey];
     if (current !== undefined) {
-      maxDeficit = Math.max(maxDeficit, Math.max(0, 1 - current));
+      // NaN-safe: 1 - NaN = NaN would poison maxDeficit via Math.max.
+      const deficit = 1 - clampFinite(current, 0, 1, 0.5);
+      maxDeficit = Math.max(maxDeficit, Math.max(0, deficit));
     }
   }
   return maxDeficit;
@@ -133,7 +164,12 @@ function scoreBehavior(candidate, context) {
   const B = context.behaviorField.B;
   if (!B || B.length < 4) return 0;
 
-  const [activity, sociality, focus, expressiveness] = B;
+  // P1 fix: B 向量元素 NaN 会导致 scoreBehavior 返回 NaN、候选静默丢弃。
+  // 用 clampFinite 做最小 guard，确保每个维度在 [0,1] 内 finite。
+  const activity = clampFinite(B[0], 0, 1, 0.5);
+  const sociality = clampFinite(B[1], 0, 1, 0.5);
+  const focus = clampFinite(B[2], 0, 1, 0.5);
+  const expressiveness = clampFinite(B[3], 0, 1, 0.5);
 
   const idealMap = {
     'rest':       { activity: 0.1, sociality: 0.2, focus: 0.1, expressiveness: 0.2 },
@@ -218,9 +254,13 @@ function scoreRelationship(candidate, context) {
   if (context.pressureContext && context.pressureContext.relationship) {
     const relPressure = context.pressureContext.relationship;
     if (candidate.type === 'socialize') {
-      return relPressure.isolation * 0.4 - relPressure.conflict * 0.3;
+      // NaN-safe: isolation/conflict NaN would make the whole score NaN.
+      const isolation = finiteOr(relPressure.isolation, 0);
+      const conflict = finiteOr(relPressure.conflict, 0);
+      return clampFinite(isolation * 0.4 - conflict * 0.3, -0.5, 0.5, 0);
     }
-    return -relPressure.total * 0.1;
+    const total = finiteOr(relPressure.total, 0);
+    return clampFinite(-total * 0.1, -0.5, 0.5, 0);
   }
 
   return 0;
@@ -316,9 +356,13 @@ function scoreLocation(candidate, context) {
 
   let score = 0;
 
+  const targetIsRegion = candidate.target && context.agent.position
+    && context.domain && typeof context.domain.hasRegion === 'function'
+    && context.domain.hasRegion(candidate.target);
+
   if (candidate.target && candidate.target === context.agent.position) {
     score += 0.1;
-  } else if (candidate.target) {
+  } else if (targetIsRegion) {
     score += 0.5;
   }
 
@@ -332,31 +376,34 @@ function scoreLocation(candidate, context) {
       if (typeVector) {
         let alignment = 0;
         for (let d = 0; d < 4; d++) {
-          alignment += meaningGradient[d] * typeVector[d];
+          // NaN-safe: a NaN gradient element would poison alignment.
+          alignment += finiteOr(meaningGradient[d], 0) * typeVector[d];
         }
-        score += Math.max(-0.3, Math.min(0.3, alignment * 0.3));
+        score += clampFinite(alignment * 0.3, -0.3, 0.3, 0);
       }
     }
   }
 
   if (context.pressureContext && context.pressureContext.location) {
-    const locPressure = context.pressureContext.location.total || 0;
+    // NaN-safe: `|| 0` catches NaN (falsy) but not Infinity/strings; use finiteOr.
+    const locPressure = finiteOr(context.pressureContext.location.total, 0);
     if (candidate.type === 'move') {
-      score += locPressure * 0.3;
+      score += clampFinite(locPressure * 0.3, -0.5, 0.5, 0);
     } else if (candidate.type === 'rest') {
-      score -= locPressure * 0.1;
+      score -= clampFinite(locPressure * 0.1, -0.5, 0.5, 0);
     }
   }
 
-  return Math.max(-0.5, Math.min(0.5, score));
+  return clampFinite(score, -0.5, 0.5, 0);
 }
 
 function scoreWorld(candidate, context) {
   let pressure = 0;
   if (context.pressureContext && context.pressureContext.world) {
-    pressure = context.pressureContext.world.total || 0;
+    // NaN-safe: `|| 0` catches NaN but not Infinity/strings; use finiteOr.
+    pressure = finiteOr(context.pressureContext.world.total, 0);
   } else if (context.worldPressure) {
-    pressure = context.worldPressure.total || 0;
+    pressure = finiteOr(context.worldPressure.total, 0);
   }
 
   if (pressure === 0) return 0;
@@ -371,13 +418,13 @@ function scoreWorld(candidate, context) {
     score = -pressure * 0.2;
   }
 
-  return Math.max(-0.5, Math.min(0.5, score));
+  return clampFinite(score, -0.5, 0.5, 0);
 }
 
 function scoreTime(candidate, context) {
   if (!context.world) return 0;
 
-  const hour = context.world.time ? new Date(context.world.time).getUTCHours() : 12;
+  const hour = context.environment?.hour ?? (context.world.time ? new Date(context.world.time).getUTCHours() : 12);
 
   if (hour >= 23 || hour < 6) {
     if (candidate.type === 'rest') return 0.8;
@@ -398,8 +445,12 @@ function scoreConstraint(candidate, context) {
     // new Date(null) → epoch (hour=0), new Date(undefined) → Invalid Date.
     // Skip constraint evaluation when time is unavailable, matching scoreTime's pattern.
     if (candidate.constraints.timeRange && context.world && context.world.time) {
-      const hour = new Date(context.world.time).getUTCHours();
+      const hour = context.environment?.hour ?? new Date(context.world.time).getUTCHours();
+      // NaN-safe: if hour or bounds are NaN/Infinity, treat as no constraint
+      // rather than letting NaN comparisons silently pass or poison the score.
+      if (!Number.isFinite(hour)) return 0;
       const [min, max] = candidate.constraints.timeRange;
+      if (!Number.isFinite(min) || !Number.isFinite(max)) return 0;
       if (hour < min || hour >= max) return -1;
     }
   }

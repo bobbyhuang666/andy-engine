@@ -1,239 +1,167 @@
 /**
- * Phase 26.2: UtilitySelector Standalone Tests
+ * Phase 26.2: canonical UtilitySelector tests
  *
  * Verifies:
- * - Weighted selection (not always argmax)
- * - Temperature behavior
- * - Deterministic selection with same RNG state
- * - Invalid candidate filtering
- * - Fallback when no valid candidates
- * - ReasonTrace is serializable
+ * - ActionCandidate construction
+ * - UtilityScorer dimensions
+ * - selectAction deterministic argmax / seeded sampling
+ * - ReasonTrace serializability
  */
 
 import { describe, it, expect } from 'vitest';
-import { createCandidate, createFallbackCandidate } from '../agent/action/ActionCandidate.js';
-import { scoreCandidate } from '../agent/action/UtilityScorer.js';
-import { select } from '../agent/action/UtilitySelector.js';
-import { createTrace, explain, isSerializable } from '../agent/action/ReasonTrace.js';
+import { ActionCandidate } from '../src/action/ActionCandidate.js';
+import { scoreCandidate } from '../src/action/UtilityScorer.js';
+import { selectAction } from '../src/action/UtilitySelector.js';
+import { ReasonTrace } from '../src/action/ReasonTrace.js';
 import { RNG } from '../src/shared/rng.js';
 
-function makeCandidates() {
-  return [
-    createCandidate({ id: 'rest', type: 'rest', source: 'need', label: '休息', expectedEffects: { needDelta: { energy: 0.3 } } }),
-    createCandidate({ id: 'work', type: 'work', source: 'schedule', label: '工作' }),
-    createCandidate({ id: 'social', type: 'socialize', source: 'relationship', label: '社交' }),
-    createCandidate({ id: 'explore', type: 'explore', source: 'intrinsic', label: '探索' }),
-  ];
+function candidate(type, source = 'need', target = '') {
+  return new ActionCandidate({ type, source, target, label: `${source}:${type}` });
 }
 
-function makeContext(overrides = {}) {
+function fullScore(total, overrides = {}) {
   return {
-    agent: { id: 'a', position: '图书馆' },
-    env: { hour: 14, dayOfWeek: 3, weather: 'sunny' },
-    domain: { getRegionSet: () => new Set(['图书馆', '食堂', '宿舍', '操场']) },
-    behavior: { B: [0.5, 0.3, 0.7, 0.2] },
-    needs: { hunger: 0.8, energy: 0.3, social: 0.6, comfort: 0.7, stimulation: 0.5 },
-    emotion: { valence: 0.1, arousal: 0.5, approachDrive: 0.2, avoidDrive: 0.1, agenticDrive: 0 },
-    relationships: [{ strength: 0.6 }],
+    need: 0,
+    emotion: 0,
+    behavior: 0,
+    memory: 0,
+    relationship: 0,
+    habit: 0,
+    goal: 0,
+    location: 0,
+    world: 0,
+    time: 0,
+    constraint: 0,
+    tendency: 0,
+    total,
     ...overrides,
   };
 }
 
-describe('Phase 26.2: UtilitySelector', () => {
-  describe('ActionCandidate', () => {
-    it('creates candidate with defaults', () => {
-      const c = createCandidate({});
-      expect(c.type).toBe('continue');
-      expect(c.source).toBe('behaviorField');
-      expect(c.id).toBeTruthy();
-    });
+function makeContext(overrides = {}) {
+  return {
+    agent: { id: 'a', position: 'library' },
+    environment: { hour: 14 },
+    behaviorField: { B: [0.5, 0.3, 0.7, 0.2] },
+    needs: { hunger: 0.8, energy: 0.3, social: 0.6, comfort: 0.7, stimulation: 0.5 },
+    emotion: { valence: 0.1, arousal: 0.5 },
+    relationships: [{ strength: 0.6 }],
+    memories: [],
+    goals: [],
+    ...overrides,
+  };
+}
 
-    it('creates fallback candidate', () => {
-      const c = createFallbackCandidate();
-      expect(c.type).toBe('continue');
-      expect(c.id).toBe('cand_fallback_continue');
+function isSerializable(value) {
+  try {
+    JSON.stringify(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+describe('Phase 26.2: canonical UtilitySelector', () => {
+  describe('ActionCandidate', () => {
+    it('creates deterministic candidate ids', () => {
+      const a = candidate('rest', 'need', 'energy');
+      const b = candidate('rest', 'need', 'energy');
+      expect(a.id).toBe(b.id);
+      expect(a.type).toBe('rest');
+      expect(a.source).toBe('need');
     });
   });
 
   describe('UtilityScorer', () => {
     it('scores need satisfaction higher when deficit is large', () => {
-      const candidate = createCandidate({
-        type: 'rest',
-        expectedEffects: { needDelta: { energy: 0.3 } },
-      });
-      const context = makeContext({ needs: { energy: 0.1 } });
-      const score = scoreCandidate(candidate, context);
+      const c = candidate('rest', 'need', 'energy');
+      const score = scoreCandidate(c, makeContext({ needs: { energy: 0.1 } }));
       expect(score.need).toBeGreaterThan(0);
     });
 
-    it('scores zero when no need delta', () => {
-      const candidate = createCandidate({ type: 'rest' });
-      const context = makeContext();
-      const score = scoreCandidate(candidate, context);
+    it('scores zero when no matching need dimension exists', () => {
+      const c = candidate('observe', 'behaviorField');
+      const score = scoreCandidate(c, makeContext());
       expect(score.need).toBe(0);
     });
 
     it('scores behavior consistency', () => {
-      const restCandidate = createCandidate({ type: 'rest' });
-      const workCandidate = createCandidate({ type: 'work' });
-
-      // Low activity B → rest should score higher
-      const context = makeContext({ behavior: { B: [0.1, 0.1, 0.1, 0.1] } });
-      const restScore = scoreCandidate(restCandidate, context);
-      const workScore = scoreCandidate(workCandidate, context);
-      expect(restScore.behavior).toBeGreaterThan(workScore.behavior);
+      const rest = candidate('rest', 'behaviorField');
+      const work = candidate('work', 'behaviorField');
+      const context = makeContext({ behaviorField: { B: [0.1, 0.1, 0.1, 0.1] } });
+      expect(scoreCandidate(rest, context).behavior).toBeGreaterThan(scoreCandidate(work, context).behavior);
     });
   });
 
   describe('UtilitySelector', () => {
     it('selects highest score when temperature is 0', () => {
-      const candidates = makeCandidates();
-      const context = makeContext();
-      const result = select(candidates, context, { temperature: 0 });
+      const rest = candidate('rest');
+      const work = candidate('work', 'schedule');
+      const result = selectAction([
+        { candidate: rest, score: fullScore(0.8, { need: 0.8 }) },
+        { candidate: work, score: fullScore(0.3, { time: 0.3 }) },
+      ], { temperature: 0, agentId: 'a' });
 
-      // With temperature 0, should always select the highest scored candidate
-      const firstResult = select(candidates, context, { temperature: 0 });
-      expect(result.selected.id).toBe(firstResult.selected.id);
+      expect(result.selected).toBe(rest);
+      expect(result.trace.selectedAction).toBe('rest');
     });
 
-    it('returns fallback when all candidate scores are non-positive', () => {
-      // Use a candidate type that scores poorly in all dimensions
-      const candidates = [
-        createCandidate({ type: 'work', expectedEffects: {} }),
-      ];
-      // Context where work scores poorly: late night, no needs, no emotion, no behavior
-      const context = {
-        agent: { id: 'a', position: '图书馆' },
-        env: { hour: 3 },  // 3 AM → work scores poorly on time
-        domain: null,
-        behavior: null,
-        needs: null,
-        emotion: null,
-        relationships: [],
-      };
-      // Manually verify score is low
-      const score = scoreCandidate(candidates[0], context);
-      // If total is still positive, the test expectation needs adjustment
-      if (score.total > 0) {
-        // Work at 3 AM with no context should still have some score from location/world
-        // Just verify the selector handles it gracefully
-        const result = select(candidates, context, { temperature: 0 });
-        expect(result.selected).toBeDefined();
-        expect(result.selected.type).toBeDefined();
-      } else {
-        const result = select(candidates, context);
-        expect(result.selected.type).toBe('continue');
-      }
+    it('returns null selection when all scores are invalid', () => {
+      const result = selectAction([
+        { candidate: candidate('rest'), score: { total: NaN } },
+      ], { temperature: 0 });
+
+      expect(result.selected).toBeNull();
+      expect(result.trace.keyReasons).toContain('no-valid-candidates');
     });
 
     it('same RNG state produces same selection', () => {
-      const candidates = makeCandidates();
-      const context = makeContext();
-      const rng1 = new RNG(42);
-      const rng2 = new RNG(42);
+      const candidates = [
+        { candidate: candidate('rest'), score: fullScore(0.4) },
+        { candidate: candidate('work', 'schedule'), score: fullScore(0.5) },
+        { candidate: candidate('socialize', 'relationship'), score: fullScore(0.6) },
+      ];
 
-      const r1 = select(candidates, context, { temperature: 0.5 }, rng1);
-      const r2 = select(candidates, context, { temperature: 0.5 }, rng2);
+      const r1 = selectAction(candidates, { temperature: 0.8, rng: new RNG(42), agentId: 'a' });
+      const r2 = selectAction(candidates, { temperature: 0.8, rng: new RNG(42), agentId: 'a' });
 
       expect(r1.selected.id).toBe(r2.selected.id);
+      expect(r1.trace.randomDraw).toBe(r2.trace.randomDraw);
     });
 
-    it('different RNG state can diverge', () => {
-      const candidates = makeCandidates();
-      const context = makeContext();
-      const rng1 = new RNG(42);
-      const rng2 = new RNG(99);
-
-      // Run multiple times to find divergence
-      let diverged = false;
-      for (let i = 0; i < 20; i++) {
-        const r1 = select(candidates, context, { temperature: 1.0 }, rng1);
-        const r2 = select(candidates, context, { temperature: 1.0 }, rng2);
-        if (r1.selected.id !== r2.selected.id) {
-          diverged = true;
-          break;
-        }
-      }
-      expect(diverged).toBe(true);
+    it('requires seeded RNG when temperature is positive', () => {
+      expect(() => selectAction([
+        { candidate: candidate('rest'), score: fullScore(0.4) },
+      ], { temperature: 0.8 })).toThrow('requires a seeded RNG');
     });
 
-    it('highest score is not always selected when temperature > 0', () => {
-      const candidates = makeCandidates();
-      const context = makeContext();
+    it('trace includes alternatives and score breakdown', () => {
+      const rest = candidate('rest');
+      const result = selectAction([
+        { candidate: rest, score: fullScore(0.8, { need: 0.8 }) },
+      ], { temperature: 0, agentId: 'a' });
 
-      // With high temperature, lower-scored candidates should sometimes be selected
-      const results = new Set();
-      for (let i = 0; i < 50; i++) {
-        const rng = new RNG(i * 7);
-        const r = select(candidates, context, { temperature: 2.0 }, rng);
-        results.add(r.selected.id);
-      }
-      // Should have selected more than 1 unique candidate
-      expect(results.size).toBeGreaterThan(1);
-    });
-
-    it('result includes alternatives and reasonTrace', () => {
-      const candidates = makeCandidates();
-      const context = makeContext();
-      const result = select(candidates, context, { temperature: 0 });
-
-      expect(result.alternatives).toBeDefined();
-      expect(result.alternatives.length).toBeGreaterThan(0);
-      expect(result.reasonTrace).toBeDefined();
-      expect(result.reasonTrace.selectedActionType).toBe(result.selected.type);
-      expect(result.reasonTrace.scoreBreakdown).toBeDefined();
-      expect(result.reasonTrace.keyReasons).toBeDefined();
-    });
-
-    it('handles empty candidates list', () => {
-      const result = select([], makeContext());
-      expect(result.selected.type).toBe('continue');
-    });
-
-    it('handles zero/negative scores safely', () => {
-      const candidates = [
-        createCandidate({ type: 'rest', expectedEffects: {} }),
-        createCandidate({ type: 'work', expectedEffects: {} }),
-      ];
-      const result = select(candidates, makeContext());
-      expect(result.selected).toBeDefined();
-      expect(result.selected.type).toBeDefined();
+      expect(result.trace.candidateAlternatives).toHaveLength(1);
+      expect(result.trace.scoreBreakdown.total).toBe(0.8);
+      expect(isSerializable(result.trace)).toBe(true);
     });
   });
 
   describe('ReasonTrace', () => {
-    it('creates trace with defaults', () => {
-      const trace = createTrace();
-      // traceId is null by default (deterministic IDs must be set explicitly)
-      expect(trace.traceId).toBeNull();
-      expect(trace.selectedActionType).toBe('continue');
-      expect(isSerializable(trace)).toBe(true);
-    });
-
-    it('explain returns human-readable string', () => {
-      const trace = createTrace({
-        selectedActionLabel: '休息',
-        keyReasons: ['需求驱动', '情绪倾向'],
+    it('constructs serializable traces', () => {
+      const trace = new ReasonTrace({
+        agentId: 'a',
+        candidate: candidate('rest'),
+        scoreBreakdown: fullScore(0.5, { need: 0.5 }),
+        keyReasons: ['need-drive'],
+        rngInfo: { rngStateBefore: 1, randomDraw: 0.2, rngStateAfter: 2 },
+        temperature: 0,
+        candidateAlternatives: [],
       });
-      const text = explain(trace);
-      expect(text).toContain('休息');
-      expect(text).toContain('需求驱动');
-    });
 
-    it('trace from selector is serializable', () => {
-      const candidates = makeCandidates();
-      const context = makeContext();
-      const result = select(candidates, context, { temperature: 0 });
-      expect(isSerializable(result.reasonTrace)).toBe(true);
-    });
-
-    it('trace contains RNG state when provided', () => {
-      const candidates = makeCandidates();
-      const context = makeContext();
-      const rng = new RNG(42);
-      const result = select(candidates, context, { temperature: 0 }, rng);
-      expect(result.reasonTrace.rngStateBefore).toBeDefined();
-      expect(result.reasonTrace.rngStateAfter).toBeDefined();
+      expect(trace.selectedAction).toBe('rest');
+      expect(trace.randomDraw).toBe(0.2);
+      expect(isSerializable(trace)).toBe(true);
     });
   });
 });

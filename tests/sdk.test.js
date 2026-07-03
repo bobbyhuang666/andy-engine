@@ -2,10 +2,12 @@
  * SDK 测试套件
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Character, Andy, NarrativeBuilder, LLMAdapter, ConversationLog, AutoTick, create } from '../sdk/index.js';
 import { EmotionSignalBuffer } from '../src/sdk/EmotionSignalBuffer.js';
 import { getDefaultDomain } from '../src/domain/DomainRegistry.js';
+import { RNG } from '../src/shared/rng.js';
+const { diagnostics } = require('../src/shared/Diagnostics.js');
 
 const campusDomain = getDefaultDomain();
 
@@ -63,6 +65,22 @@ describe('Character 基础功能', () => {
     expect(ctx.systemPrompt.length).toBeGreaterThan(100);
     expect(ctx.worldContext).toBeDefined();
     expect(ctx.narrative).toBeDefined();
+    expect(ctx.groundingPackage).toBeNull();
+  });
+
+  it('getContext 在显式启用 facts 时包含 grounding 约束', () => {
+    const grounded = new Character({
+      name: 'GroundedMaya',
+      personality: 'INFP',
+      backstory: ['喜欢观察世界'],
+      llm: mockLLM,
+      enableFacts: true,
+      seed: 'sdk-grounding-context',
+    });
+    const ctx = grounded.getContext({ userText: '今天发生了什么？' });
+    expect(ctx.groundingPackage).toBeTruthy();
+    expect(ctx.groundingPackage.metadata.agentId).toBe(grounded.id);
+    expect(ctx.systemPrompt).toContain('# 事实约束');
   });
 
   it('save/load 保持状态', async () => {
@@ -205,6 +223,55 @@ describe('AutoTick', () => {
     const ticks = at.calculateTicksToAdvance(engine);
     expect(ticks).toBe(0);
   });
+
+  it('accepts an RNG instance, not only a random function', () => {
+    const at = new AutoTick({ rng: new RNG('autotick'), chatTickMin: 1, chatTickMax: 1 });
+    const engine = new (require('../index.js').default || require('../index.js'))();
+    engine.createCharacter({ id: 'test', name: 'Test', mbti: 'INFP' });
+    at.calculateTicksToAdvance(engine);
+    at._lastMessageTime = Date.now();
+    expect(() => at.calculateTicksToAdvance(engine)).not.toThrow();
+    expect(at.calculateTicksToAdvance(engine)).toBe(1);
+  });
+});
+
+describe('Character.chatStream diagnostics', () => {
+  it('records AutoTick errors while still yielding the reply', async () => {
+    diagnostics.clear();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const streamCharacter = new Character({
+      name: 'StreamMaya',
+      llm: async () => 'stream ok',
+    });
+    streamCharacter._autoTick.advance = () => { throw new Error('clock boom'); };
+
+    const chunks = [];
+    for await (const chunk of streamCharacter.chatStream('你好')) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.join('')).toBe('stream ok');
+    expect(diagnostics.getCollected().some(e => e.type === 'auto_tick_error' && e.error === 'clock boom')).toBe(true);
+    warnSpy.mockRestore();
+  });
+
+  it('records assistant reply even when the stream consumer breaks after first yield', async () => {
+    const streamCharacter = new Character({
+      name: 'BreakMaya',
+      llm: async () => 'stream ok',
+    });
+
+    for await (const chunk of streamCharacter.chatStream('你好')) {
+      expect(chunk).toBe('stream ok');
+      break;
+    }
+
+    const messages = streamCharacter.getConversation().toMessages();
+    expect(messages).toEqual([
+      { role: 'user', content: '你好' },
+      { role: 'assistant', content: 'stream ok' },
+    ]);
+  });
 });
 
 describe('Andy 多角色引擎', () => {
@@ -215,6 +282,18 @@ describe('Andy 多角色引擎', () => {
 
     expect(world.getCharacter('char_0')).toBeDefined();
     expect(world.getCharacter('char_1')).toBeDefined();
+  });
+
+  it('forwards enableFacts to the shared engine', () => {
+    const world = new Andy({
+      seed: 'sdk-andy-enable-facts',
+      enableFacts: true,
+      llm: mockLLM,
+    });
+    const character = world.addCharacter({ id: 'grounded', name: 'Grounded' });
+    const ctx = character.getContext({ userText: '发生了什么？' });
+    expect(ctx.groundingPackage).toBeTruthy();
+    expect(ctx.systemPrompt).toContain('# 事实约束');
   });
 
   it('与指定角色对话', async () => {
@@ -376,10 +455,10 @@ describe('Character 边界情况', () => {
     expect(typeof reply).toBe('string');
   });
 
-  it('LLM 返回空字符串时返回省略号', async () => {
+  it('LLM 返回空字符串时返回沉默', async () => {
     const c = new Character({ name: 'T', personality: 'INFP', llm: async () => '' });
     const reply = await c.chat('你好');
-    expect(reply).toBe('...');
+    expect(reply).toBe('[T沉默了一会儿]');
   });
 
   it('LLM 抛错时传播错误', async () => {
@@ -620,16 +699,16 @@ describe('SDK 硬化验证', () => {
       expect(c.name).toBe('Test');
     });
 
-    it('空消息返回省略号', async () => {
+    it('空消息返回沉默', async () => {
       const c = new Character({ name: 'T', llm: async () => 'ok' });
       const reply = await c.chat('');
-      expect(reply).toBe('...');
+      expect(reply).toBe('[T沉默了一会儿]');
     });
 
-    it('空白消息返回省略号', async () => {
+    it('空白消息返回沉默', async () => {
       const c = new Character({ name: 'T', llm: async () => 'ok' });
       const reply = await c.chat('   ');
-      expect(reply).toBe('...');
+      expect(reply).toBe('[T沉默了一会儿]');
     });
 
     it('save/load 无效 state 抛错', () => {

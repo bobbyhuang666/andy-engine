@@ -37,13 +37,18 @@ describe('WorldPressure', () => {
 
   describe('computeTimePressure', () => {
     it('深夜返回高压力', () => {
-      const pressure = WorldPressure.computeTime({ time: '2026-09-01T02:00:00Z' });
+      const pressure = WorldPressure.computeTime({ time: '2026-09-01T02:00:00Z', hour: 2 });
       expect(pressure).toBeGreaterThan(0.5);
     });
 
     it('白天返回低压力', () => {
-      const pressure = WorldPressure.computeTime({ time: '2026-09-01T14:00:00Z' });
+      const pressure = WorldPressure.computeTime({ time: '2026-09-01T14:00:00Z', hour: 14 });
       expect(pressure).toBeLessThan(0.3);
+    });
+
+    it('优先使用 world.hour 以匹配 WorldClock 本地小时语义', () => {
+      const pressure = WorldPressure.computeTime({ time: '2026-09-01T14:00:00Z', hour: 23 });
+      expect(pressure).toBeGreaterThan(0.5);
     });
 
     it('world 为 null 时返回 0', () => {

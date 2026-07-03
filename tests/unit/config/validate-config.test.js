@@ -89,6 +89,34 @@ describe('validateConfig — needs block', () => {
   it('accepts valid per-need rates', () => {
     expect(() => validateConfig({ needs: { decayRate: { hunger: 0.5 }, threshold: { social: 0.3 } } })).not.toThrow();
   });
+
+  // ── recoveryRate per-field validation ──
+  it('accepts valid per-need recoveryRate', () => {
+    expect(() => validateConfig({ needs: { recoveryRate: { hunger: 0.5, energy: 0.15, social: 0.3, comfort: 0.2, stimulation: 0.25 } } })).not.toThrow();
+  });
+  it('rejects per-need recoveryRate above 1', () => {
+    expect(() => validateConfig({ needs: { recoveryRate: { hunger: 999 } } })).toThrow(/needs\.recoveryRate\.hunger/);
+  });
+  it('rejects per-need recoveryRate NaN', () => {
+    expect(() => validateConfig({ needs: { recoveryRate: { hunger: NaN } } })).toThrow(/needs\.recoveryRate\.hunger/);
+  });
+  it('rejects per-need recoveryRate Infinity', () => {
+    expect(() => validateConfig({ needs: { recoveryRate: { hunger: Infinity } } })).toThrow(/needs\.recoveryRate\.hunger/);
+  });
+  it('rejects per-need recoveryRate string', () => {
+    expect(() => validateConfig({ needs: { recoveryRate: { hunger: 'fast' } } })).toThrow(/needs\.recoveryRate\.hunger/);
+  });
+  it('rejects per-need recoveryRate negative', () => {
+    expect(() => validateConfig({ needs: { recoveryRate: { hunger: -0.5 } } })).toThrow(/needs\.recoveryRate\.hunger/);
+  });
+  it('does not affect decayRate / threshold validation', () => {
+    // recoveryRate valid but decayRate invalid → still rejects decayRate
+    expect(() => validateConfig({ needs: { decayRate: { hunger: 5 }, recoveryRate: { hunger: 0.5 } } })).toThrow(/needs\.decayRate\.hunger/);
+    // recoveryRate valid, threshold invalid → still rejects threshold
+    expect(() => validateConfig({ needs: { threshold: { hunger: 5 }, recoveryRate: { hunger: 0.5 } } })).toThrow(/needs\.threshold\.hunger/);
+    // all valid → no throw
+    expect(() => validateConfig({ needs: { decayRate: { hunger: 0.5 }, threshold: { hunger: 0.3 }, recoveryRate: { hunger: 0.5 } } })).not.toThrow();
+  });
 });
 
 // ═══════════════════════════════════════════

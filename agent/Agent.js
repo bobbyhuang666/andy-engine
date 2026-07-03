@@ -83,6 +83,7 @@ class Agent {
     this._ticksSinceReflection = savedState ? (savedState._ticksSinceReflection || 0) : 0;
     this._reflectionInterval = AGENT_DEFAULTS.reflectionInterval;
     this._recentEventTypes = new Set();
+    this._perceivedEventIds = new Set(savedState?._perceivedEventIds || []);
     this._ticksSinceDriftCheck = savedState ? (savedState._ticksSinceDriftCheck || 0) : 0;
     this._actionTraceHistory = savedState ? (savedState._actionTraceHistory || []) : [];
     this._candidateProviderManager = null; // lazy init

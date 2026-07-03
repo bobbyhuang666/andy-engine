@@ -13,10 +13,11 @@
  *   - 向后兼容
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { WorldFactStore, KnowledgeStore } from '../../facts/index.js';
 import {
   createEventFact,
+  createAgentStateFact,
   FactSource,
   FactScope,
 } from '../../src/canon/FactSchema.js';
@@ -80,6 +81,25 @@ describe('KnowledgeStore', () => {
       expect(ids.size).toBe(2);
       expect(ids.has(e1.id)).toBe(true);
       expect(ids.has(e2.id)).toBe(true);
+    });
+
+    it('hasKnowledge/getKnownFactIds use zero-copy active fact checks', () => {
+      const e1 = makeEvent({ eventId: 'evt1' });
+      const e2 = makeEvent({ eventId: 'evt2' });
+      factStore.addFact(e1);
+      factStore.addFact(e2);
+      knowledgeStore.addKnowledge('alice', e1.id, 'direct');
+      knowledgeStore.addKnowledge('alice', e2.id, 'direct');
+
+      const getFactSpy = vi.spyOn(factStore, 'getFactById');
+      const activeSpy = vi.spyOn(factStore, '_hasActiveFact');
+
+      expect(knowledgeStore.hasKnowledge('alice', e1.id)).toBe(true);
+      const ids = knowledgeStore.getKnownFactIds('alice');
+      expect(ids.size).toBe(2);
+
+      expect(activeSpy).toHaveBeenCalledTimes(3);
+      expect(getFactSpy).not.toHaveBeenCalled();
     });
 
     it('未知角色返回空 Set', () => {
@@ -204,6 +224,31 @@ describe('KnowledgeStore', () => {
     it('移除不存在的知识不报错', () => {
       knowledgeStore.removeKnowledge('alice', 'nonexistent');
     });
+
+    it('factStore.removeFact 同步清理 knowledge/evidence 内部索引', () => {
+      factStore.setKnowledgeStore(knowledgeStore);
+      const stateFact = createAgentStateFact({
+        agentId: 'alice',
+        state: 'focused',
+        region: 'room_a',
+        emotionSummary: 'calm',
+        scope: FactScope.LOCAL,
+        participants: ['alice'],
+      });
+      const added = factStore.addFact(stateFact);
+      knowledgeStore.addKnowledge('alice', added.id, 'direct');
+
+      expect(knowledgeStore.hasKnowledge('alice', added.id)).toBe(true);
+      expect(factStore.removeFact(added.id)).toBe(true);
+
+      expect(knowledgeStore.hasKnowledge('alice', added.id)).toBe(false);
+      expect(knowledgeStore.getStats()).toEqual({
+        agentCount: 0,
+        totalKnowledge: 0,
+        byAgent: {},
+      });
+      expect(knowledgeStore.toJSON().evidence).toEqual({});
+    });
   });
 
   // ─── 统计 ───
@@ -260,6 +305,34 @@ describe('KnowledgeStore', () => {
       // 修改原实例不影响恢复的实例
       knowledgeStore.removeKnowledge('alice', e.id);
       expect(restored.hasKnowledge('alice', e.id)).toBe(true);
+    });
+
+    it('fromJSON 清理已不存在事实的 knowledge 和 evidence', () => {
+      const e = makeEvent({ eventId: 'evt_active' });
+      factStore.addFact(e);
+
+      const restored = KnowledgeStore.fromJSON({
+        knowledge: {
+          alice: [e.id, 'fact_missing_1'],
+          bob: ['fact_missing_2'],
+        },
+        evidence: {
+          [`alice:${e.id}`]: { source: 'direct' },
+          'alice:fact_missing_1': { source: 'observed' },
+          'bob:fact_missing_2': { source: 'told' },
+          'orphan:fact_missing_3': { source: 'inferred' },
+        },
+      }, factStore);
+
+      expect(restored.hasKnowledge('alice', e.id)).toBe(true);
+      expect(restored.hasKnowledge('alice', 'fact_missing_1')).toBe(false);
+      expect(restored.hasKnowledge('bob', 'fact_missing_2')).toBe(false);
+      expect(restored.getStats()).toEqual({
+        agentCount: 1,
+        totalKnowledge: 1,
+        byAgent: { alice: 1 },
+      });
+      expect(Object.keys(restored.toJSON().evidence)).toEqual([`alice:${e.id}`]);
     });
   });
 

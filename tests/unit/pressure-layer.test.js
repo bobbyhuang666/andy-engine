@@ -43,11 +43,11 @@ describe('WorldPressure', () => {
 
   describe('computeTime', () => {
     it('深夜返回高压力', () => {
-      expect(WorldPressure.computeTime({ time: '2026-09-01T02:00:00Z' })).toBeGreaterThan(0.5);
+      expect(WorldPressure.computeTime({ time: '2026-09-01T02:00:00Z', hour: 2 })).toBeGreaterThan(0.5);
     });
 
     it('白天返回低压力', () => {
-      expect(WorldPressure.computeTime({ time: '2026-09-01T14:00:00Z' })).toBeLessThan(0.3);
+      expect(WorldPressure.computeTime({ time: '2026-09-01T14:00:00Z', hour: 14 })).toBeLessThan(0.3);
     });
 
     it('null 返回 0', () => {
@@ -446,7 +446,7 @@ describe('向后兼容性 — WorldPressure', () => {
 
   it('旧接口 computeTime 仍然可用', async () => {
     const { WorldPressure } = await import('../../src/pressure/WorldPressure.js');
-    expect(WorldPressure.computeTime({ time: '2026-09-01T02:00:00Z' })).toBeGreaterThan(0.5);
+    expect(WorldPressure.computeTime({ time: '2026-09-01T02:00:00Z', hour: 2 })).toBeGreaterThan(0.5);
   });
 
   it('旧接口 computeEvent 仍然可用', async () => {

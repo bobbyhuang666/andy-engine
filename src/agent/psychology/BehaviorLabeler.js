@@ -121,7 +121,7 @@ class BehaviorLabeler {
       // 时间惩罚：不合理的状态在距离上加罚
       if (hour !== undefined) {
         const rule = labelTimePenalties[stateNames[i]];
-        if (rule && !rule.hours.includes(hour)) {
+        if (rule && Array.isArray(rule.hours) && !rule.hours.includes(hour)) {
           d += rule.penalty;
         }
       }
@@ -268,7 +268,7 @@ class BehaviorLabelerDomain {
   _getTimeLabelPenalty(state, hour) {
     const rule = this.labelTimePenalties[state];
     if (!rule) return 0;
-    if (rule.hours.includes(hour)) return 0;
+    if (Array.isArray(rule.hours) && rule.hours.includes(hour)) return 0;
     return rule.penalty;
   }
 

@@ -213,4 +213,34 @@ describe('Fallback 测试：极简 domain 不泄漏 campus terms', () => {
     expect(typeof evt.semanticCategory).toBe('string');
     expect(evt.semanticCategory.length).toBeGreaterThan(0);
   });
+
+  it('极简 domain intrinsic exploration states 不 fallback 到 campus terms', () => {
+    const engine = new AndyEngine({
+      domain: minimalDomain,
+      seed: 'minimal-im-domain-fallback',
+      startTime: new Date('2026-09-01T12:00:00Z'),
+    });
+    const agent = engine.createCharacter({
+      id: 'test1',
+      name: '居民',
+      mbti: 'ISTJ',
+      background: ['一个居民'],
+    });
+
+    const result = agent.intrinsicMotivation.tick({
+      position: '小屋',
+      state: '闲逛',
+      hour: 12,
+      hoursElapsed: 0.083,
+      simTime: new Date('2026-09-01T12:00:00Z'),
+      needsState: { hunger: 0.9, energy: 0.9, social: 0.9, comfort: 0.9, stimulation: 0.9 },
+    });
+
+    expect(result.drive).toBeTruthy();
+    expect(result.drive.targetStates.length).toBeGreaterThan(0);
+    for (const state of result.drive.targetStates) {
+      expect(Object.keys(minimalDomain.states)).toContain(state);
+    }
+    expect(containsCampusWords(JSON.stringify(result.drive.targetStates))).toEqual([]);
+  });
 });

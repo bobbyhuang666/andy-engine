@@ -744,6 +744,30 @@ describe('_checkAgentStateLeak evidence tier (v2.5-W3)', () => {
     const r2 = c.check('bob很开心', grounding);
     expect(r2.violations.some(v => v.type === 'agent_state_leak')).toBe(false);
   });
+
+  it('escapes regex metacharacters in display names before agent_state checks', () => {
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      metadata: {
+        agentId: 'alice',
+        agentNames: {
+          alice: 'Alice',
+          bob: 'Bob(测试)+',
+        },
+      },
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+      ],
+    });
+
+    const r = c.check('Bob(测试)+很焦虑', grounding);
+    expect(r.violations.some(v =>
+      v.type === 'agent_state_leak' &&
+      v.agent === 'Bob(测试)+' &&
+      v.stateType === 'emotion'
+    )).toBe(true);
+  });
 });
 
 // ═══════════════════════════════════════════

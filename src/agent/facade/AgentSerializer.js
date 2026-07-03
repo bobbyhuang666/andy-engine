@@ -34,6 +34,7 @@ function toJSON(agent) {
     health: agent.health,
     isOnline: agent.isOnline,
     _actionTraceHistory: (agent._actionTraceHistory || []).map(t => JSON.parse(JSON.stringify(t))),
+    _perceivedEventIds: Array.from(agent._perceivedEventIds || []).slice(-500),
     // W1: 持久化 reflection 周期计数器（恢复后续跑 consolidate/drift 时机一致）
     _ticksSinceReflection: agent._ticksSinceReflection,
     _ticksSinceDriftCheck: agent._ticksSinceDriftCheck,

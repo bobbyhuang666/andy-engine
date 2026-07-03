@@ -1,7 +1,7 @@
 /**
  * MindWanderHandler 单元测试
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Agent from '../../../agent/Agent.js';
 import { getDefaultDomain } from '../../../src/domain/DomainRegistry.js';
 import campusSchedules from '../../../presets/campus/schedules.js';
@@ -83,5 +83,39 @@ describe('MindWanderHandler', () => {
         break;
       }
     }
+  });
+
+  it('routes thought emotion feedback through EffectCommitter when env is available', () => {
+    agent.behaviorField.B[0] = 0.1;
+    agent.behaviorField.B[2] = 0.1;
+    agent.rand = vi
+      .fn()
+      .mockReturnValueOnce(0)
+      .mockReturnValueOnce(0);
+    agent.emotion.applyEffect = vi.fn();
+    agent.memory.retrieve = vi.fn(() => ({
+      memories: [{
+        content: '今天很开心',
+        timestamp: new Date('2025-06-15T09:00:00Z'),
+        emotionTag: 'happy',
+      }],
+      recallEmotionDelta: { joy: 0.04 },
+    }));
+    agent.memory.getSimTime = () => new Date('2025-06-15T10:00:00Z').getTime();
+
+    const commit = vi.fn();
+    const result = { newEvents: [] };
+    handler.tick({ result, env: { effectCommitter: { commit } } });
+
+    expect(result.newEvents[0].type).toBe('mind_wander');
+    expect(commit).toHaveBeenCalledWith({
+      deltas: [expect.objectContaining({
+        type: 'emotion',
+        target: 'agent',
+        agentId: 'test',
+        changes: expect.objectContaining({ joy: expect.any(Number) }),
+      })],
+    });
+    expect(agent.emotion.applyEffect).not.toHaveBeenCalled();
   });
 });

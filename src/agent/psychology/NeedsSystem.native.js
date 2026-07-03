@@ -6,10 +6,28 @@
  */
 
 const { ANDY_DEFAULTS } = require('../../config/defaults');
-const cfg = ANDY_DEFAULTS.needs;
 const { getDefaultDomain } = require('../../domain/DomainRegistry');
 const { loadNativeModule } = require('../../shared/nativeLoader');
 const { diagnostics } = require('../../shared/Diagnostics');
+
+/**
+ * Merge user needs config with defaults. Mirrors NeedsSystem.js _mergeNeedsConfig
+ * so native and JS paths share identical instance-level config resolution.
+ * Returns a fresh object — does NOT touch module-global state.
+ */
+function _mergeNeedsConfig(userConfig) {
+  const base = ANDY_DEFAULTS.needs;
+  if (!userConfig || typeof userConfig !== 'object') return base;
+  const needsCfg = userConfig.needs || userConfig;
+  if (typeof needsCfg !== 'object' || Object.keys(needsCfg).length === 0) return base;
+  const merged = { ...base };
+  for (const key of ['decayRate', 'recoveryRate', 'threshold']) {
+    if (needsCfg[key] && typeof needsCfg[key] === 'object') {
+      merged[key] = { ...base[key], ...needsCfg[key] };
+    }
+  }
+  return merged;
+}
 
 // R16 fix: constants needed by tickWithBehavior / getDriveGradient / getRecoveryRatesForBehavior
 // Must match NeedsSystem.js exactly to ensure native/JS parity.
@@ -55,7 +73,15 @@ function _ensureNative() {
 }
 
 class NeedsSystemNative {
-  constructor(personality, savedState = null) {
+  constructor(personality, savedState = null, domain = null, needsConfig = null) {
+    // P1-1 fix: instance-level config, not module-global. Previously the
+    // native wrapper read a module-level `cfg = ANDY_DEFAULTS.needs` and
+    // ignored the needsConfig arg, so per-engine needs config never reached
+    // the native path and multiple engines silently shared one config.
+    this._cfg = _mergeNeedsConfig(needsConfig);
+    this._domain = domain || getDefaultDomain();
+    this._needDriveStates = this._domain.needDriveStates || {};
+
     const ocean = personality.ocean;
 
     const oceanJson = JSON.stringify({
@@ -64,27 +90,28 @@ class NeedsSystemNative {
       openness: ocean.openness,
     });
 
+    const c = this._cfg;
     const configJson = JSON.stringify({
       decay_rate: {
-        hunger: cfg.decayRate.hunger,
-        energy: cfg.decayRate.energy,
-        social: cfg.decayRate.social,
-        comfort: cfg.decayRate.comfort,
-        stimulation: cfg.decayRate.stimulation,
+        hunger: c.decayRate.hunger,
+        energy: c.decayRate.energy,
+        social: c.decayRate.social,
+        comfort: c.decayRate.comfort,
+        stimulation: c.decayRate.stimulation,
       },
       recovery_rate: {
-        hunger: cfg.recoveryRate.hunger,
-        energy: cfg.recoveryRate.energy,
-        social: cfg.recoveryRate.social,
-        comfort: cfg.recoveryRate.comfort,
-        stimulation: cfg.recoveryRate.stimulation,
+        hunger: c.recoveryRate.hunger,
+        energy: c.recoveryRate.energy,
+        social: c.recoveryRate.social,
+        comfort: c.recoveryRate.comfort,
+        stimulation: c.recoveryRate.stimulation,
       },
       threshold: {
-        hunger: cfg.threshold.hunger,
-        energy: cfg.threshold.energy,
-        social: cfg.threshold.social,
-        comfort: cfg.threshold.comfort,
-        stimulation: cfg.threshold.stimulation,
+        hunger: c.threshold.hunger,
+        energy: c.threshold.energy,
+        social: c.threshold.social,
+        comfort: c.threshold.comfort,
+        stimulation: c.threshold.stimulation,
       },
     });
 
@@ -128,11 +155,10 @@ class NeedsSystemNative {
   }
 
   getDrive() {
-    const NEED_DRIVE_STATES = getDefaultDomain().needDriveStates || {};
     let maxUrgency = 0;
     let urgentNeed = null;
     for (const [need, value] of Object.entries(this.needs)) {
-      const threshold = cfg.threshold[need] || 0.3;
+      const threshold = this._cfg.threshold[need] || 0.3;
       if (value < threshold) {
         const urgency = threshold - value;
         if (urgency > maxUrgency) {
@@ -145,7 +171,7 @@ class NeedsSystemNative {
     return {
       need: urgentNeed,
       urgency: maxUrgency,
-      targetStates: NEED_DRIVE_STATES[urgentNeed] || [],
+      targetStates: this._needDriveStates[urgentNeed] || [],
     };
   }
 
@@ -213,7 +239,7 @@ class NeedsSystemNative {
   getDriveGradient() {
     const drives = [];
     for (const [need, value] of Object.entries(this.needs)) {
-      const threshold = cfg.threshold[need] || 0.3;
+      const threshold = this._cfg.threshold[need] || 0.3;
       if (value >= threshold) continue;
       const urgency = threshold - value;
       const target = NEED_DEPRIVATION_GRADIENT_TARGETS[need];
@@ -238,7 +264,7 @@ class NeedsSystemNative {
       }
       const distance = Math.sqrt(distSq);
       const factor = Math.max(0, 1 - distance / maxDist);
-      const baseRate = cfg.recoveryRate[need] || 0.3;
+      const baseRate = this._cfg.recoveryRate[need] || 0.3;
       const multiplier = (this._recoveryMultipliers && this._recoveryMultipliers[need]) || 1.0;
       rates[need] = baseRate * factor * multiplier;
     }
@@ -256,14 +282,16 @@ class NeedsSystemNative {
 
   /**
    * 从 toJSON 输出反序列化为 NeedsSystemNative 实例（native 路径）。
-   * 恢复路径中应传入真实 Personality；省略时用 ocean 桩，仅供 round-trip / 测试。
+   * 恢复路径中应传入真实 Personality 与 Domain；省略时用 ocean 桨，仅供 round-trip / 测试。
    * @param {Object} json - toJSON() 产出
    * @param {Object} [personality] - Personality 实例
+   * @param {Object} [domain] - DomainRegistry 实例
+   * @param {Object} [needsConfig] - user needs config override
    * @returns {NeedsSystemNative}
    */
-  static fromJSON(json, personality = null) {
+  static fromJSON(json, personality = null, domain = null, needsConfig = null) {
     const p = personality || { ocean: { neuroticism: 0.5, extraversion: 0.5, openness: 0.5 } };
-    return new NeedsSystemNative(p, json);
+    return new NeedsSystemNative(p, json, domain, needsConfig);
   }
 }
 

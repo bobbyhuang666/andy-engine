@@ -2,7 +2,7 @@
  * Phase 26 Fix: Deterministic Trace & Event Emission Tests
  *
  * Verifies:
- * - No Math.random/Date.now in agent/action (source scan)
+ * - No Math.random/Date.now in canonical src/action (source scan)
  * - Complete reasonTrace deterministic equality
  * - action_selected event enters event log
  * - EventEffectPipeline produces stateDeltas
@@ -11,11 +11,7 @@
 
 import { describe, it, expect } from 'vitest';
 import AndyEngine from '../index.js';
-import { select } from '../agent/action/UtilitySelector.js';
-import { createCandidate } from '../agent/action/ActionCandidate.js';
-import { EventEffectPipeline } from '../src/effects/EventEffectPipeline.js';
 import { WorldPressure } from '../src/pressure/WorldPressure.js';
-import { RNG } from '../src/shared/rng.js';
 import { readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 
@@ -28,9 +24,9 @@ function createSeededEngine(seed) {
 }
 
 describe('Phase 26 Fix: Deterministic & Trace Tests', () => {
-  describe('Source scan: no Math.random/Date.now in agent/action', () => {
-    it('agent/action files contain no Math.random', () => {
-      const actionDir = join(__dirname, '../agent/action');
+  describe('Source scan: no Math.random/Date.now in src/action', () => {
+    it('src/action files contain no Math.random', () => {
+      const actionDir = join(__dirname, '../src/action');
       const files = readdirSync(actionDir, { recursive: true })
         .filter(f => f.endsWith('.js'))
         .map(f => join(actionDir, f));
@@ -50,8 +46,8 @@ describe('Phase 26 Fix: Deterministic & Trace Tests', () => {
       }
     });
 
-    it('agent/action files contain no Date.now', () => {
-      const actionDir = join(__dirname, '../agent/action');
+    it('src/action files contain no Date.now', () => {
+      const actionDir = join(__dirname, '../src/action');
       const files = readdirSync(actionDir, { recursive: true })
         .filter(f => f.endsWith('.js'))
         .map(f => join(actionDir, f));
@@ -230,8 +226,8 @@ describe('Phase 26 Fix: Deterministic & Trace Tests', () => {
 
     it('late night time pressure is higher than work hours', () => {
       // Use WorldPressure.computeTime directly with proper world.time format
-      const nightPressure = WorldPressure.computeTime({ time: '2026-09-01T02:00:00Z' });
-      const dayPressure = WorldPressure.computeTime({ time: '2026-09-01T14:00:00Z' });
+      const nightPressure = WorldPressure.computeTime({ time: '2026-09-01T02:00:00Z', hour: 2 });
+      const dayPressure = WorldPressure.computeTime({ time: '2026-09-01T14:00:00Z', hour: 14 });
 
       expect(nightPressure).toBeGreaterThan(dayPressure);
     });

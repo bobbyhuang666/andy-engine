@@ -254,6 +254,21 @@ describe('SaveLoad', () => {
     expect(list.length).toBe(2);
   });
 
+  it('deprecated saveWorld/loadWorld aliases delegate to canonical methods', () => {
+    const engine = createTestEngine();
+    engine.tick();
+
+    const mockStore = new MockStore();
+    const saveLoad = new SaveLoad(mockStore);
+
+    saveLoad.saveWorld(engine, { tag: 'legacy' });
+    const snapshot = saveLoad.loadWorld('snap_1');
+
+    expect(mockStore.saved.length).toBe(1);
+    expect(mockStore.saved[0].metadata.tag).toBe('legacy');
+    expect(snapshot.agents).toBeDefined();
+  });
+
   it('拒绝空 store', () => {
     expect(() => new SaveLoad(null)).toThrow(/store/);
     expect(() => new SaveLoad(undefined)).toThrow(/store/);

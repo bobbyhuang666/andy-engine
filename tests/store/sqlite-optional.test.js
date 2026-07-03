@@ -93,4 +93,40 @@ describe('SQLite optional dependency behavior', () => {
 
     store.close();
   });
+
+  it('store implementations keep deprecated public aliases wired to canonical methods', () => {
+    const { MemoryStore } = require('../../src/store/MemoryStore');
+    const store = new MemoryStore();
+
+    store.saveSnapshot(1, 1000, Buffer.from('one'));
+    store.saveSnapshot(2, 2000, Buffer.from('two'));
+    expect(store.loadLatestSnapshot().tick).toBe(2);
+    expect(store.loadSnapshotByTick(1).data.toString()).toBe('one');
+
+    store.saveMeta('legacy', 'ok');
+    expect(store.loadMeta('legacy')).toBe('ok');
+    expect(store.get('legacy')).toBe('ok');
+  });
+
+  it('createStore auto mode falls back after init when SQLite is unavailable', async () => {
+    clearStoreCache();
+    Module._load = function patchedLoad(request, parent, isMain) {
+      if (request === 'better-sqlite3') {
+        throw new Error('simulated missing better-sqlite3');
+      }
+      return originalLoad.apply(this, arguments);
+    };
+
+    const { createStore } = require('../../src/store/index.js');
+    const store = createStore({ dbPath: ':memory:' });
+    const result = await store.init({
+      onSnapshot: () => Buffer.from('snapshot'),
+      onRestore: () => {},
+    });
+
+    expect(store.db.constructor.name).toBe('MemoryStore');
+    expect(result).toMatchObject({ restoredTick: 0, hasSnapshot: false });
+
+    await store.shutdown();
+  });
 });

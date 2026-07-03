@@ -31,7 +31,26 @@ class FactProvider {
     if (!fact) return false;
     if (fact._invalidated) return false;
     if (fact.type === FactType.INVALIDATED) return false;
+    if (this._isInternalAuditFact(fact)) return false;
     return true;
+  }
+
+  /**
+   * Internal audit facts may remain in WorldFactStore for traceability, but
+   * narrative grounding must not expose them as world facts.
+   * @param {Object} fact
+   * @returns {boolean}
+   * @private
+   */
+  _isInternalAuditFact(fact) {
+    if (!fact) return false;
+    if (fact.auditOnly === true) return true;
+    if (fact.originalScope === 'internal') return true;
+    if (fact.eventType === 'action_selected') return true;
+    if (fact.type === FactType.EVENT && typeof fact.description === 'string') {
+      return fact.description.startsWith('action_selected');
+    }
+    return false;
   }
 
   /**

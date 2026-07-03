@@ -19,7 +19,7 @@ import {
 import {
   BehaviorField, DEFAULTS, NEED_SATISFACTION_TARGETS, TIME_TARGETS,
 } from '../src/agent/psychology/BehaviorField.js';
-import { getDefaultDomain } from '../src/domain/DomainRegistry.js';
+import { getDefaultDomain, DomainRegistry } from '../src/domain/DomainRegistry.js';
 
 const campusDomain = getDefaultDomain();
 
@@ -928,3 +928,73 @@ function _getCategory(state) {
   if (transit.includes(state)) return 'transit';
   return 'other';
 }
+
+// ═══════════════════════════════════════════
+// P1 regression: domain-driven time schedule
+// ═══════════════════════════════════════════
+describe('P1: BehaviorField time schedule is domain/config-driven', () => {
+  it('uses DEFAULT_TIME_SCHEDULE (9-to-5) when domain has no timeSchedule', () => {
+    const bf = new BehaviorField(mockPersonality(), null, {}, campusDomain);
+    // At hour 14 (2 PM on 9-to-5), _getTimeTarget should return the 'active' target
+    const target = bf._getTimeTarget(14);
+    expect(target).toBeDefined();
+    expect(target.length).toBe(4);
+    // active target: high activity, moderate focus, low sociality
+    expect(target[0]).toBeGreaterThan(0.5);  // activity
+    expect(target[2]).toBeGreaterThan(0.5);  // focus
+  });
+
+  it('uses night-shift schedule when domain provides timeSchedule', () => {
+    const nightSchedule = [
+      { hour: 0,  target: 'active' },
+      { hour: 6,  target: 'evening' },
+      { hour: 8,  target: 'sleep' },
+      { hour: 16, target: 'morning' },
+      { hour: 18, target: 'active' },
+      { hour: 22, target: 'midday' },
+      { hour: 24, target: 'active' },
+    ];
+    const nightConfig = { ...campusDomain.domain, timeSchedule: nightSchedule };
+    const nightDomainRegistry = new DomainRegistry(nightConfig, { validate: false });
+    const bf = new BehaviorField(mockPersonality(), null, {}, nightDomainRegistry);
+    // At hour 9 (night shift: still in sleep zone), should be sleep-like
+    const target = bf._getTimeTarget(9);
+    expect(target).toBeDefined();
+    // sleep target: very low activity
+    expect(target[0]).toBeLessThan(0.1);
+  });
+
+  it('falls back to DEFAULT_TIME_SCHEDULE when domain has no timeSchedule property', () => {
+    // campus config has no timeSchedule key → should use default
+    const bf = new BehaviorField(mockPersonality(), null, {}, campusDomain);
+    // At hour 3 AM, both default and custom should map to sleep
+    const target = bf._getTimeTarget(3);
+    expect(target[0]).toBeLessThan(0.1); // very low activity = sleep
+  });
+
+  it('falls back to DEFAULT_TIME_SCHEDULE when domain timeSchedule is empty or invalid', () => {
+    const emptyDomain = new DomainRegistry({ ...campusDomain.domain, timeSchedule: [] }, { validate: false });
+    const emptyField = new BehaviorField(mockPersonality(), null, {}, emptyDomain);
+    expect(() => emptyField.tick(defaultSignals({ environment: { hour: 12 } }))).not.toThrow();
+    expect(emptyField._getTimeTarget(14)[0]).toBeGreaterThan(0.5);
+
+    const invalidDomain = new DomainRegistry({
+      ...campusDomain.domain,
+      timeSchedule: [
+        { hour: 0, target: 'sleep' },
+        { hour: 8, target: 'not-a-target' },
+      ],
+    }, { validate: false });
+    const invalidField = new BehaviorField(mockPersonality(), null, {}, invalidDomain);
+    expect(() => invalidField.tick(defaultSignals({ environment: { hour: 12 } }))).not.toThrow();
+    expect(invalidField._getTimeTarget(3)[0]).toBeLessThan(0.1);
+  });
+
+  it('_getTimeTarget returns sleep fallback for hours at schedule boundaries', () => {
+    const bf = new BehaviorField(mockPersonality(), null, {}, campusDomain);
+    // 0 hour should map to sleep on default schedule
+    const target = bf._getTimeTarget(0);
+    expect(target).toBeDefined();
+    expect(target[0]).toBeLessThan(0.1);
+  });
+});

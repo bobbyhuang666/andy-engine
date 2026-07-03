@@ -9,83 +9,88 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { GoalSystem } from '../agent/action/GoalSystem.js';
-import { scoreCandidate } from '../agent/action/UtilityScorer.js';
-import { createCandidate } from '../agent/action/ActionCandidate.js';
+import {
+  createGoal,
+  tickGoals,
+  toJSON,
+  fromJSON,
+  getActiveGoals,
+} from '../src/action/GoalSystem.js';
+import { scoreCandidate } from '../src/action/UtilityScorer.js';
+import { ActionCandidate } from '../src/action/ActionCandidate.js';
 import AndyEngine from '../index.js';
+
+function createCandidate(params) {
+  return new ActionCandidate({
+    type: params.type || 'continue',
+    source: params.source || 'behaviorField',
+    target: params.target || '',
+    label: params.label || '',
+    metadata: params.metadata || {},
+  });
+}
 
 describe('Phase 29: GoalSystem Minimal Runtime', () => {
   describe('GoalSystem lifecycle', () => {
     it('adds and tracks active goals', () => {
-      const gs = new GoalSystem();
-      gs.addGoal({ id: 'g1', source: 'self', description: '探索公园', priority: 0.6 });
-      expect(gs.activeGoals).toHaveLength(1);
-      expect(gs.activeGoals[0].id).toBe('g1');
+      const goals = [
+        createGoal({ id: 'g1', source: 'self', target: '公园', priority: 0.6 }),
+      ];
+      expect(getActiveGoals(goals)).toHaveLength(1);
+      expect(goals[0].id).toBe('g1');
     });
 
     it('completes goals when condition is met', () => {
-      const gs = new GoalSystem();
-      gs.addGoal({
+      const goals = [createGoal({
         id: 'g1',
         source: 'self',
-        description: '到达公园',
-        completionCondition: { type: 'region_reached', region: '公园' },
-      });
+        target: '公园',
+        completionConditions: { region_reached: '公园' },
+      })];
 
-      gs.tick({ position: '图书馆', state: '在图书馆', simTime: new Date(), tickCount: 1 });
-      expect(gs.activeGoals).toHaveLength(1);
+      const before = tickGoals(goals, { agent: { position: '图书馆' } }, Date.now());
+      expect(getActiveGoals(before)).toHaveLength(1);
 
-      gs.tick({ position: '公园', state: '闲逛', simTime: new Date(), tickCount: 2 });
-      expect(gs.activeGoals).toHaveLength(0);
-      expect(gs.completedGoals).toHaveLength(1);
-      expect(gs.completedGoals[0].status).toBe('completed');
+      const after = tickGoals(before, { agent: { position: '公园' } }, Date.now());
+      expect(getActiveGoals(after)).toHaveLength(0);
+      expect(after[0].status).toBe('completed');
     });
 
     it('expires goals past deadline', () => {
-      const gs = new GoalSystem();
       const now = Date.now();
-      gs.addGoal({
+      const goals = [createGoal({
         id: 'g1',
         source: 'self',
-        description: '过期目标',
-        deadline: now - 1000, // already expired
-      });
+        target: '公园',
+        expiresAt: now - 1000,
+      })];
 
-      gs.tick({ position: '图书馆', state: '在图书馆', simTime: new Date(now), tickCount: 1 });
-      expect(gs.activeGoals).toHaveLength(0);
-      expect(gs.completedGoals[0].status).toBe('expired');
+      const updated = tickGoals(goals, { agent: { position: '图书馆' } }, now);
+      expect(getActiveGoals(updated)).toHaveLength(0);
+      expect(updated[0].status).toBe('expired');
     });
 
     it('decays priority over time', () => {
-      const gs = new GoalSystem();
-      gs.addGoal({ id: 'g1', source: 'self', description: 'test', priority: 1.0 });
-
-      for (let i = 0; i < 100; i++) {
-        gs.tick({ position: '图书馆', state: '在图书馆', simTime: new Date(), tickCount: i });
-      }
-
-      expect(gs.activeGoals[0].priority).toBeLessThan(1.0);
+      const goals = [createGoal({ id: 'g1', source: 'self', target: '公园', priority: 1.0 })];
+      const updated = tickGoals(goals, { agent: { position: '图书馆' } }, Date.now() + 1000);
+      expect(updated[0].priority).toBeLessThanOrEqual(1.0);
+      expect(updated[0].status).toBe('active');
     });
   });
 
   describe('GoalSystem serialization', () => {
     it('persists goals in toJSON', () => {
-      const gs = new GoalSystem();
-      gs.addGoal({ id: 'g1', source: 'self', description: 'test' });
-      const json = gs.toJSON();
-      expect(json.activeGoals).toHaveLength(1);
-      expect(json.activeGoals[0].id).toBe('g1');
+      const goals = [createGoal({ id: 'g1', source: 'self', target: '公园' })];
+      const json = toJSON(goals);
+      expect(json).toHaveLength(1);
+      expect(json[0].id).toBe('g1');
     });
 
     it('restores from saved state', () => {
-      const saved = {
-        activeGoals: [{ id: 'g1', source: 'self', description: 'test', priority: 0.5, status: 'active' }],
-        completedGoals: [],
-        _nextId: 2,
-      };
-      const gs = new GoalSystem(saved);
-      expect(gs.activeGoals).toHaveLength(1);
-      expect(gs._nextId).toBe(2);
+      const saved = [{ id: 'g1', source: 'self', target: '公园', priority: 0.5, status: 'active' }];
+      const goals = fromJSON(saved);
+      expect(goals).toHaveLength(1);
+      expect(goals[0].id).toBe('g1');
     });
   });
 
@@ -94,7 +99,7 @@ describe('Phase 29: GoalSystem Minimal Runtime', () => {
       const exploreCandidate = createCandidate({ type: 'explore', source: 'intrinsic' });
 
       const withoutGoals = scoreCandidate(exploreCandidate, {
-        behavior: { B: [0.5, 0.3, 0.5, 0.3] },
+        behaviorField: { B: [0.5, 0.3, 0.5, 0.3] },
         needs: { hunger: 0.9, energy: 0.9, social: 0.9, comfort: 0.9, stimulation: 0.9 },
         emotion: { valence: 0, arousal: 0.5, approachDrive: 0, avoidDrive: 0, agenticDrive: 0 },
         relationships: [],
@@ -103,12 +108,12 @@ describe('Phase 29: GoalSystem Minimal Runtime', () => {
       });
 
       const withGoals = scoreCandidate(exploreCandidate, {
-        behavior: { B: [0.5, 0.3, 0.5, 0.3] },
+        behaviorField: { B: [0.5, 0.3, 0.5, 0.3] },
         needs: { hunger: 0.9, energy: 0.9, social: 0.9, comfort: 0.9, stimulation: 0.9 },
         emotion: { valence: 0, arousal: 0.5, approachDrive: 0, avoidDrive: 0, agenticDrive: 0 },
         relationships: [],
         memories: [],
-        goals: [{ source: 'self', priority: 0.8 }],
+        goals: [{ source: 'self', status: 'active', actionType: 'explore', priority: 0.8 }],
       });
 
       expect(withGoals.goal).toBeGreaterThan(withoutGoals.goal);

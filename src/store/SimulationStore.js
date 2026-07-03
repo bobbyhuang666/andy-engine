@@ -36,11 +36,11 @@ class SimulationStore {
   constructor(options = {}) {
     this.dbPath = options.dbPath || ':memory:';
     this.storeType = options.storeType || 'sqlite';
-    this.snapshotInterval = options.snapshotInterval ?? 12;
-    this.storyFlushInterval = options.storyFlushInterval ?? 1;
+    this.snapshotInterval = SimulationStore._positiveInterval(options.snapshotInterval, 12);
+    this.storyFlushInterval = SimulationStore._positiveInterval(options.storyFlushInterval, 1);
     this.maxStoryBuffer = options.maxStoryBuffer ?? 200;
     this.snapshotKeepCount = options.snapshotKeepCount ?? 720;
-    this.storyDecayInterval = options.storyDecayInterval ?? 288;
+    this.storyDecayInterval = SimulationStore._positiveInterval(options.storyDecayInterval, 288);
 
     /** @type {SQLiteStore} */
     this.db = null;
@@ -51,6 +51,11 @@ class SimulationStore {
     this.storyBuffer = [];       // 待写入的故事
     this._snapshotFn = null;     // 外部提供的序列化函数
     this._restoreFn = null;      // 外部提供的反序列化函数
+  }
+
+  static _positiveInterval(value, fallback) {
+    const interval = Number(value ?? fallback);
+    return Number.isFinite(interval) && interval > 0 ? Math.max(1, Math.floor(interval)) : fallback;
   }
 
   // ═══════════════════════════════════════════
@@ -89,11 +94,14 @@ class SimulationStore {
     const savedTick = this.db.get('tick_count');
     const savedTime = this.db.get('virtual_time');
 
-    if (savedTick) {
-      this.tickCount = parseInt(savedTick, 10);
+    // Guard corrupt meta: parseInt non-numeric strings → NaN, fall back to safe defaults
+    if (savedTick != null) {
+      const parsed = parseInt(savedTick, 10);
+      this.tickCount = Number.isFinite(parsed) ? parsed : 0;
     }
-    if (savedTime) {
-      this.virtualTime = new Date(parseInt(savedTime, 10));
+    if (savedTime != null) {
+      const parsed = parseInt(savedTime, 10);
+      this.virtualTime = Number.isFinite(parsed) ? new Date(parsed) : null;
     }
 
     // 尝试恢复最近快照
@@ -237,36 +245,58 @@ class SimulationStore {
   async shutdown() {
     if (!this.db) return;
 
-    // 1. 刷出故事缓冲
-    this._flushStories();
-
-    // R39 P1 fix: final snapshot 失败必须向调用方传播。
-    // 原实现 _saveSnapshot 吞掉错误,shutdown 正常 resolve,调用方误以为安全落盘。
-    // 现在用 throwOnFailure 让 final snapshot 失败时抛出,但 db.close() 仍执行
-    // (finally 块),避免连接泄漏。
+    // P0 fix: _flushStories() 可能 throw，必须确保 db.close() 在 finally 路径执行，
+    // 避免连接泄漏。收集首个错误，close 后再 throw，不吞掉 shutdown 应暴露的错误。
+    let firstError = null;
     let snapshotError = null;
     try {
-      this._saveSnapshot({ throwOnFailure: true });
+      // 1. 刷出故事缓冲
+      this._flushStories();
     } catch (e) {
-      snapshotError = e;
+      firstError = e;
     }
 
-    // 2. 保存元数据
-    try {
-      this.db.set('tick_count', String(this.tickCount));
-      if (this.virtualTime) {
-        this.db.set('virtual_time', String(this.virtualTime.getTime()));
+    // 2. 保存最终快照（flush 失败时仍尝试保存已有快照）
+    if (!firstError || this._snapshotFn) {
+      try {
+        this._saveSnapshot({ throwOnFailure: true });
+      } catch (e) {
+        snapshotError = e;
       }
-    } catch (e) {
-      diagnostics.collect({ type: 'metadata-save-failed', error: e.message });
-      if (!snapshotError) snapshotError = e;
     }
 
-    // 3. 关闭数据库 (无论如何都要关闭,避免连接泄漏)
-    this.db.close();
+    // 3. 保存元数据
+    // If the final snapshot failed, do not advance tick/time metadata beyond
+    // the latest durable snapshot. Otherwise the next init can restore old
+    // agent state while believing it is at a newer tick.
+    if (!snapshotError) {
+      try {
+        this.db.set('tick_count', String(this.tickCount));
+        if (this.virtualTime) {
+          this.db.set('virtual_time', String(this.virtualTime.getTime()));
+        }
+      } catch (e) {
+        diagnostics.collect({ type: 'metadata-save-failed', error: e.message });
+        snapshotError = e;
+      }
+    } else {
+      diagnostics.collect({
+        type: 'metadata-save-skipped',
+        reason: 'snapshot-save-failed',
+        tickCount: this.tickCount,
+      });
+    }
+
+    // 4. 关闭数据库 (无论如何都要关闭,避免连接泄漏)
+    try {
+      this.db.close();
+    } catch (e) {
+      if (!firstError) firstError = e;
+    }
     this.db = null;
 
-    // 4. 若 snapshot/metadata 失败,传播错误
+    // 5. 传播错误 (flush > snapshot > metadata > close)
+    if (firstError) throw firstError;
     if (snapshotError) throw snapshotError;
   }
 
@@ -278,8 +308,25 @@ class SimulationStore {
   _flushStories() {
     if (this.storyBuffer.length === 0) return;
 
-    const stories = this.storyBuffer.splice(0); // 取出并清空缓冲
-    this.db.saveStories(stories);
+    // Copy first; only clear the buffer after a successful write.
+    // The previous implementation did splice(0) before saveStories, so a DB
+    // failure permanently lost the buffered stories with no recovery path.
+    const stories = this.storyBuffer.slice();
+    try {
+      this.db.saveStories(stories);
+    } catch (e) {
+      diagnostics.collect({
+        type: 'story-flush-failed',
+        error: e.message,
+        pendingCount: this.storyBuffer.length,
+      });
+      // Preserve the buffer (do not clear) and re-throw to maintain the
+      // existing error-propagation semantics (shutdown/final save errors
+      // must surface to the caller rather than being swallowed).
+      throw e;
+    }
+    // Success: remove exactly the stories we just persisted.
+    this.storyBuffer.splice(0, stories.length);
   }
 
   /** 保存当前快照

@@ -178,7 +178,7 @@ class StoryGenerator {
    * @returns {Story}
    */
   generateFromSignal(storyText, emotionEffect, tick, options = {}) {
-    const { simTime } = options;
+    const { simTime, agentId = 'default' } = options;
     const timestamp = simTime ? simTime.getTime() : 0;
     // 根据情绪变化确定标签和重要性
     let emotionTag = 'neutral';
@@ -203,7 +203,7 @@ class StoryGenerator {
     return {
       tick,
       timestamp,
-      agentId: 'default',
+      agentId,
       category: 'conversation',
       content: storyText,
       emotionTag,

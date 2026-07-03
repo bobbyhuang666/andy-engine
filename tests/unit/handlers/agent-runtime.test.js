@@ -3,7 +3,7 @@
  *
  * 验证 AgentRuntime.tick() 与 Agent.tick() 产生等价行为。
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import Agent from '../../../agent/Agent.js';
 import campusSchedules from '../../../presets/campus/schedules.js';
 import { getDefaultDomain } from '../../../src/domain/DomainRegistry.js';
@@ -159,6 +159,26 @@ describe('AgentRuntime', () => {
       // After tick with very low hunger, frustration should be elevated
       // (coupling effect + no decay to zero it out in one tick)
       expect(agent.emotion.current.frustration).toBeGreaterThan(0);
+    });
+
+    it('routes intrinsic motivation emotion effects through EffectCommitter when env is available', () => {
+      const commit = vi.fn();
+      const applyEffect = vi.spyOn(agent.emotion, 'applyEffect');
+      agent.intrinsicMotivation.tick = vi.fn(() => ({
+        emotionEffects: { interest: 0.05 },
+      }));
+
+      runtime.tick(makeEnv({ effectCommitter: { commit } }), [], null);
+
+      expect(commit).toHaveBeenCalledWith({
+        deltas: [expect.objectContaining({
+          type: 'emotion',
+          target: 'agent',
+          agentId: 'test',
+          changes: { interest: 0.05 },
+        })],
+      });
+      expect(applyEffect).not.toHaveBeenCalledWith({ interest: 0.05 });
     });
   });
 

@@ -6,7 +6,7 @@
  *   - SelectedAction structure
  *   - ReasonTrace completeness
  *   - Purity (no state modification)
- *   - Backward compatibility (agent/action/ re-exports)
+ *   - Canonical src/action implementation behavior
  */
 
 import { describe, it, expect } from 'vitest';

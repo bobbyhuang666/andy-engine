@@ -131,6 +131,27 @@ describe('LLMAdapter — Anthropic provider (chat non-stream)', () => {
     expect(opts.headers['anthropic-version']).toBe('2023-06-01');
   });
 
+  it('chat() anthropic defaults to ANTHROPIC_API_KEY, not OPENAI_API_KEY', async () => {
+    const oldOpenAI = process.env.OPENAI_API_KEY;
+    const oldAnthropic = process.env.ANTHROPIC_API_KEY;
+    process.env.OPENAI_API_KEY = 'openai-key';
+    process.env.ANTHROPIC_API_KEY = 'anthropic-key';
+    fetchMock.mockResolvedValue(fakeJsonResponse({ content: [{ text: 'ok' }] }));
+
+    try {
+      const adapter = new LLMAdapter({ provider: 'anthropic', maxRetries: 0 });
+      const result = await adapter.chat([{ role: 'user', content: 'hi' }]);
+      expect(result).toBe('ok');
+      const [, opts] = fetchMock.mock.calls[0];
+      expect(opts.headers['x-api-key']).toBe('anthropic-key');
+    } finally {
+      if (oldOpenAI === undefined) delete process.env.OPENAI_API_KEY;
+      else process.env.OPENAI_API_KEY = oldOpenAI;
+      if (oldAnthropic === undefined) delete process.env.ANTHROPIC_API_KEY;
+      else process.env.ANTHROPIC_API_KEY = oldAnthropic;
+    }
+  });
+
   it('_callAnthropic returns "" when content[0].text missing', async () => {
     fetchMock.mockResolvedValue(fakeJsonResponse({ content: [] }));
     const adapter = new LLMAdapter({ provider: 'anthropic', apiKey: 'a', maxRetries: 0 });
@@ -166,6 +187,16 @@ describe('LLMAdapter — streaming (chatStream)', () => {
     expect(tokens.join('')).toBe('Hello');
   });
 
+  it('chatStream() openai processes final data line without trailing newline', async () => {
+    global.fetch = vi.fn().mockResolvedValue(fakeStreamResponse([
+      'data: {"choices":[{"delta":{"content":"tail"}}]}',
+    ]));
+    const adapter = new LLMAdapter({ provider: 'openai', apiKey: 'k', maxRetries: 0 });
+    const tokens = [];
+    for await (const t of adapter.chatStream([{ role: 'user', content: 'x' }])) tokens.push(t);
+    expect(tokens).toEqual(['tail']);
+  });
+
   it('chatStream() anthropic yields content_block_delta.text', async () => {
     global.fetch = vi.fn().mockResolvedValue(fakeStreamResponse([
       'data: {"type":"content_block_delta","delta":{"text":"hi"}}\n',
@@ -175,6 +206,16 @@ describe('LLMAdapter — streaming (chatStream)', () => {
     const tokens = [];
     for await (const t of adapter.chatStream([{ role: 'user', content: 'x' }])) tokens.push(t);
     expect(tokens).toEqual(['hi']);
+  });
+
+  it('chatStream() anthropic processes final data line without trailing newline', async () => {
+    global.fetch = vi.fn().mockResolvedValue(fakeStreamResponse([
+      'data: {"type":"content_block_delta","delta":{"text":"tail"}}',
+    ]));
+    const adapter = new LLMAdapter({ provider: 'anthropic', apiKey: 'a', maxRetries: 0 });
+    const tokens = [];
+    for await (const t of adapter.chatStream([{ role: 'user', content: 'x' }])) tokens.push(t);
+    expect(tokens).toEqual(['tail']);
   });
 
   it('chatStream() empty messages throws', async () => {
@@ -213,5 +254,149 @@ describe('LLMAdapter — defaults & apikey guard', () => {
     } finally {
       global.fetch = originalFetch;
     }
+  });
+});
+
+// ═══════════════════════════════════════════
+// P1-1 回归: chatStream retry 不重复 yield token
+// ═══════════════════════════════════════════
+describe('P1-1: chatStream retry does not re-yield tokens', () => {
+  it('retries on error before first token (connection failure)', async () => {
+    let callCount = 0;
+    const fetchMock = vi.fn().mockImplementation(async () => {
+      callCount++;
+      if (callCount === 1) throw new Error('ECONNRESET');
+      return fakeStreamResponse([
+        'data: {"choices":[{"delta":{"content":"hello"}}]}\n',
+        'data: [DONE]\n',
+      ]);
+    });
+    const originalFetch = global.fetch;
+    global.fetch = fetchMock;
+    try {
+      const adapter = new LLMAdapter({ provider: 'openai', apiKey: 'sk-test' });
+      const tokens = [];
+      for await (const token of adapter.chatStream([{ role: 'user', content: 'hi' }])) {
+        tokens.push(token);
+      }
+      expect(tokens).toEqual(['hello']);
+      expect(callCount).toBe(2);
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('does NOT retry after yielding tokens (prevents duplicate output)', async () => {
+    // custom fn: fails first attempt, succeeds on retry (no tokens yielded on first fail)
+    const adapter = new LLMAdapter({ provider: 'custom', maxRetries: 1, llm: async (msgs) => {
+      if (adapter._customCallCount === undefined) adapter._customCallCount = 0;
+      adapter._customCallCount++;
+      if (adapter._customCallCount === 1) throw new Error('first attempt fails');
+      return 'ok on retry';
+    }});
+    const tokens = [];
+    for await (const token of adapter.chatStream([{ role: 'user', content: 'hi' }])) {
+      tokens.push(token);
+    }
+    expect(tokens).toEqual(['ok on retry']); // single token, not duplicated
+  });
+
+  it('throws immediately when stream fails AFTER yielding tokens (no retry)', async () => {
+    const encoder = new TextEncoder();
+    let readCount = 0;
+    const fetchMock = vi.fn().mockImplementation(async () => ({
+      ok: true,
+      status: 200,
+      body: {
+        getReader: () => ({
+          read: async () => {
+            readCount++;
+            if (readCount === 1) {
+              return { done: false, value: encoder.encode('data: {"choices":[{"delta":{"content":"A"}}]}\n') };
+            }
+            if (readCount === 2) {
+              throw new Error('stream broken mid-flight');
+            }
+            return { done: true, value: undefined };
+          },
+        }),
+      },
+    }));
+
+    const originalFetch = global.fetch;
+    global.fetch = fetchMock;
+    try {
+      const adapter = new LLMAdapter({ provider: 'openai', apiKey: 'sk-test', maxRetries: 1 });
+      const tokens = [];
+      let threw = false;
+      try {
+        for await (const token of adapter.chatStream([{ role: 'user', content: 'hi' }])) {
+          tokens.push(token);
+        }
+      } catch (e) {
+        threw = true;
+        expect(e.message).toBe('stream broken mid-flight');
+      }
+      expect(threw).toBe(true);
+      expect(tokens).toEqual(['A']); // only first token, no duplicate
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});
+
+// ═══════════════════════════════════════════
+// P1 regression: chatStream zero-token / all SSE parse fail → meaningful error
+// ═══════════════════════════════════════════
+describe('P1: chatStream zero token / SSE parse fail → meaningful error', () => {
+  let originalFetch;
+  beforeEach(() => { originalFetch = global.fetch; });
+  afterEach(() => { global.fetch = originalFetch; });
+
+  it('throws meaningful error when stream yields zero tokens (all SSE parse fail)', async () => {
+    global.fetch = vi.fn().mockResolvedValue(fakeStreamResponse([
+      'garbage line\n',
+      'data: not valid json\n',
+      '\n',
+    ])); // all lines fail to parse as valid token-bearing SSE
+    const adapter = new LLMAdapter({ provider: 'openai', apiKey: 'k', maxRetries: 0 });
+    let threw = false;
+    try {
+      // eslint-disable-next-line no-unused-vars
+      for await (const _ of adapter.chatStream([{ role: 'user', content: 'x' }])) {}
+    } catch (e) {
+      threw = true;
+      expect(e.message).toMatch(/zero tokens|all attempts failed/i);
+    }
+    expect(threw).toBe(true);
+  });
+
+  it('throws meaningful error when stream body is empty (no chunks)', async () => {
+    global.fetch = vi.fn().mockResolvedValue(fakeStreamResponse([]));
+    const adapter = new LLMAdapter({ provider: 'openai', apiKey: 'k', maxRetries: 0 });
+    let threw = false;
+    try {
+      // eslint-disable-next-line no-unused-vars
+      for await (const _ of adapter.chatStream([{ role: 'user', content: 'x' }])) {}
+    } catch (e) {
+      threw = true;
+      expect(e.message).toMatch(/zero tokens|all attempts failed/i);
+    }
+    expect(threw).toBe(true);
+  });
+
+  it('does NOT retry after yielding tokens (no duplicate token on retry)', async () => {
+    // custom fn: fails first attempt (no tokens yielded), succeeds on retry
+    const adapter = new LLMAdapter({ provider: 'custom', maxRetries: 1, llm: async (msgs) => {
+      if (adapter._customCallCount === undefined) adapter._customCallCount = 0;
+      adapter._customCallCount++;
+      if (adapter._customCallCount === 1) throw new Error('first attempt fails');
+      return 'ok on retry';
+    }});
+    const tokens = [];
+    for await (const token of adapter.chatStream([{ role: 'user', content: 'hi' }])) {
+      tokens.push(token);
+    }
+    expect(tokens).toEqual(['ok on retry']);
   });
 });

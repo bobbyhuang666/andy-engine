@@ -4,16 +4,23 @@
  * Describes the CommonJS export of require('andy-engine/store').
  */
 
+type BinaryData = Uint8Array;
+
 interface StoreOptions {
-  dbPath: string;
+  type?: 'auto' | 'sqlite' | 'memory';
+  dbPath?: string;
   snapshotInterval?: number;
   storyInterval?: number;
+  storyFlushInterval?: number;
+  maxStoryBuffer?: number;
+  snapshotKeepCount?: number;
+  storyDecayInterval?: number;
 }
 
 interface SnapshotData {
   tick: number;
   virtualTime: number;
-  data: Buffer;
+  data: BinaryData;
   hash?: string;
 }
 
@@ -42,57 +49,112 @@ interface WorldSpec {
 }
 
 declare class Serialization {
-  static serializeWorldState(state: WorldState): Buffer;
-  static deserializeWorldState(data: Buffer): WorldState;
+  static serializeWorldState(state: WorldState): BinaryData;
+  static deserializeWorldState(data: BinaryData): WorldState;
 }
 
 declare const ENVELOPE_VERSION: string;
 
 declare class SaveLoad {
   constructor(store: any);
-  saveWorld(engine: any): void;
-  loadWorld(engine: any): WorldState | null;
+  save(world: any, metadata?: any): any;
+  load(snapshotId: string, config?: any): any;
+  listSnapshots(): any[];
+  /** @deprecated Use save(world, metadata). */
+  saveWorld(engine: any, metadata?: any): any;
+  /** @deprecated Use load(snapshotId, config). */
+  loadWorld(snapshotId: string, config?: any): any;
 }
 
 declare class SnapshotStore {
-  save(tick: number, virtualTime: number, data: Buffer, hash?: string): void;
+  saveSnapshot(tick: number, virtualTime: number, data: BinaryData, meta?: any): void | Promise<void>;
   loadLatest(): SnapshotData | null;
-  loadByTick(tick: number): SnapshotData | null;
-  close(): void;
+  loadAt(tick: number): SnapshotData | null;
+  prune(keepCount?: number): number;
+  list(limit?: number): Array<Omit<SnapshotData, 'data'> & { createdAt?: number; dataSize?: number }>;
+  close(): void | Promise<void>;
 }
 
 declare class MetaStore {
   get(key: string): string | null;
   set(key: string, value: string): void;
-  close(): void;
+  setMany(entries: Record<string, any>): void;
+  getAll(): Record<string, string>;
+  delete(key: string): void;
+  close(): void | Promise<void>;
 }
 
 declare class SQLiteStore {
-  constructor(dbPath: string);
-  saveSnapshot(tick: number, virtualTime: number, data: Buffer, hash?: string): void;
+  constructor(dbPath?: string);
+  saveStories(stories: any[]): number;
+  getRecent(agentId: string, hours?: number, limit?: number, now?: number): any[];
+  getByEmotion(agentId: string, emotionTag: string, hours?: number, limit?: number, now?: number): any[];
+  decay(decayFactor?: number, minImportance?: number, maxAgeDays?: number, now?: number): { decayed: number; deleted: number };
+  stats(agentId: string, now?: number): { total: number; recentDay: number; recentWeek: number };
+  saveSnapshot(tick: number, virtualTime: number, data: BinaryData, meta?: any): void;
+  loadLatest(): SnapshotData | null;
+  loadAt(tick: number): SnapshotData | null;
+  prune(keepCount?: number): number;
+  list(limit?: number): Array<Omit<SnapshotData, 'data'> & { createdAt?: number; dataSize?: number }>;
+  get(key: string): string | null;
+  set(key: string, value: string): void;
+  setMany(entries: Record<string, any>): void;
+  getAll(): Record<string, string>;
+  delete(key: string): void;
+  transaction<T>(fn: () => T): T;
+  /** @deprecated Use loadLatest(). */
   loadLatestSnapshot(): SnapshotData | null;
+  /** @deprecated Use loadAt(tick). */
   loadSnapshotByTick(tick: number): SnapshotData | null;
+  /** @deprecated Use set(key, value). */
   saveMeta(key: string, value: string): void;
+  /** @deprecated Use get(key). */
   loadMeta(key: string): string | null;
   close(): void;
 }
 
 declare class MemoryStore {
   constructor();
-  saveSnapshot(tick: number, virtualTime: number, data: Buffer, hash?: string): void;
+  saveStories(stories: any[]): number;
+  getRecent(agentId: string, hours?: number, limit?: number, now?: number): any[];
+  getByEmotion(agentId: string, emotionTag: string, hours?: number, limit?: number, now?: number): any[];
+  decay(decayFactor?: number, minImportance?: number, maxAgeDays?: number, now?: number): { decayed: number; deleted: number };
+  stats(agentId: string, now?: number): { total: number; recentDay: number; recentWeek: number };
+  saveSnapshot(tick: number, virtualTime: number, data: BinaryData, meta?: any): void;
+  loadLatest(): SnapshotData | null;
+  loadAt(tick: number): SnapshotData | null;
+  prune(keepCount?: number): number;
+  list(limit?: number): Array<Omit<SnapshotData, 'data'> & { createdAt?: number; dataSize?: number }>;
+  get(key: string): string | null;
+  set(key: string, value: string): void;
+  setMany(entries: Record<string, any>): void;
+  getAll(): Record<string, string>;
+  delete(key: string): void;
+  transaction<T>(fn: () => T): T;
+  /** @deprecated Use loadLatest(). */
   loadLatestSnapshot(): SnapshotData | null;
+  /** @deprecated Use loadAt(tick). */
+  loadSnapshotByTick(tick: number): SnapshotData | null;
+  /** @deprecated Use set(key, value). */
   saveMeta(key: string, value: string): void;
+  /** @deprecated Use get(key). */
   loadMeta(key: string): string | null;
   close(): void;
 }
 
 declare class SimulationStore {
-  constructor(store: SnapshotStore, metaStore: MetaStore, options?: { snapshotInterval?: number; storyInterval?: number });
+  constructor(options?: StoreOptions & { storeType?: 'sqlite' | 'memory' });
   init(callbacks: {
-    onSnapshot: () => Buffer;
-    onRestore: (data: Buffer) => void;
-  }): Promise<void>;
+    onSnapshot: () => BinaryData;
+    onRestore: (data: BinaryData) => void;
+  }): Promise<{ restoredTick: number; restoredTime: Date | null; hasSnapshot: boolean }>;
   onTick(result: any, stories: any[]): void;
+  getStoriesForAgent(agentId?: string, hours?: number, limit?: number): any[];
+  getStoriesForBobby(agentId?: string, hours?: number, limit?: number): any[];
+  getStoriesByEmotion(agentId: string, emotionTag: string, hours?: number, limit?: number): any[];
+  getStats(agentId: string): { total: number; recentDay: number; recentWeek: number };
+  getMeta(key: string): string | null;
+  setMeta(key: string, value: string): void;
   shutdown(): Promise<void>;
 }
 
@@ -103,8 +165,8 @@ declare class StoryStore {
   close(): void;
 }
 
-declare function createStore(options: StoreOptions): SimulationStore;
-declare function createMemoryStore(): SimulationStore;
+declare function createStore(options?: StoreOptions): SimulationStore;
+declare function createMemoryStore(): SQLiteStore | MemoryStore;
 declare function toWorldState(engine: any, worldId?: string): WorldState;
 declare function fromWorldState(worldState: WorldState, config?: any, EngineConstructor?: any): any;
 declare function validateWorldSpec(spec: WorldSpec): { valid: boolean; errors: string[] };
@@ -114,23 +176,25 @@ declare function migrateWorldState(oldState: WorldState): WorldState;
 
 declare const CURRENT_SCHEMA_VERSION: string;
 
-export = {
-  Serialization,
-  ENVELOPE_VERSION,
-  SaveLoad,
-  SnapshotStore,
-  MetaStore,
-  SQLiteStore,
-  MemoryStore,
-  SimulationStore,
-  StoryStore,
-  createStore,
-  createMemoryStore,
-  toWorldState,
-  fromWorldState,
-  validateWorldSpec,
-  validateWorldState,
-  CURRENT_SCHEMA_VERSION,
-  compile,
-  migrateWorldState,
+declare const AndyStore: {
+  Serialization: typeof Serialization;
+  ENVELOPE_VERSION: typeof ENVELOPE_VERSION;
+  SaveLoad: typeof SaveLoad;
+  SnapshotStore: typeof SnapshotStore;
+  MetaStore: typeof MetaStore;
+  SQLiteStore: typeof SQLiteStore;
+  MemoryStore: typeof MemoryStore;
+  SimulationStore: typeof SimulationStore;
+  StoryStore: typeof StoryStore;
+  createStore: typeof createStore;
+  createMemoryStore: typeof createMemoryStore;
+  toWorldState: typeof toWorldState;
+  fromWorldState: typeof fromWorldState;
+  validateWorldSpec: typeof validateWorldSpec;
+  validateWorldState: typeof validateWorldState;
+  CURRENT_SCHEMA_VERSION: typeof CURRENT_SCHEMA_VERSION;
+  compile: typeof compile;
+  migrateWorldState: typeof migrateWorldState;
 };
+
+export = AndyStore;

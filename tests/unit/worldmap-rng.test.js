@@ -16,7 +16,9 @@ describe('WorldMap RNG determinism', () => {
       const map = new WorldMap({ width: 500, height: 500, regions, rng });
       const run = [];
       for (let j = 0; j < 100; j++) {
-        run.push(map.regionToCoords('unknown_region'));
+        // R41 P1 fix: use 'plaza' (known rect region) instead of 'unknown_region'
+        // since regionToCoords now returns null for unknown regions.
+        run.push(map.regionToCoords('plaza'));
       }
       results.push(run);
     }

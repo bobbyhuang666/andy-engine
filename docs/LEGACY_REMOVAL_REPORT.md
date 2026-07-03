@@ -1,7 +1,7 @@
 # Legacy Removal Report
 
-> Status: no-debt gate (Stage 23).
-> Date: 2026-06-27.
+> Status: no-debt gate refreshed after R64.
+> Date: 2026-07-02.
 > Purpose: verify zero removable debt remains.
 
 ---
@@ -11,18 +11,16 @@
 | Metric | Count |
 |--------|-------|
 | Total classified files | 85 |
-| Already removed (not on disk) | 76 |
-| Existing files analyzed | 9 |
+| Already removed (not on disk) | 79 |
+| Existing files analyzed | 6 |
 | **Can remove now (existing)** | **0** |
-| Blocked (existing) | 9 |
+| Blocked (existing) | 6 |
 | Standalone tooling outside src | 0 |
 | Unclassified old files | 0 |
 
-> R4 audit note: 3 previously unclassified files (`agent/action/ReasonTrace.js`,
-> `agent/action/providers/ReflectCandidateProvider.js`,
-> `agent/action/providers/WorldObjectCandidateProvider.js`) have been added
-> as `legacy-implementation`. They contain independent implementations that
-> should be migrated to re-export adapters pointing to `src/action/` canonicals.
+> R64 update: the remaining repo-local `agent/action/*` implementations were
+> removed after legacy phase tests were migrated to canonical `src/action`.
+> The npm package whitelist now publishes only `agent/Agent.js` from `agent/`.
 
 ### Gate Check
 
@@ -39,7 +37,7 @@
 |---------------|-----------|---------|
 | public-facade | 0 | 5 |
 | public-approved-adapter | 0 | 1 |
-| legacy-implementation | 0 | 3 |
+| legacy-implementation | 0 | 0 |
 
 ---
 
@@ -53,9 +51,6 @@
 | `domain/index.js` | public-facade | yes | no | no | NO | public-facade: needs breaking release |
 | `store/index.js` | public-facade | yes | no | no | NO | public-facade: needs breaking release |
 | `sdk/index.js` | public-facade | yes | no | yes (1) | NO | public-facade: needs breaking release |
-| `agent/action/ReasonTrace.js` | legacy-implementation | no | no | no | NO | needs migration to re-export adapter (canonical in src/action/ReasonTrace.js) |
-| `agent/action/providers/ReflectCandidateProvider.js` | legacy-implementation | no | no | no | NO | needs migration to re-export adapter or move canonical to src/action/providers/ |
-| `agent/action/providers/WorldObjectCandidateProvider.js` | legacy-implementation | no | no | no | NO | needs migration to re-export adapter (canonical in src/action/WorldObject.js) |
 
 ---
 
@@ -94,6 +89,9 @@ These files appear in the classification list but no longer exist on disk.
 | `agent/action/providers/BehaviorFieldCandidateProvider.js` | deprecated-wrapper |
 | `agent/action/providers/ExploreCandidateProvider.js` | deprecated-wrapper |
 | `agent/action/providers/SocializeCandidateProvider.js` | deprecated-wrapper |
+| `agent/action/ReasonTrace.js` | legacy-implementation |
+| `agent/action/providers/ReflectCandidateProvider.js` | legacy-implementation |
+| `agent/action/providers/WorldObjectCandidateProvider.js` | legacy-implementation |
 | `core/World.js` | deprecated-wrapper |
 | `core/Simulator.js` | deprecated-wrapper |
 | `core/EventDispatcher.js` | deprecated-wrapper |

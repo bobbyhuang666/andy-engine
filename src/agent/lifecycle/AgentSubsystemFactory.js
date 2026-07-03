@@ -40,7 +40,7 @@ function createSubsystems(config, agentId, domain, rng) {
   const stateMachine = new StateMachine(config.initialState || null, null, domain);
   const memory = new PersonalMemory(agentId, config.seedMemories || [], null, domain, rng);
   const proceduralMemory = new ProceduralMemory();
-  const needs = new NeedsSystem(personality, null, domain);
+  const needs = new NeedsSystem(personality, null, domain, config.needs || null);
   const emotionRegulation = new EmotionRegulation(personality, null, rng);
   const intrinsicMotivation = new IntrinsicMotivation(personality, null, domain, rng);
   const schedule = new Schedule(config.schedule || {}, null, rng);
@@ -88,7 +88,7 @@ function restoreSubsystems(savedState, config, agentId, domain, rng) {
     memory.appraisalBiases = savedState.appraisalBiases.map(b => ({ ...b }));
   }
   const proceduralMemory = new ProceduralMemory(savedState.proceduralMemory);
-  const needs = new NeedsSystem(personality, savedState.needs, domain);
+  const needs = new NeedsSystem(personality, savedState.needs, domain, config.needs || null);
   const emotionRegulation = new EmotionRegulation(personality, savedState.emotionRegulation, rng);
   const intrinsicMotivation = new IntrinsicMotivation(personality, savedState.intrinsicMotivation, domain, rng);
   const scheduleConfig = config.schedule || savedState.schedule || {};

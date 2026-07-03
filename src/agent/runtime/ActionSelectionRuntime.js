@@ -10,13 +10,34 @@
 
 const { applyActionEffect } = require('../../effects/EventEffectPipeline');
 const { EffectResult } = require('../../effects/EffectResult');
-const { EffectCommitter } = require('../../effects/EffectCommitter');
 const { NeedDelta } = require('../../effects/NeedDelta');
 const { EmotionDelta } = require('../../effects/EmotionDelta');
 const { MemoryDelta } = require('../../effects/MemoryDelta');
 const { PositionDelta } = require('../../effects/PositionDelta');
 const { RelationshipDelta } = require('../../effects/RelationshipDelta');
+const { LocationMeaningDelta } = require('../../effects/LocationMeaningDelta');
 const { diagnostics } = require('../../shared/Diagnostics');
+const { getEffectCommitter } = require('./EffectCommitterResolver');
+
+const IM_GOAL_TYPE_TO_ACTION = {
+  explore_new: 'explore',
+  deepen_skill: 'work',
+  break_routine: 'explore',
+};
+
+function _resolveGoals(agent) {
+  if (!agent.intrinsicMotivation || !Array.isArray(agent.intrinsicMotivation.activeGoals)) return [];
+  return agent.intrinsicMotivation.activeGoals
+    .filter(g => g && g.status === 'active')
+    .map(g => ({
+      actionType: IM_GOAL_TYPE_TO_ACTION[g.type] || null,
+      target: g.target || null,
+      priority: 0.5,
+      weight: 1.0,
+      status: 'active',
+      metadata: g.domain ? { semanticCategory: g.domain } : {},
+    }));
+}
 
 /**
  * Validate action selection config at agent construction time.
@@ -100,7 +121,7 @@ function buildActionContext(agent, env) {
     relationships: agent.socialGraph
       ? agent.socialGraph.getRelationships(agent.id)
       : [],
-    goals: [],
+    goals: _resolveGoals(agent),
     // R21 P0-3: provide real worldPressure (previously null → WorldPressureCandidateProvider dead code)
     worldPressure: pressureContext ? pressureContext.world : null,
     // R21 P0-3: provide pressureContext for 5 scorer dimensions (need, relationship,
@@ -293,6 +314,14 @@ function applyActionStateDeltas(agent, stateDeltas, env) {
         from: agent.position,
         reason: stateDeltas.location.reason || 'action_move',
       }));
+      deltas.push(new LocationMeaningDelta(agent.id, {
+        location: target,
+        meaningType: 'movement_target',
+        weight: 0,
+        reason: stateDeltas.location.reason || 'action_move',
+        from: agent.position,
+        to: target,
+      }));
     }
   }
 
@@ -321,17 +350,8 @@ function applyActionStateDeltas(agent, stateDeltas, env) {
   if (deltas.length > 0) {
     // R18 AUDIT-003 fix: track position changes so caller can sync RegionGrid.
     const positionBefore = agent.position;
-    // Reuse agent-cached committer to reduce GC pressure; update world ref for current simTime
-    if (!agent._effectCommitter) {
-      const agents = new Map([[agent.id, agent]]);
-      agent._effectCommitter = new EffectCommitter({
-        world: { time: env.simTime || null },
-        agents,
-      });
-    } else {
-      agent._effectCommitter.world.time = env.simTime || null;
-    }
-    agent._effectCommitter.commit(new EffectResult({ event: {}, deltas, reasonTrace: {} }));
+    const committer = getEffectCommitter(agent, env);
+    committer.commit(new EffectResult({ event: {}, deltas, reasonTrace: {} }));
     // R18 AUDIT-003 fix: EffectCommitter._applyPositionDelta updates agent.position
     // but the stub world lacks regions/spatial, so RegionGrid is not synced.
     // Set env._regionChanged flag so AndyWorld.step() can sync after this tick.

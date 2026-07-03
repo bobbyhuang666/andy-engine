@@ -22,6 +22,10 @@ class EventDispatcher {
     if (!domain) throw new Error('EventDispatcher requires a domain config');
     this.domain = domain;
     this._rng = rng || new RNG(0);
+    this._eventConfig = {
+      ...cfg,
+      ...(domain.eventConfig || {}),
+    };
 
     /** @type {Object[]} 有序事件日志 */
     this.eventLog = [];
@@ -370,7 +374,7 @@ class EventDispatcher {
    * @returns {Object|null}
    */
   generateRandomEvent(agentId, region, context = {}) {
-    if (this._rand() > cfg.randomEventProbability) return null;
+    if (this._rand() > this._eventConfig.randomEventProbability) return null;
 
     const candidates = [];
 
@@ -450,7 +454,7 @@ class EventDispatcher {
 
     // 性能优化：eventLog 上限，防止长期模拟内存膨胀
     // R6 fix: use configured maxEventLogSize instead of hardcoded 2000
-    const maxLogSize = cfg.maxEventLogSize || 2000;
+    const maxLogSize = this._eventConfig.maxEventLogSize || 2000;
     if (this.eventLog.length > maxLogSize) {
       const removed = this.eventLog.splice(0, this.eventLog.length - maxLogSize);
       for (const evt of removed) {
@@ -516,8 +520,11 @@ class EventDispatcher {
    */
   _cleanupOldEvents() {
     // 使用模拟时间（每 tick 由 setSimTime 注入；ctor 预置保证非空）
+    // R41 fix: guard against _simTime being a non-Date value (e.g., a string
+    // from corrupted deserialization), which would throw on .getTime().
+    if (!this._simTime || typeof this._simTime.getTime !== 'function') return;
     const now = this._simTime.getTime();
-    const cutoff = now - cfg.eventLifespan * 60 * 1000;
+    const cutoff = now - this._eventConfig.eventLifespan * 60 * 1000;
 
     // 找到第一个未过期的事件索引（eventLog 按时间有序）
     let cutoffIdx = 0;
@@ -532,7 +539,7 @@ class EventDispatcher {
     }
 
     // 硬上限：保留最新的 maxEventLogSize 条
-    const maxKeep = cfg.maxEventLogSize;
+    const maxKeep = this._eventConfig.maxEventLogSize;
     const removeCount = Math.max(cutoffIdx, this.eventLog.length - maxKeep);
 
     if (removeCount > 0) {
@@ -587,7 +594,7 @@ class EventDispatcher {
     // R20 M1: serialize full eventLog (up to maxEventLogSize) instead of
     // only last 100. The old slice(-100) caused 99% data loss on every
     // save/restore cycle when maxEventLogSize was 10000 (default 2000).
-    const maxSize = cfg.maxEventLogSize || 2000;
+    const maxSize = this._eventConfig.maxEventLogSize || 2000;
     const toSerialize = this.eventLog.length > maxSize
       ? this.eventLog.slice(-maxSize)
       : this.eventLog;

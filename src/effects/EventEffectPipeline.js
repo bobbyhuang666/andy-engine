@@ -190,6 +190,7 @@ function computeDeltas(candidate, agentSnapshot) {
  */
 function applyEventConsequences({ fact, agents, factStore, domain }) {
   if (!fact) return [];
+  if (fact.scope === 'internal' || fact.auditOnly) return [];
 
   const rules = domain
     ? domain.eventConsequenceRules

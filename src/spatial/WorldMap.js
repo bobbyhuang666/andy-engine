@@ -41,11 +41,11 @@ class WorldMap {
   regionToCoords(regionName) {
     const region = this.regions.get(regionName);
     if (!region) {
-      // 未知区域：返回世界中心随机偏移
-     return {
-        x: this.width / 2 + (this._rng.next() - 0.5) * 50,
-        y: this.height / 2 + (this._rng.next() - 0.5) * 50,
-     };
+      // R41 P1 fix: return null for unknown regions instead of silently
+      // returning a fake coordinate at world centre. Callers must validate.
+      // Returning fake coordinates masks configuration errors (e.g. misspelled
+      // region names) and places agents at incorrect positions.
+      return null;
     }
     return region.randomPoint();
   }
@@ -58,7 +58,9 @@ class WorldMap {
   regionCenter(regionName) {
     const region = this.regions.get(regionName);
     if (!region) {
-      return { x: this.width / 2, y: this.height / 2 };
+      // R41 P1 fix: return null for unknown regions instead of silently
+      // returning world centre.
+      return null;
     }
     return region.center();
   }

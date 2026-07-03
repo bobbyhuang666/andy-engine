@@ -64,8 +64,8 @@ describe('FactSource 枚举', () => {
 });
 
 describe('FactScope 枚举', () => {
-  it('应该包含 2 种范围', () => {
-    expect(FACT_SCOPES).toHaveLength(2);
+  it('应该包含 3 种范围', () => {
+    expect(FACT_SCOPES).toHaveLength(3);
   });
 });
 

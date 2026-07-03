@@ -135,8 +135,15 @@ class SpatialEngine {
       // 从 agent 的 position（区域名）推导初始坐标
       const region = agent.position || this._regionNames[0] || 'default';
       const coords = this.worldMap.regionToCoords(region);
-      this._coords[idx * 2] = coords.x;
-      this._coords[idx * 2 + 1] = coords.y;
+      // R41 P1 fix: handle null from regionToCoords (unknown region).
+      // Fall back to world centre to avoid placing agents at NaN/undefined.
+      if (coords) {
+        this._coords[idx * 2] = coords.x;
+        this._coords[idx * 2 + 1] = coords.y;
+      } else {
+        this._coords[idx * 2] = this.config.worldWidth / 2;
+        this._coords[idx * 2 + 1] = this.config.worldHeight / 2;
+      }
 
       idx++;
     }
@@ -244,6 +251,12 @@ class SpatialEngine {
 
       // 不在目标区域 → 向区域中心移动
       const target = this.worldMap.regionCenter(targetRegionName);
+      // R41 P1 fix: handle null from regionCenter (unknown region). Skip
+      // movement if target is unknown — agent stays at current position.
+      if (!target) {
+        this._moving[i] = 0;
+        continue;
+      }
       const dx = target.x - cx;
       const dy = target.y - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
@@ -251,8 +264,10 @@ class SpatialEngine {
       if (dist < 3.0) {
         // 接近目标 → 放入区域内随机位置
         const finalPos = this.worldMap.regionToCoords(targetRegionName);
-        this._coords[i * 2] = finalPos.x;
-        this._coords[i * 2 + 1] = finalPos.y;
+        if (finalPos) {
+          this._coords[i * 2] = finalPos.x;
+          this._coords[i * 2 + 1] = finalPos.y;
+        }
         this._moving[i] = 0;
       } else {
         // 向目标步行
@@ -423,6 +438,20 @@ class SpatialEngine {
   }
 
   /**
+   * R41 fix: set coordinates WITHOUT rebuilding the grid.
+   * Use this during the tick flow when many agents change region in a batch;
+   * the caller is responsible for a single grid.rebuild() after all mutations.
+   * (setCoords() still rebuilds for public API correctness.)
+   */
+  _setCoordRaw(agentId, x, y) {
+    const idx = this._agentIdToIdx.get(agentId);
+    if (idx === undefined) return;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+    this._coords[idx * 2] = x;
+    this._coords[idx * 2 + 1] = y;
+  }
+
+  /**
    * 查询某个 agent 附近的 agent
    * @param {string} agentId
    * @param {number} [radius] - 查询半径，默认 interactionRadius
@@ -555,12 +584,16 @@ class SpatialEngine {
     this._agentIdToIdx.set(agentId, idx);
 
     const coords = this.worldMap.regionToCoords(region);
+    // R41 P1 fix: handle null from regionToCoords (unknown region).
+    // Fall back to world centre.
+    const cx = coords ? coords.x : this.config.worldWidth / 2;
+    const cy = coords ? coords.y : this.config.worldHeight / 2;
 
     if (!this._coords) {
       // 首个 agent：直接创建数组
       this._coords = new Float32Array(2);
-      this._coords[0] = coords.x;
-      this._coords[1] = coords.y;
+      this._coords[0] = cx;
+      this._coords[1] = cy;
       this._targets = new Int16Array(1);
       this._speeds = new Float32Array(1);
       this._speeds[0] = 1.4;
@@ -569,8 +602,8 @@ class SpatialEngine {
       // 扩展已有数组
       const newCoords = new Float32Array((idx + 1) * 2);
       newCoords.set(this._coords);
-      newCoords[idx * 2] = coords.x;
-      newCoords[idx * 2 + 1] = coords.y;
+      newCoords[idx * 2] = cx;
+      newCoords[idx * 2 + 1] = cy;
       this._coords = newCoords;
 
       const newTargets = new Int16Array(idx + 1);

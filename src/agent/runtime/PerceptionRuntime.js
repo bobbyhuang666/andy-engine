@@ -6,20 +6,55 @@
  */
 
 const Appraisal = require('../psychology/Appraisal');
+const { EffectResult } = require('../../effects/EffectResult');
+const { EmotionDelta } = require('../../effects/EmotionDelta');
+const { MemoryDelta } = require('../../effects/MemoryDelta');
+const { getEffectCommitter } = require('./EffectCommitterResolver');
+
+function commitDeltas(agent, env, deltas) {
+  const committer = getEffectCommitter(agent, env);
+  committer.commit(new EffectResult({
+    event: {},
+    deltas,
+    reasonTrace: {},
+  }));
+}
+
+function memoryDelta(agent, event, importance) {
+  return new MemoryDelta(agent.id, {
+    kind: 'candidate',
+    type: event.type,
+    content: event.content,
+    event,
+    importance,
+  });
+}
 
 /**
  * Perceive and process events (cognitive appraisal pipeline).
  * @param {Object} agent
  * @param {Object[]} events
  */
-function perceiveEvents(agent, events) {
+function perceiveEvents(agent, events, env = null) {
+  if (!agent._perceivedEventIds) agent._perceivedEventIds = new Set();
   // P0: rebuild recent event types set at tick start (for Appraisal._evalSuddenness O(1) lookup)
   agent._recentEventTypes.clear();
+  const newEvents = [];
   for (const event of events) {
+    if (event && event.id) {
+      if (agent._perceivedEventIds.has(event.id)) continue;
+      agent._perceivedEventIds.add(event.id);
+      if (agent._perceivedEventIds.size > 500) {
+        const oldest = agent._perceivedEventIds.values().next().value;
+        agent._perceivedEventIds.delete(oldest);
+      }
+    }
+    newEvents.push(event);
     if (event.type) agent._recentEventTypes.add(event.type);
   }
 
-  for (const event of events) {
+  for (const event of newEvents) {
+    const deltas = [];
     // Step 1: Cognitive Appraisal
     const appraisal = Appraisal.evaluate(event, agent);
 
@@ -30,7 +65,10 @@ function perceiveEvents(agent, events) {
     // entire perception loop for that agent.
     for (const effect of (event.effects || [])) {
       if (effect.target === agent.id && effect.type === 'emotion') {
-        agent.emotion.applyEffect(effect.delta, 1, appraisal.emotionModifier);
+        deltas.push(new EmotionDelta(agent.id, effect.delta, {
+          multiplier: 1,
+          appraisalModifiers: appraisal.emotionModifier,
+        }));
       }
     }
 
@@ -44,7 +82,7 @@ function perceiveEvents(agent, events) {
         importantDelta.nervousness = 0.02;
       }
       if (Object.keys(importantDelta).length > 0) {
-        agent.emotion.applyEffect(importantDelta);
+        deltas.push(new EmotionDelta(agent.id, importantDelta));
       }
     }
 
@@ -59,12 +97,15 @@ function perceiveEvents(agent, events) {
     // Significant event → create Appraisal Bias
     if (appraisal.importance > 0.7 && appraisal.dimensions.pleasantness < -0.2) {
       const eventType = event.type || 'general';
-      agent.memory.addAppraisalBias({
-        eventType: eventType === 'interaction' ? 'social' : eventType,
-        valenceShift: appraisal.dimensions.pleasantness * 0.3,
-        decay: 0.0005,
-        reason: (event.content || '').slice(0, 30),
-      });
+      deltas.push(new MemoryDelta(agent.id, {
+        kind: 'appraisalBias',
+        bias: {
+          eventType: eventType === 'interaction' ? 'social' : eventType,
+          valenceShift: appraisal.dimensions.pleasantness * 0.3,
+          decay: 0.0005,
+          reason: (event.content || '').slice(0, 30),
+        },
+      }));
     }
 
     if (event.content) {
@@ -81,15 +122,23 @@ function perceiveEvents(agent, events) {
         _region: agent.position,
         _currentState: agent.stateMachine.currentState,
       };
-      agent.memory.addExperience(enrichedEvent, agent.emotion, appraisal.importance);
+      deltas.push(memoryDelta(agent, enrichedEvent, appraisal.importance));
     }
 
     // Stress update
     if (appraisal.dimensions.pleasantness < 0) {
       const stressIncrease = Math.abs(appraisal.dimensions.pleasantness) * appraisal.importance * 0.8;
-      agent.emotion.setStress(agent.emotion.stress + Math.max(0.05, stressIncrease));
+      deltas.push(new EmotionDelta(agent.id, {}, {
+        stress: agent.emotion.stress + Math.max(0.05, stressIncrease),
+      }));
     } else if (appraisal.dimensions.pleasantness > 0.2) {
-      agent.emotion.setStress(agent.emotion.stress - 0.15);
+      deltas.push(new EmotionDelta(agent.id, {}, {
+        stress: agent.emotion.stress - 0.15,
+      }));
+    }
+
+    if (deltas.length > 0) {
+      commitDeltas(agent, env, deltas);
     }
   }
 }

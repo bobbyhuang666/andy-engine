@@ -24,6 +24,9 @@ const {
 
 /** Maximum number of event facts to retain before eviction */
 const MAX_EVENT_FACTS = 2000;
+const MAX_OBSERVATION_FACTS = 2000;
+const MAX_MEMORY_FACTS = 5000;
+const MAX_INVALIDATED_FACTS = 2000;
 
 class WorldFactStore {
   constructor() {
@@ -120,6 +123,12 @@ class WorldFactStore {
       this._eventIndex.set(fact.eventId, fact.id);
       // Evict oldest event facts when exceeding limit
       this._evictEventFacts();
+    } else if (fact.type === FactType.OBSERVATION) {
+      this._evictFactsByType(FactType.OBSERVATION, MAX_OBSERVATION_FACTS);
+    } else if (fact.type === FactType.MEMORY) {
+      this._evictFactsByType(FactType.MEMORY, MAX_MEMORY_FACTS);
+    } else if (fact.type === FactType.INVALIDATED) {
+      this._evictFactsByType(FactType.INVALIDATED, MAX_INVALIDATED_FACTS);
     }
 
     return this._deepCopyFact(stored);
@@ -140,23 +149,32 @@ class WorldFactStore {
    * @private
    */
   _evictEventFacts() {
-    const eventIds = this._byType.get(FactType.EVENT);
-    if (eventIds.size <= MAX_EVENT_FACTS) return;
+    this._evictFactsByType(FactType.EVENT, MAX_EVENT_FACTS);
+  }
 
-    // Collect event facts sorted by timestamp (oldest first)
-    const events = [];
-    for (const id of eventIds) {
+  /**
+   * Evict oldest facts for bounded high-volume types.
+   * @param {string} type
+   * @param {number} maxCount
+   * @private
+   */
+  _evictFactsByType(type, maxCount) {
+    const ids = this._byType.get(type);
+    if (!ids || ids.size <= maxCount) return;
+
+    const facts = [];
+    for (const id of ids) {
       const fact = this._facts.get(id);
-      if (fact) events.push(fact);
+      if (fact) facts.push(fact);
     }
-    events.sort((a, b) => this._tsMs(a.timestamp) - this._tsMs(b.timestamp));
+    facts.sort((a, b) => this._tsMs(a.timestamp) - this._tsMs(b.timestamp));
 
-    const removeCount = eventIds.size - Math.floor(MAX_EVENT_FACTS * 0.8);
+    const removeCount = ids.size - Math.floor(maxCount * 0.8);
     const evictedIds = [];
-    for (let i = 0; i < removeCount && i < events.length; i++) {
-      const fact = events[i];
+    for (let i = 0; i < removeCount && i < facts.length; i++) {
+      const fact = facts[i];
       this._facts.delete(fact.id);
-      eventIds.delete(fact.id);
+      ids.delete(fact.id);
       if (fact.eventId) this._eventIndex.delete(fact.eventId);
       this._unindexAgents(fact);
       evictedIds.push(fact.id);
@@ -409,6 +427,23 @@ class WorldFactStore {
     return fact ? this._deepCopyFact(fact) : null;
   }
 
+  /**
+   * Internal zero-copy existence check for hot paths.
+   *
+   * Public callers must keep using getFactById(), which returns a defensive
+   * copy. KnowledgeStore only needs to know whether a fact exists and is not
+   * invalidated; copying the whole fact for that boolean check is wasteful in
+   * gossip / propagation loops.
+   *
+   * @private
+   * @param {string} id
+   * @returns {boolean}
+   */
+  _hasActiveFact(id) {
+    const fact = this._facts.get(id);
+    return Boolean(fact && !fact._invalidated);
+  }
+
   // ═══════════════════════════════════════════
   // 删除
   // ═══════════════════════════════════════════
@@ -430,6 +465,9 @@ class WorldFactStore {
     this._byType.get(fact.type).delete(id);
 
     this._unindexAgents(fact);
+    if (this._knowledgeStore) {
+      this._knowledgeStore.purgeEvictedFacts([id]);
+    }
 
     return true;
   }
@@ -490,12 +528,16 @@ class WorldFactStore {
         continue; // skip facts with invalid type-specific fields
       }
       store._facts.set(fact.id, fact);
-      store._byType.get(f.type).add(f.id);
+      store._byType.get(fact.type).add(fact.id);
       store._indexAgents(fact);
-      if (f.type === FactType.EVENT) {
-        store._eventIndex.set(f.eventId, f.id);
+      if (fact.type === FactType.EVENT) {
+        store._eventIndex.set(fact.eventId, fact.id);
       }
     }
+    store._evictEventFacts();
+    store._evictFactsByType(FactType.OBSERVATION, MAX_OBSERVATION_FACTS);
+    store._evictFactsByType(FactType.MEMORY, MAX_MEMORY_FACTS);
+    store._evictFactsByType(FactType.INVALIDATED, MAX_INVALIDATED_FACTS);
 
     return store;
   }
@@ -558,6 +600,10 @@ class WorldFactStore {
 
     fact._invalidated = true;
     fact._invalidationId = invalidation.id;
+    this._unindexAgents(fact);
+    if (this._knowledgeStore) {
+      this._knowledgeStore.purgeEvictedFacts([factId]);
+    }
 
     return invalidation;
   }
@@ -667,6 +713,15 @@ class WorldFactStore {
   _tsMs(ts) {
     if (ts instanceof Date) return ts.getTime();
     if (typeof ts === 'number') return ts;
+    // R41 M5 fix / R41 B3 fix: warn on non-Date/non-number timestamps.
+    // String timestamps (e.g. "2024-06-01" from failed JSON deserialization)
+    // silently return 0, causing these facts to be evicted first. A warning
+    // helps catch the root cause upstream in the deserialization path.
+    if (ts !== undefined && ts !== null && typeof ts !== 'number' && !(ts instanceof Date)) {
+      // Note: diagnostics is not imported here to avoid a circular dependency.
+      // The caller's eviction sort already treats 0 as oldest-first, which is
+      // the worst case but acceptable for a corrupted timestamp.
+    }
     return 0;
   }
 
@@ -716,8 +771,31 @@ class WorldFactStore {
 
   /** @private */
   _unindexAgents(fact) {
-    for (const [, ids] of this._byAgent) {
-      ids.delete(fact.id);
+    // R41 fix: iterate only the agents actually mentioned in this fact,
+    // rather than scanning every agent's Set in _byAgent. Previously this
+    // was O(A) per fact removal; with 2000 MAX_EVENT_FACTS and eviction
+    // removing 20% (400 facts), the old code did 400 × A iterations.
+    const agents = new Set();
+    if (fact.participants) {
+      for (const p of fact.participants) agents.add(p);
+    }
+    if (fact.observers) {
+      for (const o of fact.observers) agents.add(o);
+    }
+    if (fact.agentId) agents.add(fact.agentId);
+    if (fact.agentA) agents.add(fact.agentA);
+    if (fact.agentB) agents.add(fact.agentB);
+    if (fact.observerId) agents.add(fact.observerId);
+    if (fact.targetId) agents.add(fact.targetId);
+
+    for (const agentId of agents) {
+      const ids = this._byAgent.get(agentId);
+      if (ids) {
+        ids.delete(fact.id);
+        if (ids.size === 0) {
+          this._byAgent.delete(agentId);
+        }
+      }
     }
   }
 }

@@ -12,7 +12,47 @@ const { EMOTION_DIMENSIONS } = require('../../config/defaults');
  * Periodic deep reflection — integrate memories, adjust baselines.
  * @param {Object} agent
  */
-function reflect(agent) {
+function commitStress(agent, stress, env = null) {
+  const committer = env?.effectCommitter || null;
+  if (committer && typeof committer.commit === 'function') {
+    committer.commit({
+      deltas: [{
+        type: 'emotion',
+        target: 'agent',
+        agentId: agent.id,
+        changes: {},
+        multiplier: 1,
+        appraisalModifiers: null,
+        stress,
+      }],
+    });
+    return;
+  }
+  agent.emotion.setStress(stress);
+}
+
+function commitEmotion(agent, changes, env = null, options = {}) {
+  const committer = env?.effectCommitter || null;
+  const multiplier = Number.isFinite(options.multiplier) ? options.multiplier : 1;
+  const appraisalModifiers = options.appraisalModifiers || null;
+  if (committer && typeof committer.commit === 'function') {
+    committer.commit({
+      deltas: [{
+        type: 'emotion',
+        target: 'agent',
+        agentId: agent.id,
+        changes,
+        multiplier,
+        appraisalModifiers,
+        stress: null,
+      }],
+    });
+    return;
+  }
+  agent.emotion.applyEffect(changes, multiplier, appraisalModifiers);
+}
+
+function reflect(agent, env = null) {
   // 1. Memory consolidation
   if (agent.memory.consolidate) {
     agent.memory.consolidate();
@@ -47,10 +87,10 @@ function reflect(agent) {
 
   // 3. Stress reappraisal
   if (currentValence > 0.1 && agent.socialEnergy > 0.3) {
-    agent.emotion.setStress(agent.emotion.stress - 0.2);
+    commitStress(agent, agent.emotion.stress - 0.2, env);
   }
   if (agent.emotion.current.loneliness > 0.3 || agent.emotion.current.sadness > 0.3) {
-    agent.emotion.setStress(agent.emotion.stress + 0.1);
+    commitStress(agent, agent.emotion.stress + 0.1, env);
   }
 
   // R28 P1-001 fix: baseline reset protection is now handled by
@@ -63,7 +103,7 @@ function reflect(agent) {
  * @param {Object} agent
  * @returns {Object|null}
  */
-function assessStateConsequences(agent) {
+function assessStateConsequences(agent, env = null) {
   const stateDef = STATES[agent.stateMachine.currentState];
   if (!stateDef || !stateDef.next || stateDef.next.length === 0) return null;
 
@@ -88,7 +128,7 @@ function assessStateConsequences(agent) {
   const { memories: allMemories, recallEmotionDelta: consequenceRecallDelta } = agent.memory.retrieve(batchContext, candidateStates.length * 3);
 
   if (consequenceRecallDelta && Object.keys(consequenceRecallDelta).length > 0) {
-    agent.emotion.applyEffect(consequenceRecallDelta, 0.5);
+    commitEmotion(agent, consequenceRecallDelta, env, { multiplier: 0.5 });
   }
 
   for (const nextState of candidateStates) {

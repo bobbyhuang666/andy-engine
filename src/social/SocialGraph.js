@@ -115,8 +115,8 @@ class SocialGraph {
    * @returns {Relationship[]}
    */
   getStrongRelationships(agentId) {
-    return this.getRelationships(agentId)
-      .filter(r => r.type === 'friend' || r.type === 'closeFriend')
+    const layers = this.getLayers(agentId);
+    return [...layers.closeFriends, ...layers.friends]
       .sort((a, b) => b.strength - a.strength);
   }
 
@@ -126,13 +126,7 @@ class SocialGraph {
    * @returns {{ closeFriends: Relationship[], friends: Relationship[], acquaintances: Relationship[], strangers: Relationship[] }}
    */
   getLayers(agentId) {
-    const rels = this.getRelationships(agentId);
-    return {
-      closeFriends: rels.filter(r => r.type === 'closeFriend'),
-      friends: rels.filter(r => r.type === 'friend'),
-      acquaintances: rels.filter(r => r.type === 'acquaintance'),
-      strangers: rels.filter(r => r.type === 'stranger'),
-    };
+    return this._projectDunbarLayers(agentId);
   }
 
   // ═══════════════════════════════════════════
@@ -146,14 +140,16 @@ class SocialGraph {
    * @returns {string[]}
    */
   getCommonFriends(agentA, agentB) {
+    // R41 L2 fix: use threshold from ANDY_DEFAULTS instead of hardcoded 0.15.
+    const acquaintanceThreshold = ANDY_DEFAULTS.relationship.threshold.acquaintance;
     const friendsA = new Set(
       this.getRelationships(agentA)
-        .filter(r => r.strength > 0.15)
+        .filter(r => r.strength > acquaintanceThreshold)
         .map(r => r.getOther(agentA))
     );
     const friendsB = new Set(
       this.getRelationships(agentB)
-        .filter(r => r.strength > 0.15)
+        .filter(r => r.strength > acquaintanceThreshold)
         .map(r => r.getOther(agentB))
     );
 
@@ -326,37 +322,8 @@ class SocialGraph {
    * @private
    */
   _enforceDunbarLimits() {
-    const { maxStrongTies, maxMediumTies } = ANDY_DEFAULTS.relationship;
-
-    // R5: 使用与 Relationship._updateType 一致的滞后带值
-    const hysteresis = 0.08;
-
-    for (const [agentId, relMap] of this._adjacency) {
-      // 按关系强度排序
-      const relationships = [...relMap.values()]
-        .sort((a, b) => b.strength - a.strength);
-
-      // 统计各层级数量
-      let strongCount = 0;   // closeFriend + friend
-      let mediumCount = 0;   // acquaintance
-
-      for (const rel of relationships) {
-        if (rel.type === 'closeFriend' || rel.type === 'friend') {
-          strongCount++;
-          if (strongCount > maxStrongTies) {
-            // 强关系超限：强制降到滞后带以下，确保 _updateType 能降级
-            rel.strength = Math.min(rel.strength, ANDY_DEFAULTS.relationship.threshold.friend - hysteresis - 0.01);
-            rel._updateType();
-          }
-        } else if (rel.type === 'acquaintance') {
-          mediumCount++;
-          if (mediumCount > maxMediumTies) {
-            // 中关系超限：强制降到滞后带以下
-            rel.strength = Math.min(rel.strength, ANDY_DEFAULTS.relationship.threshold.acquaintance - hysteresis - 0.01);
-            rel._updateType();
-          }
-        }
-      }
+    for (const agentId of this._adjacency.keys()) {
+      this._projectDunbarLayers(agentId);
     }
   }
 
@@ -411,6 +378,56 @@ class SocialGraph {
     if (!this._adjacency.has(agentId)) {
       this._adjacency.set(agentId, new Map());
     }
+  }
+
+  /**
+   * Project per-agent Dunbar layers without mutating shared relationship edges.
+   *
+   * Relationship instances are bidirectional and shared by both endpoints. A's
+   * social capacity should not destroy B's bond strength or global relation
+   * state, so capacity is applied as an agent-local view.
+   *
+   * @private
+   * @param {string} agentId
+   * @returns {{ closeFriends: Relationship[], friends: Relationship[], acquaintances: Relationship[], strangers: Relationship[] }}
+   */
+  _projectDunbarLayers(agentId) {
+    const rels = this.getRelationships(agentId)
+      .sort((a, b) => b.strength - a.strength);
+    const { maxStrongTies, maxMediumTies } = ANDY_DEFAULTS.relationship;
+
+    const layers = {
+      closeFriends: [],
+      friends: [],
+      acquaintances: [],
+      strangers: [],
+    };
+
+    let strongCount = 0;
+    let mediumCount = 0;
+
+    for (const rel of rels) {
+      if (rel.type === 'closeFriend' || rel.type === 'friend') {
+        strongCount++;
+        if (strongCount <= maxStrongTies) {
+          if (rel.type === 'closeFriend') layers.closeFriends.push(rel);
+          else layers.friends.push(rel);
+          continue;
+        }
+      }
+
+      if (rel.type === 'closeFriend' || rel.type === 'friend' || rel.type === 'acquaintance') {
+        mediumCount++;
+        if (mediumCount <= maxMediumTies) {
+          layers.acquaintances.push(rel);
+          continue;
+        }
+      }
+
+      layers.strangers.push(rel);
+    }
+
+    return layers;
   }
 
   /**

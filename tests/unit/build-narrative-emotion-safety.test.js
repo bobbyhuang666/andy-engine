@@ -52,6 +52,17 @@ describe('buildNarrative 情绪安全', () => {
     expect(agent.emotion.mood).toEqual(beforeMood);
   });
 
+  it('native-like emotion mirror is restored after temporary empathy', () => {
+    agent.emotion._ev = {};
+    const beforeCurrent = { ...agent.emotion.current };
+    const beforeMood = { ...agent.emotion.mood };
+
+    buildNarrative(agent, { userText: '我今天好难过', relationship: 50 });
+
+    expect(agent.emotion.current).toEqual(beforeCurrent);
+    expect(agent.emotion.mood).toEqual(beforeMood);
+  });
+
   it('personality.ocean 缺失时不报错', () => {
     agent.personality = null;
     expect(() => {

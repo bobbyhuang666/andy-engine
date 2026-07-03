@@ -189,6 +189,9 @@ class BehaviorField {
     // 未来行为倾向（延迟初始化）
     this._futureTendency = null;
 
+    // P1 fix: 时间日程从 domain/config 读取；非法配置回退默认行为。
+    this._timeSchedule = _normalizeTimeSchedule(this.domain && this.domain.timeSchedule);
+
     // attractor 状态已在 savedState 分支中恢复，此处不再无条件覆写
   }
 
@@ -342,10 +345,13 @@ class BehaviorField {
     if (this._attractor && this._attractorTicksLeft > 0) {
       const { target, strength } = this._attractor;
       for (let d = 0; d < DIMS; d++) {
-        // 势能 U = strength * ||B - target||²
-        // 梯度 ∇U = 2 * strength * (B - target)
-        // 动力学中 v += -∇U·dt，所以 B 会朝 target 移动
-        grad[d] += 2 * strength * (this.B[d] - target[d]);
+        // 势能 U = w * ||B - target||²
+        // 梯度 ∇U = 2w * (B - target)，但为与其他梯度源
+        // (Needs/Schedule/Habit/Time 均使用 w 而非 2w) 保持一致，
+        // 统一使用 w * (B - target)。AGENTS.md 中 `grad[d] += weight * ...` 是
+        // 正确范式。吸引力仍强于其他源 (strength=1 vs weight=0.18)，
+        // 但比例从 11x 降至 5.5x。
+        grad[d] += strength * (this.B[d] - target[d]);
       }
       this._attractorTicksLeft--;
       if (this._attractorTicksLeft <= 0) {
@@ -521,7 +527,7 @@ class BehaviorField {
    * @private
    */
   _addTimeGradient(grad, hour) {
-    const target = _getTimeTarget(hour);
+    const target = this._getTimeTarget(hour);
     if (!target) return;
 
     // 时间引力（软约束，不应压过紧急需求）
@@ -702,6 +708,40 @@ class BehaviorField {
     }
     return bf;
   }
+
+  /**
+   * 时间段 → 目标行为位置（平滑插值版）
+   * @param {number} hour - 当前小时 (0-24)
+   * @returns {number[]|null} - 4D 目标位置
+   * @private
+   */
+  _getTimeTarget(hour) {
+    const h = ((hour % 24) + 24) % 24;
+    const schedule = this._timeSchedule;
+
+    let lo = schedule[0], hi = schedule[1];
+    for (let i = 0; i < schedule.length - 1; i++) {
+      if (h >= schedule[i].hour && h < schedule[i + 1].hour) {
+        lo = schedule[i];
+        hi = schedule[i + 1];
+        break;
+      }
+    }
+
+    const loTarget = TIME_TARGETS[lo.target];
+    const hiTarget = TIME_TARGETS[hi.target];
+    if (!loTarget || !hiTarget) return TIME_TARGETS.sleep;
+
+    const span = hi.hour - lo.hour;
+    const t = span > 0 ? (h - lo.hour) / span : 0;
+    const blend = Math.max(0, Math.min(1, t));
+
+    const result = new Array(DIMS);
+    for (let d = 0; d < DIMS; d++) {
+      result[d] = loTarget[d] * (1 - blend) + hiTarget[d] * blend;
+    }
+    return result;
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -718,9 +758,10 @@ function _gaussianRandom(rng = null) {
 }
 
 /**
- * 时间段 → 目标行为位置（平滑插值版）
+ * 默认时间段 → 目标行为标签映射 (9-to-5 工作制)。
+ * domain 可通过 `timeSchedule` 覆盖 (shift-based, night-owl 等)。
  */
-const TIME_SCHEDULE = [
+const DEFAULT_TIME_SCHEDULE = [
   { hour: 0,  target: 'sleep' },
   { hour: 6,  target: 'sleep' },
   { hour: 7,  target: 'morning' },
@@ -735,33 +776,23 @@ const TIME_SCHEDULE = [
   { hour: 24, target: 'sleep' },
 ];
 
-function _getTimeTarget(hour) {
-  const h = ((hour % 24) + 24) % 24; // 确保 0-24
+function _normalizeTimeSchedule(schedule) {
+  if (!Array.isArray(schedule) || schedule.length < 2) {
+    return DEFAULT_TIME_SCHEDULE;
+  }
 
-  // 找到 h 两侧的 schedule 条目
-  let lo = TIME_SCHEDULE[0], hi = TIME_SCHEDULE[1];
-  for (let i = 0; i < TIME_SCHEDULE.length - 1; i++) {
-    if (h >= TIME_SCHEDULE[i].hour && h < TIME_SCHEDULE[i + 1].hour) {
-      lo = TIME_SCHEDULE[i];
-      hi = TIME_SCHEDULE[i + 1];
-      break;
+  let previousHour = -Infinity;
+  for (const entry of schedule) {
+    if (!entry || !Number.isFinite(entry.hour) || !TIME_TARGETS[entry.target]) {
+      return DEFAULT_TIME_SCHEDULE;
     }
+    if (entry.hour < previousHour) {
+      return DEFAULT_TIME_SCHEDULE;
+    }
+    previousHour = entry.hour;
   }
 
-  const loTarget = TIME_TARGETS[lo.target];
-  const hiTarget = TIME_TARGETS[hi.target];
-  if (!loTarget || !hiTarget) return TIME_TARGETS.sleep;
-
-  // 在边界的 1 小时范围内做线性插值
-  const span = hi.hour - lo.hour;
-  const t = span > 0 ? (h - lo.hour) / span : 0;
-  const blend = Math.max(0, Math.min(1, t)); // 0=完全lo, 1=完全hi
-
-  const result = new Array(DIMS);
-  for (let d = 0; d < DIMS; d++) {
-    result[d] = loTarget[d] * (1 - blend) + hiTarget[d] * blend;
-  }
-  return result;
+  return schedule;
 }
 
 module.exports = {

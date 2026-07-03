@@ -15,7 +15,7 @@ LLMs only express what a character knows; they do not create world facts.
 > **Release**: v2.0.1 alpha — Foundation-stage persistent agent runtime.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
-[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 
 ---
 
@@ -62,11 +62,11 @@ The LLM is a rendering layer, not the source of truth.
 
 | Area | Status |
 |---|---|
-| Unit / integration / domain / source-scan tests | 2788 tests passing |
+| Unit / integration / domain / source-scan tests | 3197 tests passing / 28 skipped |
 | Custom domain | Tavern preset passes domain-agnostic validation |
 | Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
 | Seeded RNG | Core runtime paths support seeded simulation baseline (not full deterministic replay) |
-| Perf-check | Benchmark / contagion profile regression checks pass |
+| Perf-check | Benchmark / contagion profile regression checks exit 0 in 3-run median mode |
 | Early subjective evaluation | Internal experiments suggest stronger character continuity and presence; not yet published as a standard benchmark |
 
 ## AffectCompiler
@@ -141,7 +141,7 @@ Andy Engine v2 is the architecture-preview line that turns Andy from a character
 - Continuous 4D BehaviorField as the core behavior dynamics layer
 - Seeded RNG baseline for reproducible core runtime paths (not full deterministic replay)
 - Performance benchmark / profiling / perf-check baseline
-- 2788 tests across unit, integration, domain, compatibility, and source-scan suites
+- 3146 tests passing / 28 skipped across unit, integration, domain, compatibility, and source-scan suites
 - Core runtime tests and default package smoke do not require SQLite native bindings; SQLite persistence is verified separately with `npm run sqlite:smoke`
 - Clean Architecture Pass complete: `src/` owns implementation; old top-level runtime wrappers retired; Semantic Closure Pass complete with 9 domain-safe read-only providers
 
@@ -464,7 +464,7 @@ await store.init({
 await store.shutdown();
 ```
 
-**Note:** SQLite persistence uses the optional `better-sqlite3` dependency. If not installed or if its native binding is not built, the store facade still loads — only constructing a `SQLiteStore` instance will throw a clear optional-dependency error. The default `smoke:pack` does not require SQLite; use `npm run sqlite:smoke` to verify SQLite persistence when `better-sqlite3` is available. Install it with:
+**Note:** Andy Engine's published package baseline is Node.js 20+. SQLite persistence uses the optional `better-sqlite3` dependency, which also requires Node.js 20+ in the current 12.x line. If it is not installed, skipped by npm, or its native binding is not built, the store facade still loads; only constructing a `SQLiteStore` instance will throw a clear optional-dependency error. The default `smoke:pack` does not require SQLite; use `npm run sqlite:smoke` to verify SQLite persistence when `better-sqlite3` is available. Install it with:
 
 ```bash
 npm install better-sqlite3
@@ -613,7 +613,7 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 - 连续 4D BehaviorField 作为核心行为动力学层
 - 可播种 RNG 基线，支持核心运行时路径的可复现模拟（非全路径确定性重放）
 - 性能基准 / Profiling / perf-check 基线
-- 2788 测试（单元、集成、domain、兼容性、source-scan）
+- 3146 tests passing / 28 skipped（单元、集成、domain、兼容性、source-scan）
 - Clean Architecture Pass 完成：`src/` 拥有实现，旧顶层 runtime wrappers 已退休；Semantic Closure Pass 完成，9 个 domain-safe read-only provider 已接入
 
 ### 实验性
@@ -709,11 +709,11 @@ Grounded Narrative（有事实边界的叙事）
 
 | 项目 | 状态 |
 |---|---|
-| 单元 / 集成 / domain / source-scan 测试 | 2788 tests passing |
+| 单元 / 集成 / domain / source-scan 测试 | 3197 tests passing / 28 skipped |
 | custom domain | tavern preset 通过 domain-agnostic 验证 |
 | facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
 | seeded RNG | 核心运行时路径支持 seeded simulation 基线（非全路径确定性重放） |
-| perf-check | benchmark / contagion profile 回归检查通过 |
+| perf-check | benchmark / contagion profile 回归检查以 3-run median mode exit 0 |
 | 早期主观评测 | 内部实验显示角色连续性和状态感更强，尚未作为公开 benchmark 发布 |
 
 ## AffectCompiler

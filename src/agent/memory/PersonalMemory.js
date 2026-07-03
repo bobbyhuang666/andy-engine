@@ -596,16 +596,23 @@ class PersonalMemory {
 
     for (const dim of positiveDims) {
       if (memory.emotionSnapshot[dim] !== undefined) {
-        memory.emotionSnapshot[dim] += valenceUpdate * 0.3;
+        const newVal = memory.emotionSnapshot[dim] + valenceUpdate * 0.3;
         // R9 fix: clamp to valid range to prevent unbounded drift
-        memory.emotionSnapshot[dim] = Math.max(-1, Math.min(1, memory.emotionSnapshot[dim]));
+        // R41 M1 fix: guard against NaN before Math.max/Math.min.
+        // Math.max(-1, NaN) → NaN, permanently corrupting the dimension.
+        memory.emotionSnapshot[dim] = Number.isFinite(newVal)
+          ? Math.max(-1, Math.min(1, newVal))
+          : 0;
       }
     }
     for (const dim of negativeDims) {
       if (memory.emotionSnapshot[dim] !== undefined) {
-        memory.emotionSnapshot[dim] -= valenceUpdate * 0.2;
+        const newVal = memory.emotionSnapshot[dim] - valenceUpdate * 0.2;
         // R9 fix: clamp to valid range to prevent unbounded drift
-        memory.emotionSnapshot[dim] = Math.max(-1, Math.min(1, memory.emotionSnapshot[dim]));
+        // R41 M1 fix: guard against NaN before Math.max/Math.min.
+        memory.emotionSnapshot[dim] = Number.isFinite(newVal)
+          ? Math.max(-1, Math.min(1, newVal))
+          : 0;
       }
     }
   }

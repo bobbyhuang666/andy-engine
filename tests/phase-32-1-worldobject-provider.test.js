@@ -1,93 +1,60 @@
 /**
- * Phase 32.1: WorldObjectCandidateProvider Tests
+ * Phase 32.1: WorldObject affordance query tests
+ *
+ * The retired WorldObjectCandidateProvider is no longer part of the canonical
+ * src/action provider matrix. Canonical object interaction now exposes object
+ * affordances as pure data for higher layers to turn into candidates/events.
  */
 
 import { describe, it, expect } from 'vitest';
-import { WorldObjectCandidateProvider } from '../agent/action/providers/WorldObjectCandidateProvider.js';
+import { createWorldObject, WorldObjectManager } from '../src/action/WorldObject.js';
 
-describe('Phase 32.1: WorldObjectCandidateProvider', () => {
-  const provider = new WorldObjectCandidateProvider();
+function makeObject(id, region, affordances) {
+  return createWorldObject({
+    id,
+    type: 'resource',
+    name: id,
+    location: { region },
+    affordances,
+  });
+}
 
-  it('generates candidates for visible objects with affordances', () => {
-    const context = {
-      visibleObjects: [
-        {
-          id: 'bread_1',
-          type: 'food',
-          name: '面包',
-          location: '食堂',
-          affordances: [{ need: 'hunger', satisfyRate: 0.3 }],
-        },
-      ],
-      needs: { hunger: 0.3 },
-    };
-    const candidates = provider.generate(context);
-    expect(candidates).toHaveLength(1);
-    expect(candidates[0].type).toBe('consume');
-    expect(candidates[0].targetObjectId).toBe('bread_1');
-    expect(candidates[0].expectedEffects.needDelta.hunger).toBe(0.3);
+describe('Phase 32.1: WorldObject affordance queries', () => {
+  it('finds visible objects with affordances for a deficient need', () => {
+    const manager = new WorldObjectManager([
+      makeObject('bread_1', 'canteen', [{ actionType: 'consume', need: 'hunger', satisfyRate: 0.3 }]),
+    ]);
+
+    const results = manager.getAffordancesForNeed({ agent: { position: 'canteen' } }, 'hunger');
+    expect(results).toHaveLength(1);
+    expect(results[0].object.id).toBe('bread_1');
+    expect(results[0].affordances[0].satisfyRate).toBe(0.3);
   });
 
-  it('does not generate candidates when no visible objects', () => {
-    const context = { visibleObjects: [], needs: { hunger: 0.3 } };
-    expect(provider.generate(context)).toHaveLength(0);
+  it('returns no affordances when no visible objects match', () => {
+    const manager = new WorldObjectManager([
+      makeObject('bread_1', 'canteen', [{ actionType: 'consume', need: 'hunger', satisfyRate: 0.3 }]),
+    ]);
+
+    expect(manager.getAffordancesForNeed({ agent: { position: 'library' } }, 'hunger')).toHaveLength(0);
   });
 
-  it('does not generate candidates when need is satisfied', () => {
-    const context = {
-      visibleObjects: [
-        {
-          id: 'bread_1',
-          type: 'food',
-          name: '面包',
-          location: '食堂',
-          affordances: [{ need: 'hunger', satisfyRate: 0.3 }],
-        },
-      ],
-      needs: { hunger: 0.9 }, // need satisfied
-    };
-    expect(provider.generate(context)).toHaveLength(0);
+  it('returns multiple matching object affordance groups', () => {
+    const manager = new WorldObjectManager([
+      makeObject('bread_1', 'canteen', [{ actionType: 'consume', need: 'hunger', satisfyRate: 0.3 }]),
+      makeObject('soup_1', 'canteen', [{ actionType: 'consume', need: 'hunger', satisfyRate: 0.2 }]),
+    ]);
+
+    const results = manager.getAffordancesForNeed({ agent: { position: 'canteen' } }, 'hunger');
+    expect(results).toHaveLength(2);
   });
 
-  it('generates multiple candidates for multiple affordances', () => {
-    const context = {
-      visibleObjects: [
-        {
-          id: 'guitar_1',
-          type: 'tool',
-          name: '吉他',
-          location: '广场',
-          affordances: [
-            { need: 'stimulation', satisfyRate: 0.15 },
-            { need: 'social', satisfyRate: 0.1 },
-          ],
-        },
-      ],
-      needs: { stimulation: 0.3, social: 0.4 },
-    };
-    const candidates = provider.generate(context);
-    expect(candidates).toHaveLength(2);
-  });
+  it('skips objects without matching affordances', () => {
+    const manager = new WorldObjectManager([
+      makeObject('rock_1', 'square', []),
+      makeObject('guitar_1', 'square', [{ actionType: 'play', need: 'stimulation', satisfyRate: 0.15 }]),
+    ]);
 
-  it('generates candidates for multiple objects', () => {
-    const context = {
-      visibleObjects: [
-        { id: 'bread_1', type: 'food', name: '面包', location: '食堂', affordances: [{ need: 'hunger', satisfyRate: 0.3 }] },
-        { id: 'bed_1', type: 'furniture', name: '床', location: '小屋', affordances: [{ need: 'energy', satisfyRate: 0.2 }] },
-      ],
-      needs: { hunger: 0.3, energy: 0.3 },
-    };
-    const candidates = provider.generate(context);
-    expect(candidates).toHaveLength(2);
-  });
-
-  it('skips objects without affordances', () => {
-    const context = {
-      visibleObjects: [
-        { id: 'rock_1', type: 'decoration', name: '石头', location: '广场', affordances: [] },
-      ],
-      needs: {},
-    };
-    expect(provider.generate(context)).toHaveLength(0);
+    expect(manager.getAffordancesForNeed({ agent: { position: 'square' } }, 'hunger')).toHaveLength(0);
   });
 });

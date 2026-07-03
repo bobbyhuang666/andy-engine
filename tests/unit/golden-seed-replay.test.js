@@ -34,6 +34,19 @@ const FIXTURE_PATH = join(__dirname, '..', 'fixtures', 'golden-campus-seed42-100
 const START_TIME = new Date('2026-09-01T08:00:00Z');
 const SEED = 42;
 const TICKS = 100;
+const GOLDEN_REPLAY_TZ = 'Asia/Shanghai';
+
+function withGoldenReplayTimezone(fn) {
+  const hadTZ = Object.prototype.hasOwnProperty.call(process.env, 'TZ');
+  const previousTZ = process.env.TZ;
+  process.env.TZ = GOLDEN_REPLAY_TZ;
+  try {
+    return fn();
+  } finally {
+    if (hadTZ) process.env.TZ = previousTZ;
+    else delete process.env.TZ;
+  }
+}
 
 function buildSeededEngine() {
   const engine = new AndyEngine({ seed: SEED, startTime: START_TIME });
@@ -51,7 +64,7 @@ function buildSeededEngine() {
  * 处理：regen 时写真实时间；比对时读 fixture 既有 generatedAt 回填，
  * 保证两侧一致（generatedAt 不参与判定，仅作为审计快照留存于 fixture）。
  */
-function buildMeta(engine, generatedAt = new Date().toISOString()) {
+function buildMeta(engine, generatedAt = new Date().toISOString(), fixtureNodeVersion) {
   const pkg = JSON.parse(readFileSync(join(__dirname, '..', '..', 'package.json'), 'utf-8'));
   const envelope = toWorldState(engine, 'golden-campus-v1');
   return {
@@ -63,7 +76,7 @@ function buildMeta(engine, generatedAt = new Date().toISOString()) {
     seed: SEED,
     ticks: TICKS,
     startTime: START_TIME.toISOString(),
-    nodeVersion: process.versions.node.split('.')[0],
+    nodeVersion: fixtureNodeVersion || process.versions.node.split('.')[0],
     nativeMode: process.env.ANDY_USE_NATIVE === '1' ? 'enabled' : 'disabled',
     generationCommand: 'npm run golden:regen',
     generatedAt,
@@ -135,73 +148,81 @@ function normalizeEngine(engine) {
 
 describe('Golden Seed Replay Corpus (P0 determinism)', () => {
   it('same seed → identical committed golden snapshot (含 _meta + tickHashes)', () => {
-    const engine = buildSeededEngine();
+    withGoldenReplayTimezone(() => {
+      const engine = buildSeededEngine();
 
-    // W3: tick 循环内采 per-tick worldState 并 hash（REPLAY_TRUST §6）
-    const tickHashes = [];
-    for (let i = 0; i < TICKS; i++) {
-      engine.tick();
-      const envelope = toWorldState(engine, 'golden-campus-v1');
-      tickHashes.push(computeTickHash(envelope, i));
-    }
+      // W3: tick 循环内采 per-tick worldState 并 hash（REPLAY_TRUST §6）
+      const tickHashes = [];
+      for (let i = 0; i < TICKS; i++) {
+        engine.tick();
+        const envelope = toWorldState(engine, 'golden-campus-v1');
+        tickHashes.push(computeTickHash(envelope, i));
+      }
 
-    const normalized = normalizeEngine(engine);
+      const normalized = normalizeEngine(engine);
 
-    // 非 regen 模式：从既有 fixture 读 generatedAt 回填，保证全等比对稳定
-    let metaGeneratedAt = new Date().toISOString();
-    if (process.env.GOLDEN_REGEN !== '1' && existsSync(FIXTURE_PATH)) {
-      try {
-        const existing = JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8'));
-        if (existing._meta && existing._meta.generatedAt) {
-          metaGeneratedAt = existing._meta.generatedAt;
-        }
-      } catch { /* fixture 损坏时回退到当前时间，触发比对失败暴露问题 */ }
-    }
-    const meta = buildMeta(engine, metaGeneratedAt);
+      // 非 regen 模式：从既有 fixture 读 generatedAt 和 nodeVersion 回填，保证全等比对稳定
+      let metaGeneratedAt = new Date().toISOString();
+      let fixtureNodeVersion;
+      if (process.env.GOLDEN_REGEN !== '1' && existsSync(FIXTURE_PATH)) {
+        try {
+          const existing = JSON.parse(readFileSync(FIXTURE_PATH, 'utf-8'));
+          if (existing._meta) {
+            if (existing._meta.generatedAt) metaGeneratedAt = existing._meta.generatedAt;
+            if (existing._meta.nodeVersion) fixtureNodeVersion = existing._meta.nodeVersion;
+          }
+        } catch { /* fixture 损坏时回退到当前值，触发比对失败暴露问题 */ }
+      }
+      const meta = buildMeta(engine, metaGeneratedAt, fixtureNodeVersion);
 
-    const full = { _meta: meta, ...normalized, tickHashes };
-    const json = JSON.stringify(full, null, 2) + '\n';
+      const full = { _meta: meta, ...normalized, tickHashes };
+      const json = JSON.stringify(full, null, 2) + '\n';
 
-    // 重生成模式：故意改模拟输出时，开发者用 npm run golden:regen 重写 fixture
-    if (process.env.GOLDEN_REGEN === '1') {
-      writeFileSync(FIXTURE_PATH, json);
-      return; // skip assertion
-    }
+      // 重生成模式：故意改模拟输出时，开发者用 npm run golden:regen 重写 fixture
+      if (process.env.GOLDEN_REGEN === '1') {
+        writeFileSync(FIXTURE_PATH, json);
+        return; // skip assertion
+      }
 
-    if (!existsSync(FIXTURE_PATH)) {
-      throw new Error(
-        `Golden fixture 不存在：${FIXTURE_PATH}\n` +
-        '运行 npm run golden:regen 生成首次基线。'
-      );
-    }
+      if (!existsSync(FIXTURE_PATH)) {
+        throw new Error(
+          `Golden fixture 不存在：${FIXTURE_PATH}\n` +
+          '运行 npm run golden:regen 生成首次基线。'
+        );
+      }
 
-    const golden = readFileSync(FIXTURE_PATH, 'utf-8');
-    expect(json).toBe(golden);
+      const golden = readFileSync(FIXTURE_PATH, 'utf-8');
+      expect(json).toBe(golden);
+    });
   });
 
   it('cross-check: two same-seed runs produce identical normalized snapshot', () => {
     // 保留 deterministic-replay 的精神：即使 fixture 过期，双 run 一致性仍守护确定性
-    const engine1 = buildSeededEngine();
-    const engine2 = buildSeededEngine();
-    for (let i = 0; i < TICKS; i++) {
-      engine1.tick();
-      engine2.tick();
-    }
-    expect(normalizeEngine(engine1)).toEqual(normalizeEngine(engine2));
+    withGoldenReplayTimezone(() => {
+      const engine1 = buildSeededEngine();
+      const engine2 = buildSeededEngine();
+      for (let i = 0; i < TICKS; i++) {
+        engine1.tick();
+        engine2.tick();
+      }
+      expect(normalizeEngine(engine1)).toEqual(normalizeEngine(engine2));
+    });
   });
 
   it('W3: per-tick tickHash 跨 run 稳定（确定性信号）', () => {
     // 独立于 fixture 的确定性信号：同 seed 两次 run 的 per-tick hash 序列应一致
-    const run1 = buildSeededEngine();
-    const run2 = buildSeededEngine();
-    const hashes1 = [];
-    const hashes2 = [];
-    for (let i = 0; i < TICKS; i++) {
-      run1.tick();
-      run2.tick();
-      hashes1.push(computeTickHash(toWorldState(run1, 'golden-campus-v1'), i).hash);
-      hashes2.push(computeTickHash(toWorldState(run2, 'golden-campus-v1'), i).hash);
-    }
-    expect(hashes1).toEqual(hashes2);
+    withGoldenReplayTimezone(() => {
+      const run1 = buildSeededEngine();
+      const run2 = buildSeededEngine();
+      const hashes1 = [];
+      const hashes2 = [];
+      for (let i = 0; i < TICKS; i++) {
+        run1.tick();
+        run2.tick();
+        hashes1.push(computeTickHash(toWorldState(run1, 'golden-campus-v1'), i).hash);
+        hashes2.push(computeTickHash(toWorldState(run2, 'golden-campus-v1'), i).hash);
+      }
+      expect(hashes1).toEqual(hashes2);
+    });
   });
 });

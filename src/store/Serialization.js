@@ -70,7 +70,20 @@ class Serialization {
       throw new Error('Serialization.deserialize: envelope 缺少 runtimeSnapshot 字段');
     }
 
-    // 运行时快照是不透明的，直接返回
+    // 运行时快照是不透明的，直接返回。
+    // Preserve the snapshot's own _restoreConfig, then layer caller config on
+    // top as an explicit override. Replacing _restoreConfig here would drop
+    // persisted settings such as enableFacts/needs/actionSelection when callers
+    // pass a partial config like { seed } or { domain } during load.
+    if (config && typeof config === 'object') {
+      return {
+        ...envelope.runtimeSnapshot,
+        _restoreConfig: {
+          ...(envelope.runtimeSnapshot._restoreConfig || {}),
+          ...config,
+        },
+      };
+    }
     return envelope.runtimeSnapshot;
   }
 

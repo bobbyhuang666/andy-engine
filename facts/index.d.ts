@@ -6,7 +6,7 @@
 
 type FactType = 'static_env' | 'agent_state' | 'relationship' | 'event' | 'observation' | 'memory' | 'rule' | 'location_meaning' | 'invalidated';
 type FactSource = 'engine' | 'observation' | 'inference';
-type FactScope = 'public' | 'local';
+type FactScope = 'public' | 'local' | 'internal';
 
 interface WorldFact {
   id: string;
@@ -33,7 +33,7 @@ interface ConsistencyViolation {
 interface ConsistencyCheckResult {
   valid: boolean;
   violations: ConsistencyViolation[];
-  severity: 'pass' | 'reject' | 'rewrite' | 'degrade_to_template';
+  severity: 'pass' | 'reject' | 'rewrite' | 'degrade_to_template' | 'warning';
   suggestion: string | null;
   [key: string]: any;
 }
@@ -125,30 +125,36 @@ declare function createRuleFact(params: Partial<WorldFact>): WorldFact;
 declare function createLocationMeaningFact(params: Partial<WorldFact>): WorldFact;
 declare function createInvalidatedFact(params: Partial<WorldFact>): WorldFact;
 
-export = {
-  FactType,
-  FACT_TYPES,
-  FactSource,
-  FACT_SOURCES,
-  FactScope,
-  FACT_SCOPES,
-  validateFact,
-  validateTypeFields,
-  createBaseFact,
-  createStaticEnvFact,
-  createAgentStateFact,
-  createRelationshipFact,
-  createEventFact,
-  createObservationFact,
-  createMemoryFact,
-  createRuleFact,
-  createLocationMeaningFact,
-  createInvalidatedFact,
-  WorldFactStore,
-  FactEmitter,
-  FactFormatter,
-  FactProvider,
-  FactConsistencyChecker,
-  KnowledgeStore,
-  CanonEventPipeline,
+// P1-3 fix: `export = { ... }` object literals are invalid in ambient .d.ts
+// (TS2714) and made the whole facts module un-importable for strict TS
+// consumers, hiding the FactScope.INTERNAL addition. Declare a single
+// const carrying the same members and export that identifier instead.
+declare const AndyFacts: {
+  FactType: typeof FactType;
+  FACT_TYPES: typeof FACT_TYPES;
+  FactSource: typeof FactSource;
+  FACT_SOURCES: typeof FACT_SOURCES;
+  FactScope: typeof FactScope;
+  FACT_SCOPES: typeof FACT_SCOPES;
+  validateFact: typeof validateFact;
+  validateTypeFields: typeof validateTypeFields;
+  createBaseFact: typeof createBaseFact;
+  createStaticEnvFact: typeof createStaticEnvFact;
+  createAgentStateFact: typeof createAgentStateFact;
+  createRelationshipFact: typeof createRelationshipFact;
+  createEventFact: typeof createEventFact;
+  createObservationFact: typeof createObservationFact;
+  createMemoryFact: typeof createMemoryFact;
+  createRuleFact: typeof createRuleFact;
+  createLocationMeaningFact: typeof createLocationMeaningFact;
+  createInvalidatedFact: typeof createInvalidatedFact;
+  WorldFactStore: typeof WorldFactStore;
+  FactEmitter: typeof FactEmitter;
+  FactFormatter: typeof FactFormatter;
+  FactProvider: typeof FactProvider;
+  FactConsistencyChecker: typeof FactConsistencyChecker;
+  KnowledgeStore: typeof KnowledgeStore;
+  CanonEventPipeline: typeof CanonEventPipeline;
 };
+
+export = AndyFacts;

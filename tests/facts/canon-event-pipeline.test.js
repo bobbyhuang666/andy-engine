@@ -364,6 +364,25 @@ describe('CanonEventPipeline', () => {
       expect(xiaogang.memory.memories.length).toBe(1);
     });
 
+    it('internal-scoped facts are audit-only and produce no world consequences', () => {
+      const agents = makeAgents();
+      const fact = {
+        type: 'EVENT',
+        scope: 'internal',
+        description: 'action_selected:explore',
+        location: '图书馆',
+        participants: ['xiaoming'],
+        observers: ['xiaohong'],
+      };
+
+      const consequences = applyEventConsequences({ fact, agents, factStore });
+      expect(consequences.memoryUpdates).toEqual([]);
+      expect(consequences.locationMeaningUpdates).toEqual([]);
+      expect(consequences.tendencyUpdates).toEqual([]);
+      expect(agents.get('xiaoming').memory.memories).toHaveLength(0);
+      expect(agents.get('xiaohong').memory.memories).toHaveLength(0);
+    });
+
     it('无 memory 的 agent 不创建记忆', () => {
       const event = makeEvent();
       const agents = makeAgents();
@@ -1102,6 +1121,38 @@ describe('CanonEventPipeline', () => {
       pipeline._propagateInferred(result.fact, agents);
       expect(knowledgeStore.getSource('xiaogang', factId)).toBe('inferred');
       expect(knowledgeStore.getEvidence('xiaogang', factId).confidence).toBe(0.5);
+    });
+
+    it('auditOnly fact (action_selected + scope public) 不产生 inferred knowledge', () => {
+      // type: action_selected forces auditOnly=true even when scope is public.
+      // _propagateKnowledge guards auditOnly, but _propagateInferred must too,
+      // otherwise same-location agents still receive inferred knowledge.
+      const event = makeEvent({
+        id: 'evt_audit_inferred',
+        type: 'action_selected',
+        content: 'action_selected:explore',
+        location: '图书馆',
+        scope: FactScope.PUBLIC,
+        participants: ['xiaoming'],
+        observers: [],
+      });
+      const agents = makeAgents({ xiaogang: '图书馆', xiaoming: '图书馆' });
+      const result = pipeline.processEvent(event, agents);
+
+      expect(result.fact.auditOnly).toBe(true);
+      expect(result.fact.scope).toBe(FactScope.PUBLIC);
+
+      // No agent — participant or same-location bystander — should know.
+      expect(knowledgeStore.hasKnowledge('xiaoming', result.fact.id)).toBe(false);
+      expect(knowledgeStore.hasKnowledge('xiaogang', result.fact.id)).toBe(false);
+
+      // No inferred updates in the returned knowledgeUpdates.
+      const inferred = result.knowledgeUpdates.filter(u => u.source === 'inferred');
+      expect(inferred).toHaveLength(0);
+
+      // Direct call to _propagateInferred should also be a no-op.
+      const direct = pipeline._propagateInferred(result.fact, agents);
+      expect(direct).toHaveLength(0);
     });
   });
 });

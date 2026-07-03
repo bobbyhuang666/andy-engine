@@ -41,6 +41,8 @@ class RuntimeContext {
       minutesElapsed,
       simTime: this.clock.time,
       simDate: this.clock.time.toDateString(),
+      effectCommitter: this.world.effectCommitter,
+      effectWorld: this.world,
     };
 
     // R19: Provide a callback for ActionSelectionRuntime to signal position
@@ -55,9 +57,14 @@ class RuntimeContext {
       // 用陈旧坐标反推出旧区域，用 PositionDelta(to:旧区域) 把 agent.position 回滚。
       // 这里把连续坐标对齐到目标区域中心 (regionCenter 不消费 RNG，不破坏确定性，
       // 不漂移 golden fixture)，使 pointToRegion(coords)===newPosition，回滚消失。
-      if (this.world.spatial && typeof this.world.spatial.setCoords === 'function') {
+      // R41 fix: use _setCoordRaw to avoid per-agent full grid rebuild;
+      // spatial.tick() in Phase 5 does the single rebuild.
+      if (this.world.spatial && typeof this.world.spatial._setCoordRaw === 'function') {
         const center = this.world.spatial.worldMap.regionCenter(newPosition);
-        this.world.spatial.setCoords(agentId, center.x, center.y);
+        // R41 P1 fix: handle null from regionCenter (unknown region).
+        if (center) {
+          this.world.spatial._setCoordRaw(agentId, center.x, center.y);
+        }
       }
     };
 

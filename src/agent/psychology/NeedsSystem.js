@@ -24,7 +24,24 @@
  */
 
 const { ANDY_DEFAULTS } = require('../../config/defaults');
-const cfg = ANDY_DEFAULTS.needs;
+
+/**
+ * R41 A1 fix (v2): deep-merge user needs config with defaults.
+ * Returns a fresh object — does NOT mutate module-global state.
+ */
+function _mergeNeedsConfig(userConfig) {
+  const base = ANDY_DEFAULTS.needs;
+  if (!userConfig || typeof userConfig !== 'object') return base;
+  const needsCfg = userConfig.needs || userConfig;
+  if (typeof needsCfg !== 'object' || Object.keys(needsCfg).length === 0) return base;
+  const merged = { ...base };
+  for (const key of ['decayRate', 'recoveryRate', 'threshold']) {
+    if (needsCfg[key] && typeof needsCfg[key] === 'object') {
+      merged[key] = { ...base[key], ...needsCfg[key] };
+    }
+  }
+  return merged;
+}
 
 // ─── 需求匮乏 → 4D 连续梯度目标 ───
 /**
@@ -57,10 +74,13 @@ class NeedsSystem {
    * @param {Object} personality - Personality 实例
    * @param {Object} [savedState] - 恢复状态
    * @param {Object} [domain] - DomainRegistry 实例
+   * @param {Object} [needsConfig] - R41 A1: user needs config override
    */
-  constructor(personality, savedState = null, domain = null) {
+  constructor(personality, savedState = null, domain = null, needsConfig = null) {
     if (!domain) throw new Error('NeedsSystem requires a domain config');
     this.domain = domain;
+    // R41 A1 fix: instance-level config, not module-global
+    this._cfg = _mergeNeedsConfig(needsConfig);
 
     // 从 domain 获取需求满足映射
     this._needSatisfaction = this.domain.needSatisfactionMap;
@@ -71,8 +91,8 @@ class NeedsSystem {
 
     if (savedState) {
       this.needs = { ...savedState.needs };
-      this._decayRates = savedState._decayRates || NeedsSystem._calcDecayRates(ocean);
-      this._recoveryMultipliers = savedState._recoveryMultipliers || NeedsSystem._calcRecoveryMultipliers(ocean);
+      this._decayRates = savedState._decayRates || this._calcDecayRates(ocean);
+      this._recoveryMultipliers = savedState._recoveryMultipliers || this._calcRecoveryMultipliers(ocean);
     } else {
       this.needs = {
         hunger: 0.8,
@@ -81,8 +101,8 @@ class NeedsSystem {
         comfort: 0.7,
         stimulation: 0.5,
       };
-      this._decayRates = NeedsSystem._calcDecayRates(ocean);
-      this._recoveryMultipliers = NeedsSystem._calcRecoveryMultipliers(ocean);
+      this._decayRates = this._calcDecayRates(ocean);
+      this._recoveryMultipliers = this._calcRecoveryMultipliers(ocean);
     }
 
     // NaN 防御：验证 needs、_decayRates 和 _recoveryMultipliers 内部值
@@ -94,8 +114,8 @@ class NeedsSystem {
         this.needs[key] = defaultNeeds[key] || 0.5;
       }
     }
-    const freshDecayRates = NeedsSystem._calcDecayRates(ocean);
-    const freshRecoveryMultipliers = NeedsSystem._calcRecoveryMultipliers(ocean);
+    const freshDecayRates = this._calcDecayRates(ocean);
+    const freshRecoveryMultipliers = this._calcRecoveryMultipliers(ocean);
     for (const key of Object.keys(this._decayRates)) {
       if (!Number.isFinite(this._decayRates[key])) {
         this._decayRates[key] = freshDecayRates[key];
@@ -116,8 +136,8 @@ class NeedsSystem {
    * 开放者刺激需求衰减更快（更容易无聊）
    * @private
    */
-  static _calcDecayRates(ocean) {
-    const base = cfg.decayRate;
+  _calcDecayRates(ocean) {
+    const base = this._cfg.decayRate;
     return {
       hunger: base.hunger,  // 生理需求不受人格影响
       energy: base.energy * (1 + ocean.neuroticism * 0.2),  // 神经质高→精力消耗更快
@@ -135,7 +155,7 @@ class NeedsSystem {
    * 高神经质者在舒适场景中恢复更快（更需要安全感）
    * @private
    */
-  static _calcRecoveryMultipliers(ocean) {
+  _calcRecoveryMultipliers(ocean) {
     return {
       hunger: 1.0,  // 生理需求恢复不受人格影响
       energy: 1.0,
@@ -171,19 +191,23 @@ class NeedsSystem {
       let recovery = 0;
 
       if (mapping.states.includes(currentState)) {
-        recovery += cfg.recoveryRate[need] || 0.3;
+        recovery += this._cfg.recoveryRate[need] || 0.3;
       }
 
       if (mapping.regions.includes(currentRegion)) {
-        recovery += (cfg.recoveryRate[need] || 0.3) * 0.3;
+        recovery += (this._cfg.recoveryRate[need] || 0.3) * 0.3;
       }
 
       if (recovery > 0) {
         const multiplier = (this._recoveryMultipliers && this._recoveryMultipliers[need]) || 1.0;
         const current = this.needs[need];
-        // R32 fix: guard against NaN (Math.min(1, NaN) = NaN)
-        if (Number.isFinite(current)) {
-          this.needs[need] = Math.min(1, current + recovery * multiplier * hoursElapsed);
+        // R32 fix: guard against NaN in current.
+        // R41 H2 fix: also guard recovery, multiplier, hoursElapsed, and the result.
+        // Number.isFinite(current) alone does not protect against a NaN
+        // recovery or multiplier fed from a corrupted domain config.
+        if (Number.isFinite(current) && Number.isFinite(recovery) && Number.isFinite(multiplier) && Number.isFinite(hoursElapsed)) {
+          const result = current + recovery * multiplier * hoursElapsed;
+          this.needs[need] = Number.isFinite(result) ? Math.min(1, result) : 0.5;
         }
       }
     }
@@ -220,8 +244,10 @@ class NeedsSystem {
       if (rate > 0) {
         const current = this.needs[need];
         // R32 fix: guard against NaN (Math.min(1, NaN) = NaN)
-        if (Number.isFinite(current)) {
-          this.needs[need] = Math.min(1, current + rate * hoursElapsed);
+        // R41 H2 fix: also guard rate and hoursElapsed, same as tick() above.
+        if (Number.isFinite(current) && Number.isFinite(rate) && Number.isFinite(hoursElapsed)) {
+          const result = current + rate * hoursElapsed;
+          this.needs[need] = Number.isFinite(result) ? Math.min(1, result) : 0.5;
         }
       }
     }
@@ -240,7 +266,7 @@ class NeedsSystem {
     let urgentNeed = null;
 
     for (const [need, value] of Object.entries(this.needs)) {
-      const threshold = cfg.threshold[need] || 0.3;
+      const threshold = this._cfg.threshold[need] || 0.3;
       if (value < threshold) {
         const urgency = threshold - value;
         if (urgency > maxUrgency) {
@@ -325,7 +351,7 @@ class NeedsSystem {
     const drives = [];
 
     for (const [need, value] of Object.entries(this.needs)) {
-      const threshold = cfg.threshold[need] || 0.3;
+      const threshold = this._cfg.threshold[need] || 0.3;
       if (value >= threshold) continue;
 
       const urgency = threshold - value;
@@ -359,7 +385,7 @@ class NeedsSystem {
       }
       const distance = Math.sqrt(distSq);
       const factor = Math.max(0, 1 - distance / maxDist);
-      const baseRate = cfg.recoveryRate[need] || 0.3;
+      const baseRate = this._cfg.recoveryRate[need] || 0.3;
       const multiplier = (this._recoveryMultipliers && this._recoveryMultipliers[need]) || 1.0;
       rates[need] = baseRate * factor * multiplier;
     }
@@ -384,11 +410,12 @@ class NeedsSystem {
    * @param {Object} json - toJSON() 产出
    * @param {Object} [personality] - Personality 实例
    * @param {Object} [domain] - DomainRegistry 实例
+   * @param {Object} [needsConfig] - R41 A1: user needs config override
    * @returns {NeedsSystem}
    */
-  static fromJSON(json, personality = null, domain = null) {
+  static fromJSON(json, personality = null, domain = null, needsConfig = null) {
     const p = personality || { ocean: { neuroticism: 0.5, extraversion: 0.5, openness: 0.5, conscientiousness: 0.5, agreeableness: 0.5 } };
-    return new NeedsSystem(p, json, domain);
+    return new NeedsSystem(p, json, domain, needsConfig);
   }
 }
 

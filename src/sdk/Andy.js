@@ -44,6 +44,7 @@ class Andy {
       domain: config.domain,
       seed: config.seed,
       rng: config.rng,
+      enableFacts: config.enableFacts,
     });
     this._characters = new Map();
     this._defaultLLM = config.llm || {};

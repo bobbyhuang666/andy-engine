@@ -33,7 +33,7 @@ class AutoTick {
     // where the first was orphaned garbage. Callers should pass their own
     // seeded RNG for full determinism.
     if (options.rng) {
-      this._rng = options.rng;
+      this._rng = AutoTick._normalizeRng(options.rng);
     } else {
       const fallbackRng = new RNG(0);
       this._rng = fallbackRng.next.bind(fallbackRng);
@@ -110,6 +110,10 @@ class AutoTick {
     return {
       lastMessageTime: this._lastMessageTime,
       lastSimTime: this._lastSimTime,
+      tickIntervalMinutes: this.tickIntervalMinutes,
+      maxCatchupTicks: this.maxCatchupTicks,
+      chatTickMin: this.chatTickMin,
+      chatTickMax: this.chatTickMax,
     };
   }
 
@@ -117,10 +121,26 @@ class AutoTick {
    * 反序列化
    */
   static fromJSON(data) {
-    const at = new AutoTick();
+    const at = new AutoTick({
+      tickIntervalMinutes: data.tickIntervalMinutes,
+      maxCatchupTicks: data.maxCatchupTicks,
+      chatTickMin: data.chatTickMin,
+      chatTickMax: data.chatTickMax,
+    });
     at._lastMessageTime = data.lastMessageTime || null;
     at._lastSimTime = data.lastSimTime || null;
     return at;
+  }
+
+  static _normalizeRng(rng) {
+    if (typeof rng === 'function') {
+      return rng;
+    }
+    if (rng && typeof rng.next === 'function') {
+      return rng.next.bind(rng);
+    }
+    const fallbackRng = new RNG(0);
+    return fallbackRng.next.bind(fallbackRng);
   }
 }
 

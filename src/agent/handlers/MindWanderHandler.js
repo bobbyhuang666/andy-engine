@@ -20,7 +20,7 @@ class MindWanderHandler {
 
     if (isQuiet) {
       if (agent.rand() < (ANDY_DEFAULTS.mindWander?.quietProbability || 0.25)) {
-        const thought = mindWander(agent);
+        const thought = mindWander(agent, context?.env || null);
         if (thought) {
           context.result.newEvents.push(thought);
         }

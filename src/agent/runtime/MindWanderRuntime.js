@@ -12,7 +12,26 @@ const { ANDY_DEFAULTS } = require('../../config/defaults');
  * @param {Object} agent
  * @returns {Object|null}
  */
-function mindWander(agent) {
+function commitEmotion(agent, changes, env = null) {
+  const committer = env?.effectCommitter || null;
+  if (committer && typeof committer.commit === 'function') {
+    committer.commit({
+      deltas: [{
+        type: 'emotion',
+        target: 'agent',
+        agentId: agent.id,
+        changes,
+        multiplier: 1,
+        appraisalModifiers: null,
+        stress: null,
+      }],
+    });
+    return;
+  }
+  agent.emotion.applyEffect(changes);
+}
+
+function mindWander(agent, env = null) {
   const valence = agent.emotion.getValence();
   const stress = agent.emotion.stress || 0;
 
@@ -134,7 +153,7 @@ function mindWander(agent) {
   }
 
   if (Object.keys(emotionDelta).length > 0) {
-    agent.emotion.applyEffect(emotionDelta);
+    commitEmotion(agent, emotionDelta, env);
   }
 
   return {

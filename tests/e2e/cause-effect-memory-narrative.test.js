@@ -128,12 +128,20 @@ describe('Cause/Effect/Memory/Narrative E2E', () => {
     // Create world
     const engine = new AndyEngine({ seed: 'memory-consistency-test' });
 
-    // Create Alice
+    // Create Alice with background seed memories. Without these the test flakes:
+    // for a lone agent, the only tick-formed memories come from `random` events
+    // (EventDispatcher.generateRandomEvent, gated at 8%/tick). With no startTime
+    // the start hour is wall-clock-dependent; under parallel test runs CPU
+    // contention shifts it onto hours whose RNG stream yields 0 random events in
+    // 25 ticks (~2/24 hours), so `memories.length > 0` failed ~15% of runs. Seed
+    // memories are structural (they survive all ticks regardless of RNG/hour/
+    // timezone), making the assertion deterministic without weakening it.
     const alice = engine.createCharacter({
       id: 'alice',
       name: 'Alice',
       mbti: 'INFP',
       schedule: 'student',
+      background: ['是一名喜欢安静的学生', '最近在读一本有趣的小说'],
     });
 
     // Place Alice in a location

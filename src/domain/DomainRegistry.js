@@ -120,7 +120,7 @@ class DomainRegistry {
    * @returns {boolean}
    */
   hasState(state) {
-    return state in this.states;
+    return Object.hasOwn ? Object.hasOwn(this.states, state) : Object.prototype.hasOwnProperty.call(this.states, state);
   }
 
   /**
@@ -216,6 +216,12 @@ class DomainRegistry {
   // ═══════════════════════════════════════════
 
   get timeRules() { return this.domain.timeRules || {}; }
+
+  /**
+   * 可配置时间段→行为标签映射 (domain-driven time schedule)。
+   * 如果 domain 未提供,返回 null 表示使用 BehaviorField 内置默认值。
+   */
+  get timeSchedule() { return this.domain.timeSchedule || null; }
 
   // ═══════════════════════════════════════════
   // Fallback

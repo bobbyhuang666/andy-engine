@@ -112,7 +112,7 @@ class AgentRuntime {
     this.handlers.perception.tick(context);
 
     // ─── 2. 情绪调节（Gross 过程模型）───
-    const regulationResult = agent.emotionRegulation.tryRegulate(agent, safeEvents);
+    const regulationResult = agent.emotionRegulation.tryRegulate(agent, safeEvents, env);
     if (regulationResult) {
       result.newEvents.push({
         type: 'regulation',
@@ -136,7 +136,22 @@ class AgentRuntime {
     context.imResult = imResult;
 
     if (imResult.emotionEffects) {
-      agent.emotion.applyEffect(imResult.emotionEffects);
+      const committer = env?.effectCommitter || null;
+      if (committer && typeof committer.commit === 'function') {
+        committer.commit({
+          deltas: [{
+            type: 'emotion',
+            target: 'agent',
+            agentId: agent.id,
+            changes: imResult.emotionEffects,
+            multiplier: 1,
+            appraisalModifiers: null,
+            stress: null,
+          }],
+        });
+      } else {
+        agent.emotion.applyEffect(imResult.emotionEffects);
+      }
     }
 
     // ─── 5. 日程检查 + 位置决策 ───

@@ -22,7 +22,7 @@ function applyForbiddenTerms(text, domain) {
     // Without this, terms like "C++" or "vs." would be interpreted as
     // regex syntax rather than literal text.
     const escaped = term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    result = result.replace(new RegExp(escaped, 'g'), '***');
+    result = result.replace(new RegExp(escaped, 'gi'), '***');
   }
   return result;
 }

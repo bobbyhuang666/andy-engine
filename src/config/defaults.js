@@ -200,6 +200,22 @@ const ANDY_DEFAULTS = {
   },
 
   // ═══════════════════════════════════════════
+  // 天气系统
+  // ═══════════════════════════════════════════
+  // R41: extracted from hardcoded AndyWorld._maybeChangeWeather().
+  // Each season maps weather values to their transition probability.
+  // The transition is triggered at 40% probability per weather-check tick.
+  weather: {
+    transitionProb: 0.4, // probability a weather change is attempted
+    seasonProbabilities: {
+      spring: { sunny: 0.4, rain: 0.35, cold: 0.1, hot: 0.15 },
+      summer: { sunny: 0.5, rain: 0.15, cold: 0.0, hot: 0.35 },
+      autumn: { sunny: 0.3, rain: 0.3, cold: 0.25, hot: 0.15 },
+      winter: { sunny: 0.2, rain: 0.15, cold: 0.55, hot: 0.1 },
+    },
+  },
+
+  // ═══════════════════════════════════════════
   // 空间系统默认参数
   // 区域、邻接和坐标属于 domain preset，不属于全局 defaults。
   // ═══════════════════════════════════════════

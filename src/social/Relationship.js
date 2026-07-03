@@ -84,6 +84,11 @@ class Relationship {
     this.lastInteraction = simTime || new Date();
     this._hoursSinceLastInteraction = 0; // 重置自上次交互以来的小时数
 
+    // R41 H3 fix: NaN guard BEFORE branching decision, not after.
+    // NaN < 0.55 → false, routing strength to the relational growth branch,
+    // where _relationalInteractions increments and NaN propagates further.
+    if (!Number.isFinite(this.strength)) this.strength = cfg.initialStrength;
+
     // 计算关系强度变化
     // R5 修复：调整 calculative→relational 阈值从 0.4 到 0.55，
     // 使线性增长阶段更长，关系强度能突破 0.41 天花板到达 closeFriend 区间
@@ -124,6 +129,9 @@ class Relationship {
       delta = negDelta;
     }
 
+    // R41 H3 fix: NaN guard is now at the top of recordInteraction() (line 90).
+    // The guard below was duplicated — kept for defense-in-depth if strength
+    // was re-corrupted between the guard and here.
     if (!Number.isFinite(this.strength)) this.strength = cfg.initialStrength;
     this.strength = Math.max(0, Math.min(1, this.strength + delta));
 
@@ -162,7 +170,11 @@ class Relationship {
     const impressionPositive = Number.isFinite(this.impression.positive) ? this.impression.positive : 0;
     const impressionNegative = Number.isFinite(this.impression.negative) ? this.impression.negative : 0;
     const bondStrength = Math.max(0, impressionPositive - impressionNegative);
-    let effectiveDecay = cfg.decayRate * (1 - Math.min(bondStrength * 0.1, 0.5));
+    // R41 M4 fix: guard bondStrength against NaN before using in decay calculation.
+    // If either impression is NaN, bondStrength is NaN → effectiveDecay is NaN →
+    // decayFactor is NaN → this.strength becomes NaN via NaN multiplication.
+    const safeBond = Number.isFinite(bondStrength) ? bondStrength : 0;
+    let effectiveDecay = cfg.decayRate * (1 - Math.min(safeBond * 0.1, 0.5));
 
     // 关系冷却：长期不交互时衰减加速
     // 48小时无交互 → 1.5倍衰减
@@ -178,8 +190,11 @@ class Relationship {
 
     // 指数衰减
     const decayFactor = Math.exp(-effectiveDecay * hoursElapsed);
+    // R41 M4 fix: guard decayFactor against NaN before multiplication.
+    // effectiveDecay can be NaN via bondStrength, and Math.exp(NaN) → NaN.
+    const safeDecay = Number.isFinite(decayFactor) ? decayFactor : 1;
     if (!Number.isFinite(this.strength)) this.strength = cfg.initialStrength;
-    this.strength = Math.max(0, this.strength * decayFactor);
+    this.strength = Math.max(0, this.strength * safeDecay);
 
     this._updateType();
   }

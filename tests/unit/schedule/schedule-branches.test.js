@@ -155,6 +155,73 @@ describe('Schedule.fromJSON — round-trip', () => {
 });
 
 // ═══════════════════════════════════════════
+// P1-2 回归: getNextActivity 明日预测与真实次日一致
+// _maybeRegenerateVariations 先消耗 today RNG 再 clone 生成 tomorrow
+// ======================================================================
+describe('P1-2: getNextActivity tomorrow prediction matches actual next day', () => {
+  it('tomorrow prediction uses same RNG state as actual next-day generation', () => {
+    const rng = new RNG(42);
+    const entries = [
+      { startHour: 6, endHour: 8, region: '宿舍', activity: '睡觉', days: [0, 1, 2, 3, 4, 5, 6], probability: 1.0, noise: 30 },
+      { startHour: 8, endHour: 12, region: '教室', activity: '上课', days: [1, 2, 3, 4, 5], probability: 1.0, noise: 10 },
+    ];
+    const s = new Schedule({ entries }, null, rng);
+
+    // Day 1: get today's activity and tomorrow's prediction
+    const day1Act = s.getCurrentActivity(9, 1, '2026-09-07'); // Monday
+    const nextPred = s.getNextActivity(23, 1, '2026-09-07');
+    expect(nextPred).not.toBeNull();
+    expect(nextPred.isTomorrow).toBe(true);
+    const predictedStart = s._tomorrowVariations[0].startHour;
+
+    // Day 2: actual next-day generation starts from same RNG position
+    // because clone() was done AFTER today's RNG consumption
+    const day2Rng = rng.clone();
+    const s2 = new Schedule({ entries }, null, day2Rng);
+    // Simulate that other systems consumed RNG between day 1 and day 2 —
+    // this is where prediction != actual, but the clone happened at right state
+    day2Rng.next(); // other-system RNG consumption
+
+    s2.getCurrentActivity(9, 2, '2026-09-08'); // Tuesday
+    const actualStart = s2._todayVariations[0].startHour;
+
+    // After "other-system RNG" consumption, prediction diverges — that's expected
+    // But without the intervening next(), they'd match exactly
+    const s3 = new Schedule({ entries }, null, rng.clone());
+    s3.getCurrentActivity(9, 1, '2026-09-07'); // Monday — consumes same RNG as s
+    // Clone at same point module did
+    const postTodayRng = rng.clone();
+    const s4 = new Schedule({ entries }, null, postTodayRng);
+    s4.getCurrentActivity(9, 2, '2026-09-08'); // Tuesday
+    expect(s4._todayVariations[0].startHour).toBe(predictedStart);
+  });
+});
+
+// ═══════════════════════════════════════════
+// BUG-2 回归: 午夜跨天条目正确处理
+// ═══════════════════════════════════════════
+describe('BUG-2: midnight cross-day schedule entries', () => {
+  it('matches entry wrapping midnight (e.g. sleep 22→6)', () => {
+    const entries = [
+      { startHour: 22, endHour: 6, region: '宿舍', activity: '睡觉', days: [0, 1, 2, 3, 4, 5, 6], probability: 1.0, noise: 0 },
+      { startHour: 8, endHour: 12, region: '教室', activity: '上课', days: [1], probability: 1.0, noise: 0 },
+    ];
+    const s = new Schedule({ entries }, null, new RNG(0));
+    // 23:00 should still be in sleep (22→6)
+    const act23 = s.getCurrentActivity(23, 1, '2026-09-07');
+    expect(act23.inSchedule).toBe(true);
+    expect(act23.activity).toBe('睡觉');
+    // 02:00 should still be in sleep (wrapping midnight)
+    const act02 = s.getCurrentActivity(2, 2, '2026-09-08');
+    expect(act02.inSchedule).toBe(true);
+    expect(act02.activity).toBe('睡觉');
+    // 07:00 should be outside sleep
+    const act07 = s.getCurrentActivity(7, 2, '2026-09-08');
+    expect(act07.inSchedule).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════
 // _gaussianNoise — 不抛错且有限
 // ═══════════════════════════════════════════
 describe('Schedule._gaussianNoise', () => {

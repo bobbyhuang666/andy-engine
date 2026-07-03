@@ -244,9 +244,9 @@ describe('P1: buildActionContext 字段完整性', () => {
 });
 
 // ═══════════════════════════════════════════
-// P1: EventEffectPipeline 缺失 consume/work delta — NOT YET FIXED
+// P1: EventEffectPipeline consume/work delta — FIXED (R22 P0-1)
 // ═══════════════════════════════════════════
-describe.skip('P1: EventEffectPipeline action delta (pending fix)', () => {
+describe('P1: EventEffectPipeline action delta', () => {
   it("'consume' action 应产生 NeedDelta（减少饥饿）", () => {
     const result = applyActionEffect({
       agentSnapshot: { id: 'a1', agent: { position: 'loc' } },
@@ -255,7 +255,9 @@ describe.skip('P1: EventEffectPipeline action delta (pending fix)', () => {
       simTime: new Date(),
     });
 
-    const needDeltas = result.deltas.filter(d => d instanceof NeedDelta);
+    // R41: use delta.type discriminator instead of instanceof to avoid CJS/ESM
+    // boundary identity issues (same convention used in EffectResult.js).
+    const needDeltas = result.deltas.filter(d => d.type === 'need');
     expect(needDeltas.length).toBeGreaterThan(0);
   });
 
@@ -272,9 +274,9 @@ describe.skip('P1: EventEffectPipeline action delta (pending fix)', () => {
 });
 
 // ═══════════════════════════════════════════
-// P1: 天气事件效果被丢弃 — NOT YET FIXED
+// P1: 天气事件效果 — FIXED
 // ═══════════════════════════════════════════
-describe.skip('P1: 天气事件效果 (pending fix)', () => {
+describe('P1: 天气事件效果', () => {
   it('AndyWorld._applyEncounterEffects 应处理weather类型事件', () => {
     const src = fs.readFileSync(
       path.join(import.meta.dirname, '../../src/runtime/AndyWorld.js'), 'utf8'
@@ -368,9 +370,9 @@ describe('P1: 关系压力默认值', () => {
 });
 
 // ═══════════════════════════════════════════
-// P1: TypeScript 声明准确性 — NOT YET FIXED
+// P1: TypeScript 声明准确性 — FIXED
 // ═══════════════════════════════════════════
-describe.skip('P1: TypeScript 声明 (pending fix)', () => {
+describe('P1: TypeScript 声明', () => {
   it('domain/index.d.ts 声明的方法应在DomainRegistry中存在', () => {
     const dtsPath = path.join(import.meta.dirname, '../../domain/index.d.ts');
     if (!fs.existsSync(dtsPath)) return;
@@ -379,7 +381,7 @@ describe.skip('P1: TypeScript 声明 (pending fix)', () => {
 
     // 检查幻影方法
     const phantomMethods = ['getRegionNames', 'getAdjacentRegions', 'getStateDefinition', 'getDomainConfig'];
-    const domain = new DomainRegistry({ id: 'test' });
+    const domain = new DomainRegistry({ id: 'test', states: {}, regions: [] }, { validate: false });
 
     const missing = [];
     for (const method of phantomMethods) {
@@ -393,9 +395,9 @@ describe.skip('P1: TypeScript 声明 (pending fix)', () => {
 });
 
 // ═══════════════════════════════════════════
-// P1: WorldMap 未知区域静默回退 — NOT YET FIXED
+// P1: WorldMap 未知区域 — FIXED
 // ═══════════════════════════════════════════
-describe.skip('P1: WorldMap 未知区域 (pending fix)', () => {
+describe('P1: WorldMap 未知区域', () => {
   it('regionToCoords对未知区域应返回null或抛出，不应静默返回中心', () => {
     const map = new WorldMap({ width: 1000, height: 1000, regions: [], rng: null });
 

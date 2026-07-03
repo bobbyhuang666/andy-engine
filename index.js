@@ -63,7 +63,7 @@ class AndyEngine {
       this.rng = new RNG(0);
       this.rng.setState(savedState.rngState);
     } else {
-      this.rng = null; // 回退到 Math.random
+      this.rng = null; // 回退到 Math.random（world 内部恒持自动种子 RNG）
     }
 
     // 初始化 domain
@@ -82,20 +82,40 @@ class AndyEngine {
 
     this.config = {
       ...ANDY_DEFAULTS,
+      // R41 fix: merge _restoreConfig BEFORE building this.config so that
+      // restored values (enableFacts, needs, etc.) flow into both engine.config
+      // and the subsystem constructor chain.  Do NOT mutate savedState.
+      ...(savedState?._restoreConfig || {}),
       ...config,
-      enableFacts: config.enableFacts ?? false,
+      weather: config.weather ?? savedState?._restoreConfig?.weather ?? savedState?.environment?.weather ?? 'sunny',
+      // P1-2 fix: explicit config > _restoreConfig > default(false).
+      // Previously `config.enableFacts ?? false` silently overrode a
+      // _restoreConfig.enableFacts=true when the caller passed an explicit
+      // config object without enableFacts, dropping the factStore on restore.
+      enableFacts: config.enableFacts ?? savedState?._restoreConfig?.enableFacts ?? false,
       actionSelection: {
         ...ANDY_DEFAULTS.actionSelection,
+        ...(savedState?._restoreConfig?.actionSelection || {}),
         ...(config.actionSelection || {}),
       },
     };
-    this.world = new AndyWorld({ ...config, enableFacts: this.config.enableFacts }, savedState, this.domain, this.rng);
+    const restoredConfig = savedState?._restoreConfig || {};
+    const worldConfig = {
+      ...restoredConfig,
+      ...config,
+      enableFacts: this.config.enableFacts,
+      weather: this.config.weather,
+    };
+    if (config.actionSelection || restoredConfig.actionSelection) {
+      worldConfig.actionSelection = this.config.actionSelection;
+    }
+    this.world = new AndyWorld(worldConfig, savedState, this.domain, this.rng);
 
     // 恢复已保存的 Agent
     if (savedState && savedState.agents) {
       for (const [agentId, agentData] of Object.entries(savedState.agents)) {
         const agent = new Agent(
-          { id: agentId, name: agentData.name || agentId, schedule: agentData.schedule || {}, domain: this.domain, rng: this.rng, actionSelection: this.config.actionSelection, factStore: this.world.factStore || null },
+          { id: agentId, name: agentData.name || agentId, schedule: agentData.schedule || {}, domain: this.domain, rng: this.rng, actionSelection: this.config.actionSelection, factStore: this.world.factStore || null, needs: this.config.needs },
           agentData
         );
         this.world.addAgent(agent);
@@ -199,6 +219,7 @@ class AndyEngine {
       rng: this.rng,
       actionSelection: this.config.actionSelection,
       factStore: this.world.factStore || null,
+      needs: this.config.needs,
     });
 
     this.world.addAgent(agent);
@@ -216,7 +237,7 @@ class AndyEngine {
    */
   addAgent(config) {
     validateAgentConfig(config);
-    const agent = new Agent({ ...config, domain: this.domain, rng: this.rng, actionSelection: this.config.actionSelection, factStore: this.world.factStore || null });
+    const agent = new Agent({ ...config, domain: this.domain, rng: this.rng, actionSelection: this.config.actionSelection, factStore: this.world.factStore || null, needs: config.needs || this.config.needs });
     this.world.addAgent(agent);
     return agent;
   }

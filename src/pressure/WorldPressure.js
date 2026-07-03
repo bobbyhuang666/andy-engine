@@ -36,7 +36,10 @@ class WorldPressure {
 
   static computeTime(world) {
     if (!world || !world.time) return 0;
-    const hour = new Date(world.time).getUTCHours();
+    const explicitHour = Number(world.hour);
+    const hour = Number.isInteger(explicitHour) && explicitHour >= 0 && explicitHour <= 23
+      ? explicitHour
+      : new Date(world.time).getHours();
     if (hour >= 23 || hour < 6) return 0.6;
     if (hour >= 6 && hour < 9) return 0.2;
     if (hour >= 18 && hour < 23) return 0.3;

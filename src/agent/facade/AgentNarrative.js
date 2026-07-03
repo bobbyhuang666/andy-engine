@@ -142,8 +142,9 @@ function toNarrative(agent, externalState = null) {
   const vel = agent.behaviorField.velocity;
   const speed = agent.behaviorField.speed;
 
-  const { STATE_CENTERS } = require('../psychology/BehaviorLabeler');
-  const center = STATE_CENTERS[rawState];
+  const center = agent.domain && typeof agent.domain.getStateCenter === 'function'
+    ? agent.domain.getStateCenter(rawState)
+    : null;
   const cognitiveSp = narrativeSp && narrativeSp.cognitivePhrases;
   if (center) {
     const focusDiff = center[DIM_FOCUS] - B[DIM_FOCUS];

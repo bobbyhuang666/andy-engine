@@ -52,7 +52,16 @@ class AndyWorld {
     }
 
     // ─── 配置 ───
+    // R41 fix: _restoreConfig merge is now done by AndyEngine before
+    // calling AndyWorld.  config already contains the merged values.
     this.runtimeConfig = new RuntimeConfig(config);
+    const hasOwnConfig = (key) => Object.prototype.hasOwnProperty.call(config, key);
+    this._restoreConfig = { enableFacts: this.runtimeConfig.enableFacts };
+    if (hasOwnConfig('tickMinutes')) this._restoreConfig.tickMinutes = this.runtimeConfig.tickMinutes;
+    if (hasOwnConfig('weatherConfig')) this._restoreConfig.weatherConfig = this.runtimeConfig.weatherConfig;
+    if (hasOwnConfig('actionSelection')) this._restoreConfig.actionSelection = this.runtimeConfig.actionSelection;
+    if (hasOwnConfig('spatial')) this._restoreConfig.spatial = this.runtimeConfig.spatial;
+    if (hasOwnConfig('needs')) this._restoreConfig.needs = this.runtimeConfig.needs;
 
     // ─── 时钟 ───
     this.clock = savedState
@@ -74,9 +83,6 @@ class AndyWorld {
       configurable: true,
     });
 
-    // ─── 环境层 ───
-    // R10 fix: clone environment from savedState instead of taking by reference,
-    // to prevent mutation of the original savedState (breaks idempotent round-trip).
     this.environment = savedState?.environment ? { ...savedState.environment } : {
       weather: config.weather || 'sunny',
       weatherChangedAt: this.clock.time,
@@ -104,10 +110,14 @@ class AndyWorld {
       this.factStore.setKnowledgeStore(this.knowledgeStore);
     }
     this.factEmitter = this.runtimeConfig.enableFacts
-      ? new FactEmitter(this.factStore, { knowledgeStore: this.knowledgeStore })
+      ? (savedState && savedState.factEmitter
+        ? this._restoreFactEmitter(savedState.factEmitter)
+        : new FactEmitter(this.factStore, { knowledgeStore: this.knowledgeStore }))
       : null;
     this.canonEventPipeline = this.runtimeConfig.enableFacts
-      ? new CanonEventPipeline(this.factStore, this.knowledgeStore, this.factEmitter)
+      ? (savedState && savedState.canonEventPipeline
+        ? this._restorePipeline(savedState.canonEventPipeline)
+        : new CanonEventPipeline(this.factStore, this.knowledgeStore, this.factEmitter))
       : null;
 
     // ─── 区域空间 ───
@@ -231,12 +241,20 @@ class AndyWorld {
     // R8 fix: handle RegionGrid.place() returning false when agent.position
     // is not in the domain. Fallback to domain's defaultRegion so the agent
     // is not left in limbo (no region = no encounters, no contagion, invisible).
+    // R41 H1 fix: add warning when all fallbacks fail (ghost agent).
     const placed = this.regions.place(agent.id, agent.position);
     if (!placed) {
       const fallback = this.domain ? this.domain.fallback.defaultRegion : null;
       if (fallback) {
         agent.position = fallback;
         this.regions.place(agent.id, fallback);
+      }
+      // If still unplaced after fallback, agent is a ghost — invisible, no encounters.
+      if (!this.regions.getRegion(agent.id)) {
+        diagnostics.warn(
+          `Agent ${agent.id}: cannot be placed in any region (domain has ${(this.domain?.regions || []).length} regions). ` +
+          `Agent will be invisible — no encounters, contagion, or social interaction.`
+        );
       }
     }
     if (this.spatial) {
@@ -278,15 +296,12 @@ class AndyWorld {
   _maybeChangeWeather() {
     const season = this.environment.season;
     const current = this.environment.weather;
-    const transitions = {
-      spring: { sunny: 0.4, rain: 0.35, cold: 0.1, hot: 0.15 },
-      summer: { sunny: 0.5, rain: 0.15, cold: 0.0, hot: 0.35 },
-      autumn: { sunny: 0.3, rain: 0.3, cold: 0.25, hot: 0.15 },
-      winter: { sunny: 0.2, rain: 0.15, cold: 0.55, hot: 0.1 },
-    };
-    const probs = transitions[season] || transitions.spring;
+    // R41: read weather transition probabilities from runtime config
+    // (merges user config with ANDY_DEFAULTS), making them injectable.
+    const wxCfg = this.runtimeConfig.weatherConfig || ANDY_DEFAULTS.weather;
+    const probs = wxCfg.seasonProbabilities[season] || wxCfg.seasonProbabilities.spring;
     const rand0 = this.rng.next();
-    if (rand0 < 0.4) return;
+    if (rand0 < wxCfg.transitionProb) return;
     const rand = this.rng.next();
     let cumulative = 0;
     let newWeather = current;
@@ -461,9 +476,14 @@ class AndyWorld {
         // pointToRegion(coords)===agent.position,回滚消失。
         // active action-selection 路径已由 RuntimeContext._setRegionChanged 同步,
         // 这里覆盖 schedule/need/IM 等其余 regionChanged 路径。
-        if (this.spatial && typeof this.spatial.setCoords === 'function') {
+        // R41 fix: use _setCoordRaw to avoid per-agent O(N) grid rebuild.
+        // spatial.tick() in Phase 5 does the single rebuild.
+        if (this.spatial && typeof this.spatial._setCoordRaw === 'function') {
           const center = this.spatial.worldMap.regionCenter(agent.position);
-          this.spatial.setCoords(agentId, center.x, center.y);
+          // R41 P1 fix: handle null from regionCenter (unknown region).
+          if (center) {
+            this.spatial._setCoordRaw(agentId, center.x, center.y);
+          }
         }
       }
     }
@@ -679,10 +699,12 @@ class AndyWorld {
     // bidirectional Relationship object, so only one recordInteraction per pair.
     const seenRelPairs = new Set();
 
-    // R20 M3: process both 'social' and 'random' event types.
+    // R20 M3: process 'social', 'random', and 'weather' event types.
     // Random events (from EventDispatcher.generateRandomEvent) carry emotion
     // deltas but were silently dropped because only type==='social' was checked.
-    const PROCESSABLE_TYPES = new Set(['social', 'random']);
+    // R41 fix: add 'weather' — weather events created by setWeather() also carry
+    // emotion deltas that should be applied to affected agents.
+    const PROCESSABLE_TYPES = new Set(['social', 'random', 'weather']);
 
     for (const event of dispatched) {
       if (!PROCESSABLE_TYPES.has(event.type) || !event.effects) continue;
@@ -698,8 +720,14 @@ class AndyWorld {
             const pairKey = [effect.target, d.target].sort().join('_');
             if (seenRelPairs.has(pairKey)) continue;
             seenRelPairs.add(pairKey);
-            deltas.push(new RelationshipDelta(effect.target, {
-              targetAgentId: d.target,
+            // R41 M3 fix: prefer effect.target as source, but fall back to
+            // d.target if effect.target's agent is removed between phases.
+            // Without the fallback, encounter effects silently fail when one
+            // participant disappears mid-tick.
+            const source = this.agents.has(effect.target) ? effect.target : d.target;
+            if (!this.agents.has(source)) continue;
+            deltas.push(new RelationshipDelta(source, {
+              targetAgentId: source === effect.target ? d.target : effect.target,
               interactionType: 'encounter',
               valence: d.valence,
               content: event.content || '',
@@ -748,9 +776,12 @@ class AndyWorld {
     for (const [agentId, agent] of this.agents) {
       const blended = {};
       for (const dim of EMOTION_DIMENSIONS) {
-        blended[dim] =
-          (agent.emotion.mood[dim] || 0) * 0.6 +
-          (agent.emotion.current[dim] || 0) * 0.4;
+        // R41 L4 fix: use Number.isFinite instead of || 0.
+        // || 0 correctly turns NaN/undefined into 0, but a non-numeric
+        // string (e.g. "abc") passes through → "abc" * 0.6 → NaN.
+        const moodVal = Number.isFinite(agent.emotion.mood[dim]) ? agent.emotion.mood[dim] : 0;
+        const curVal = Number.isFinite(agent.emotion.current[dim]) ? agent.emotion.current[dim] : 0;
+        blended[dim] = moodVal * 0.6 + curVal * 0.4;
       }
       cache.set(agentId, blended);
     }
@@ -896,11 +927,22 @@ class AndyWorld {
     if (this.rng) {
       data.rngState = this.rng.getState();
     }
+    data._restoreConfig = { ...this._restoreConfig, enableFacts: this.runtimeConfig.enableFacts };
     if (this.factStore) {
       data.factStore = this.factStore.toJSON();
     }
     if (this.knowledgeStore) {
       data.knowledgeStore = this.knowledgeStore.toJSON();
+    }
+    // R41 B1 fix: persist canonEventPipeline state so _eventCounter survives
+    // save/restore, preventing event ID collisions after deserialization.
+    if (this.canonEventPipeline) {
+      data.canonEventPipeline = this.canonEventPipeline.toJSON();
+    }
+    // R41 B2 fix: persist factEmitter state so _emittedStatic survives
+    // save/restore, preventing duplicate static fact emission.
+    if (this.factEmitter) {
+      data.factEmitter = this.factEmitter.toJSON();
     }
     // R9 fix: serialize _scheduledEvents to prevent data loss on save/restore.
     // Without this, any pending scheduled events are permanently dropped.
@@ -911,6 +953,20 @@ class AndyWorld {
       }));
     }
     return data;
+  }
+
+  /** @private R41 B1: restore CanonEventPipeline state from serialized data */
+  _restorePipeline(saved) {
+    const pipeline = new CanonEventPipeline(this.factStore, this.knowledgeStore, this.factEmitter);
+    pipeline.fromJSON(saved);
+    return pipeline;
+  }
+
+  /** @private R41 B2: restore FactEmitter state from serialized data */
+  _restoreFactEmitter(saved) {
+    const emitter = new FactEmitter(this.factStore, { knowledgeStore: this.knowledgeStore });
+    emitter.fromJSON(saved);
+    return emitter;
   }
 }
 

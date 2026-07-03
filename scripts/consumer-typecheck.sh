@@ -34,7 +34,15 @@ npm install "$TARBALL" typescript > /dev/null 2>&1
 echo "4. Creating consumer test file..."
 cat > consumer.ts << 'TS_EOF'
 import AndyEngine = require('andy-engine');
-import { Character, Andy, NarrativeBuilder, create, ConversationLog } from 'andy-engine/sdk';
+import { Character, Andy, NarrativeBuilder, create, ConversationLog, LLMFunction } from 'andy-engine/sdk';
+import store = require('andy-engine/store');
+import facts = require('andy-engine/facts');
+import { DomainRegistry, validateDomain, DomainConfig } from 'andy-engine/domain';
+import { validateDomain as validateDomainSubpath } from 'andy-engine/domain/validate';
+import { DomainRegistry as DomainRegistrySubpath } from 'andy-engine/domain/registry';
+import defaults = require('andy-engine/config/defaults');
+import campus = require('andy-engine/presets/campus');
+import tavern = require('andy-engine/presets/tavern');
 
 // Root import
 const engine = new AndyEngine();
@@ -44,14 +52,72 @@ const narrative: string = engine.getNarrative('a');
 const ctx = engine.getWorldContext('a');
 const agents = engine.getAllAgents();
 const snap = engine.snapshot();
+const worldState = store.toWorldState(engine, 'consumer-world');
+const restored = store.fromWorldState(worldState, { enableFacts: true }, AndyEngine);
+const serialized = store.Serialization.serializeWorldState(worldState);
+const deserialized = store.Serialization.deserializeWorldState(serialized);
+const memory = new store.MemoryStore();
+memory.saveSnapshot(1, Date.now(), new Uint8Array([1, 2, 3]));
+const latest = memory.loadLatest();
+const latestAlias = memory.loadLatestSnapshot();
+memory.set('key', 'value');
+memory.saveMeta('legacy', 'ok');
+const metaValue: string | null = memory.get('key');
+const legacyMeta: string | null = memory.loadMeta('legacy');
+memory.close();
+const saveLoad = new store.SaveLoad({
+  save: (envelope: any, metadata?: any) => ({ envelope, metadata }),
+  load: (snapshotId: string) => ({ version: '0.1.0', runtimeSnapshot: {} }),
+  list: () => [],
+});
+const savedEnvelope = saveLoad.save({ toJSON: () => worldState }, { tag: 'typed' });
+const snapshotList = saveLoad.listSnapshots();
 
 // SDK import
 const character = new Character({ name: 'Bob' });
+const seededCharacter = new Character({
+  name: 'Seeded',
+  seed: 'consumer-seed',
+  rng: () => 0.5,
+  llm: async () => 'ok',
+});
 const conversation = new ConversationLog();
 const msg = conversation.toMessages();
 
 // create() shortcut
 const c = create({ name: 'Charlie' });
+const sdkLLM: LLMFunction = async () => 'ok';
+const seededAndy = new Andy({ seed: 'consumer-andy', rng: () => 0.5, enableFacts: true, llm: sdkLLM });
+seededAndy.addCharacter({ id: 'seeded', name: 'Seeded Andy' });
+
+// P1-3: FactScope.INTERNAL must be visible to TS consumers.
+const internalScope: string = facts.FactScope.INTERNAL;
+const allScopes = facts.FACT_SCOPES;
+const fact = {
+  id: 'f1', type: 'event', timestamp: new Date(), source: 'engine',
+  confidence: 1, scope: facts.FactScope.INTERNAL, participants: [], observers: [],
+};
+const scopeValues: string[] = Object.keys(allScopes).map(k => allScopes[k]);
+if (scopeValues.indexOf(internalScope) < 0) throw new Error('INTERNAL scope not exported');
+
+// Store + domain facade imports should typecheck in a fresh consumer without
+// requiring @types/node or relying on ambient object-literal export assignment.
+const domain: DomainConfig = {
+  id: 'tiny',
+  name: 'Tiny',
+  states: { idle: { next: ['idle'] } },
+  stateCenters: { idle: [0, 0, 0, 0] },
+  regions: ['room'],
+  adjacency: [],
+  fallback: { defaultRegion: 'room', defaultState: 'idle' },
+};
+const domainResult = validateDomain(domain);
+const campusResult = validateDomainSubpath(campus, { strict: true });
+const registry = new DomainRegistry(domain, { validate: false });
+const tavernRegistry = new DomainRegistrySubpath(tavern, { validate: false });
+if (!domainResult.valid || !campusResult.valid || !registry.hasRegion('room') || !tavernRegistry.hasRegion('酒馆') || !defaults.ANDY_DEFAULTS || !restored || !deserialized || !latest || !latestAlias || metaValue !== 'value' || legacyMeta !== 'ok' || !savedEnvelope || snapshotList.length !== 0) {
+  throw new Error('public facade type smoke failed');
+}
 TS_EOF
 
 # 5. Create tsconfig

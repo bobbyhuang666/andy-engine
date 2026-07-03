@@ -165,6 +165,22 @@ describe('EventDispatcher._cleanupOldEvents', () => {
 // dispatch — eventLog cap (uses cfg.maxEventLogSize)
 // ═══════════════════════════════════════════
 describe('EventDispatcher.dispatch — eventLog cap', () => {
+  it('uses domain eventConfig maxEventLogSize instead of module default', () => {
+    const domain = Object.create(campusDomain);
+    domain.eventConfig = {
+      ...(campusDomain.eventConfig || {}),
+      maxEventLogSize: 3,
+    };
+    const ed = new EventDispatcher(domain);
+    ed.setSimTime(new Date('2026-09-01T08:00:00Z'));
+    for (let i = 0; i < 5; i++) {
+      ed.createEvent({ type: 'social', content: `e${i}` });
+      ed.dispatch();
+    }
+    expect(ed.eventLog.map(e => e.content)).toEqual(['e2', 'e3', 'e4']);
+    expect(ed.eventIndex.size).toBe(3);
+  });
+
   it('trims eventLog beyond maxEventLogSize entries', () => {
     const ed = makeDispatcher();
     // Push more events than the configured max (default 10000)

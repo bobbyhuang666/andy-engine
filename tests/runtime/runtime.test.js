@@ -173,6 +173,9 @@ describe('RuntimeContext', () => {
     expect(env.weather).toBe('sunny');
     expect(env.minutesElapsed).toBe(5);
     expect(env.simTime).toBeInstanceOf(Date);
+    expect(env._world).toBeUndefined();
+    expect(env.effectCommitter).toBe(world.effectCommitter);
+    expect(env.effectWorld).toBe(world);
   });
 });
 

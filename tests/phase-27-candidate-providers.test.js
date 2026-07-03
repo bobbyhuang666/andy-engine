@@ -8,13 +8,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { CandidateProviderManager } from '../agent/action/providers/CandidateProviderManager.js';
-import { ContinueCandidateProvider } from '../agent/action/providers/ContinueCandidateProvider.js';
-import { NeedCandidateProvider } from '../agent/action/providers/NeedCandidateProvider.js';
-import { ScheduleCandidateProvider } from '../agent/action/providers/ScheduleCandidateProvider.js';
-import { BehaviorFieldCandidateProvider } from '../agent/action/providers/BehaviorFieldCandidateProvider.js';
-import { ExploreCandidateProvider } from '../agent/action/providers/ExploreCandidateProvider.js';
-import { SocializeCandidateProvider } from '../agent/action/providers/SocializeCandidateProvider.js';
+import { CandidateProviderManager } from '../src/action/providers/CandidateProviderManager.js';
+import { ContinueCandidateProvider } from '../src/action/providers/ContinueCandidateProvider.js';
+import { NeedCandidateProvider } from '../src/action/providers/NeedCandidateProvider.js';
+import { ScheduleCandidateProvider } from '../src/action/providers/ScheduleCandidateProvider.js';
+import { BehaviorFieldCandidateProvider } from '../src/action/providers/BehaviorFieldCandidateProvider.js';
+import { ExploreCandidateProvider } from '../src/action/providers/ExploreCandidateProvider.js';
+import { SocializeCandidateProvider } from '../src/action/providers/SocializeCandidateProvider.js';
 import AndyEngine from '../index.js';
 import tavern from '../presets/tavern/index.js';
 
@@ -22,7 +22,7 @@ describe('Phase 27: Candidate Provider Consolidation', () => {
   describe('ContinueCandidateProvider', () => {
     it('always generates exactly one continue candidate', () => {
       const provider = new ContinueCandidateProvider();
-      const candidates = provider.generate({ behavior: { label: '在图书馆' } });
+      const candidates = provider.generate({ behaviorField: { label: '在图书馆' } });
       expect(candidates).toHaveLength(1);
       expect(candidates[0].type).toBe('continue');
       expect(candidates[0].label).toContain('在图书馆');
@@ -34,12 +34,11 @@ describe('Phase 27: Candidate Provider Consolidation', () => {
       const provider = new NeedCandidateProvider();
       const context = {
         needs: { hunger: 0.1, energy: 0.8, social: 0.9, comfort: 0.9, stimulation: 0.9 },
-        domain: { needRegionConfig: { hunger: { any: '食堂' } } },
       };
       const candidates = provider.generate(context);
       expect(candidates.length).toBeGreaterThan(0);
       expect(candidates[0].type).toBe('consume');
-      expect(candidates[0].expectedEffects.needDelta.hunger).toBe(0.3);
+      expect(candidates[0].target).toBe('hunger');
     });
 
     it('does not generate candidates when needs are satisfied', () => {
@@ -56,17 +55,16 @@ describe('Phase 27: Candidate Provider Consolidation', () => {
     it('generates candidate when in schedule', () => {
       const provider = new ScheduleCandidateProvider();
       const context = {
-        schedule: { inSchedule: true, targetRegion: '图书馆', targetActivity: '自习' },
-        domain: { placeTypes: { work: ['图书馆'] } },
+        schedule: { currentActivity: { type: 'study', category: 'work', location: '图书馆', label: '自习' } },
       };
       const candidates = provider.generate(context);
       expect(candidates).toHaveLength(1);
-      expect(candidates[0].targetRegion).toBe('图书馆');
+      expect(candidates[0].target).toBe('图书馆');
     });
 
     it('does not generate candidate when not in schedule', () => {
       const provider = new ScheduleCandidateProvider();
-      const context = { schedule: { inSchedule: false } };
+      const context = { schedule: {} };
       const candidates = provider.generate(context);
       expect(candidates).toHaveLength(0);
     });
@@ -75,14 +73,14 @@ describe('Phase 27: Candidate Provider Consolidation', () => {
   describe('BehaviorFieldCandidateProvider', () => {
     it('generates rest candidate when activity is low', () => {
       const provider = new BehaviorFieldCandidateProvider();
-      const context = { behavior: { B: [0.1, 0.3, 0.3, 0.3] } };
+      const context = { behaviorField: { B: [0.1, 0.3, 0.3, 0.3] } };
       const candidates = provider.generate(context);
       expect(candidates.some(c => c.type === 'rest')).toBe(true);
     });
 
     it('generates socialize candidate when sociality is high', () => {
       const provider = new BehaviorFieldCandidateProvider();
-      const context = { behavior: { B: [0.5, 0.7, 0.3, 0.3] } };
+      const context = { behaviorField: { B: [0.5, 0.7, 0.3, 0.3] } };
       const candidates = provider.generate(context);
       expect(candidates.some(c => c.type === 'socialize')).toBe(true);
     });
@@ -110,13 +108,13 @@ describe('Phase 27: Candidate Provider Consolidation', () => {
       const provider = new SocializeCandidateProvider();
       const context = {
         relationships: [
-          { agentId: 'bob', strength: 0.6, type: 'friend' },
+          { agentB: 'bob', strength: 0.6, type: 'friend' },
           { agentId: 'stranger', strength: 0.1, type: 'stranger' },
         ],
       };
       const candidates = provider.generate(context);
       expect(candidates).toHaveLength(1);
-      expect(candidates[0].targetAgentId).toBe('bob');
+      expect(candidates[0].target).toBe('bob');
     });
   });
 
@@ -124,12 +122,11 @@ describe('Phase 27: Candidate Provider Consolidation', () => {
     it('aggregates candidates from all providers', () => {
       const manager = new CandidateProviderManager();
       const context = {
-        behavior: { B: [0.1, 0.7, 0.3, 0.3], label: '在休息' },
+        behaviorField: { B: [0.1, 0.7, 0.3, 0.3], label: '在休息' },
         needs: { hunger: 0.1, energy: 0.9, social: 0.9, comfort: 0.9, stimulation: 0.9 },
-        schedule: { inSchedule: false },
+        schedule: {},
         intrinsic: { curiosity: 0.6 },
-        relationships: [{ agentId: 'bob', strength: 0.5, type: 'friend' }],
-        domain: { needRegionConfig: { hunger: { any: '食堂' } }, placeTypes: {} },
+        relationships: [{ agentB: 'bob', strength: 0.5, type: 'friend' }],
       };
       const candidates = manager.generateAll(context);
       expect(candidates.length).toBeGreaterThan(1);

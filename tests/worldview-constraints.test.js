@@ -24,6 +24,15 @@ function containsCampusWords(text) {
 }
 
 describe('WorldviewConstraints & Pollution Prevention', () => {
+  describe('applyForbiddenTerms', () => {
+    it('redacts forbidden terms case-insensitively while treating terms as literals', () => {
+      const domain = { forbiddenTerms: ['Campus', 'C++'] };
+      const text = 'campus CAMPUS Campus C++ c++';
+
+      expect(applyForbiddenTerms(text, domain)).toBe('*** *** *** *** ***');
+    });
+  });
+
   describe('Agent.toNarrative() with custom domain', () => {
     it('should generate clean narrative containing no unallowlisted campus words in tavern domain', () => {
       const engine = new AndyEngine({ domain: tavern });
@@ -40,6 +49,38 @@ describe('WorldviewConstraints & Pollution Prevention', () => {
       const narrative = agent.toNarrative();
       const violations = containsCampusWords(narrative);
       expect(violations.length).toBe(0);
+    });
+
+    it('uses custom domain stateCenters for behavior-dynamics narrative', () => {
+      const customDomain = {
+        id: 'narrative-dynamics',
+        name: 'Narrative Dynamics',
+        version: '1.0.0',
+        description: 'minimal custom domain',
+        states: {
+          crafting: { category: 'active', next: ['crafting'] },
+        },
+        stateCenters: {
+          crafting: [0.8, 0.2, 0.9, 0.3],
+        },
+        regions: ['workshop'],
+        adjacency: [],
+        narrativeTemplates: {
+          statePositionMap: { crafting: '在工坊专心制作' },
+        },
+        fallback: { defaultRegion: 'workshop', defaultState: 'crafting' },
+      };
+      const engine = new AndyEngine({ domain: customDomain });
+      const agent = engine.createCharacter({
+        id: 'artisan',
+        name: 'Artisan',
+        initialPosition: 'workshop',
+        initialState: 'crafting',
+      });
+      agent.behaviorField.B[2] = 0.2;
+
+      const narrative = agent.toNarrative();
+      expect(narrative).toContain('心思不太集中');
     });
   });
 

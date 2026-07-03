@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest';
 import SocialGraph from '../../src/social/SocialGraph.js';
+import { ANDY_DEFAULTS } from '../../src/config/defaults.js';
 
 describe('SocialGraph 模块', () => {
   let graph;
@@ -121,6 +122,64 @@ describe('SocialGraph 模块', () => {
       const targets = graph.getInfluenceTargets('A');
       expect(targets.length).toBeGreaterThan(0);
       expect(targets[0].weight).toBeGreaterThan(0);
+    });
+  });
+
+  describe('Dunbar 层级限制', () => {
+    it('downgraded strong ties are counted against medium tie cap in the same pass', () => {
+      const g = new SocialGraph();
+      g.addAgent('A');
+      const total = ANDY_DEFAULTS.relationship.maxStrongTies + ANDY_DEFAULTS.relationship.maxMediumTies + 5;
+
+      for (let i = 0; i < total; i++) {
+        const other = `B${i}`;
+        g.addAgent(other);
+        const rel = g.getOrCreateRelationship('A', other);
+        rel.strength = 0.65 - i * 0.001;
+        rel._updateType();
+      }
+
+      g._enforceDunbarLimits();
+
+      const layers = g.getLayers('A');
+      const strongCount = layers.closeFriends.length + layers.friends.length;
+      const mediumCount = layers.acquaintances.length;
+      expect(strongCount).toBeLessThanOrEqual(ANDY_DEFAULTS.relationship.maxStrongTies);
+      expect(mediumCount).toBeLessThanOrEqual(ANDY_DEFAULTS.relationship.maxMediumTies);
+    });
+
+    it('does not mutate a shared relationship when only one agent exceeds capacity', () => {
+      const g = new SocialGraph();
+      g.addAgent('A');
+      g.addAgent('B');
+
+      let relAB;
+      for (let i = 0; i <= ANDY_DEFAULTS.relationship.maxStrongTies; i++) {
+        const other = i === ANDY_DEFAULTS.relationship.maxStrongTies ? 'B' : `A_friend_${i}`;
+        g.addAgent(other);
+        const rel = g.getOrCreateRelationship('A', other);
+        rel.strength = 0.8 - i * 0.01;
+        rel._updateType();
+        if (other === 'B') relAB = rel;
+      }
+
+      const beforeStrength = relAB.strength;
+      const beforeType = relAB.type;
+
+      g._enforceDunbarLimits();
+
+      expect(relAB.strength).toBe(beforeStrength);
+      expect(relAB.type).toBe(beforeType);
+
+      const layersA = g.getLayers('A');
+      const strongA = layersA.closeFriends.length + layersA.friends.length;
+      expect(strongA).toBe(ANDY_DEFAULTS.relationship.maxStrongTies);
+      expect(layersA.acquaintances).toContain(relAB);
+
+      const layersB = g.getLayers('B');
+      const strongB = layersB.closeFriends.length + layersB.friends.length;
+      expect(strongB).toBe(1);
+      expect([...layersB.closeFriends, ...layersB.friends]).toContain(relAB);
     });
   });
 });

@@ -19,11 +19,14 @@ function makeCandidate(type = 'rest', overrides = {}) {
 }
 
 function baseContext(overrides = {}) {
+  const world = overrides.world || { time: '2026-09-01T14:00:00Z' };
+  const hour = overrides.environment?.hour ?? (world.time ? new Date(world.time).getUTCHours() : 14);
   return {
     behaviorField: { B: [0.5, 0.5, 0.5, 0.5] },
     needs: { hunger: 0.5, energy: 0.5, social: 0.5, stimulation: 0.5 },
     emotion: { valence: 0.1, arousal: 0.4 },
-    world: { time: '2026-09-01T14:00:00Z' },
+    world,
+    environment: overrides.environment ?? { hour },
     ...overrides,
   };
 }
@@ -164,5 +167,40 @@ describe('scoreConstraint — in-range branch', () => {
   it('no constraints returns 0', () => {
     const ctx = baseContext();
     expect(scoreCandidate(makeCandidate('work'), ctx).constraint).toBe(0);
+  });
+});
+
+// ═══════════════════════════════════════════
+// P1-3 回归: scoreTime fallback 时区中立 (getUTCHours)
+// 优先用 environment.hour, fallback 用 getUTCHours 避免 TZ 依赖
+// ═══════════════════════════════════════════
+describe('P1-3: scoreTime fallback timezone-neutral', () => {
+  it('uses environment.hour when available (primary path)', () => {
+    const ctx = baseContext({
+      world: { time: '2026-09-01T20:00:00Z' },    // UTC 20:00 would be evening
+      environment: { hour: 12 },                     // but env says noon
+    });
+    // environment.hour=12 → day hour, rest应该拿不到夜间加分
+    const restScore = scoreCandidate(makeCandidate('rest'), ctx).time;
+    expect(restScore).toBe(0); // day hour, rest gets no boost
+    const workScore = scoreCandidate(makeCandidate('work'), ctx).time;
+    expect(workScore).toBeGreaterThan(0); // day hour, work boosted
+  });
+
+  it('fallback uses getUTCHours when environment.hour missing', () => {
+    // No environment set → falls back to world.time via getUTCHours()
+    const ctxNight = baseContext({
+      world: { time: '2026-09-01T02:00:00Z' },
+    });
+    delete ctxNight.environment;
+    const nightRest = scoreCandidate(makeCandidate('rest'), ctxNight).time;
+    expect(nightRest).toBeGreaterThan(0); // night → rest+0.8
+
+    const ctxDay = baseContext({
+      world: { time: '2026-09-01T12:00:00Z' },
+    });
+    delete ctxDay.environment;
+    const dayWork = scoreCandidate(makeCandidate('work'), ctxDay).time;
+    expect(dayWork).toBeGreaterThan(0); // day → work+0.5
   });
 });

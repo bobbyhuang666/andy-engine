@@ -37,6 +37,9 @@ const QUANT = 1e9;
  */
 function canonicalize(value) {
   if (value === null) return null;
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? value.toISOString() : 'Invalid Date';
+  }
   if (Array.isArray(value)) {
     return value.map(canonicalize);
   }

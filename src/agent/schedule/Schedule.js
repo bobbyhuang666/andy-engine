@@ -27,6 +27,7 @@ class Schedule {
 
     // 为每个条目生成当天的实际时间（加入扰动）
     this._todayVariations = {};
+    this._tomorrowVariations = {};
 
     if (savedState) {
       // R19: deep-copy variations to prevent shared reference from savedState
@@ -34,6 +35,11 @@ class Schedule {
       this._todayVariations = {};
       for (const [k, v] of Object.entries(vars)) {
         this._todayVariations[k] = v ? { ...v } : null;
+      }
+      const tVars = savedState._tomorrowVariations || {};
+      this._tomorrowVariations = {};
+      for (const [k, v] of Object.entries(tVars)) {
+        this._tomorrowVariations[k] = v ? { ...v } : null;
       }
       this._lastVariationDate = savedState._lastVariationDate || null;
     }
@@ -60,7 +66,10 @@ class Schedule {
       const startHour = variation.startHour;
       const endHour = variation.endHour;
 
-      if (hour >= startHour && hour < endHour) {
+      const inRange = startHour <= endHour
+        ? (hour >= startHour && hour < endHour)
+        : (hour >= startHour || hour < endHour);
+      if (inRange) {
         return {
           region: entry.region,
           activity: entry.activity,
@@ -108,17 +117,12 @@ class Schedule {
 
     // 今天没有更多活动时，查找明天的第一个活动
     if (!closest) {
-      const tomorrowDay = (dayOfWeek + 1) % 7;
-      // 临时生成明天的扰动
       for (let i = 0; i < this.entries.length; i++) {
+        const variation = this._tomorrowVariations[i];
+        if (!variation) continue;
+
         const entry = this.entries[i];
-        if (!entry.days.includes(tomorrowDay)) continue;
-
-        if (this._rng.next() > entry.probability) continue;
-
-        const noiseHours = this._gaussianNoise(entry.noise) / 60;
-        const tomorrowStart = Math.max(0, Math.min(24, entry.startHour + noiseHours));
-        const delay = (24 - hour) + tomorrowStart;
+        const delay = (24 - hour) + variation.startHour;
 
         if (delay < closestDelay) {
           closestDelay = delay;
@@ -139,25 +143,46 @@ class Schedule {
     if (this._lastVariationDate === today) return;
 
     this._todayVariations = {};
+    this._tomorrowVariations = {};
     this._lastVariationDate = today;
 
+    const tomorrowDay = (dayOfWeek + 1) % 7;
+
+    // Pass 1: generate today's variations using this._rng
     for (let i = 0; i < this.entries.length; i++) {
       const entry = this.entries[i];
-
-      // 概率检查（模拟偶尔旷工）
-      if (this._rng.next() > entry.probability) {
-        this._todayVariations[i] = null;
-        continue;
+      if (entry.days.includes(dayOfWeek)) {
+        if (this._rng.next() > entry.probability) {
+          this._todayVariations[i] = null;
+        } else {
+          const noiseMinutes = this._gaussianNoise(entry.noise);
+          const noiseHours = noiseMinutes / 60;
+          this._todayVariations[i] = {
+            startHour: Math.max(0, Math.min(24, entry.startHour + noiseHours)),
+            endHour: Math.max(0, Math.min(24, entry.endHour + noiseHours)),
+          };
+        }
       }
+    }
 
-      // 时间扰动（正态分布近似）
-      const noiseMinutes = this._gaussianNoise(entry.noise);
-      const noiseHours = noiseMinutes / 60;
+    // Clone RNG AFTER today's consumption so tomorrow's prediction matches actual tomorrow state
+    const tomorrowRng = typeof this._rng.clone === 'function' ? this._rng.clone() : new RNG(0);
 
-      this._todayVariations[i] = {
-        startHour: Math.max(0, Math.min(24, entry.startHour + noiseHours)),
-        endHour: Math.max(0, Math.min(24, entry.endHour + noiseHours)),
-      };
+    // Pass 2: generate tomorrow's variations using cloned RNG at post-today state
+    for (let i = 0; i < this.entries.length; i++) {
+      const entry = this.entries[i];
+      if (entry.days.includes(tomorrowDay)) {
+        if (tomorrowRng.next() > entry.probability) {
+          this._tomorrowVariations[i] = null;
+        } else {
+          const noiseMinutes = this._gaussianNoiseWithRng(entry.noise, tomorrowRng);
+          const noiseHours = noiseMinutes / 60;
+          this._tomorrowVariations[i] = {
+            startHour: Math.max(0, Math.min(24, entry.startHour + noiseHours)),
+            endHour: Math.max(0, Math.min(24, entry.endHour + noiseHours)),
+          };
+        }
+      }
     }
   }
 
@@ -166,8 +191,11 @@ class Schedule {
    * @private
    */
   _gaussianNoise(stddev) {
-    const rand = this._rng.next.bind(this._rng);
-    // Clamp u1 away from 0 to avoid log(0) = -Infinity
+    return this._gaussianNoiseWithRng(stddev, this._rng);
+  }
+
+  _gaussianNoiseWithRng(stddev, rng) {
+    const rand = rng.next.bind(rng);
     const u1 = Math.max(0.0001, rand());
     const u2 = rand();
     return stddev * Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
@@ -197,10 +225,9 @@ class Schedule {
    */
   toJSON() {
     return {
-      // R10: return copies, not direct references, to prevent consumers
-      // from mutating the live Schedule's internal state through the toJSON result.
       entries: this.entries.map(e => ({ ...e })),
       _todayVariations: this._todayVariations ? { ...this._todayVariations } : null,
+      _tomorrowVariations: this._tomorrowVariations ? { ...this._tomorrowVariations } : null,
       _lastVariationDate: this._lastVariationDate,
     };
   }

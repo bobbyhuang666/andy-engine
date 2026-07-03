@@ -148,4 +148,106 @@ describe('UtilityScorer', () => {
       expect(ctx.worldPressure.total).toBe(ctxCopy.worldPressure.total);
     });
   });
+
+  describe('NaN safety — scorers must return finite numbers', () => {
+    // Regression: pressureContext fields containing NaN used to propagate
+    // through Math.max/min and produce total: NaN, causing UtilitySelector
+    // to silently drop the candidate. All scorers must coerce NaN/Infinity
+    // to a safe fallback.
+
+    function expectAllFinite(score, label) {
+      for (const [k, v] of Object.entries(score)) {
+        expect(Number.isFinite(v)).toBe(true);
+      }
+    }
+
+    it('pressureContext.needs.hunger = NaN → scoreNeed finite', () => {
+      const cand = createCandidate({ type: 'consume', source: 'need', target: 'food' });
+      const ctx = { pressureContext: { needs: { hunger: NaN } } };
+      const score = scoreCandidate(cand, ctx);
+      expectAllFinite(score, 'need');
+      expect(Number.isFinite(score.need)).toBe(true);
+    });
+
+    it('pressureContext.location.total = NaN → scoreLocation finite', () => {
+      const cand = createCandidate({ type: 'move', source: 'need', target: 'dorm' });
+      const ctx = { agent: { position: 'library' }, pressureContext: { location: { total: NaN } } };
+      const score = scoreCandidate(cand, ctx);
+      expectAllFinite(score, 'location');
+      expect(Number.isFinite(score.location)).toBe(true);
+    });
+
+    it('pressureContext.world.total = NaN → scoreWorld finite', () => {
+      const cand = createCandidate({ type: 'rest', source: 'need' });
+      const ctx = { pressureContext: { world: { total: NaN } } };
+      const score = scoreCandidate(cand, ctx);
+      expectAllFinite(score, 'world');
+      expect(Number.isFinite(score.world)).toBe(true);
+    });
+
+    it('pressureContext.relationship isolation/conflict/total = NaN → scoreRelationship finite', () => {
+      const socialize = createCandidate({ type: 'socialize', source: 'need' });
+      const ctx = { pressureContext: { relationship: { isolation: NaN, conflict: NaN, total: NaN } } };
+      const score = scoreCandidate(socialize, ctx);
+      expectAllFinite(score, 'relationship');
+      expect(Number.isFinite(score.relationship)).toBe(true);
+
+      // non-socialize path uses relPressure.total
+      const rest = createCandidate({ type: 'rest', source: 'need' });
+      const score2 = scoreCandidate(rest, ctx);
+      expect(Number.isFinite(score2.relationship)).toBe(true);
+    });
+
+    it('candidate.constraints.timeRange 含 NaN → scoreConstraint finite', () => {
+      const cand = createCandidate({
+        type: 'work',
+        source: 'schedule',
+        constraints: { timeRange: [NaN, NaN] },
+      });
+      const ctx = { world: { time: '2026-09-01T14:00:00Z' } };
+      const score = scoreCandidate(cand, ctx);
+      expectAllFinite(score, 'constraint');
+      expect(Number.isFinite(score.constraint)).toBe(true);
+    });
+
+    it('NaN pressureContext across multiple fields → total finite', () => {
+      const cand = createCandidate({ type: 'socialize', source: 'need' });
+      const ctx = {
+        agent: { position: 'library' },
+        world: { time: '2026-09-01T14:00:00Z' },
+        pressureContext: {
+          needs: { hunger: NaN, social: NaN },
+          location: { total: NaN },
+          world: { total: NaN },
+          relationship: { isolation: NaN, conflict: NaN, total: NaN },
+        },
+        constraints: { timeRange: [NaN, NaN] },
+      };
+      const score = scoreCandidate(Object.assign(cand, { constraints: { timeRange: [NaN, NaN] } }), ctx);
+      expectAllFinite(score, 'combined');
+      expect(Number.isFinite(score.total)).toBe(true);
+    });
+
+    // P1 regression: B 向量元素 NaN 不污染 scoreBehavior
+    it('behaviorField.B 各维度 NaN/Infinity → scoreBehavior finite', () => {
+      const cand = createCandidate({ type: 'rest', source: 'need' });
+      // rest ideal: { activity:0.1, sociality:0.2, focus:0.1, expressiveness:0.2 }
+      const ctx = { behaviorField: { B: [NaN, Infinity, undefined, -Infinity] } };
+      const score = scoreCandidate(cand, ctx);
+      expectAllFinite(score, 'behavior-NaN');
+      expect(Number.isFinite(score.behavior)).toBe(true);
+      expect(score.behavior).toBeGreaterThanOrEqual(0);
+    });
+
+    it('behaviorField.B 全部 NaN → scoreBehavior 仍 finite 且不污染 total', () => {
+      const cand = createCandidate({ type: 'work', source: 'schedule' });
+      const ctx = {
+        ...baseContext,
+        behaviorField: { B: [NaN, NaN, NaN, NaN] },
+      };
+      const score = scoreCandidate(cand, ctx);
+      expectAllFinite(score, 'behavior-all-NaN');
+      expect(Number.isFinite(score.total)).toBe(true);
+    });
+  });
 });

@@ -78,27 +78,32 @@ describe('Stage 27: action_selected canon path', () => {
       expect(knowledgeStore.hasKnowledge('test', result.fact.id)).toBe(false);
     });
 
-    it('action_selected with populated participants WOULD propagate knowledge', () => {
+    it('action_selected with populated participants DOES NOT propagate knowledge (auditOnly)', () => {
       const event = makeActionSelectedEvent({ participants: ['test'] });
       const agents = new Map([['test', { id: 'test', position: '图书馆' }]]);
 
       const result = pipeline.processEvent(event, agents);
 
+      // R41 P1 fix: auditOnly facts no longer enter agent knowledge.
+      // The fact is stored but knowledge is blocked for populated participants.
       expect(result.fact).not.toBeNull();
-      expect(knowledgeStore.hasKnowledge('test', result.fact.id)).toBe(true);
-      expect(knowledgeStore.getSource('test', result.fact.id)).toBe('direct');
+      expect(knowledgeStore.hasKnowledge('test', result.fact.id)).toBe(false);
     });
 
-    it('action_selected with scope:internal is stored as LOCAL scope fact', () => {
+    it('action_selected with scope:internal is stored as INTERNAL scope fact', () => {
       const event = makeActionSelectedEvent({ scope: 'internal' });
       const agents = new Map([['test', { id: 'test', position: '图书馆' }]]);
 
       const result = pipeline.processEvent(event, agents);
 
-      // 'internal' is not in FACT_SCOPES, so CanonEventPipeline falls back to PUBLIC
-      // (see _createEventFact line 86: scope = FACT_SCOPES.includes(event.scope) ? event.scope : FactScope.PUBLIC)
+      // R41 P1 fix: 'internal' is now a valid FactScope. It stays as internal
+      // (no longer falls back to PUBLIC). Knowledge propagation and effects are
+      // blocked for internal-scope facts.
       expect(result.fact).not.toBeNull();
-      expect(result.fact.scope).toBe(FactScope.PUBLIC);
+      expect(result.fact.scope).toBe(FactScope.INTERNAL);
+      expect(result.fact.originalScope).toBe('internal');
+      expect(result.fact.eventType).toBe('action_selected');
+      expect(result.fact.auditOnly).toBe(true);
     });
   });
 
@@ -211,6 +216,22 @@ describe('Stage 27: action_selected canon path', () => {
         expect(actionFact).toBeDefined();
         // action_selected has empty participants/observers → no knowledge propagation
         expect(engine.world.knowledgeStore.hasKnowledge('test', actionFact.id)).toBe(false);
+      });
+
+      it('event mode (enableFacts=true): action_selected is not exposed in grounding allowedFacts', () => {
+        const engine = createEngine('event-grounding-no-audit', {
+          enabled: true, mode: 'event', temperature: 0.35, recordTraces: true, maxTraceHistory: 100,
+        }, true);
+
+        engine.tick();
+
+        const eventFacts = engine.world.factStore.getEventFacts();
+        const actionFact = eventFacts.find(f => f.description && f.description.includes('action_selected'));
+        expect(actionFact).toBeDefined();
+
+        const grounding = engine.getGroundingPackage('test');
+        expect(grounding.allowedFacts.some(f => f.id === actionFact.id)).toBe(false);
+        expect(grounding.allowedFacts.some(f => f.description && f.description.includes('action_selected'))).toBe(false);
       });
 
       it('event mode (enableFacts=false): action_selected enters eventLog but NOT CanonEventPipeline', () => {

@@ -297,6 +297,22 @@ class SQLiteStore {
   }
 
   /**
+   * @deprecated Use loadLatest().
+   * Kept for compatibility with the public store type surface.
+   */
+  loadLatestSnapshot() {
+    return this.loadLatest();
+  }
+
+  /**
+   * @deprecated Use loadAt(tick).
+   * Kept for compatibility with the public store type surface.
+   */
+  loadSnapshotByTick(tick) {
+    return this.loadAt(tick);
+  }
+
+  /**
    * 保留最近 N 个快照
    */
   prune(keepCount = 720) {
@@ -347,6 +363,22 @@ class SQLiteStore {
       INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)
     `);
     stmt.run(key, String(value));
+  }
+
+  /**
+   * @deprecated Use set(key, value).
+   * Kept for compatibility with the public store type surface.
+   */
+  saveMeta(key, value) {
+    return this.set(key, value);
+  }
+
+  /**
+   * @deprecated Use get(key).
+   * Kept for compatibility with the public store type surface.
+   */
+  loadMeta(key) {
+    return this.get(key);
   }
 
   setMany(entries) {

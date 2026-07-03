@@ -11,9 +11,11 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
+import AndyEngine from '../../index.js';
 import AndyWorld from '../../src/runtime/AndyWorld.js';
 import EventDispatcher from '../../src/runtime/EventDispatcher.js';
 import SocialGraph from '../../src/social/SocialGraph.js';
+import { perceiveEvents } from '../../src/agent/runtime/PerceptionRuntime.js';
 import { RNG } from '../../src/shared/rng.js';
 import { getDefaultDomain } from '../../src/domain/DomainRegistry.js';
 
@@ -49,6 +51,94 @@ function createMockAgent(id, position, socialGraph) {
 }
 
 describe('Event Lifecycle Dedup (P0-1)', () => {
+  describe('perception event-id dedup', () => {
+    it('applies emotion and memory effects once for the same perceived event id', () => {
+      const engine = new AndyEngine({
+        seed: 'perception-dedup',
+        startTime: new Date('2026-09-01T08:00:00Z'),
+      });
+      const agent = engine.createCharacter({
+        id: 'alice',
+        name: 'Alice',
+        mbti: 'INFP',
+        background: [],
+      });
+      let applyCount = 0;
+      let memoryCount = 0;
+      const originalApplyEffect = agent.emotion.applyEffect.bind(agent.emotion);
+      const originalAddExperience = agent.memory.addExperience.bind(agent.memory);
+      agent.emotion.applyEffect = (...args) => {
+        applyCount++;
+        return originalApplyEffect(...args);
+      };
+      agent.memory.addExperience = (...args) => {
+        memoryCount++;
+        return originalAddExperience(...args);
+      };
+
+      const event = {
+        id: 'evt_seen_once',
+        type: 'random',
+        scope: 'public',
+        participants: [],
+        observers: [],
+        content: 'a single visible event',
+        effects: [{ target: 'alice', type: 'emotion', delta: { joy: 0.2 } }],
+      };
+
+      perceiveEvents(agent, [event]);
+      perceiveEvents(agent, [event]);
+
+      expect(applyCount).toBe(1);
+      expect(memoryCount).toBe(1);
+      expect(agent._perceivedEventIds.has('evt_seen_once')).toBe(true);
+    });
+
+    it('persists perceived event ids so save/restore does not replay old eventLog effects', () => {
+      const engine = new AndyEngine({
+        seed: 'perception-dedup-restore',
+        startTime: new Date('2026-09-01T08:00:00Z'),
+      });
+      const agent = engine.createCharacter({
+        id: 'alice',
+        name: 'Alice',
+        mbti: 'INFP',
+        background: [],
+      });
+      const event = {
+        id: 'evt_restore_seen',
+        type: 'random',
+        scope: 'public',
+        participants: [],
+        observers: [],
+        content: 'already seen before save',
+        effects: [{ target: 'alice', type: 'emotion', delta: { joy: 0.2 } }],
+      };
+
+      perceiveEvents(agent, [event]);
+      const saved = agent.toJSON();
+      expect(saved._perceivedEventIds).toContain('evt_restore_seen');
+
+      const restored = new AndyEngine({
+        seed: 'perception-dedup-restore',
+        startTime: new Date('2026-09-01T08:00:00Z'),
+      }, {
+        time: new Date('2026-09-01T08:00:00Z').toISOString(),
+        tickCount: 0,
+        agents: { alice: saved },
+        socialGraph: [],
+        events: { eventLog: [], _nextId: 0 },
+      }).getAgent('alice');
+      let applyCount = 0;
+      restored.emotion.applyEffect = () => { applyCount++; };
+
+      perceiveEvents(restored, [event]);
+
+      expect(applyCount).toBe(0);
+      expect(restored._perceivedEventIds.has('evt_restore_seen')).toBe(true);
+    });
+  });
+
   describe('generateEncounterEvent returns draft (not in pendingEvents)', () => {
     it('does not push to pendingEvents', () => {
       const rng = new RNG(42);

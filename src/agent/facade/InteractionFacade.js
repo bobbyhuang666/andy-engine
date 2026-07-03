@@ -4,6 +4,11 @@
  * Extracted from Agent.interact, _calculateInteractionValence, _personalityCompatibility.
  */
 
+const { EmotionDelta } = require('../../effects/EmotionDelta');
+const { MemoryDelta } = require('../../effects/MemoryDelta');
+const { RelationshipDelta } = require('../../effects/RelationshipDelta');
+const { getEffectCommitter } = require('../runtime/EffectCommitterResolver');
+
 /**
  * Interact with another agent (passive receiver).
  * @param {Object} agent
@@ -38,15 +43,34 @@ function interact(agent, other, interactionType = 'talk') {
     emotionDelta.nervousness = Math.abs(moodInfluence) * 0.03;
   }
 
-  agent.emotion?.applyEffect?.(emotionDelta);
-
-  agent.memory.addExperience({
+  const memoryEvent = {
     content: `和${other.name}${interactionType === 'talk' ? '聊了天' : interactionType === 'help' ? '互相帮助' : interactionType === 'conflict' ? '发生了冲突' : '擦肩而过'}`,
     type: 'social',
     effects: [],
     _region: agent.position,
     _currentState: agent.stateMachine.currentState,
-  }, agent.emotion || null);
+  };
+
+  const deltas = [
+    new EmotionDelta(agent.id, emotionDelta),
+    new MemoryDelta(agent.id, {
+      kind: 'candidate',
+      type: 'social',
+      content: memoryEvent.content,
+      event: memoryEvent,
+    }),
+  ];
+
+  if (other?.id) {
+    deltas.push(new RelationshipDelta(agent.id, {
+      targetAgentId: other.id,
+      interactionType,
+      valence,
+      content: memoryEvent.content,
+    }));
+  }
+
+  getEffectCommitter(agent).commit({ deltas });
 
   return {
     valence: valence + moodInfluence,

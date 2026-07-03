@@ -78,6 +78,42 @@ describe('AndyBridge.onTick', () => {
     }
     expect(result.stories.length).toBeGreaterThan(0);
   });
+
+  it('forwards generated signal stories to the store in the same tick', () => {
+    const bridge = makeInitializedBridge({ agentId: 'agent_a' });
+    bridge.onUserMessage('我今天很开心');
+    const agent = { emotion: { current: { joy: 0 }, stress: 0 } };
+    bridge.andy = fakeAndy({ agent_a: agent });
+    const onTickSpy = vi.fn((tickResult, stories) => {
+      expect(stories.length).toBeGreaterThan(0);
+      expect(stories[0].agentId).toBe('agent_a');
+    });
+    bridge.store = { virtualTime: null, tickCount: 0, onTick: onTickSpy };
+
+    const result = bridge.onTick({ tickNumber: 1, time: 12345, events: [] });
+
+    expect(result.stories.length).toBeGreaterThan(0);
+    expect(result.stories[0].agentId).toBe('agent_a');
+    expect(onTickSpy).toHaveBeenCalledWith({ tickNumber: 1, time: 12345, events: [] }, result.stories);
+  });
+
+  it('persists signal stories for non-default agents through real memory store', async () => {
+    const bridge = new AndyBridge({
+      agentId: 'agent_a',
+      persistence: { type: 'memory' },
+      snapshotInterval: 999,
+    });
+    await bridge.init();
+    bridge.onUserMessage('我今天很开心');
+
+    const result = bridge.onTick({ tickNumber: 1, time: Date.now(), events: [] });
+
+    expect(result.stories.length).toBeGreaterThan(0);
+    expect(bridge.store.db.stories.length).toBeGreaterThan(0);
+    expect(bridge.store.db.stories[0].agentId).toBe('agent_a');
+    expect(bridge.getStoriesForAgent(72, 5).length).toBeGreaterThan(0);
+    await bridge.shutdown();
+  });
 });
 
 describe('AndyBridge.getAgentEmotion', () => {
@@ -122,28 +158,28 @@ describe('AndyBridge._serializeAgents', () => {
     expect(buf.length).toBe(0);
   });
 
-  it('serializes agents with toJSON, joined by \\n---\\n; skips agents without toJSON', () => {
+  it('serializes agents as a JSON array; skips agents without toJSON', () => {
     const bridge = makeBridge();
     bridge.andy = fakeAndy({
       a: { toJSON: () => ({ emotion: { v: 1 }, position: { x: 1 }, health: 90 }) },
       b: { /* no toJSON, should be skipped */ },
     });
     const buf = bridge._serializeAgents();
-    const text = buf.toString();
-    expect(text).toContain('"id":"a"');
-    expect(text).not.toContain('"id":"b"');
-    // 单 agent 时无分隔符;2 agent 才有。此处仅 a 被序列化 → 无 \n---\n
-    expect(text).not.toContain('\n---\n');
+    const parsed = JSON.parse(buf.toString());
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0].id).toBe('a');
   });
 
-  it('joins multiple agents with \\n---\\n', () => {
+  it('keeps snapshot payload valid when agent JSON contains the legacy delimiter', () => {
     const bridge = makeBridge();
     bridge.andy = fakeAndy({
-      a: { toJSON: () => ({ x: 1 }) },
+      a: { toJSON: () => ({ memory: { content: 'line\n---\ninside' } }) },
       b: { toJSON: () => ({ y: 2 }) },
     });
     const buf = bridge._serializeAgents();
-    expect(buf.toString().split('\n---\n')).toHaveLength(2);
+    const parsed = JSON.parse(buf.toString());
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0].memory.content).toBe('line\n---\ninside');
   });
 });
 
@@ -170,6 +206,19 @@ describe('AndyBridge._restoreAgents', () => {
     expect(agent.socialEnergy).toBe(0.8);
   });
 
+  it('restores the new JSON-array snapshot format', () => {
+    const bridge = makeBridge();
+    const agent = {};
+    bridge.andy = fakeAndy({ a: agent });
+    const data = Buffer.from(JSON.stringify([
+      { id: 'a', position: 'library', health: 75, socialEnergy: 0.6 },
+    ]));
+    bridge._restoreAgents(data);
+    expect(agent.position).toBe('library');
+    expect(agent.health).toBe(75);
+    expect(agent.socialEnergy).toBe(0.6);
+  });
+
   it('no-ops when agent id not found in andy', () => {
     const bridge = makeBridge();
     bridge.andy = fakeAndy({ a: {} });
@@ -179,6 +228,34 @@ describe('AndyBridge._restoreAgents', () => {
 });
 
 describe('AndyBridge._applySignalToAgent', () => {
+  it('routes engine-backed emotion signals through the world EffectCommitter', () => {
+    const bridge = makeBridge();
+    const commit = vi.fn();
+    const agent = {
+      id: 'default',
+      emotion: {
+        current: { valence: 0.9, arousal: 0.1 },
+        applyEffect: vi.fn(),
+      },
+    };
+    bridge.andy = {
+      ...fakeAndy({ default: agent }),
+      world: { effectCommitter: { commit } },
+    };
+
+    bridge._applySignalToAgent({ mergedEffect: { valence: 0.5 } });
+
+    expect(commit).toHaveBeenCalledWith({
+      deltas: [expect.objectContaining({
+        type: 'emotion',
+        target: 'agent',
+        agentId: 'default',
+        changes: { valence: 0.5 },
+      })],
+    });
+    expect(agent.emotion.applyEffect).not.toHaveBeenCalled();
+  });
+
   it('clamps per-dimension deltas to [-1,1] and ignores unknown dims', () => {
     const bridge = makeBridge();
     const agent = { emotion: { current: { valence: 0.9, arousal: 0.1 } } };

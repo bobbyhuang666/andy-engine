@@ -138,16 +138,11 @@ class AndyBridge {
   onTick(tickResult) {
     this._requireInit('onTick');
     const stories = [];
-    const simTime = this.store.virtualTime ? new Date(this.store.virtualTime) : undefined;
+    const simTime = tickResult?.time
+      ? new Date(tickResult.time)
+      : (this.store.virtualTime ? new Date(this.store.virtualTime) : undefined);
     const options = { rng: this._rng, simTime };
-
-    // R20 M13: call store.onTick BEFORE reading tickCount so stories are
-    // tagged with the current tick, not the previous one. The old code read
-    // tickCount before onTick, producing off-by-one labels.
-    // 1. 交给 SimulationStore（缓冲 + 定期持久化）
-    this.store.onTick(tickResult, stories);
-
-    const currentTick = this.store.tickCount;
+    const currentTick = tickResult?.tickNumber ?? this.store.tickCount + 1;
 
     // 2. 消费情绪信号缓冲 → 注入 agent
     const signal = this.signalBuffer.consume();
@@ -157,7 +152,7 @@ class AndyBridge {
         signal.storyText,
         signal.mergedEffect,
         currentTick,
-        options,
+        { ...options, agentId: this.agentId },
       );
       if (signalStory) stories.push(signalStory);
     }
@@ -165,6 +160,11 @@ class AndyBridge {
     // 3. 从 tick 结果生成故事
     const tickStories = this.storyGenerator.generateFromTick(tickResult, this.agentId, options);
     if (tickStories) stories.push(...tickStories);
+
+    // 4. 交给 SimulationStore（缓冲 + 定期持久化）
+    // Store must see the stories generated for this tick. Passing the empty
+    // array before generation silently dropped one-tick bridge stories.
+    this.store.onTick(tickResult, stories);
 
     return { stories, signalConsumed: signal };
   }
@@ -257,11 +257,24 @@ class AndyBridge {
 
     const effect = signal.mergedEffect;
 
-    // R9 fix: route emotion signals through applyEffect() instead of
-    // directly writing to current. This ensures regulation strategies,
-    // mood update, co-activation, and maxDeltaPerTick clamping are applied.
-    // Fall back to direct scalar update if applyEffect is not available
-    // (e.g., in test mocks or non-standard emotion objects).
+    const committer = this.andy.world?.effectCommitter || this.andy.effectCommitter || null;
+    if (committer && typeof committer.commit === 'function') {
+      committer.commit({
+        deltas: [{
+          type: 'emotion',
+          target: 'agent',
+          agentId: agent.id || this.agentId,
+          changes: effect,
+          multiplier: 1,
+          appraisalModifiers: null,
+          stress: null,
+        }],
+      });
+      return;
+    }
+
+    // Fallback for isolated tests/non-standard SDK hosts without a world
+    // EffectCommitter. Real engine-backed signals should take the path above.
     if (typeof agent.emotion.applyEffect === 'function') {
       agent.emotion.applyEffect(effect);
     } else {
@@ -283,13 +296,13 @@ class AndyBridge {
     const agents = this.andy.agents?.entries?.()
       || Object.entries(this.andy.agents || {});
 
-    const parts = [];
+    const snapshots = [];
     for (const [id, agent] of agents) {
       if (agent.toJSON) {
-        parts.push(JSON.stringify({ id, ...agent.toJSON() }));
+        snapshots.push({ id, ...agent.toJSON() });
       }
     }
-    return Buffer.from(parts.join('\n---\n'));
+    return Buffer.from(JSON.stringify(snapshots));
   }
 
   /**
@@ -305,13 +318,12 @@ class AndyBridge {
   _restoreAgents(data) {
     if (!this.andy || !data || data.length === 0) return;
 
-    // 简单的 line-delimited JSON 恢复
     const text = data.toString();
-    const chunks = text.split('\n---\n');
+    const chunks = this._parseAgentSnapshotChunks(text);
 
     for (const chunk of chunks) {
       try {
-        const state = JSON.parse(chunk);
+        const state = typeof chunk === 'string' ? JSON.parse(chunk) : chunk;
         const agent = this.andy.agents?.get?.(state.id)
           || this.andy.getAgent?.(state.id);
         if (agent) {
@@ -370,7 +382,10 @@ class AndyBridge {
               if (world.spatial && typeof world.spatial.setCoords === 'function' &&
                   world.spatial.worldMap && typeof world.spatial.worldMap.regionCenter === 'function') {
                 const center = world.spatial.worldMap.regionCenter(agent.position);
-                world.spatial.setCoords(agent.id, center.x, center.y);
+                // R41 P1 fix: handle null from regionCenter (unknown region).
+                if (center) {
+                  world.spatial.setCoords(agent.id, center.x, center.y);
+                }
               }
             }
           }
@@ -443,6 +458,21 @@ class AndyBridge {
         // 跳过损坏的条目
       }
     }
+  }
+
+  _parseAgentSnapshotChunks(text) {
+    try {
+      const parsed = JSON.parse(text);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+      if (parsed && typeof parsed === 'object') {
+        return [parsed];
+      }
+    } catch (_) {
+      // Fall through to legacy delimiter format.
+    }
+    return text.split('\n---\n');
   }
 }
 

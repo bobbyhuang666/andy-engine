@@ -8,7 +8,10 @@
  *
  * Also orchestrates needs-driven and IM-driven position changes in tick().
  */
-const { STATE_CENTERS } = require('../psychology/BehaviorLabeler');
+const { EffectResult } = require('../../effects/EffectResult');
+const { MemoryDelta } = require('../../effects/MemoryDelta');
+const { PositionDelta } = require('../../effects/PositionDelta');
+const { getEffectCommitter } = require('../runtime/EffectCommitterResolver');
 
 class ScheduleHandler {
   constructor(agent) {
@@ -32,6 +35,90 @@ class ScheduleHandler {
   }
 
   /**
+   * Resolve a behavior-field center from the agent's active domain.
+   * @param {Object} agent
+   * @param {string} state
+   * @returns {number[]|null}
+   * @private
+   */
+  static _getStateCenter(agent, state) {
+    if (!state) return null;
+    if (agent.domain && typeof agent.domain.getStateCenter === 'function') {
+      return agent.domain.getStateCenter(state);
+    }
+    if (agent.behaviorField && agent.behaviorField._stateCenters) {
+      return agent.behaviorField._stateCenters[state] || null;
+    }
+    if (agent.domain && agent.domain.stateCenters) {
+      return agent.domain.stateCenters[state] || null;
+    }
+    return null;
+  }
+
+  /**
+   * Commit typed deltas through EffectCommitter.
+   * @param {Object} agent
+   * @param {Object} env
+   * @param {Object[]} deltas
+   * @private
+   */
+  static _commitDeltas(agent, env, deltas) {
+    const committer = getEffectCommitter(agent, env);
+    committer.commit(new EffectResult({ event: {}, deltas, reasonTrace: {} }));
+  }
+
+  /**
+   * Move through PositionDelta instead of writing agent.position directly.
+   * @param {Object} agent
+   * @param {Object} env
+   * @param {Object} result
+   * @param {string} targetRegion
+   * @param {string} reason
+   * @returns {boolean} true when the position changed
+   * @private
+   */
+  static _commitMove(agent, env, result, targetRegion, reason) {
+    if (targetRegion === agent.position) return false;
+    if (!ScheduleHandler._isValidRegion(agent, targetRegion)) return false;
+
+    const before = agent.position;
+    ScheduleHandler._commitDeltas(agent, env, [
+      new PositionDelta(agent.id, {
+        to: targetRegion,
+        from: before,
+        reason,
+      }),
+    ]);
+
+    if (agent.position !== before) {
+      result.regionChanged = true;
+      if (env && typeof env._setRegionChanged === 'function') {
+        env._setRegionChanged(agent.id, agent.position);
+      }
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Store a generated schedule memory through MemoryDelta.
+   * @param {Object} agent
+   * @param {Object} env
+   * @param {Object} memoryEvent
+   * @private
+   */
+  static _commitMemory(agent, env, memoryEvent) {
+    ScheduleHandler._commitDeltas(agent, env, [
+      new MemoryDelta(agent.id, {
+        kind: 'candidate',
+        type: memoryEvent.type,
+        content: memoryEvent.content,
+        event: memoryEvent,
+      }),
+    ]);
+  }
+
+  /**
    * Execute schedule check and position decisions.
    * @param {Object} context - tick context
    */
@@ -42,15 +129,12 @@ class ScheduleHandler {
     const scheduleResult = ScheduleHandler.checkSchedule(agent, env.hour, env.dayOfWeek, env.simDate);
 
     if (scheduleResult.moved) {
-      // R7 fix: validate region before moving agent
-      if (ScheduleHandler._isValidRegion(agent, scheduleResult.region)) {
-        result.regionChanged = true;
-        agent.position = scheduleResult.region;
-      }
+      const targetRegion = scheduleResult.region;
+      ScheduleHandler._commitMove(agent, env, result, targetRegion, 'schedule');
 
       if (scheduleResult.skipEvent) {
         if (scheduleResult.altState) {
-          const targetCenter = STATE_CENTERS[scheduleResult.altState];
+          const targetCenter = ScheduleHandler._getStateCenter(agent, scheduleResult.altState);
           if (targetCenter) {
             const prevLabel = agent.behaviorField.label;
             // R13 C2 fix: use setAttractor instead of directly setting B/velocity.
@@ -72,16 +156,15 @@ class ScheduleHandler {
 
         const skipMemory = ScheduleHandler.generateSkipMemory(agent, scheduleResult.skipEvent, env);
         if (skipMemory) {
-          agent.memory.addExperience(skipMemory, agent.emotion);
+          ScheduleHandler._commitMemory(agent, env, skipMemory);
           result.newEvents.push(skipMemory);
         }
       }
     } else if (needsDrive && needsDrive.urgency > 0.05) {
       const needRegion = ScheduleHandler.findNeedRegion(agent, needsDrive.need);
       // R7 fix: validate region before moving agent
-      if (needRegion && needRegion !== agent.position && ScheduleHandler._isValidRegion(agent, needRegion)) {
-        result.regionChanged = true;
-        agent.position = needRegion;
+      if (needRegion) {
+        ScheduleHandler._commitMove(agent, env, result, needRegion, `need:${needsDrive.need}`);
       }
     } else if (imResult.drive && imResult.drive.urgency > 0) {
       // R39 P0 fix: 探索驱力门槛从 0.1 降到 0。
@@ -109,10 +192,7 @@ class ScheduleHandler {
           const idx = Math.floor(agent.rand() * explorationRegions.length);
           const target = explorationRegions[idx];
           // R7 fix: validate region before moving agent
-          if (target !== agent.position && ScheduleHandler._isValidRegion(agent, target)) {
-            result.regionChanged = true;
-            agent.position = target;
-          }
+          ScheduleHandler._commitMove(agent, env, result, target, 'intrinsic_motivation');
         }
       }
     }

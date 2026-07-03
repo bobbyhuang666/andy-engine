@@ -81,10 +81,9 @@ describe('WorldMap 区域几何', () => {
     expect(rand.y).toBeLessThanOrEqual(158);
   });
 
-  it('未知区域返回世界中心附近', () => {
+  it('未知区域返回 null', () => {
     const unknown = map.regionToCoords('不存在');
-    expect(Math.abs(unknown.x - 250)).toBeLessThan(30);
-    expect(Math.abs(unknown.y - 250)).toBeLessThan(30);
+    expect(unknown).toBeNull();
   });
 });
 

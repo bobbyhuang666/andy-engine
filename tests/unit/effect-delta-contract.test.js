@@ -51,6 +51,24 @@ describe('Phase 5: StateDelta type hierarchy', () => {
     expect(d.changes).toEqual({ calm: 0.1, joy: 0.05 });
   });
 
+  it('EmotionDelta preserves appraisal modifiers and stress updates', () => {
+    const d = new EmotionDelta('a1', { fear: 0.2 }, {
+      multiplier: 1,
+      appraisalModifiers: { fear: 0.5 },
+      stress: 4.2,
+    });
+
+    expect(d.multiplier).toBe(1);
+    expect(d.appraisalModifiers).toEqual({ fear: 0.5 });
+    expect(d.stress).toBe(4.2);
+    expect(d.toJSON()).toEqual(expect.objectContaining({
+      changes: { fear: 0.2 },
+      multiplier: 1,
+      appraisalModifiers: { fear: 0.5 },
+      stress: 4.2,
+    }));
+  });
+
   it('MemoryDelta has correct type discriminator', () => {
     const d = new MemoryDelta('a1', { kind: 'candidate', type: 'observation', target: 'lib', content: 'see' });
     expect(d.type).toBe('memory');
@@ -58,6 +76,17 @@ describe('Phase 5: StateDelta type hierarchy', () => {
     expect(d.memoryType).toBe('observation');
     expect(d.target).toBe('lib');
     expect(d.content).toBe('see');
+  });
+
+  it('MemoryDelta preserves appraisal bias payloads', () => {
+    const d = new MemoryDelta('a1', {
+      kind: 'appraisalBias',
+      bias: { eventType: 'social', valenceShift: -0.2, decay: 0.0005, reason: 'bad talk' },
+    });
+
+    expect(d.kind).toBe('appraisalBias');
+    expect(d.bias).toEqual({ eventType: 'social', valenceShift: -0.2, decay: 0.0005, reason: 'bad talk' });
+    expect(d.toJSON().bias).toEqual(d.bias);
   });
 
   it('RelationshipDelta has correct type discriminator', () => {
@@ -190,8 +219,8 @@ describe('Phase 5: EffectCommitter', () => {
     const agent = {
       id: 'a1',
       needs: { needs: { energy: 0.5, hunger: 0.5 } },
-      emotion: { applyEffect: vi.fn() },
-      memory: { addExperience: vi.fn() },
+      emotion: { applyEffect: vi.fn(), setStress: vi.fn() },
+      memory: { addExperience: vi.fn(), addAppraisalBias: vi.fn() },
       socialGraph: {
         hasAgent: (id) => id === 'a1' || id === 'a2',
         getOrCreateRelationship: () => ({ recordInteraction: vi.fn() }),
@@ -263,20 +292,127 @@ describe('Phase 5: EffectCommitter', () => {
       deltas: [new EmotionDelta('a1', { calm: 0.1 })],
       reasonTrace: {},
     }));
-    expect(agents.get('a1').emotion.applyEffect).toHaveBeenCalledWith({ calm: 0.1 });
+    expect(agents.get('a1').emotion.applyEffect).toHaveBeenCalledWith({ calm: 0.1 }, 1, null);
   });
 
-  it('commit applies memory deltas via addExperience', () => {
+  it('commit applies appraisal-modulated emotion deltas', () => {
     const agents = makeMockAgents();
     const world = makeMockWorld();
     const committer = new EffectCommitter({ world, agents });
 
     committer.commit(new EffectResult({
       event: {},
-      deltas: [new MemoryDelta('a1', { kind: 'candidate', type: 'observation', target: 'lib', content: 'see' })],
+      deltas: [new EmotionDelta('a1', { fear: 0.2 }, {
+        multiplier: 1,
+        appraisalModifiers: { fear: 0.5 },
+      })],
       reasonTrace: {},
     }));
-    expect(agents.get('a1').memory.addExperience).toHaveBeenCalled();
+
+    expect(agents.get('a1').emotion.applyEffect).toHaveBeenCalledWith(
+      { fear: 0.2 },
+      1,
+      { fear: 0.5 }
+    );
+  });
+
+  it('commit applies stress updates through emotion deltas', () => {
+    const agents = makeMockAgents();
+    const world = makeMockWorld();
+    const committer = new EffectCommitter({ world, agents });
+
+    committer.commit(new EffectResult({
+      event: {},
+      deltas: [new EmotionDelta('a1', {}, { stress: 6.4 })],
+      reasonTrace: {},
+    }));
+
+    expect(agents.get('a1').emotion.applyEffect).not.toHaveBeenCalled();
+    expect(agents.get('a1').emotion.setStress).toHaveBeenCalledWith(6.4);
+  });
+
+  it('commit applies memory deltas via addExperience', () => {
+    const agents = makeMockAgents();
+    const world = makeMockWorld();
+    const committer = new EffectCommitter({ world, agents });
+    const memory = { id: 'm1', content: 'see' };
+    agents.get('a1').memory.addExperience.mockReturnValue(memory);
+    const delta = new MemoryDelta('a1', { kind: 'candidate', type: 'observation', target: 'lib', content: 'see' });
+
+    committer.commit(new EffectResult({
+      event: {},
+      deltas: [delta],
+      reasonTrace: {},
+    }));
+    expect(agents.get('a1').memory.addExperience).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'see', type: 'observation' }),
+      agents.get('a1').emotion,
+      null
+    );
+    expect(delta.committedMemory).toBe(memory);
+    expect(delta.toJSON()).not.toHaveProperty('committedMemory');
+  });
+
+  it('commit preserves raw memory event payloads when supplied', () => {
+    const agents = makeMockAgents();
+    const world = makeMockWorld();
+    const committer = new EffectCommitter({ world, agents });
+    const event = {
+      content: 'skipped class and stayed in the dorm',
+      type: 'deviant',
+      scope: 'local',
+      participants: ['a1'],
+      effects: [{ type: 'emotion', delta: { guilt: 0.02 } }],
+      _region: '宿舍',
+      _currentState: '在发呆',
+    };
+
+    committer.commit(new EffectResult({
+      event: {},
+      deltas: [new MemoryDelta('a1', {
+        kind: 'candidate',
+        type: event.type,
+        content: event.content,
+        event,
+      })],
+      reasonTrace: {},
+    }));
+
+    expect(agents.get('a1').memory.addExperience).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: event.content,
+        type: 'deviant',
+        scope: 'local',
+        effects: event.effects,
+        _region: '宿舍',
+        _currentState: '在发呆',
+      }),
+      agents.get('a1').emotion,
+      null
+    );
+  });
+
+  it('commit forwards finite memory importance as appraisal importance', () => {
+    const agents = makeMockAgents();
+    const world = makeMockWorld();
+    const committer = new EffectCommitter({ world, agents });
+
+    committer.commit(new EffectResult({
+      event: {},
+      deltas: [new MemoryDelta('a1', {
+        kind: 'candidate',
+        type: 'observation',
+        content: 'important event',
+        importance: 0.8,
+      })],
+      reasonTrace: {},
+    }));
+
+    expect(agents.get('a1').memory.addExperience).toHaveBeenCalledWith(
+      expect.objectContaining({ content: 'important event' }),
+      agents.get('a1').emotion,
+      0.8
+    );
   });
 
   it('commit skips non-candidate memory deltas', () => {
@@ -289,6 +425,22 @@ describe('Phase 5: EffectCommitter', () => {
       deltas: [new MemoryDelta('a1', { kind: 'consolidated', type: 'event', target: null, content: 'x' })],
       reasonTrace: {},
     }));
+    expect(agents.get('a1').memory.addExperience).not.toHaveBeenCalled();
+  });
+
+  it('commit applies appraisal bias memory deltas', () => {
+    const agents = makeMockAgents();
+    const world = makeMockWorld();
+    const committer = new EffectCommitter({ world, agents });
+    const bias = { eventType: 'social', valenceShift: -0.2, decay: 0.0005, reason: 'bad talk' };
+
+    committer.commit(new EffectResult({
+      event: {},
+      deltas: [new MemoryDelta('a1', { kind: 'appraisalBias', bias })],
+      reasonTrace: {},
+    }));
+
+    expect(agents.get('a1').memory.addAppraisalBias).toHaveBeenCalledWith(bias);
     expect(agents.get('a1').memory.addExperience).not.toHaveBeenCalled();
   });
 

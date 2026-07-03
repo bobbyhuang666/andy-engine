@@ -10,6 +10,14 @@ const { FactType, FactScope } = require('../canon/FactSchema');
 
 class FactConsistencyChecker {
   /**
+   * Escape display names before embedding them into RegExp patterns.
+   * @private
+   */
+  static _escapeRegExp(str) {
+    return String(str).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  /**
    * @param {import('../canon/WorldFactStore')} worldFactStore
    * @param {Object} domain - DomainRegistry 实例
    */
@@ -562,6 +570,7 @@ class FactConsistencyChecker {
 
       // Use display name if available, otherwise fall back to agentId
       const matchName = idToDisplayName.get(agentId) || agentId;
+      const safeMatchName = FactConsistencyChecker._escapeRegExp(matchName);
 
       // Check emotion expressions: Name[很/有点/非常/挺/比较]emotion
       // R18 CONSIST-003 fix: use matchName (display name) for regex patterns,
@@ -569,9 +578,9 @@ class FactConsistencyChecker {
       if (!emotionNeedsJustifiable.has(agentId)) {
         for (const emotion of emotionWords) {
           const emotionPatterns = [
-            new RegExp(`${matchName}(很|有点|非常|挺|比较|极度|特别|真)${emotion}`),
-            new RegExp(`${matchName}感到${emotion}`),
-            new RegExp(`${matchName}觉得${emotion}`),
+            new RegExp(`${safeMatchName}(很|有点|非常|挺|比较|极度|特别|真)${emotion}`),
+            new RegExp(`${safeMatchName}感到${emotion}`),
+            new RegExp(`${safeMatchName}觉得${emotion}`),
           ];
           for (const pattern of emotionPatterns) {
             if (pattern.test(text)) {
@@ -594,7 +603,7 @@ class FactConsistencyChecker {
       if (!emotionNeedsJustifiable.has(agentId)) {
         for (const needs of needsWords) {
           const needsPatterns = [
-            new RegExp(`${matchName}${needs}`),
+            new RegExp(`${safeMatchName}${needs}`),
           ];
           for (const pattern of needsPatterns) {
             if (pattern.test(text)) {
@@ -613,7 +622,7 @@ class FactConsistencyChecker {
         // Also check "Name想XX" for needsWithPrefix
         if (!violations.some(v => v.agent === matchName && v.type === 'agent_state_leak')) {
           for (const needs of needsWithPrefix) {
-            const pattern = new RegExp(`${matchName}想${needs}`);
+            const pattern = new RegExp(`${safeMatchName}想${needs}`);
             if (pattern.test(text)) {
               violations.push({
                 type: 'agent_state_leak',
@@ -633,8 +642,8 @@ class FactConsistencyChecker {
       if (!activityJustifiable.has(agentId)) {
         for (const activity of activityWords) {
           const activityPatterns = [
-            new RegExp(`${matchName}正在${activity}`),
-            new RegExp(`${matchName}在${activity}`),
+            new RegExp(`${safeMatchName}正在${activity}`),
+            new RegExp(`${safeMatchName}在${activity}`),
           ];
           for (const pattern of activityPatterns) {
             if (pattern.test(text)) {

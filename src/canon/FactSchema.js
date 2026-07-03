@@ -42,6 +42,7 @@ const FACT_SOURCES = Object.values(FactSource);
 const FactScope = Object.freeze({
   PUBLIC: 'public',
   LOCAL: 'local',
+  INTERNAL: 'internal',
 });
 
 const FACT_SCOPES = Object.values(FactScope);

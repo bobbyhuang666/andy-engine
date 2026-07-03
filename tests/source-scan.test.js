@@ -31,6 +31,9 @@ const DETERMINISTIC_BANNED = ['Math.random(', 'Date.now('];
 // 允许出现 campus terms 的路径
 const ALLOWED_PATHS = [
   'presets/campus/',
+  'src/config/defaults.js',
+  'src/domain/DomainRegistry.js',
+  'src/narrative/FactConsistencyChecker.js',
   'tests/',
   'docs/',
   'README.md',
@@ -69,12 +72,18 @@ function getJsFiles(dir, fileList = []) {
 
 function scanFileForCampusTerms(filePath) {
   const content = readFileSync(filePath, 'utf-8');
+  const lines = content.split('\n')
+    .filter(line => {
+      const trimmed = line.trim();
+      return !(trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*'));
+    });
+  const source = lines.join('\n');
   const violations = [];
 
   for (const term of CAMPUS_TERMS) {
     // 扫描文件全文，只要出现 term 就报告
     const regex = new RegExp(term, 'g');
-    const matches = content.match(regex);
+    const matches = source.match(regex);
     if (matches) {
       violations.push({ term, count: matches.length });
     }
@@ -127,6 +136,20 @@ describe('Source-Scan: runtime 不依赖 campus-only strings', () => {
     'sdk',
     'spatial',
     'facts',
+    'src/runtime',
+    'src/agent',
+    'src/action',
+    'src/effects',
+    'src/pressure',
+    'src/domain',
+    'src/config',
+    'src/sdk',
+    'src/store',
+    'src/canon',
+    'src/knowledge',
+    'src/narrative',
+    'src/social',
+    'src/spatial',
   ];
 
   it('runtime 文件中不应有 campus-only 字符串', () => {

@@ -277,14 +277,14 @@ function checkWorldFactAuthority() {
   return violations;
 }
 
-// --- SDK Direct Memory Mutation Check ---
+// --- SDK / public facade direct memory mutation check ---
 
 const SDK_MEMORY_BANNED = ['.memory.addExperience(', 'agent.memory.addExperience('];
 
 function checkSdkMemoryMutation() {
   const violations = [];
-  const sdkDir = path.join(ROOT, 'sdk');
-  const files = getJsFiles(sdkDir);
+  const dirs = ['sdk', 'src/sdk', 'src/agent/facade'];
+  const files = dirs.flatMap((dir) => getJsFiles(path.join(ROOT, dir)));
 
   for (const file of files) {
     const relFile = getRelativePath(file);
@@ -758,6 +758,38 @@ function checkFactEmitterEventFallback() {
   return violations;
 }
 
+// --- Runtime env must expose explicit services, not a world backdoor ---
+
+function checkRuntimeEnvWorldBackdoor() {
+  const violations = [];
+  const dirs = ['src/agent', 'src/runtime'];
+
+  for (const dir of dirs) {
+    const fullDir = path.join(ROOT, dir);
+    const files = getJsFiles(fullDir);
+
+    for (const file of files) {
+      const relFile = getRelativePath(file);
+      const content = readFileSync(file, 'utf-8');
+      const lines = content.split('\n');
+
+      for (let i = 0; i < lines.length; i++) {
+        const trimmed = lines[i].trim();
+        if (trimmed.startsWith('//') || trimmed.startsWith('*') || trimmed.startsWith('/*')) continue;
+        if (lines[i].includes('._world') || lines[i].includes('_world:') || lines[i].includes('env._world') || lines[i].includes('env?._world')) {
+          violations.push({
+            file: relFile,
+            line: i + 1,
+            reason: 'runtime env must not expose or read env._world — inject explicit services such as effectCommitter/effectWorld',
+          });
+        }
+      }
+    }
+  }
+
+  return violations;
+}
+
 // --- src/ must not require root index.js ---
 
 function checkSrcReverseIndexJs() {
@@ -858,13 +890,13 @@ function main() {
   // 6. SDK direct memory mutation
   const sdkMemViolations = checkSdkMemoryMutation();
   if (sdkMemViolations.length > 0) {
-    console.log('❌ SDK direct memory mutation violations:');
+    console.log('❌ SDK/public facade direct memory mutation violations:');
     for (const v of sdkMemViolations) {
       console.log(`  ${v.file}:${v.line}: ${v.pattern}`);
     }
     totalViolations += sdkMemViolations.length;
   } else {
-    console.log('✓ SDK memory mutation: clean (uses Agent public seam)');
+    console.log('✓ SDK/public facade memory mutation: clean (uses typed deltas or Agent public seam)');
   }
 
   // 7. Action → effects boundary
@@ -985,6 +1017,18 @@ function main() {
     totalViolations += factEmitterFallbackViolations.length;
   } else {
     console.log('✓ FactEmitter event fallback: locked down (runtime/agent/sdk use CanonEventPipeline)');
+  }
+
+  // 15. Runtime env world backdoor
+  const envWorldViolations = checkRuntimeEnvWorldBackdoor();
+  if (envWorldViolations.length > 0) {
+    console.log('❌ Runtime env._world backdoor violations:');
+    for (const v of envWorldViolations) {
+      console.log(`  ${v.file}:${v.line}: ${v.reason}`);
+    }
+    totalViolations += envWorldViolations.length;
+  } else {
+    console.log('✓ Runtime env services: clean (no env._world backdoor)');
   }
 
   console.log('');

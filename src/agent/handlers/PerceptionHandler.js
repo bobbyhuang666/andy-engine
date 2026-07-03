@@ -11,7 +11,7 @@ class PerceptionHandler {
   }
 
   tick(context) {
-    perceiveEvents(this.agent, context.safeEvents);
+    perceiveEvents(this.agent, context.safeEvents, context.env);
 
     if (this.agent.futureTendency) {
       this.agent.futureTendency.decay();

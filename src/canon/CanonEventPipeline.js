@@ -92,7 +92,7 @@ class CanonEventPipeline {
     const eventTime = event.time instanceof Date ? event.time : (event.time ? new Date(event.time) : FALLBACK_EPOCH);
     const eventId = event.id || `evt_${event.type}_${eventTime.getTime()}_${this._eventCounter++}`;
     const scope = FACT_SCOPES.includes(event.scope) ? event.scope : FactScope.PUBLIC;
-    return createEventFact({
+    const fact = createEventFact({
       eventId,
       description: event.content || `${event.type}事件`,
       location: event.location || '',
@@ -103,6 +103,14 @@ class CanonEventPipeline {
       participants: event.participants || [],
       observers: event.observers || [],
     });
+
+    fact.eventType = event.type;
+    fact.originalScope = event.scope || null;
+    if (event.scope === 'internal' || event.type === 'action_selected') {
+      fact.auditOnly = true;
+    }
+
+    return fact;
   }
 
   /**
@@ -112,6 +120,12 @@ class CanonEventPipeline {
   _propagateKnowledge(fact, agents) {
     const updates = [];
     const seen = new Set();
+
+    // R41 P1 fix: auditOnly facts are internal bookkeeping and must not
+    // enter agent knowledge. Without this guard, action_selected facts with
+    // scope 'local' still propagate to participants/observers/overheard,
+    // leaking internal engine state into the epistemic layer.
+    if (fact.auditOnly) return updates;
 
     if (fact.participants) {
       for (const agentId of fact.participants) {
@@ -254,6 +268,12 @@ class CanonEventPipeline {
    * @returns {Object[]} knowledgeUpdates
    */
   _propagateInferred(fact, agents) {
+    // auditOnly facts (action_selected / internal) must not produce inferred
+    // knowledge. _propagateKnowledge already guards auditOnly, but without
+    // this guard a `type: action_selected, scope: public, auditOnly: true`
+    // fact would still reach same-location agents via the inferred safety net,
+    // leaking internal engine bookkeeping into the epistemic layer.
+    if (fact.auditOnly) return [];
     if (fact.scope !== FactScope.PUBLIC || !fact.location) return [];
     const updates = [];
 
@@ -275,6 +295,30 @@ class CanonEventPipeline {
       }
     }
     return updates;
+  }
+
+  /**
+   * 序列化
+   * R41 M2 fix: persist _eventCounter so event IDs don't collide after
+   * save/restore. Without this, the counter resets to 0 and may produce
+   * duplicate fact IDs that cause "EventFact already exists" errors.
+   * @returns {Object}
+   */
+  toJSON() {
+    return { _eventCounter: this._eventCounter };
+  }
+
+  /**
+   * 反序列化
+   * @param {Object} data - toJSON() 的输出
+   */
+  fromJSON(data) {
+    // R41 B4 fix: clamp _eventCounter to prevent unbounded growth across
+    // repeated save/restore cycles (each restore takes Math.max).
+    const MAX_EVENT_COUNTER = Number.MAX_SAFE_INTEGER - 1000;
+    if (data && typeof data._eventCounter === 'number' && Number.isFinite(data._eventCounter)) {
+      this._eventCounter = Math.min(Math.max(this._eventCounter, data._eventCounter), MAX_EVENT_COUNTER);
+    }
   }
 }
 

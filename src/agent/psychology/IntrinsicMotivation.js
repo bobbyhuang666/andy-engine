@@ -101,13 +101,14 @@ class IntrinsicMotivation {
   tick({ position, state, hour, hoursElapsed, simTime, needsState }) {
     // R24 P0 fix: guard against null simTime. 6 downstream call sites call
     // simTime.getTime() unconditionally, which crashes when env.simTime is null.
-    // Use _lastSimTime as fallback, or Date.now() as last resort.
+    // Use _lastSimTime as fallback.
     // R37 P1 fix: Invalid Date is truthy but getTime() returns NaN.
     // Validate with Number.isFinite before accepting.
+    // R41 fix: removed Date.now() fallback — wall-clock time in the simulation
+    // path breaks seeded determinism. _lastSimTime stays at its current value
+    // (0 for first tick); getNovelty() guards against negative forgetting factor.
     if (simTime && Number.isFinite(simTime.getTime?.())) {
       this._lastSimTime = simTime.getTime();
-    } else if (!this._lastSimTime) {
-      this._lastSimTime = Date.now();
     }
     // Provide a safe simTime for downstream methods
     const safeSimTime = (simTime && Number.isFinite(simTime.getTime?.()))
@@ -255,14 +256,22 @@ class IntrinsicMotivation {
 
     // 时间遗忘：很久没去的地方会重新变得新奇
     // 模拟记忆的指数衰减（Ebbinghaus 1885）
+    // R41 fix: guard against now <= 0 (epoch / uninitialised) and
+    // fam.lastVisit <= 0 (visits recorded before simTime was injected).
+    // When both guards trigger, forgetting is skipped and novelty stays at
+    // baseNovelty.
     const now = simTime ? simTime.getTime() : this._lastSimTime;
-    const hoursSinceVisit = (now - fam.lastVisit) / (1000 * 60 * 60);
-    const forgettingFactor = Math.min(1, hoursSinceVisit / this._cfg.forgettingHours);
+    const hoursSinceVisit = (now > 0 && fam.lastVisit > 0)
+      ? (now - fam.lastVisit) / (1000 * 60 * 60)
+      : 0;
+    const forgettingFactor = hoursSinceVisit > 0
+      ? Math.min(1, hoursSinceVisit / this._cfg.forgettingHours)
+      : 0;
 
     // 最终新奇性 = 基础新奇性 * (1 + 遗忘加成)
     // 遗忘加成让很久没去的地方恢复新奇感
     // forgettingFactor=1 (24h+) 时新奇性翻倍，模拟"故地重游"的新鲜感
-    const result = Math.min(1, baseNovelty * (1 + forgettingFactor));
+    const result = Math.min(1, Math.max(0, baseNovelty * (1 + forgettingFactor)));
 
     // 存入缓存
     if (this._noveltyCache) {
@@ -774,7 +783,23 @@ class IntrinsicMotivation {
    * @private
    */
   _getExplorationStates() {
-    return this._imConfig.explorationStates || ['在路上'];
+    if (Array.isArray(this._imConfig.explorationStates) && this._imConfig.explorationStates.length > 0) {
+      return this._imConfig.explorationStates;
+    }
+
+    if (this.domain && typeof this.domain.getStateNames === 'function') {
+      return this.domain.getStateNames().slice(0, 3);
+    }
+
+    if (this.domain && this.domain.states && typeof this.domain.states === 'object') {
+      return Object.keys(this.domain.states).slice(0, 3);
+    }
+
+    if (this.domain && this.domain.stateCenters && typeof this.domain.stateCenters === 'object') {
+      return Object.keys(this.domain.stateCenters).slice(0, 3);
+    }
+
+    return [];
   }
 
   // ═══════════════════════════════════════════

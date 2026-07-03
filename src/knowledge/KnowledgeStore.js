@@ -85,10 +85,10 @@ class KnowledgeStore {
   hasKnowledge(agentId, factId) {
     const agentKnowledge = this._knowledge.get(agentId);
     if (!agentKnowledge || !agentKnowledge.has(factId)) return false;
-    // Verify the fact still exists (may have been evicted)
-    const fact = this.factStore.getFactById(factId);
-    if (!fact || fact._invalidated) return false;
-    return true;
+    // Verify the fact still exists (may have been evicted) without deep-copying
+    // the fact. getFactById() is public and intentionally defensive; this hot
+    // path only needs a boolean.
+    return this.factStore._hasActiveFact(factId);
   }
 
   /**
@@ -137,8 +137,7 @@ class KnowledgeStore {
     if (!internal) return new Set();
     const filtered = new Set();
     for (const factId of internal) {
-      const fact = this.factStore.getFactById(factId);
-      if (fact && !fact._invalidated) {
+      if (this.factStore._hasActiveFact(factId)) {
         filtered.add(factId);
       }
     }
@@ -209,6 +208,41 @@ class KnowledgeStore {
   }
 
   /**
+   * Remove internal knowledge/evidence entries for facts that are missing or
+   * invalidated in the backing fact store. Public read APIs already filter
+   * these; this keeps restored and manually removed snapshots compact.
+   */
+  purgeInactiveFacts() {
+    if (!this.factStore?._hasActiveFact) return;
+
+    for (const [agentId, factIds] of this._knowledge) {
+      for (const factId of Array.from(factIds)) {
+        if (!this.factStore._hasActiveFact(factId)) {
+          factIds.delete(factId);
+          this._evidence.delete(`${agentId}:${factId}`);
+        }
+      }
+      if (factIds.size === 0) {
+        this._knowledge.delete(agentId);
+      }
+    }
+
+    for (const key of Array.from(this._evidence.keys())) {
+      const separator = key.indexOf(':');
+      if (separator === -1) {
+        this._evidence.delete(key);
+        continue;
+      }
+      const agentId = key.slice(0, separator);
+      const factId = key.slice(separator + 1);
+      const factIds = this._knowledge.get(agentId);
+      if (!factIds?.has(factId) || !this.factStore._hasActiveFact(factId)) {
+        this._evidence.delete(key);
+      }
+    }
+  }
+
+  /**
    * 获取知识统计
    */
   getStats() {
@@ -250,7 +284,13 @@ class KnowledgeStore {
     const store = new KnowledgeStore(factStore);
     const knowledgeData = data.knowledge || data;
     for (const [agentId, factIds] of Object.entries(knowledgeData)) {
-      store._knowledge.set(agentId, new Set(factIds));
+      // R41 fix: only restore array-typed values as factId sets.
+      // Without this guard, when data.knowledge is missing and we fall
+      // back to `data` itself, non-knowledge keys (evidence, sources) get
+      // their values passed to new Set(), producing corrupt knowledge entries.
+      if (Array.isArray(factIds)) {
+        store._knowledge.set(agentId, new Set(factIds));
+      }
     }
 
     if (data.evidence) {
@@ -270,6 +310,8 @@ class KnowledgeStore {
       }
     }
     // 两者都不存在 → 空 _evidence（默认）
+
+    store.purgeInactiveFacts();
 
     return store;
   }

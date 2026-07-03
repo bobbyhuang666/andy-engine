@@ -118,7 +118,7 @@ interface WorldFact {
   timestamp: Date | number;
   source: 'engine' | 'observation' | 'inference';
   confidence: number;
-  scope: 'public' | 'local';
+  scope: 'public' | 'local' | 'internal';
   participants: string[];
   observers: string[];
   [key: string]: any;
@@ -155,7 +155,7 @@ interface GroundingPackage {
 }
 
 interface ConsistencyViolation {
-  type: 'unknown_character' | 'unknown_location' | 'unknown_event' | 'time_conflict' | 'new_relationship' | 'new_event' | 'unsupported_claim';
+  type: 'unknown_character' | 'unknown_location' | 'unknown_event' | 'time_conflict' | 'new_relationship' | 'new_event' | 'unsupported_claim' | 'agent_state_leak' | 'local_scope_leak' | 'missing_source_attribution';
   message: string;
   name?: string;
   location?: string;
@@ -167,7 +167,7 @@ interface ConsistencyViolation {
 interface ConsistencyCheckResult {
   valid: boolean;
   violations: ConsistencyViolation[];
-  severity: 'pass' | 'reject' | 'rewrite' | 'degrade_to_template';
+  severity: 'pass' | 'reject' | 'rewrite' | 'degrade_to_template' | 'warning';
   suggestion: string | null;
   [key: string]: any;
 }

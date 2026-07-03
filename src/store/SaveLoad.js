@@ -38,6 +38,14 @@ class SaveLoad {
   }
 
   /**
+   * @deprecated Use save(world, metadata).
+   * Accepts either an AndyEngine facade or an AndyWorld-like object.
+   */
+  saveWorld(engine, metadata = {}) {
+    return this.save(engine?.world || engine, metadata);
+  }
+
+  /**
    * 加载世界状态
    *
    * @param {string} snapshotId - 快照标识
@@ -47,6 +55,13 @@ class SaveLoad {
   load(snapshotId, config) {
     const envelope = this.store.load(snapshotId);
     return Serialization.deserialize(envelope, config);
+  }
+
+  /**
+   * @deprecated Use load(snapshotId, config).
+   */
+  loadWorld(snapshotId, config) {
+    return this.load(snapshotId, config);
   }
 
   /**

@@ -131,6 +131,15 @@ describe('WorldFactStore - 基础 CRUD', () => {
     expect(store.size).toBe(0);
   });
 
+  it('removeFact 应该清理空的 agent 索引', () => {
+    const f = store.addFact(makeMemory({ agentId: 'alice' }));
+    expect(store.getStats().agentCount).toBe(1);
+
+    store.removeFact(f.id);
+
+    expect(store.getStats().agentCount).toBe(0);
+  });
+
   it('removeFact 对不存在的 id 返回 false', () => {
     expect(store.removeFact('nonexistent')).toBe(false);
   });
@@ -255,6 +264,87 @@ describe('WorldFactStore - MemoryFact 可更新', () => {
     const updated = store.updateFact(f.id, { content: '更新后的记忆', importance: 0.9 });
     expect(updated.content).toBe('更新后的记忆');
     expect(updated.importance).toBe(0.9);
+  });
+});
+
+describe('WorldFactStore - high-volume fact eviction', () => {
+  it('bounds observation facts and purges evicted knowledge entries', () => {
+    const store = new WorldFactStore();
+    const purged = [];
+    store.setKnowledgeStore({
+      purgeEvictedFacts(ids) {
+        purged.push(...ids);
+      },
+    });
+
+    let firstId;
+    let lastId;
+    for (let i = 0; i < 2001; i++) {
+      const added = store.addFact(makeObservation({
+        action: `obs-${i}`,
+        timestamp: new Date(1000 + i),
+      }));
+      if (i === 0) firstId = added.id;
+      if (i === 2000) lastId = added.id;
+    }
+
+    const observations = store.getObservationFacts();
+    expect(observations.length).toBeLessThanOrEqual(2000);
+    expect(store.getFactById(firstId)).toBeNull();
+    expect(store.getFactById(lastId)).not.toBeNull();
+    expect(purged).toContain(firstId);
+  });
+
+  it('bounds memory facts and keeps recent memories', () => {
+    const store = new WorldFactStore();
+    let firstId;
+    let lastId;
+    for (let i = 0; i < 5001; i++) {
+      const added = store.addFact(makeMemory({
+        content: `memory-${i}`,
+        timestamp: new Date(1000 + i),
+      }));
+      if (i === 0) firstId = added.id;
+      if (i === 5000) lastId = added.id;
+    }
+
+    const memories = store.getMemoryFacts();
+    expect(memories.length).toBeLessThanOrEqual(5000);
+    expect(store.getFactById(firstId)).toBeNull();
+    expect(store.getFactById(lastId)).not.toBeNull();
+  });
+
+  it('bounds invalidated facts and purges knowledge for invalidated originals', () => {
+    const store = new WorldFactStore();
+    const purged = [];
+    store.setKnowledgeStore({
+      purgeEvictedFacts(ids) {
+        purged.push(...ids);
+      },
+    });
+
+    let firstMemoryId;
+    let firstInvalidationId;
+    let lastInvalidationId;
+    for (let i = 0; i < 2001; i++) {
+      const added = store.addFact(makeMemory({
+        content: `invalidated-memory-${i}`,
+        timestamp: new Date(1000 + i),
+      }));
+      store.setSimTime(new Date(2000 + i));
+      const invalidation = store.invalidateFact(added.id, `superseded-${i}`);
+      if (i === 0) {
+        firstMemoryId = added.id;
+        firstInvalidationId = invalidation.id;
+      }
+      if (i === 2000) lastInvalidationId = invalidation.id;
+    }
+
+    const invalidations = store.getAllFacts([FactType.INVALIDATED]);
+    expect(invalidations.length).toBeLessThanOrEqual(2000);
+    expect(store.getFactById(firstInvalidationId)).toBeNull();
+    expect(store.getFactById(lastInvalidationId)).not.toBeNull();
+    expect(purged).toContain(firstMemoryId);
   });
 });
 

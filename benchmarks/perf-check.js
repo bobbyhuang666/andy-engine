@@ -4,7 +4,8 @@
  * 检查当前 benchmark 和 profile 是否超过 baseline 的阈值。
  *
  * 用法：
- *   node benchmarks/perf-check.js              # 单次运行（向后兼容）
+ *   node benchmarks/perf-check.js              # 3次运行取中位数
+ *   node benchmarks/perf-check.js --runs=1     # 单次运行（快速本地探查）
  *   node benchmarks/perf-check.js --runs=3     # 3次运行取中位数
  *   node benchmarks/perf-check.js --diagnose   # 诊断模式，测试不同配置
  *   node benchmarks/perf-check.js --calibrate  # 运行并保存为 local baseline
@@ -25,6 +26,35 @@ const BENCH_JSON = '/tmp/andy-benchmark-baseline.json';
 const CONTAGION_JSON = '/tmp/andy-contagion-profile.json';
 const WARN_THRESHOLD = 1.6;
 const FAIL_THRESHOLD = 2.0;
+const DEFAULT_RUN_COUNT = 3;
+
+const EXPECTED_METRICS = [
+  {
+    name: '100 agents avg/tick',
+    current: result => result?.results?.find(r => r.agents === 100)?.timing?.avgMsPerTick,
+    baseline: baseline => baseline?.benchmark?.quick?.['100_agents_50_ticks']?.avgMsPerTick,
+  },
+  {
+    name: '300 agents avg/tick',
+    current: result => result?.results?.find(r => r.agents === 300)?.timing?.avgMsPerTick,
+    baseline: baseline => baseline?.benchmark?.quick?.['300_agents_20_ticks']?.avgMsPerTick,
+  },
+  {
+    name: 'fixed-clustered gather (ms)',
+    current: (_, contagion) => contagion?.scenarios?.['fixed-clustered']?.gather?.totalMs,
+    baseline: baseline => baseline?.profile?.contagion_quick?.fixed_clustered?.gatherMs,
+  },
+  {
+    name: 'fixed-clustered cache (ms)',
+    current: (_, contagion) => contagion?.scenarios?.['fixed-clustered']?.cache?.totalMs,
+    baseline: baseline => baseline?.profile?.contagion_quick?.fixed_clustered?.cacheBuildMs,
+  },
+  {
+    name: 'runtime-clustered gather (ms)',
+    current: (_, contagion) => contagion?.scenarios?.['runtime-clustered']?.gather?.totalMs,
+    baseline: baseline => baseline?.profile?.contagion_quick?.runtime_clustered?.gatherMs,
+  },
+];
 
 function loadBaseline(baselinePath) {
   if (!fs.existsSync(baselinePath)) {
@@ -82,41 +112,47 @@ function printEnvironment() {
 }
 
 function runBenchmarkQuick() {
-  execSync('node benchmarks/baseline.js quick', { cwd: path.join(__dirname, '..'), stdio: 'pipe' });
+  runChildCommand('node benchmarks/baseline.js quick');
   return JSON.parse(fs.readFileSync(BENCH_JSON, 'utf-8'));
 }
 
 function runContagionProfileQuick() {
-  execSync('node benchmarks/contagion-profile.js quick', { cwd: path.join(__dirname, '..'), stdio: 'pipe' });
+  runChildCommand('node benchmarks/contagion-profile.js quick');
   return JSON.parse(fs.readFileSync(CONTAGION_JSON, 'utf-8'));
+}
+
+function runChildCommand(command) {
+  try {
+    execSync(command, { cwd: path.join(__dirname, '..'), stdio: 'pipe' });
+  } catch (err) {
+    const stdout = err.stdout ? err.stdout.toString() : '';
+    const stderr = err.stderr ? err.stderr.toString() : '';
+    if (stdout.trim()) {
+      console.error(`\n--- ${command} stdout ---`);
+      console.error(stdout.trimEnd());
+    }
+    if (stderr.trim()) {
+      console.error(`\n--- ${command} stderr ---`);
+      console.error(stderr.trimEnd());
+    }
+    throw err;
+  }
+}
+
+function readMetricValue(value, label) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    throw new Error(`Missing or invalid performance metric: ${label}`);
+  }
+  return value;
 }
 
 function extractMetrics(benchResult, contagionResult, baseline) {
   const metrics = [];
 
-  const bench100 = benchResult.results.find(r => r.agents === 100);
-  const base100 = baseline.benchmark.quick['100_agents_50_ticks'];
-  if (bench100 && base100) {
-    metrics.push({ name: '100 agents avg/tick', current: bench100.timing.avgMsPerTick, baseline: base100.avgMsPerTick });
-  }
-
-  const bench300 = benchResult.results.find(r => r.agents === 300);
-  const base300 = baseline.benchmark.quick['300_agents_20_ticks'];
-  if (bench300 && base300) {
-    metrics.push({ name: '300 agents avg/tick', current: bench300.timing.avgMsPerTick, baseline: base300.avgMsPerTick });
-  }
-
-  const fixedClustered = contagionResult.scenarios['fixed-clustered'];
-  const baseFixed = baseline.profile?.contagion_quick?.fixed_clustered;
-  if (fixedClustered && baseFixed) {
-    metrics.push({ name: 'fixed-clustered gather (ms)', current: fixedClustered.gather.totalMs, baseline: baseFixed.gatherMs });
-    metrics.push({ name: 'fixed-clustered cache (ms)', current: fixedClustered.cache.totalMs, baseline: baseFixed.cacheBuildMs });
-  }
-
-  const runtimeClustered = contagionResult.scenarios['runtime-clustered'];
-  const baseRuntime = baseline.profile?.contagion_quick?.runtime_clustered;
-  if (runtimeClustered && baseRuntime) {
-    metrics.push({ name: 'runtime-clustered gather (ms)', current: runtimeClustered.gather.totalMs, baseline: baseRuntime.gatherMs });
+  for (const metric of EXPECTED_METRICS) {
+    const current = readMetricValue(metric.current(benchResult, contagionResult), `${metric.name} current`);
+    const base = readMetricValue(metric.baseline(baseline), `${metric.name} baseline`);
+    metrics.push({ name: metric.name, current, baseline: base });
   }
 
   return metrics;
@@ -257,112 +293,141 @@ function saveLocalBaseline(metrics, runCount) {
 }
 
 // ─── Main ───
-const args = process.argv.slice(2);
-
-if (args.includes('--diagnose')) {
-  runDiagnose();
-  process.exit(0);
-}
-
-const isCalibrate = args.includes('--calibrate');
-const isLocal = args.includes('--local');
-
-const runsFlag = args.find(a => a.startsWith('--runs='));
-const runCount = runsFlag ? parseInt(runsFlag.split('=')[1], 10) : 1;
-
-console.log('Andy Engine Performance Regression Check');
-console.log('========================================\n');
-printEnvironment();
-
-let baselinePath;
-if (isLocal) {
-  baselinePath = LOCAL_BASELINE_PATH;
-  if (!fs.existsSync(baselinePath)) {
-    console.error(`Local baseline not found: ${baselinePath}`);
-    console.error('Run "npm run perf:calibrate" first to create a local baseline.');
-    process.exit(1);
+function parseRunCount(args) {
+  const runsFlag = args.find(a => a.startsWith('--runs='));
+  if (!runsFlag) return DEFAULT_RUN_COUNT;
+  const parsed = parseInt(runsFlag.split('=')[1], 10);
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`Invalid --runs value: ${runsFlag}`);
   }
-} else {
-  baselinePath = RELEASE_BASELINE_PATH;
+  return parsed;
 }
-const baseline = loadBaseline(baselinePath);
-console.log(`Baseline: ${baseline.version} (${baseline.date}, ${baseline.commit})${isLocal ? ' [LOCAL]' : ''}`);
-console.log(`Runs: ${runCount}${runCount > 1 ? ' (median mode)' : ' (single run)'}\n`);
 
-const allRunResults = [];
+function main(argv = process.argv.slice(2)) {
+  if (argv.includes('--diagnose')) {
+    runDiagnose();
+    return 0;
+  }
 
-for (let run = 0; run < runCount; run++) {
+  const isCalibrate = argv.includes('--calibrate');
+  const isLocal = argv.includes('--local');
+  const runCount = parseRunCount(argv);
+
+  console.log('Andy Engine Performance Regression Check');
+  console.log('========================================\n');
+  printEnvironment();
+
+  let baselinePath;
+  if (isLocal) {
+    baselinePath = LOCAL_BASELINE_PATH;
+    if (!fs.existsSync(baselinePath)) {
+      console.error(`Local baseline not found: ${baselinePath}`);
+      console.error('Run "npm run perf:calibrate" first to create a local baseline.');
+      return 1;
+    }
+  } else {
+    baselinePath = RELEASE_BASELINE_PATH;
+  }
+  const baseline = loadBaseline(baselinePath);
+  console.log(`Baseline: ${baseline.version} (${baseline.date}, ${baseline.commit})${isLocal ? ' [LOCAL]' : ''}`);
+  console.log(`Runs: ${runCount}${runCount > 1 ? ' (median mode)' : ' (single run)'}\n`);
+
+  const allRunResults = [];
+
+  for (let run = 0; run < runCount; run++) {
+    if (runCount > 1) {
+      console.log(`--- Run ${run + 1}/${runCount} ---`);
+    }
+
+    console.log('Running benchmark:quick...');
+    const benchResult = runBenchmarkQuick();
+
+    console.log('Running profile:contagion:quick...');
+    const contagionResult = runContagionProfileQuick();
+
+    const metrics = extractMetrics(benchResult, contagionResult, baseline);
+    allRunResults.push(metrics);
+  }
+
+  // Build final results
+  const finalResults = [];
+
+  if (runCount === 1) {
+    // Single run: use values directly
+    for (const m of allRunResults[0]) {
+      finalResults.push(checkThreshold(m.name, m.current, m.baseline, WARN_THRESHOLD, FAIL_THRESHOLD));
+    }
+  } else {
+    // Multi-run: compute median, report min/max
+    const metricNames = allRunResults[0].map(m => m.name);
+
+    for (const name of metricNames) {
+      const values = allRunResults.map(run => run.find(m => m.name === name)?.current).filter(v => v !== undefined);
+      const baselines = allRunResults.map(run => run.find(m => m.name === name)?.baseline).filter(v => v !== undefined);
+      const baseVal = baselines[0];
+
+      if (values.length !== runCount || baselines.length !== runCount) {
+        throw new Error(`Missing performance metric across runs: ${name}`);
+      }
+
+      const med = median(values);
+      const min = Math.min(...values);
+      const max = Math.max(...values);
+
+      const result = checkThreshold(name, med, baseVal, WARN_THRESHOLD, FAIL_THRESHOLD);
+      result.min = Math.round(min * 100) / 100;
+      result.max = Math.round(max * 100) / 100;
+      result.median = Math.round(med * 100) / 100;
+      finalResults.push(result);
+    }
+  }
+
+  // Save local baseline if calibrating
+  if (isCalibrate) {
+    const medianMetrics = finalResults.map(r => ({ name: r.name, current: r.median || r.current }));
+    saveLocalBaseline(medianMetrics, runCount);
+  }
+
+  // Display
+  const { hasFail, hasWarn } = printResults(finalResults);
+
   if (runCount > 1) {
-    console.log(`--- Run ${run + 1}/${runCount} ---`);
+    console.log('\nRun Details (min / median / max):');
+    console.log('\u2500'.repeat(55));
+    for (const r of finalResults) {
+      if (r.status === 'skip') continue;
+      const name = r.name.padEnd(30);
+      console.log(`${name}${r.min} / ${r.median} / ${r.max}`);
+    }
+    console.log('\u2500'.repeat(55));
   }
 
-  console.log('Running benchmark:quick...');
-  const benchResult = runBenchmarkQuick();
+  if (hasFail) {
+    console.log('\n\u2717 Performance regression detected!');
+    console.log('  Profile pointer: node benchmarks/profile.js quick');
+    return 1;
+  } else if (hasWarn) {
+    console.log('\n\u26a0 Performance approaching threshold (machine variance)');
+  } else {
+    console.log('\n\u2713 All performance checks passed');
+  }
 
-  console.log('Running profile:contagion:quick...');
-  const contagionResult = runContagionProfileQuick();
-
-  const metrics = extractMetrics(benchResult, contagionResult, baseline);
-  allRunResults.push(metrics);
+  return 0;
 }
 
-// Build final results
-const finalResults = [];
-
-if (runCount === 1) {
-  // Single run: use values directly
-  for (const m of allRunResults[0]) {
-    finalResults.push(checkThreshold(m.name, m.current, m.baseline, WARN_THRESHOLD, FAIL_THRESHOLD));
-  }
-} else {
-  // Multi-run: compute median, report min/max
-  const metricNames = allRunResults[0].map(m => m.name);
-
-  for (const name of metricNames) {
-    const values = allRunResults.map(run => run.find(m => m.name === name)?.current).filter(v => v !== undefined);
-    const baselines = allRunResults.map(run => run.find(m => m.name === name)?.baseline).filter(v => v !== undefined);
-    const baseVal = baselines[0];
-
-    if (values.length === 0) continue;
-
-    const med = median(values);
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-
-    const result = checkThreshold(name, med, baseVal, WARN_THRESHOLD, FAIL_THRESHOLD);
-    result.min = Math.round(min * 100) / 100;
-    result.max = Math.round(max * 100) / 100;
-    result.median = Math.round(med * 100) / 100;
-    finalResults.push(result);
+if (require.main === module) {
+  try {
+    process.exitCode = main();
+  } catch (err) {
+    console.error(`\n\u2717 ${err.message}`);
+    process.exitCode = 1;
   }
 }
 
-// Save local baseline if calibrating
-if (isCalibrate) {
-  const medianMetrics = finalResults.map(r => ({ name: r.name, current: r.median || r.current }));
-  saveLocalBaseline(medianMetrics, runCount);
-}
-
-// Display
-const { hasFail, hasWarn } = printResults(finalResults);
-
-if (runCount > 1) {
-  console.log('\nRun Details (min / median / max):');
-  console.log('\u2500'.repeat(55));
-  for (const r of finalResults) {
-    if (r.status === 'skip') continue;
-    const name = r.name.padEnd(30);
-    console.log(`${name}${r.min} / ${r.median} / ${r.max}`);
-  }
-  console.log('\u2500'.repeat(55));
-}
-
-if (hasFail) {
-  console.log('\n\u2717 Performance regression detected!');
-  console.log('  Profile pointer: node benchmarks/profile.js quick');
-  process.exit(1);
-} else if (hasWarn) {
-  console.log('\n\u26a0 Performance approaching threshold (machine variance)');
-} else {
-  console.log('\n\u2713 All performance checks passed');
-}
+module.exports = {
+  DEFAULT_RUN_COUNT,
+  EXPECTED_METRICS,
+  checkThreshold,
+  extractMetrics,
+  parseRunCount,
+};

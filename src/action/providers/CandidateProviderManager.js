@@ -18,6 +18,8 @@ const { MemoryCandidateProvider } = require('./MemoryCandidateProvider');
 const { HabitCandidateProvider } = require('./HabitCandidateProvider');
 const { WorldPressureCandidateProvider } = require('./WorldPressureCandidateProvider');
 
+const { diagnostics } = require('../../shared/Diagnostics');
+
 class CandidateProviderManager {
   constructor() {
     this.providers = [
@@ -44,7 +46,14 @@ class CandidateProviderManager {
     const result = [];
 
     for (const provider of this.providers) {
-      const candidates = provider.generate(context);
+      let candidates;
+      try {
+        candidates = provider.generate(context);
+      } catch (e) {
+        diagnostics.warn(`CandidateProvider ${provider.constructor.name}.generate() error: ${e.message}`);
+        diagnostics.collect({ type: 'candidate_provider_error', provider: provider.constructor.name, error: e.message });
+        candidates = [];
+      }
       for (const cand of candidates) {
         if (!seen.has(cand.id)) {
           seen.add(cand.id);

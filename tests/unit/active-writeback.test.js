@@ -24,8 +24,8 @@ const DRY_RUN = { ...SHADOW, mode: 'dryRunEffects' };
 const ACTIVE = { ...SHADOW, mode: 'active' };
 const DISABLED = { enabled: false, mode: 'active', temperature: 0, recordTraces: true, maxTraceHistory: 100 };
 
-function createEngine(seed, actionSelection, domain = null) {
-  const config = { seed, startTime: new Date(TEST_START), actionSelection };
+function createEngine(seed, actionSelection, domain = null, extraConfig = {}) {
+  const config = { seed, startTime: new Date(TEST_START), actionSelection, ...extraConfig };
   if (domain) config.domain = domain;
   const engine = new AndyEngine(config);
   engine.createCharacter({ id: 'char_1', name: 'TestChar', mbti: 'INFP', schedule: 'student' });
@@ -55,6 +55,7 @@ const OBSERVE_CANDIDATE = { id: 'cand_observe_1', type: 'observe', source: 'intr
 const REFLECT_CANDIDATE = { id: 'cand_reflect_1', type: 'reflect', source: 'intrinsic', target: '', label: 'reflect on day', constraints: {}, metadata: {} };
 const CONTINUE_CANDIDATE = { id: 'cand_continue_1', type: 'continue', source: 'behaviorField', target: '', label: 'continue', constraints: {}, metadata: {} };
 const UNKNOWN_CANDIDATE = { id: 'cand_unknown_1', type: 'customAction', source: 'test', target: '', label: 'unknown', constraints: {}, metadata: {} };
+const MOVE_CANDIDATE = { id: 'cand_move_1', type: 'move', source: 'test', target: '操场', label: 'move to field', constraints: {}, metadata: {} };
 
 // ═══════════════════════════════════════════
 // Phase 36: Active Writeback (Hardened)
@@ -329,5 +330,31 @@ describe('Phase 36: Minimal Active Writeback Gate', () => {
     // dryRun computed memory delta but didn't write; active wrote it
     expect(act.getAgent('char_1').memory.memories.length)
       .toBeGreaterThan(dry.getAgent('char_1').memory.memories.length);
+  });
+
+  it('move: active writeback applies position and location meaning through EffectCommitter', () => {
+    const engine = createEngine('move-location-meaning', ACTIVE, null, { enableFacts: true });
+    const agent = engine.getAgent('char_1');
+    agent.position = '宿舍';
+    engine.world.regions.place(agent.id, '宿舍');
+    agent._candidateProviderManager = stubProvider([MOVE_CANDIDATE]);
+
+    engine.tick();
+
+    const trace = agent._actionTraceHistory[0];
+    expect(trace.selectedAction).toBe('move');
+    expect(trace.stateDeltas.location).toMatchObject({
+      to: '操场',
+      reason: 'action_move',
+    });
+    expect(trace.stateDeltas.location.from).not.toBe('操场');
+    expect(agent.position).toBe('操场');
+    expect(engine.world.regions.getRegion(agent.id)).toBe('操场');
+
+    const meaning = engine.world.factStore.getLocationMeaning('操场');
+    expect(meaning).toBeTruthy();
+    expect(meaning.meaningType).toBe('movement_target');
+    expect(meaning.weight).toBe(0);
+    expect(meaning.reason).toBe('action_move');
   });
 });

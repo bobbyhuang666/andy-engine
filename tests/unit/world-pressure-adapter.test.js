@@ -23,8 +23,8 @@ describe('WorldPressure', () => {
   });
 
   it('computeTime delegates correctly', () => {
-    const nightPressure = WorldPressure.computeTime({ time: '2026-09-01T02:00:00Z' });
-    const dayPressure = WorldPressure.computeTime({ time: '2026-09-01T14:00:00Z' });
+    const nightPressure = WorldPressure.computeTime({ time: '2026-09-01T02:00:00Z', hour: 2 });
+    const dayPressure = WorldPressure.computeTime({ time: '2026-09-01T14:00:00Z', hour: 14 });
     expect(nightPressure).toBeGreaterThan(dayPressure);
   });
 

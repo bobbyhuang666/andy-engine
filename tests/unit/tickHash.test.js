@@ -32,6 +32,15 @@ describe('tickHash: canonicalize', () => {
     expect(canonicalize(null)).toBeNull();
   });
 
+  it('Date 规范化为 ISO 字符串', () => {
+    const date = new Date('2026-09-01T08:00:00.000Z');
+    expect(canonicalize(date)).toBe('2026-09-01T08:00:00.000Z');
+  });
+
+  it('Invalid Date 规范化为稳定字符串', () => {
+    expect(canonicalize(new Date('not-a-date'))).toBe('Invalid Date');
+  });
+
   it('非对象/非 number 透传（string/boolean）', () => {
     expect(canonicalize('x')).toBe('x');
     expect(canonicalize(true)).toBe(true);
@@ -135,6 +144,19 @@ describe('tickHash: computeTickHash', () => {
   it('真实数值差异改变 hash', () => {
     const a = { worldClock: { time: 1 }, relationships: [{ strength: 0.5 }] };
     const b = { worldClock: { time: 1 }, relationships: [{ strength: 0.6 }] };
+    expect(computeTickHash(a, 0).hash).not.toBe(computeTickHash(b, 0).hash);
+  });
+
+  it('Date 和对应 ISO 字符串 hash 一致', () => {
+    const iso = '2026-09-01T08:00:00.000Z';
+    const a = { worldClock: { time: new Date(iso) } };
+    const b = { worldClock: { time: iso } };
+    expect(computeTickHash(a, 0).hash).toBe(computeTickHash(b, 0).hash);
+  });
+
+  it('不同 Date 时间改变 hash', () => {
+    const a = { worldClock: { time: new Date('2026-09-01T08:00:00.000Z') } };
+    const b = { worldClock: { time: new Date('2026-09-01T08:01:00.000Z') } };
     expect(computeTickHash(a, 0).hash).not.toBe(computeTickHash(b, 0).hash);
   });
 

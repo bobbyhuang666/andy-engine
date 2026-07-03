@@ -85,6 +85,11 @@ function validateConfig(config) {
         checkRange(threshold, 0, 1, `needs.threshold.${need}`, errors);
       }
     }
+    if (n.recoveryRate) {
+      for (const [need, rate] of Object.entries(n.recoveryRate)) {
+        checkRange(rate, 0, 1, `needs.recoveryRate.${need}`, errors);
+      }
+    }
   }
 
   // ─── 社交关系参数 ───

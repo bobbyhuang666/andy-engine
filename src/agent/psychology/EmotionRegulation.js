@@ -34,6 +34,45 @@
 const { ANDY_DEFAULTS } = require('../../config/defaults');
 
 const { RNG } = require('../../shared/rng');
+
+function commitStress(agent, stress, env = null) {
+  const committer = env?.effectCommitter || null;
+  if (committer && typeof committer.commit === 'function') {
+    committer.commit({
+      deltas: [{
+        type: 'emotion',
+        target: 'agent',
+        agentId: agent.id,
+        changes: {},
+        multiplier: 1,
+        appraisalModifiers: null,
+        stress,
+      }],
+    });
+    return;
+  }
+  agent.emotion.setStress(stress);
+}
+
+function commitEmotion(agent, changes, env = null) {
+  const committer = env?.effectCommitter || null;
+  if (committer && typeof committer.commit === 'function') {
+    committer.commit({
+      deltas: [{
+        type: 'emotion',
+        target: 'agent',
+        agentId: agent.id,
+        changes,
+        multiplier: 1,
+        appraisalModifiers: null,
+        stress: null,
+      }],
+    });
+    return;
+  }
+  agent.emotion.applyEffect(changes);
+}
+
 class EmotionRegulation {
   /**
    * @param {Object} personality - Personality 实例
@@ -90,9 +129,10 @@ class EmotionRegulation {
    *
    * @param {Object} agent - Agent 实例
    * @param {Object[]} recentEvents - 最近感知到的事件
+   * @param {Object} [env] - runtime env with effectCommitter
    * @returns {Object|null} 调节动作 { strategy, effect, cost } 或 null（无需调节）
    */
-  tryRegulate(agent, recentEvents = []) {
+  tryRegulate(agent, recentEvents = [], env = null) {
     const valence = agent.emotion.getValence();
     const arousal = agent.emotion.getArousal();
     const stress = agent.emotion.stress || 0;
@@ -120,7 +160,7 @@ class EmotionRegulation {
     const strategy = this._selectStrategy(triggerLevel, valence, arousal, stress);
 
     // ─── 执行调节 ───
-    const effect = this._executeStrategy(strategy, agent, triggerLevel);
+    const effect = this._executeStrategy(strategy, agent, triggerLevel, env);
 
     // ─── 更新资源 ───
     const cost = effect.cost || 0;
@@ -238,14 +278,14 @@ class EmotionRegulation {
    * @param {number} triggerLevel
    * @returns {Object} { emotionDelta, cost }
    */
-  _executeStrategy(strategy, agent, triggerLevel) {
+  _executeStrategy(strategy, agent, triggerLevel, env = null) {
     switch (strategy) {
       case 'reappraisal':
-        return this._execReappraisal(agent, triggerLevel);
+        return this._execReappraisal(agent, triggerLevel, env);
       case 'attentionDeployment':
-        return this._execAttentionDeployment(agent, triggerLevel);
+        return this._execAttentionDeployment(agent, triggerLevel, env);
       case 'responseModulation':
-        return this._execResponseModulation(agent, triggerLevel);
+        return this._execResponseModulation(agent, triggerLevel, env);
       default:
         return { emotionDelta: {}, cost: 0 };
     }
@@ -263,7 +303,7 @@ class EmotionRegulation {
    *
    * @private
    */
-  _execReappraisal(agent, triggerLevel) {
+  _execReappraisal(agent, triggerLevel, env = null) {
     const power = this.reappraisalPower * this._regulationResource;
 
     // 重评降低负面情绪
@@ -289,10 +329,10 @@ class EmotionRegulation {
     });
 
     // 应用情绪变化
-    agent.emotion.applyEffect(emotionDelta);
+    commitEmotion(agent, emotionDelta, env);
 
     // 重评也略微降低压力
-    agent.emotion.setStress(agent.emotion.stress - triggerLevel * power * 0.3);
+    commitStress(agent, agent.emotion.stress - triggerLevel * power * 0.3, env);
 
     // 成本：重评消耗认知资源（但比抑制少）
     const cost = 0.05 + triggerLevel * 0.05;
@@ -315,7 +355,7 @@ class EmotionRegulation {
    *
    * @private
    */
-  _execAttentionDeployment(agent, triggerLevel) {
+  _execAttentionDeployment(agent, triggerLevel, env = null) {
     const power = this.attentionPower * this._regulationResource;
 
     // 注意部署的效果是暂时压制负面情绪（不解决根本原因）
@@ -359,7 +399,7 @@ class EmotionRegulation {
       }
     }
 
-    agent.emotion.applyEffect(emotionDelta);
+    commitEmotion(agent, emotionDelta, env);
 
     // 成本：比重评略高（需要持续努力转移注意力）
     const cost = 0.08 + triggerLevel * 0.06;
@@ -382,7 +422,7 @@ class EmotionRegulation {
    *
    * @private
    */
-  _execResponseModulation(agent, triggerLevel) {
+  _execResponseModulation(agent, triggerLevel, env = null) {
     const power = this.suppressionPower * this._regulationResource;
 
     // 抑制主要影响高唤醒情绪
@@ -399,7 +439,7 @@ class EmotionRegulation {
       frustration: suppression * 0.15,
     };
 
-    agent.emotion.applyEffect(emotionDelta);
+    commitEmotion(agent, emotionDelta, env);
 
     // 成本最高（抑制消耗大量认知资源）
     const cost = 0.12 + triggerLevel * 0.08;

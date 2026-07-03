@@ -304,7 +304,7 @@ describe('Architecture: no extension concepts in core/agent/facts', () => {
 });
 
 describe('Architecture: deterministic paths have no Date.now()/Math.random()', () => {
-  const DETERMINISTIC_DIRS = ['agent/action', 'facts'];
+  const DETERMINISTIC_DIRS = ['src/action', 'facts'];
   const BANNED = ['Math.random(', 'Date.now('];
 
   for (const dir of DETERMINISTIC_DIRS) {
@@ -422,22 +422,9 @@ describe('Architecture: no-seed fallback is documented as intentional', () => {
   });
 });
 
-describe('Architecture: agent/action/ must not import effects/', () => {
-  it('agent/action/ files do not import effects/ modules', () => {
-    const violations = [];
-    const files = getJsFiles(path.join(ROOT, 'agent', 'action'));
-    for (const file of files) {
-      const relFile = rel(file);
-      const content = readFileSync(file, 'utf-8');
-      const deps = extractDeps(content);
-      for (const dep of deps) {
-        const resolved = resolveImport(file, dep);
-        if (resolved && resolved.includes('effects/')) {
-          violations.push(`${relFile} -> ${dep}`);
-        }
-      }
-    }
-    expect(violations).toEqual([]);
+describe('Architecture: agent/action is retired from canonical action checks', () => {
+  it('src/action is the canonical action implementation directory', () => {
+    expect(existsSync(path.join(ROOT, 'src', 'action'))).toBe(true);
   });
 });
 

@@ -422,4 +422,36 @@ describe('Agent Containment: runtime behavior preserved', () => {
     expect(result.type).toBe('talk');
     expect(typeof result.valence).toBe('number');
   });
+
+  it('Agent interact records relationship effects through the social graph when available', () => {
+    const Agent = require('../agent/Agent.js');
+    const SocialGraph = require('../src/social/SocialGraph.js');
+    const agent1 = new Agent({
+      id: 'interact-rel-a',
+      name: 'Alice',
+      personality: { mbti: 'ENFP' },
+      schedule: {},
+      domain: campusDomain,
+    });
+    const agent2 = new Agent({
+      id: 'interact-rel-b',
+      name: 'Bob',
+      personality: { mbti: 'ISTJ' },
+      schedule: {},
+      domain: campusDomain,
+    });
+    const socialGraph = new SocialGraph();
+    socialGraph.addAgent(agent1.id);
+    socialGraph.addAgent(agent2.id);
+    agent1.setSocialGraph(socialGraph);
+    agent2.setSocialGraph(socialGraph);
+
+    const relBefore = socialGraph.getOrCreateRelationship(agent1.id, agent2.id);
+    const interactionsBefore = relBefore.interactionCount;
+    agent1.interact(agent2, 'talk');
+
+    const relAfter = socialGraph.getRelationship(agent1.id, agent2.id);
+    expect(relAfter.interactionCount).toBe(interactionsBefore + 1);
+    expect(relAfter.history.at(-1).type).toBe('talk');
+  });
 });

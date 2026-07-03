@@ -1,90 +1,49 @@
 # Documentation Truth Pass
 
-## Current State
+Last updated after the documentation reorganization that moved historical plans,
+wave cards, root-cause reports, and old audit rounds into `docs/archive/`.
 
-The `docs/current/` directory contains the following documents:
+## Current Truth
 
-1. **NEED_TARGET_CONTRACT.md** — Documents the two need target systems:
-   - `NeedsSystem.NEED_DEPRIVATION_GRADIENT_TARGETS` — gradient targets for need deprivation
-   - `BehaviorField.NEED_SATISFACTION_TARGETS` — optimal behavior positions for need satisfaction
+- `docs/current/` is now reserved for active guidance and contracts.
+- `docs/rfc/` now contains open or foundational RFCs only.
+- completed RFCs/design briefs moved to the external archive.
+- superseded RFCs/design briefs moved to the external archive.
+- old wave cards moved to the external archive.
+- temporary execution plans moved to the external archive.
+- root-cause diagnosis reports moved to the external archive.
+- old audit rounds moved to the external archive.
 
-## Documentation Status
+## Active Documentation Entry Points
 
-### Core Documents (from A_LEVEL_ROADMAP.md)
+- `docs/README.md`
+- `docs/current/README.md`
+- `docs/current/DOCUMENTATION_STRUCTURE.md`
+- `docs/current/CHIEF_PLANNER_HANDOFF_MANUAL.md`
+- `docs/audit/README.md`
+- `docs/rfc/README.md`
+- `docs/archive/README.md`
 
-| Document | Status | Location |
-|----------|--------|----------|
-| ARCHITECTURE.md | ✅ Exists | docs/ |
-| PUBLIC_API_CONTRACT.md | ✅ Exists | docs/ |
-| WORLD_SCHEMA.md | ✅ Exists | docs/ |
-| PERSISTENCE.md | ✅ Exists | docs/ |
-| DOMAIN_SYSTEM.md | ✅ Exists | docs/DOMAIN.md |
-| NARRATIVE_AND_GROUNDING.md | ✅ Exists | docs/NARRATIVE_CONTRACT_AUDIT.md |
-| PERFORMANCE.md | ✅ Exists | docs/ |
-| DEPENDENCY_SURFACE_AUDIT.md | ✅ Exists | docs/ |
-| ALIVENESS_METRICS_v0_1.md | ❌ Not yet created | — |
+## Active Core Contracts
 
-### RFC Documents
+- `docs/PUBLIC_API_CONTRACT.md`
+- `docs/SERIALIZATION_CONTRACT.md`
+- `docs/WORLD_SCHEMA.md`
+- `docs/DOMAIN.md`
+- `docs/TESTING_ARCHITECTURE.md`
+- `docs/PERFORMANCE.md`
+- `docs/current/NEED_TARGET_CONTRACT.md`
+- `docs/current/AFFECT_COMPILER_CONTRACT.md`
 
-| Document | Status | Location |
-|----------|--------|----------|
-| AFFECT_COMPILER_RFC.md | ✅ Exists | docs/ |
-| GROUNDING_CHECKER_V2_RFC.md | ❌ Not yet created | — |
-| KNOWLEDGE_PROPAGATION_RFC.md | ❌ Not yet created | — |
+## Known Caveats
 
-### Audit Documents
+- Archived reports may contain outdated paths or superseded conclusions.
+- older handoff notes were moved to the external archive; the Chief Planner manual is
+  the primary planning authority.
+- Source code, tests, `AGENTS.md`, and current command output remain more
+  authoritative than any historical document.
 
-| Document | Status | Location |
-|----------|--------|----------|
-| CLEAN_ARCHITECTURE_FINAL_AUDIT.md | ✅ Exists | docs/ |
-| LEGACY_REMOVAL_REPORT.md | ✅ Exists | docs/ |
-| PRIVATE_ACCESS_AUDIT.md | ✅ Exists | docs/ |
-| STORE_TIME_SEMANTICS_AUDIT.md | ✅ Exists | docs/ |
-| DEFAULTS_DIRECT_READ_AUDIT.md | ✅ Exists | docs/ |
-| SOURCE_SCAN_ALLOWLIST_AUDIT.md | ✅ Exists | docs/ |
+## Maintenance Rule
 
-### Stabilization Documents
-
-| Document | Status | Location |
-|----------|--------|----------|
-| POST_V2_STABILIZATION_SUMMARY.md | ✅ Exists | docs/ |
-| POST_V2_LOCAL_STATUS_REPORT.md | ✅ Exists | docs/ |
-| V2_0_1_PATCH_CANDIDATE_AUDIT.md | ✅ Exists | docs/ |
-| RELEASE_NOTES_v2.0.1_DRAFT.md | ✅ Exists | docs/ |
-| A_LEVEL_ROADMAP.md | ✅ Exists | docs/ |
-| ALIVENESS_ROADMAP_v2_1_v3.md | ✅ Exists | docs/ |
-
-## Truth Pass Summary
-
-### What's Accurate
-
-1. **NEED_TARGET_CONTRACT.md** — Accurately documents the two need target systems and their differences
-2. **PUBLIC_API_CONTRACT.md** — Accurately reflects current public API surface
-3. **PRIVATE_ACCESS_AUDIT.md** — Updated to reflect resolved items (H1-H4, H5-H7)
-4. **STORE_TIME_SEMANTICS_AUDIT.md** — Accurately documents store time semantics
-5. **POST_V2_STABILIZATION_SUMMARY.md** — Accurately summarizes post-v2 work
-
-### What Needs Update
-
-1. **ALIVENESS_METRICS_v0_1.md** — Not yet created (deferred to v2.2)
-2. **GROUNDING_CHECKER_V2_RFC.md** — Not yet created (deferred to v2.1)
-3. **KNOWLEDGE_PROPAGATION_RFC.md** — Not yet created (deferred to v2.1)
-
-### What's Outdated
-
-1. **Some older RFC documents** — May reference outdated implementation details
-2. **Some audit documents** — May need updates after recent changes
-
-## Recommendations
-
-1. **Keep docs/current/ lean** — Only include documents that are actively referenced
-2. **Archive old documents** — Move outdated documents to docs/archive/
-3. **Create missing documents** — Only when needed for v2.1/v2.2/v3
-4. **Update existing documents** — After each phase completion
-
-## Next Actions
-
-1. ✅ NEED_TARGET_CONTRACT.md created and accurate
-2. ⏳ ALIVENESS_METRICS_v0_1.md — Deferred to v2.2
-3. ⏳ GROUNDING_CHECKER_V2_RFC.md — Deferred to v2.1
-4. ⏳ KNOWLEDGE_PROPAGATION_RFC.md — Deferred to v2.1
+When a phase completes, move its task cards/reports into the external archive and
+update the relevant README. Do not let temporary plans accumulate in `docs/current/`.

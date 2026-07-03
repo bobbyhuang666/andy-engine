@@ -92,6 +92,9 @@ class FactEmitter {
 
     const facts = [];
     const now = this._getSimTime();
+    const existingByAgentId = new Map(
+      this.store.getAgentStateFacts().map(f => [f.agentId, f]),
+    );
 
     for (const [agentId, agent] of agents) {
       const stateLabel = agent.stateMachine?.currentState || '未知';
@@ -122,8 +125,7 @@ class FactEmitter {
         participants: [agentId],
       });
 
-      const existingFacts = this.store.getAgentStateFacts();
-      const existing = existingFacts.find(f => f.agentId === agentId);
+      const existing = existingByAgentId.get(agentId);
       if (existing) {
         const updated = this.store.updateFact(existing.id, {
           state: stateLabel,
@@ -131,9 +133,11 @@ class FactEmitter {
           emotionSummary,
           timestamp: now,
         });
+        if (updated) existingByAgentId.set(agentId, updated);
         facts.push(updated || fact);
       } else {
-        this.store.addFact(fact);
+        const added = this.store.addFact(fact);
+        existingByAgentId.set(agentId, added);
         facts.push(fact);
       }
     }
@@ -174,6 +178,15 @@ class FactEmitter {
         participants: event.participants || [],
         observers: event.observers || [],
       });
+
+      // R41 P2 fix: match CanonEventPipeline behaviour — mark internal-scope
+      // and action_selected events as auditOnly so they don't leak through
+      // knowledge propagation or effect pipelines.
+      if (event.scope === 'internal' || event.type === 'action_selected') {
+        fact.auditOnly = true;
+        fact.eventType = event.type;
+        fact.originalScope = event.scope || null;
+      }
 
       try {
         this.store.addFact(fact);
@@ -306,6 +319,10 @@ class FactEmitter {
 
     const facts = [];
     const now = this._getSimTime();
+    const existingByAgentAndContent = new Map();
+    for (const fact of this.store.getMemoryFacts()) {
+      existingByAgentAndContent.set(`${fact.agentId}\u0000${fact.content}`, fact);
+    }
 
     for (const [agentId, agent] of agents) {
       if (!agent.memory || !agent.memory.memories) continue;
@@ -328,20 +345,21 @@ class FactEmitter {
           participants: [agentId],
         });
 
-        const existingFacts = this.store.getMemoryFacts();
-        const existing = existingFacts.find(
-          f => f.agentId === agentId && f.content === mem.content
-        );
+        const key = `${agentId}\u0000${mem.content}`;
+        const existing = existingByAgentAndContent.get(key);
 
         if (existing) {
           const updated = this.store.updateFact(existing.id, {
             importance: mem.importance,
             timestamp: now,
           });
-          facts.push(updated || fact);
+          const result = updated || fact;
+          facts.push(result);
+          existingByAgentAndContent.set(key, result);
         } else {
-          this.store.addFact(fact);
-          facts.push(fact);
+          const added = this.store.addFact(fact);
+          facts.push(added);
+          existingByAgentAndContent.set(key, added);
         }
       }
     }
@@ -364,6 +382,12 @@ class FactEmitter {
    */
   propagateEventKnowledge(eventFact, agents) {
     if (!this.knowledgeStore) return;
+
+    // P2-1 fix: match CanonEventPipeline._propagateKnowledge — auditOnly facts
+    // (internal / action_selected) are engine bookkeeping and must not enter
+    // agent knowledge. Without this guard the deprecated fallback would leak
+    // internal state into the epistemic layer, diverging from the canon path.
+    if (eventFact.auditOnly) return;
 
     if (eventFact.participants) {
       for (const agentId of eventFact.participants) {
@@ -415,6 +439,26 @@ class FactEmitter {
     const stamp = time instanceof Date ? time.toISOString() : String(time || '');
     const type = String(event.type || 'event').replace(/[^a-zA-Z0-9_-]/g, '_');
     return `evt_${type}_${stamp}_${this._eventFallbackId++}`;
+  }
+
+  /**
+   * 序列化
+   * R41 B2: persist _emittedStatic so static facts are not duplicated
+   * after save/restore.
+   * @returns {Object}
+   */
+  toJSON() {
+    return { _emittedStatic: this._emittedStatic };
+  }
+
+  /**
+   * 反序列化
+   * @param {Object} data - toJSON() 的输出
+   */
+  fromJSON(data) {
+    if (data && typeof data._emittedStatic === 'boolean') {
+      this._emittedStatic = this._emittedStatic || data._emittedStatic;
+    }
   }
 }
 

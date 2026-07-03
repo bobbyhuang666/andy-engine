@@ -11,7 +11,7 @@
  * 注意：behaviorField._lastLabel 初始化已在 Stage 31 中通过 domain-driven 解决。
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import AndyEngine from '../../index.js';
 import tavernDomain from '../../presets/tavern/index.js';
 import { updateHealth } from '../../src/agent/runtime/PhysiologyRuntime.js';
@@ -211,6 +211,99 @@ describe('Appraisal — domain-agnostic', () => {
 });
 
 describe('EmotionRegulation — domain-driven rest detection', () => {
+  it('routes reappraisal stress changes through EffectCommitter when env is available', () => {
+    const mockPersonality = { ocean: { openness: 0.8, neuroticism: 0.1, extraversion: 0.2, agreeableness: 0.5, conscientiousness: 0.5 } };
+    const reg = new EmotionRegulation(mockPersonality, { _regulationResource: 1 });
+    const setStress = vi.fn();
+    const commit = vi.fn();
+    const agent = {
+      id: 'reg-agent',
+      emotion: {
+        stress: 5,
+        applyEffect: vi.fn(),
+        setStress,
+      },
+    };
+
+    reg._execReappraisal(agent, 0.5, { effectCommitter: { commit } });
+
+    expect(commit).toHaveBeenCalledWith({
+      deltas: [expect.objectContaining({
+        type: 'emotion',
+        target: 'agent',
+        agentId: 'reg-agent',
+        stress: expect.any(Number),
+      })],
+    });
+    expect(setStress).not.toHaveBeenCalled();
+  });
+
+  it('routes reappraisal emotion changes through EffectCommitter when env is available', () => {
+    const mockPersonality = { ocean: { openness: 0.8, neuroticism: 0.1, extraversion: 0.2, agreeableness: 0.5, conscientiousness: 0.5 } };
+    const reg = new EmotionRegulation(mockPersonality, { _regulationResource: 1 });
+    const commit = vi.fn();
+    const agent = {
+      id: 'reg-agent',
+      emotion: {
+        stress: 5,
+        applyEffect: vi.fn(),
+        setStress: vi.fn(),
+      },
+    };
+
+    reg._execReappraisal(agent, 0.5, { effectCommitter: { commit } });
+
+    expect(commit).toHaveBeenCalledWith({
+      deltas: [expect.objectContaining({
+        type: 'emotion',
+        target: 'agent',
+        agentId: 'reg-agent',
+        changes: expect.objectContaining({ calm: expect.any(Number) }),
+        stress: null,
+      })],
+    });
+    expect(agent.emotion.applyEffect).not.toHaveBeenCalled();
+  });
+
+  it('routes attention deployment and response modulation emotion changes through EffectCommitter', () => {
+    const mockPersonality = { ocean: { openness: 0.5, neuroticism: 0.3, extraversion: 0.8, agreeableness: 0.5, conscientiousness: 0.8 } };
+    const reg = new EmotionRegulation(mockPersonality, { _regulationResource: 1 });
+    const commit = vi.fn();
+    const agent = {
+      id: 'strategy-agent',
+      emotion: {
+        stress: 5,
+        applyEffect: vi.fn(),
+        setStress: vi.fn(),
+      },
+      memory: {
+        retrieve: () => ({ memories: [], recallEmotionDelta: {} }),
+      },
+    };
+
+    reg._execAttentionDeployment(agent, 0.5, { effectCommitter: { commit } });
+    reg._execResponseModulation(agent, 0.5, { effectCommitter: { commit } });
+
+    expect(commit).toHaveBeenCalledTimes(2);
+    expect(commit).toHaveBeenNthCalledWith(1, {
+      deltas: [expect.objectContaining({
+        type: 'emotion',
+        target: 'agent',
+        agentId: 'strategy-agent',
+        changes: expect.objectContaining({ interest: expect.any(Number) }),
+      })],
+    });
+    expect(commit).toHaveBeenNthCalledWith(2, {
+      deltas: [expect.objectContaining({
+        type: 'emotion',
+        target: 'agent',
+        agentId: 'strategy-agent',
+        changes: expect.objectContaining({ nervousness: expect.any(Number) }),
+      })],
+    });
+    expect(agent.emotion.applyEffect).not.toHaveBeenCalled();
+  });
+
   it('tavern rest state (category=rest) triggers rest bonus', () => {
     const mockPersonality = { ocean: { openness: 0.5, neuroticism: 0.3, extraversion: 0.5, agreeableness: 0.5, conscientiousness: 0.5 } };
     const reg = new EmotionRegulation(mockPersonality, { _regulationResource: 0.5 });
@@ -272,6 +365,47 @@ describe('EmotionRegulation — domain-driven rest detection', () => {
 });
 
 describe('ScheduleHandler — domain-driven night/sleep detection', () => {
+  it('skip attractor uses current domain state center, not default campus centers', () => {
+    const engine = new AndyEngine({ domain: tavernDomain });
+    const agent = engine.createCharacter({
+      id: 'skip-attractor-test',
+      name: '铁匠',
+      mbti: 'ISTJ',
+      background: ['铁匠'],
+    });
+    const handler = new ScheduleHandler(agent);
+    const originalCheckSchedule = ScheduleHandler.checkSchedule;
+    const calls = [];
+    const originalSetAttractor = agent.behaviorField.setAttractor.bind(agent.behaviorField);
+
+    ScheduleHandler.checkSchedule = () => ({
+      moved: true,
+      region: '酒馆',
+      skipEvent: 'skipWork',
+      altState: '喝酒',
+    });
+    agent.behaviorField.setAttractor = (target, strength, duration) => {
+      calls.push({ target, strength, duration });
+      return originalSetAttractor(target, strength, duration);
+    };
+
+    try {
+      handler.tick({
+        env: { hour: 10, dayOfWeek: 1, simDate: new Date('2026-09-01T10:00:00Z'), simTime: new Date('2026-09-01T10:00:00Z') },
+        needsDrive: null,
+        imResult: { drive: null },
+        result: { regionChanged: false, stateChanged: false, newEvents: [] },
+      });
+    } finally {
+      ScheduleHandler.checkSchedule = originalCheckSchedule;
+    }
+
+    expect(calls.length).toBe(1);
+    expect(calls[0].target).toEqual(tavernDomain.stateCenters['喝酒']);
+    expect(calls[0].strength).toBe(10);
+    expect(calls[0].duration).toBe(5);
+  });
+
   it('getSkipAlternative uses domain skipBehavior for skipWork', () => {
     const engine = new AndyEngine({ domain: tavernDomain });
     const agent = engine.createCharacter({

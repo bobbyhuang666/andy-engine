@@ -72,6 +72,7 @@ class Character {
         domain: config.domain,
         seed: config.seed,
         rng: config.rng,
+        enableFacts: config.enableFacts,
       });
       this._ownsEngine = true;
     }
@@ -145,7 +146,7 @@ class Character {
    */
   async chat(message, options = {}) {
     if (typeof message !== 'string' || message.trim().length === 0) {
-      return '...';
+      return `[${this.name}沉默了一会儿]`;
     }
 
     // 1. 自动推进时间
@@ -191,7 +192,10 @@ class Character {
       throw new Error(`Character.chat() LLM 调用失败: ${e.message}`);
     }
     if (!reply || reply.trim().length === 0) {
-      return "...";
+      const fallback = `[${this.name}沉默了一会儿]`;
+      this._conversation.addAssistantMessage(fallback);
+      this._recordConversation(message, fallback);
+      return fallback;
     }
 
     // 5.5 一致性校验（如果启用事实系统）
@@ -245,7 +249,8 @@ class Character {
     try {
       this._autoTick.advance(this._engine);
     } catch (e) {
-      // AutoTick 失败不阻塞对话
+      diagnostics.warn(`AutoTick advance error: ${e.message}`);
+      diagnostics.collect({ type: 'auto_tick_error', error: e.message });
     }
     this._conversation.addUserMessage(message);
 
@@ -286,9 +291,9 @@ class Character {
     // for empty replies and records both sides.
     if (fullReply.trim().length === 0) {
       const fallback = `[${this.name}沉默了一会儿]`;
-      yield fallback;
       this._conversation.addAssistantMessage(fallback);
       this._recordConversation(message, fallback);
+      yield fallback;
       return;
     }
 
@@ -307,15 +312,20 @@ class Character {
       }
     }
 
-    // Only now yield the verified (or corrected) content
-    yield outputReply;
-
     this._conversation.addAssistantMessage(outputReply);
     this._recordConversation(message, outputReply);
+    // Only now yield the verified (or corrected) content
+    yield outputReply;
   }
   getContext(options = {}) {
     const worldContext = this._engine.getWorldContext(this.id);
     const narrative = this._engine.getNarrative(this.id, options);
+    const groundingPackage = this._engine.getGroundingPackage
+      ? this._engine.getGroundingPackage(this.id, {
+          time: this._engine.world.time,
+          topic: options.userText,
+        })
+      : null;
 
     return {
       systemPrompt: NarrativeBuilder.buildSystemPrompt(worldContext, {
@@ -324,9 +334,11 @@ class Character {
         scenario: this.scenario,
         conversationHistory: this._conversation.getSummary(),
         domain: this._engine.domain,
+        groundingPackage,
       }),
       narrative,
       worldContext,
+      groundingPackage,
       conversationHistory: this._conversation.toMessages(),
     };
   }
