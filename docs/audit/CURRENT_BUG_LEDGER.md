@@ -2391,6 +2391,75 @@ This section records the R116 audit findings. 5 HIGH and 3 MEDIUM findings fixed
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
 | Status | Fixed and verified. |
 
+## R117 - RegionGrid/Contagion/Serialization Edge Cases
+
+This section records the R117 audit findings. 3 MEDIUM and 2 LOW findings fixed.
+
+### R117-003
+
+| Field | Detail |
+|---|---|
+| ID | R117-003 |
+| Severity | Medium |
+| Audit finding | `EmotionVector._socialContagion()` reads `this.personality.behavior.susceptibility` without NaN guard. If susceptibility is NaN (corrupted personality), `effectiveWeight = susceptibility * expressiveness * weight` becomes NaN, and `this.current[dim] = myVal + diff * NaN` writes NaN into every emotion dimension for one full tick. |
+| Evidence | EmotionVector.js:430 — susceptibility unvalidated; line 439: NaN propagates to effectiveWeight |
+| Fix | Added `if (!Number.isFinite(susceptibility)) return;` guard at method entry. |
+| Files | `src/agent/psychology/EmotionVector.js:430-431` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R117-008
+
+| Field | Detail |
+|---|---|
+| ID | R117-008 |
+| Severity | Medium |
+| Audit finding | `AgentSerializer.toJSON()` serializes `agent.emotion.toJSON()` without NaN sanitization. If any emotion dimension is temporarily NaN (e.g., from `_socialContagion` before `_clamp()` repair), the NaN is persisted to save data and becomes permanent on restore. |
+| Evidence | AgentSerializer.js:18 — `agent.emotion.toJSON()` without finite guard |
+| Fix | Added per-dimension `Number.isFinite()` sanitization in AgentSerializer.toJSON() emotion serialization. |
+| Files | `src/agent/facade/AgentSerializer.js:18-26` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R117-009
+
+| Field | Detail |
+|---|---|
+| ID | R117-009 |
+| Severity | Medium |
+| Audit finding | `AgentSerializer.toJSON()` serializes `socialEnergy` and `health` as raw numbers without NaN guards. Corrupted scalar values would be persisted to save data. |
+| Evidence | AgentSerializer.js:33-34 — `socialEnergy` and `health` without finite guards |
+| Fix | Added `Number.isFinite()` guards: `socialEnergy` defaults to 0.7, `health` defaults to 1. |
+| Files | `src/agent/facade/AgentSerializer.js:33-34` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R117-001
+
+| Field | Detail |
+|---|---|
+| ID | R117-001 |
+| Severity | Low |
+| Audit finding | `RegionGrid.setAdjacent()` stores `distance` without finite validation. NaN distance propagates through BFS in `_getAdjacentRegions`, corrupting adjacency graph. |
+| Evidence | RegionGrid.js:163 — distance unvalidated |
+| Fix | Added `if (!Number.isFinite(distance)) return;` guard. |
+| Files | `src/spatial/RegionGrid.js:164` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R117-002
+
+| Field | Detail |
+|---|---|
+| ID | R117-002 |
+| Severity | Low |
+| Audit finding | `RegionGrid._getAdjacentRegions()` uses `maxHops` without finite validation. NaN maxHops causes `currentDist > NaN` (always false), potentially causing infinite BFS loop. |
+| Evidence | RegionGrid.js:182 — maxHops unvalidated |
+| Fix | Added `if (!Number.isFinite(maxHops)) return [];` guard. |
+| Files | `src/spatial/RegionGrid.js:183` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

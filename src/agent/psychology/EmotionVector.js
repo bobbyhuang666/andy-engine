@@ -427,7 +427,9 @@ class EmotionVector {
    * @private
    */
   _socialContagion(contagionInputs) {
+    // R117-003: guard against NaN susceptibility (corrupted personality config).
     const susceptibility = this.personality.behavior.susceptibility;
+    if (!Number.isFinite(susceptibility)) return;
 
     const negativityBias = this._contagionConfig.negativityBias || 1.4;
     const baseContagionRate = this._contagionConfig.baseContagionRate || 0.3;

@@ -161,6 +161,8 @@ class RegionGrid {
    * @param {number} distance 跳数距离（默认1）
    */
   setAdjacent(regionA, regionB, distance = 1) {
+    // R117-001: guard against NaN/Infinity distance.
+    if (!Number.isFinite(distance)) return;
     if (!this._distances.has(regionA)) {
       this._distances.set(regionA, new Map());
     }
@@ -180,6 +182,8 @@ class RegionGrid {
   // the distance parameter from setAdjacent(). Now uses Dijkstra-style
   // cumulative distance to correctly weight edges.
   _getAdjacentRegions(region, maxHops) {
+    // R117-002: guard against NaN/Infinity maxHops.
+    if (!Number.isFinite(maxHops)) return [];
     const result = [];
     // dist map: region → cumulative distance from start
     const dist = new Map([[region, 0]]);

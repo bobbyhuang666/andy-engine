@@ -107,6 +107,11 @@ This changes sequencing:
 | AndyWorld encounter probability NaN guard | Closed in R116 | NaN encounter probability made `rng.next() > NaN` always false, bypassing probabilistic filter. All encounters fired deterministically. Added `Number.isFinite(encounter.probability) continue` guard. |
 | EventEffectPipeline tendency delta NaN guard | Closed in R116 | `_computeTendencyDelta()` copied raw `rule.delta[i]` without validation; NaN from domain config corrupted FutureTendency arrays. Added per-element `Number.isFinite()` guard. |
 | FutureTendencyDelta importance coercion fix | Closed in R116 | `|| 0.3` coerced legitimate `importance: 0` to `0.3`, skewing tendency updates. Changed to proper finite check matching MemoryDelta pattern. |
+| _socialContagion susceptibility NaN guard | Closed in R117 | `_socialContagion()` read `personality.behavior.susceptibility` without finite guard; NaN susceptibility produced NaN effectiveWeight, corrupting all emotion dimensions for one tick. Added `Number.isFinite()` guard → early return. |
+| AgentSerializer emotion NaN sanitization | Closed in R117 | `toJSON()` serialized `agent.emotion.toJSON()` without NaN sanitization; temporarily corrupted emotion values could be persisted to save data. Added per-dimension `Number.isFinite()` sanitization. |
+| AgentSerializer socialEnergy/health NaN guards | Closed in R117 | `socialEnergy` and `health` serialized without finite guards; corrupted scalar values persisted to save data. Added `Number.isFinite()` guards with safe defaults. |
+| RegionGrid setAdjacent distance guard | Closed in R117 | `setAdjacent()` stored `distance` without finite validation; NaN distance corrupted BFS adjacency graph. Added `Number.isFinite(distance)` guard. |
+| RegionGrid _getAdjacentRegions maxHops guard | Closed in R117 | `maxHops` unvalidated; NaN caused `currentDist > NaN` (always false), potentially infinite BFS. Added `Number.isFinite(maxHops) return []` guard. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 
