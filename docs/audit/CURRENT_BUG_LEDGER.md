@@ -2460,6 +2460,62 @@ This section records the R117 audit findings. 3 MEDIUM and 2 LOW findings fixed.
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
 | Status | Fixed and verified. |
 
+## R120 - PhysiologyRuntime/PerceptionRuntime Edge Cases
+
+This section records the R120 audit findings. 2 HIGH and 2 MEDIUM findings fixed.
+
+### R120-001
+
+| Field | Detail |
+|---|---|
+| ID | R120-001 |
+| Severity | HIGH |
+| Audit finding | `PhysiologyRuntime.applyNeedsToEmotion()` reads `needs.hunger`, `needs.energy`, `needs.social`, `needs.comfort`, `needs.stimulation` directly without NaN guards. If any need value is NaN (corrupted state or direct mutation), the deficit computation produces NaN, and `agent.emotion.applyEffect()` receives NaN deltas that poison emotion dimensions. |
+| Evidence | PhysiologyRuntime.js:19-61 — all 5 need reads without finite checks |
+| Fix | Added `safeNeeds` object with `Number.isFinite()` guards; each need defaults to 0.5 if non-finite. All 5 deficit computations now use `safeNeeds.*`. |
+| Files | `src/agent/runtime/PhysiologyRuntime.js:15-22` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R120-002
+
+| Field | Detail |
+|---|---|
+| ID | R120-002 |
+| Severity | HIGH |
+| Audit finding | `PhysiologyRuntime.updateSocialEnergy()` guards `agent.socialEnergy` against NaN at entry (line 162), but uses `agent.behaviorParams.socialEnergyDrain` and `agent.behaviorParams.socialEnergyRecharge` without finite checks. If either is NaN, `Math.max(0, NaN)` returns NaN, permanently corrupting socialEnergy. |
+| Evidence | PhysiologyRuntime.js:169,173 — behaviorParams values unvalidated |
+| Fix | Added `Number.isFinite()` guards on `socialEnergyDrain` (default 0.5) and `socialEnergyRecharge` (default 0.3). Added post-arithmetic NaN recovery. |
+| Files | `src/agent/runtime/PhysiologyRuntime.js:166-176` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R120-003
+
+| Field | Detail |
+|---|---|
+| ID | R120-003 |
+| Severity | Medium |
+| Audit finding | `PhysiologyRuntime.updateHealth()` computes `recoveryMod = 1.0 - (agent.personality.ocean.neuroticism * 0.3)` without finite guard. NaN neuroticism → NaN recoveryMod → NaN healthDelta. The existing NaN guard at line 141 catches it after one tick, but intermediate computations are contaminated. |
+| Evidence | PhysiologyRuntime.js:133 — neuroticism unvalidated |
+| Fix | Added `Number.isFinite()` guard: `neuroticism` defaults to 0.5 if non-finite. |
+| Files | `src/agent/runtime/PhysiologyRuntime.js:133-134` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R120-004
+
+| Field | Detail |
+|---|---|
+| ID | R120-004 |
+| Severity | Medium |
+| Audit finding | `Appraisal._evalPleasantness()` computes `rawPleasantness = totalValence / effectCount` without NaN guard. If event delta values contain NaN (from corrupted event data), `totalValence` becomes NaN, and `Math.max(-1, Math.min(1, NaN))` returns NaN, propagating to appraisal → stress → emotion. `moodBias` and `agreeablenessBias` also lacked finite guards. |
+| Evidence | Appraisal.js:131,135,138 — rawPleasantness, moodBias, agreeablenessBias unvalidated |
+| Fix | Added `Number.isFinite()` guards: `rawPleasantness` defaults to 0, `moodBias` and `agreeablenessBias` use finite checks, `traumaBias` also guarded. |
+| Files | `src/agent/psychology/Appraisal.js:131-144` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
