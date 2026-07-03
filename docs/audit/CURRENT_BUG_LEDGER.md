@@ -1863,6 +1863,57 @@ gap (P2) and KnowledgeStore legacy sources normalization (P2).
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. |
 | Status | Fixed and verified. |
 
+## R105 - Config Validation Completeness + Serialization Key Filter
+
+This section records three scoped no-quota fixes: relationship strengthDecrement
+validation (P2), 6 missing memory field validations (P2), and serialization
+_restoreConfig key filter (P3).
+
+### R105-VALIDATION-1
+
+| Field | Detail |
+|---|---|
+| ID | R105-VALIDATION-1 |
+| Severity | P2 |
+| Audit finding | `config.relationship.strengthDecrement` had no validator in `validate.js`. The relationship validator block covered `initialStrength`, `strengthIncrement`, `decayRate`, `maxStrongTies`, `maxMediumTies`, and `threshold` — but not `strengthDecrement` (default: 0.03). User-provided values (NaN, negative, >0.5) would silently propagate into relationship system. |
+| Evidence | `defaults.js:91` — `strengthDecrement: 0.03`. `validate.js:174-196` — validator block missing `strengthDecrement` check. `Relationship.js:128` — uses `this._cfg.strengthDecrement` directly. |
+| Verification verdict | Confirmed by independent Verification AI. Config validation gap — silent acceptance of invalid relationship parameter. |
+| Fix | Added `strengthDecrement` range check `[0, 0.5]` to relationship validator block in `validate.js`. |
+| Files | `src/config/validate.js` |
+| Regression test | 3264 tests pass / 28 skipped. Validation test added for strengthDecrement range checking. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
+| Status | Fixed and verified. |
+
+### R105-VALIDATION-2
+
+| Field | Detail |
+|---|---|
+| ID | R105-VALIDATION-2 |
+| Severity | P2 |
+| Audit finding | `config.memory` validator covered only 6 of 12 fields defined in `ANDY_DEFAULTS.memory`. Missing validators for: `maxPresentationsPerMemory` (default: 50), `importanceBoostOnAccess` (default: 0.05), `consolidationThreshold` (default: 0.7), `pruneThreshold` (default: 0.01), `moodCongruenceWeight` (default: 0.8), `moodCongruenceScale` (default: 0.5). Invalid values (NaN, negative thresholds, >1 weights) silently propagated into PersonalMemory runtime. |
+| Evidence | `defaults.js` memory block defines 12 fields. `validate.js:93-126` covers 6 top-level fields + recallEmotionDelta nested. `PersonalMemory.js` uses all 12 fields via `this._cfg`. |
+| Verification verdict | Confirmed by independent Verification AI. Config validation gap — 6 memory parameters accept invalid values without bounds checking. |
+| Fix | Added range validators for all 6 missing fields: `maxPresentationsPerMemory` [1,500], `importanceBoostOnAccess` [0,1], `consolidationThreshold` [0,1], `pruneThreshold` [0,1], `moodCongruenceWeight` [0,1], `moodCongruenceScale` [0,2]. |
+| Files | `src/config/validate.js` |
+| Regression test | 3264 tests pass / 28 skipped. Validation tests added for all 6 missing fields. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
+| Status | Fixed and verified. |
+
+### R105-SERIALIZATION-1
+
+| Field | Detail |
+|---|---|
+| ID | R105-SERIALIZATION-1 |
+| Severity | P3 |
+| Audit finding | `Serialization.deserialize()` spread ALL keys from caller `config` into `_restoreConfig`, allowing non-config keys (seed, domain, rng, id, name) to pollute persisted state. |
+| Evidence | `Serialization.js:78-84` — `...config` spread into `_restoreConfig`. Test at `config-injection-restore.test.js:203` expected `seed` in `_restoreConfig`. |
+| Verification verdict | Confirmed by independent Verification AI. Key pollution doesn't cause runtime errors but accumulates noise across save/load cycles. |
+| Fix | Added `NON_CONFIG_KEYS` denylist (`seed`, `domain`, `rng`, `id`, `name`) in `Serialization.deserialize()`. Caller config keys are filtered before merging into `_restoreConfig`. Updated test to expect `seed` as `undefined` in `_restoreConfig`. |
+| Files | `src/store/Serialization.js`; `tests/unit/config-injection-restore.test.js` |
+| Regression test | 3264 tests pass / 28 skipped. Updated test verifies `seed` is filtered from `_restoreConfig`. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

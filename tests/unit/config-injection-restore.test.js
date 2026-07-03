@@ -200,7 +200,7 @@ describe('P1-2: _restoreConfig flows through AndyEngine restore', () => {
     expect(snapshot._restoreConfig.enableFacts).toBe(true);
     expect(snapshot._restoreConfig.needs.decayRate.hunger).toBe(0.123);
     expect(snapshot._restoreConfig.actionSelection.mode).toBe('active');
-    expect(snapshot._restoreConfig.seed).toBe('caller-seed-only');
+    expect(snapshot._restoreConfig.seed).toBeUndefined(); // R105: seed is engine constructor param, not runtime config
     expect(restored.config.enableFacts).toBe(true);
     expect(restored.world.factStore).not.toBeFalsy();
     expect(restored.config.needs.decayRate.hunger).toBe(0.123);

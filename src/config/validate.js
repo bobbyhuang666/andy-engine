@@ -123,6 +123,24 @@ function validateConfig(config) {
         }
       }
     }
+    if (m.maxPresentationsPerMemory !== undefined) {
+      checkRange(m.maxPresentationsPerMemory, 1, 500, 'memory.maxPresentationsPerMemory', errors);
+    }
+    if (m.importanceBoostOnAccess !== undefined) {
+      checkRange(m.importanceBoostOnAccess, 0, 1, 'memory.importanceBoostOnAccess', errors);
+    }
+    if (m.consolidationThreshold !== undefined) {
+      checkRange(m.consolidationThreshold, 0, 1, 'memory.consolidationThreshold', errors);
+    }
+    if (m.pruneThreshold !== undefined) {
+      checkRange(m.pruneThreshold, 0, 1, 'memory.pruneThreshold', errors);
+    }
+    if (m.moodCongruenceWeight !== undefined) {
+      checkRange(m.moodCongruenceWeight, 0, 1, 'memory.moodCongruenceWeight', errors);
+    }
+    if (m.moodCongruenceScale !== undefined) {
+      checkRange(m.moodCongruenceScale, 0, 2, 'memory.moodCongruenceScale', errors);
+    }
   }
 
   // ─── 需求系统参数 ───
@@ -178,6 +196,9 @@ function validateConfig(config) {
     }
     if (r.strengthIncrement !== undefined) {
       checkRange(r.strengthIncrement, 0, 0.5, 'relationship.strengthIncrement', errors);
+    }
+    if (r.strengthDecrement !== undefined) {
+      checkRange(r.strengthDecrement, 0, 0.5, 'relationship.strengthDecrement', errors);
     }
     if (r.decayRate !== undefined) {
       checkRange(r.decayRate, 0, 0.1, 'relationship.decayRate', errors);

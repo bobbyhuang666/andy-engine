@@ -81,6 +81,9 @@ This changes sequencing:
 | NeedsSystem behavior recovery NaN guard | Closed in R102 | `getRecoveryRatesForBehavior()` computed factor from behaviorVector without finite guard. Added `Number.isFinite(distance)` check; NaN distance → zero recovery. |
 | Contagion config validation | Closed in R104 | `negativityBias` and `baseContagionRate` added to ANDY_DEFAULTS.contagion. Added `config.contagion` validator with range checks for all 5 fields. |
 | KnowledgeStore legacy sources normalization | Closed in R104 | `fromJSON()` data.sources path bypassed `_normalizeEvidence()` for Evidence objects. Fixed to normalize consistently with data.evidence path. |
+| Relationship strengthDecrement validation | Closed in R105 | Added `strengthDecrement` range check [0,0.5] to relationship validator in validate.js. |
+| Memory 6 missing field validations | Closed in R105 | Added validators for maxPresentationsPerMemory, importanceBoostOnAccess, consolidationThreshold, pruneThreshold, moodCongruenceWeight, moodCongruenceScale. |
+| Serialization _restoreConfig key filter | Closed in R105 | `deserialize()` now filters non-config keys (seed, domain, rng, id, name) from caller config before merging into _restoreConfig. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 
