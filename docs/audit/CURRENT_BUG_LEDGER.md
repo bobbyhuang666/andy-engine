@@ -2533,6 +2533,153 @@ This section records the R121 audit findings. 1 HIGH finding fixed.
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
 | Status | Fixed and verified. |
 
+## R122 - Appraisal/ScheduleHandler personality.ocean NaN Guards
+
+This section records the R122 audit findings. 10 MEDIUM findings fixed.
+
+### R122-001
+
+| Field | Detail |
+|---|---|
+| ID | R122-001 |
+| Severity | Medium |
+| Audit finding | `EmotionRegulation.tryRegulate()` computes `threshold = 0.15 - this.personality.ocean.neuroticism * 0.05` without finite guard. NaN neuroticism → NaN threshold → `triggerLevel < NaN` (always false) → regulation never fires, silently disabling emotion regulation for corrupted agents. |
+| Evidence | EmotionRegulation.js:152 — neuroticism unvalidated |
+| Fix | Added `Number.isFinite()` guard: `neuroticism` defaults to 0.5 if non-finite. |
+| Files | `src/agent/psychology/EmotionRegulation.js:152-155` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R122-002
+
+| Field | Detail |
+|---|---|
+| ID | R122-002 |
+| Severity | Medium |
+| Audit finding | `Appraisal._evalSuddenness()` computes `suddenness *= (1 + agent.personality.ocean.neuroticism * 0.2)` without finite guard. NaN neuroticism → NaN suddenness → `Math.max(0, Math.min(1, NaN))` = NaN, corrupting appraisal suddenness dimension. |
+| Evidence | Appraisal.js:101 — neuroticism unvalidated |
+| Fix | Added `Number.isFinite()` guard: `neuroticism` defaults to 0 if non-finite. |
+| Files | `src/agent/psychology/Appraisal.js:101-104` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R122-003
+
+| Field | Detail |
+|---|---|
+| ID | R122-003 |
+| Severity | Medium |
+| Audit finding | `Appraisal._evalGoalRelevance()` computes `relevance += agent.personality.ocean.openness * 0.1` without finite guard. NaN openness → NaN relevance → `Math.max(0, Math.min(1, NaN))` = NaN. |
+| Evidence | Appraisal.js:185 — openness unvalidated |
+| Fix | Added `Number.isFinite()` guard: `openness` defaults to 0 if non-finite. |
+| Files | `src/agent/psychology/Appraisal.js:185-187` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R122-004
+
+| Field | Detail |
+|---|---|
+| ID | R122-004 |
+| Severity | Medium |
+| Audit finding | `Appraisal._evalGoalConduciveness()` computes `selfEfficacy = agent.personality.ocean.conscientiousness * 0.3` without finite guard. NaN conscientiousness → NaN selfEfficacy → NaN conduciveness. |
+| Evidence | Appraisal.js:231 — conscientiousness unvalidated |
+| Fix | Added `Number.isFinite()` guard: `conscientiousness` defaults to 0 if non-finite. |
+| Files | `src/agent/psychology/Appraisal.js:231-234` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R122-005
+
+| Field | Detail |
+|---|---|
+| ID | R122-005 |
+| Severity | Medium |
+| Audit finding | `Appraisal._evalCopingPotential()` computes `coping += (1 - agent.personality.ocean.neuroticism) * 0.2` without finite guard. NaN neuroticism → NaN → NaN coping → `Math.max(0, Math.min(1, NaN))` = NaN. |
+| Evidence | Appraisal.js:326 — neuroticism unvalidated |
+| Fix | Added `Number.isFinite()` guard: `neuroticism` defaults to 0 if non-finite. |
+| Files | `src/agent/psychology/Appraisal.js:326-328` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R122-006
+
+| Field | Detail |
+|---|---|
+| ID | R122-006 |
+| Severity | Medium |
+| Audit finding | `Appraisal._evalCopingPotential()` computes `coping += agent.personality.ocean.conscientiousness * 0.1` without finite guard. NaN conscientiousness → NaN coping. |
+| Evidence | Appraisal.js:329 — conscientiousness unvalidated |
+| Fix | Added `Number.isFinite()` guard: `conscientiousness` defaults to 0 if non-finite. |
+| Files | `src/agent/psychology/Appraisal.js:329-331` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R122-007
+
+| Field | Detail |
+|---|---|
+| ID | R122-007 |
+| Severity | Medium |
+| Audit finding | `Appraisal._evalCopingPotential()` computes `coping += agent.personality.ocean.openness * 0.1` without finite guard. NaN openness → NaN coping. |
+| Evidence | Appraisal.js:332 — openness unvalidated |
+| Fix | Added `Number.isFinite()` guard: `openness` defaults to 0 if non-finite. |
+| Files | `src/agent/psychology/Appraisal.js:332-334` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R122-008
+
+| Field | Detail |
+|---|---|
+| ID | R122-008 |
+| Severity | Medium |
+| Audit finding | `Appraisal._evalCopingPotential()` computes `coping += agent.personality.ocean.extraversion * 0.1` without finite guard. NaN extraversion → NaN coping. |
+| Evidence | Appraisal.js:349 — extraversion unvalidated |
+| Fix | Added `Number.isFinite()` guard: `extraversion` defaults to 0 if non-finite. |
+| Files | `src/agent/psychology/Appraisal.js:349-351` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R122-009
+
+| Field | Detail |
+|---|---|
+| ID | R122-009 |
+| Severity | Medium |
+| Audit finding | `Appraisal._evalNormConformity()` computes `conformity = 0.5 + (conformity - 0.5) * (0.5 + agent.personality.ocean.agreeableness * 0.5)` without finite guard. NaN agreeableness → NaN conformity → `Math.max(0, Math.min(1, NaN))` = NaN. |
+| Evidence | Appraisal.js:379 — agreeableness unvalidated |
+| Fix | Added `Number.isFinite()` guard: `agreeableness` defaults to 0 if non-finite. |
+| Files | `src/agent/psychology/Appraisal.js:379-381` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R122-010
+
+| Field | Detail |
+|---|---|
+| ID | R122-010 |
+| Severity | Medium |
+| Audit finding | `ScheduleHandler.checkSchedule()` computes `sickProb = (0.4 - agent.health) * 2 * (1 - agent.personality.ocean.conscientiousness * 0.3)` without finite guard. NaN conscientiousness → NaN sickProb → `Math.min(0.8, NaN)` = NaN → `agent.rand() < NaN` always false, silently disabling sick-leave behavior for corrupted agents. |
+| Evidence | ScheduleHandler.js:221 — conscientiousness unvalidated |
+| Fix | Added `Number.isFinite()` guard: `conscientiousness` defaults to 0 if non-finite. |
+| Files | `src/agent/handlers/ScheduleHandler.js:221-224` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R122-011
+
+| Field | Detail |
+|---|---|
+| ID | R122-011 |
+| Severity | Medium |
+| Audit finding | `ScheduleHandler.checkSchedule()` computes `skipProb = emotionalDistress * 0.4 * (1 - agent.personality.ocean.conscientiousness * 0.5)` without finite guard. NaN conscientiousness → NaN skipProb → `Math.min(0.5, NaN)` = NaN → `agent.rand() < NaN` always false, silently disabling distress-skip behavior for corrupted agents. |
+| Evidence | ScheduleHandler.js:237 — conscientiousness unvalidated |
+| Fix | Added `Number.isFinite()` guard: `conscientiousness` defaults to 0 if non-finite. |
+| Files | `src/agent/handlers/ScheduleHandler.js:237-240` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

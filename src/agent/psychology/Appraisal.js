@@ -98,7 +98,11 @@ class Appraisal {
     }
 
     // 神经质高的 Agent 对世界的预期更悲观，突然性感受更强烈
-    suddenness *= (1 + agent.personality.ocean.neuroticism * 0.2);
+    // R122-002: guard against NaN neuroticism (defense-in-depth;
+    // Personality constructor validates, but direct mutation could bypass).
+    const neuroticism = Number.isFinite(agent.personality.ocean.neuroticism)
+      ? agent.personality.ocean.neuroticism : 0;
+    suddenness *= (1 + neuroticism * 0.2);
 
     return Math.max(0, Math.min(1, suddenness));
   }
@@ -129,18 +133,22 @@ class Appraisal {
 
     // 归一化到 [-1, 1]
     const rawPleasantness = effectCount > 0 ? totalValence / effectCount : 0;
+    // R120-004: guard against NaN from corrupted event delta values.
+    if (!Number.isFinite(rawPleasantness)) rawPleasantness = 0;
 
     // 情绪一致性偏差（mood-congruent bias）：
     // 好心情时对事件的评价更正面，反之亦然
-    const moodBias = agent.emotion.getValence() * 0.15;
+    const moodBias = Number.isFinite(agent.emotion.getValence()) ? agent.emotion.getValence() * 0.15 : 0;
 
     // 宜人性高的 Agent 对事件的评价偏正面（宽容偏差）
-    const agreeablenessBias = agent.personality.ocean.agreeableness * 0.05;
+    const agreeablenessBias = Number.isFinite(agent.personality.ocean.agreeableness)
+      ? agent.personality.ocean.agreeableness * 0.05 : 0;
 
     // Appraisal Bias：重大事件的持久评价偏移（#7 创伤机制）
     const eventCategory = event.type === 'interaction' ? 'social' : (event.type || 'general');
     const traumaBias = agent.memory.getAppraisalBias
-      ? agent.memory.getAppraisalBias(eventCategory)
+      ? Number.isFinite(agent.memory.getAppraisalBias(eventCategory))
+        ? agent.memory.getAppraisalBias(eventCategory) : 0
       : 0;
 
     return Math.max(-1, Math.min(1, rawPleasantness + moodBias + agreeablenessBias + traumaBias));
@@ -178,7 +186,10 @@ class Appraisal {
       relevance += 0.2;
     }
 
-    relevance += agent.personality.ocean.openness * 0.1;
+    // R122-003: guard against NaN openness
+    const openness = Number.isFinite(agent.personality.ocean.openness)
+      ? agent.personality.ocean.openness : 0;
+    relevance += openness * 0.1;
 
     if (agent.needs) {
       const drive = agent.needs.getDrive();
@@ -224,7 +235,10 @@ class Appraisal {
       conduciveness *= 1.2;
     }
 
-    const selfEfficacy = agent.personality.ocean.conscientiousness * 0.3;
+    // R122-004: guard against NaN conscientiousness
+    const conscientiousness = Number.isFinite(agent.personality.ocean.conscientiousness)
+      ? agent.personality.ocean.conscientiousness : 0;
+    const selfEfficacy = conscientiousness * 0.3;
     if (conduciveness > 0) {
       conduciveness *= (1 + selfEfficacy);
     }
@@ -319,13 +333,22 @@ class Appraisal {
     coping += agent.socialEnergy * 0.2;
 
     // 情绪稳定性 → 情绪应对能力（低神经质 = 高稳定性）
-    coping += (1 - agent.personality.ocean.neuroticism) * 0.2;
+    // R122-005: guard against NaN neuroticism
+    const copingNeuroticism = Number.isFinite(agent.personality.ocean.neuroticism)
+      ? agent.personality.ocean.neuroticism : 0;
+    coping += (1 - copingNeuroticism) * 0.2;
 
     // 尽责性 → 问题解决能力
-    coping += agent.personality.ocean.conscientiousness * 0.1;
+    // R122-006: guard against NaN conscientiousness
+    const copingConscientiousness = Number.isFinite(agent.personality.ocean.conscientiousness)
+      ? agent.personality.ocean.conscientiousness : 0;
+    coping += copingConscientiousness * 0.1;
 
     // 开放性 → 认知重评能力
-    coping += agent.personality.ocean.openness * 0.1;
+    // R122-007: guard against NaN openness
+    const copingOpenness = Number.isFinite(agent.personality.ocean.openness)
+      ? agent.personality.ocean.openness : 0;
+    coping += copingOpenness * 0.1;
 
     // 当前压力降低应对能力
     const stressPenalty = (agent.emotion.stress || 0) / 10 * 0.3;
@@ -342,7 +365,10 @@ class Appraisal {
     }
 
     // 外向性 → 社会支持感知
-    coping += agent.personality.ocean.extraversion * 0.1;
+    // R122-008: guard against NaN extraversion
+    const extraversion = Number.isFinite(agent.personality.ocean.extraversion)
+      ? agent.personality.ocean.extraversion : 0;
+    coping += extraversion * 0.1;
 
     return Math.max(0, Math.min(1, coping));
   }
@@ -372,7 +398,10 @@ class Appraisal {
     }
 
     // 宜人性高的 Agent 对规范更敏感
-    conformity = 0.5 + (conformity - 0.5) * (0.5 + agent.personality.ocean.agreeableness * 0.5);
+    // R122-009: guard against NaN agreeableness
+    const agreeableness = Number.isFinite(agent.personality.ocean.agreeableness)
+      ? agent.personality.ocean.agreeableness : 0;
+    conformity = 0.5 + (conformity - 0.5) * (0.5 + agreeableness * 0.5);
 
     return Math.max(0, Math.min(1, conformity));
   }

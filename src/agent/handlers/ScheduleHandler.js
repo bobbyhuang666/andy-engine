@@ -218,7 +218,10 @@ class ScheduleHandler {
 
       // 1. Sick → take leave
       if (agent.health < 0.4) {
-        const sickProb = (0.4 - agent.health) * 2 * (1 - agent.personality.ocean.conscientiousness * 0.3);
+        // R122-010: guard against NaN conscientiousness
+        const schConscientiousness = Number.isFinite(agent.personality.ocean.conscientiousness)
+          ? agent.personality.ocean.conscientiousness : 0;
+        const sickProb = (0.4 - agent.health) * 2 * (1 - schConscientiousness * 0.3);
         if (agent.rand() < Math.min(0.8, sickProb)) {
           const altState = ScheduleHandler.getSkipAlternative(agent, 'sick', hour);
           return { moved: true, region: agent.position, skipEvent: 'sick', altState };
@@ -234,7 +237,10 @@ class ScheduleHandler {
       const emotionalDistress = negativeIntensity * 0.6 + stressFactor * 0.4;
 
       if (emotionalDistress > 0.15) {
-        const skipProb = emotionalDistress * 0.4 * (1 - agent.personality.ocean.conscientiousness * 0.5);
+        // R122-011: guard against NaN conscientiousness
+        const skipConscientiousness = Number.isFinite(agent.personality.ocean.conscientiousness)
+          ? agent.personality.ocean.conscientiousness : 0;
+        const skipProb = emotionalDistress * 0.4 * (1 - skipConscientiousness * 0.5);
         if (agent.rand() < Math.min(0.5, skipProb)) {
           const activityName = activity.activity || '';
           const workPlaces = agent.domain ? (agent.domain.placeTypes.work || []) : [];
