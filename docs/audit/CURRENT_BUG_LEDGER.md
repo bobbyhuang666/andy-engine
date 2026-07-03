@@ -1067,7 +1067,7 @@ and two latent regression fixes exposed by epoch-0 timestamps.
 
 ## Current Gate Results
 
-Last verified after R87 epoch sentinel hardening + NaN guard + threshold consistency (commit `752400a`):
+Last verified after R88 fact data integrity + canon pipeline error containment (commit `a537f7a`):
 
 | Gate | Result |
 |---|---|
@@ -1122,6 +1122,8 @@ Last verified after R87 epoch sentinel hardening + NaN guard + threshold consist
 | SocialGraph threshold consistency R87 tests | `tests/unit/social.test.js` -> 13 passed |
 | E2E cause-effect memory narrative R87 tests | `tests/e2e/cause-effect-memory-narrative.test.js` -> 5 passed |
 | SDK AutoTick determinism R87 tests | `tests/sdk.test.js` -> 75 passed |
+| FactEmitter addFact return value R88 tests | `tests/facts/world-fact-store.test.js`, `tests/facts/fact-emitter-event-fallback.test.js` -> 64 passed |
+| AndyWorld canon pipeline error containment R88 tests | `tests/unit/runtime/runtime.test.js`, `tests/unit/runtime/event-dispatcher-branches.test.js` -> 60 passed |
 | `npm test` | 193 files passed / 1 skipped; 3233 passed / 28 skipped |
 | `npm run test:domain` | 82 passed |
 | `npm run check:boundaries` | All boundary checks passed |
@@ -1134,6 +1136,42 @@ Last verified after R87 epoch sentinel hardening + NaN guard + threshold consist
 | `npm run release:check` | `npm test`, `test:domain`, `check:boundaries`, and pack dry-run all passed |
 | `npm run perf:check` | All PASS in 3-run median mode: 100 agents 0.53x baseline, 300 agents 0.38x baseline, no WARN |
 | `git diff --check` | clean |
+
+## R88 - Fact Data Integrity + Canon Pipeline Error Containment
+
+This section records two scoped no-quota fixes from an internal audit plus
+local verification: FactEmitter addFact return values and AndyWorld canon
+pipeline error containment.
+
+### R88-FACTEMITTER-ADDFACT-1
+
+| Field | Detail |
+|---|---|
+| ID | R88-FACTEMITTER-ADDFACT-1 |
+| Severity | P2 |
+| Audit finding | `FactEmitter.emitStaticFacts`, `emitAgentStateFacts`, and `emitRelationshipFacts` discarded the return value of `WorldFactStore.addFact()`, pushing the original pre-validation `fact` object instead of the deep-copied, ID-assigned canonical version. Callers received objects that may lack canonical IDs and are shared references (breaking the defensive-copy contract). |
+| Evidence | `FactEmitter.js:58-59` — `this.store.addFact(fact);` then `facts.push(fact)` (raw object); `FactEmitter.js:143` — `const added = this.store.addFact(fact); existingByAgentId.set(agentId, added); facts.push(fact)` (index uses `added` but array gets raw `fact`); `FactEmitter.js:304-307` — `this.store.addFact(fact); pairIndex.set(pairKey, fact); facts.push(fact)` (both index and array use raw object). |
+| Verification verdict | Confirmed by independent Verification AI. `addFact()` validates input, assigns ID (if missing), and returns deep copy. The 3 methods push raw objects that may lack IDs and share references with the caller's scope. All 361 fact tests pass after fix. |
+| Fix | Changed all 3 methods to use `addFact()` return values: `emitStaticFacts` uses `const added = this.store.addFact(fact); facts.push(added);`, `emitAgentStateFacts` uses `facts.push(added)` (variable already existed), `emitRelationshipFacts` captures return as `added` and uses it for both `pairIndex.set()` and `facts.push()`. |
+| Files | `src/canon/FactEmitter.js` |
+| Regression test | 361 fact tests pass; all fact emission paths now return canonical deep-copied objects with IDs. |
+| Re-verification | Targeted tests: 361 passed. Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R88-CANON-PIPELINE-TRYCATCH-1
+
+| Field | Detail |
+|---|---|
+| ID | R88-CANON-PIPELINE-TRYCATCH-1 |
+| Severity | P2 |
+| Audit finding | `AndyWorld.step()` Phase 8 (CANON_PIPELINE) had no try/catch protection around event consequence processing. If one bad event consequence threw an error in `canonEventPipeline.processEvents()`, `applyEventConsequences()`, or `effectCommitter.commit()`, the entire world step would crash, killing the simulation for all agents. The agent loop (Phase 4) already had try/catch protection, but the canon pipeline didn't. |
+| Evidence | `AndyWorld.js:533-565` — canon pipeline event processing with no error containment. Compare with Phase 4 agent loop which has per-agent try/catch. |
+| Verification verdict | Confirmed by independent Verification AI. Fix wraps `processEvents()` in try/catch (logs via diagnostics.warn, sets pipelineResults to empty array on error). Inner consequence loop also wrapped in try/catch per iteration — one bad event doesn't block subsequent events. `pipelineError` added to phase result for caller visibility. All 387 related tests pass. |
+| Fix | Wrapped canon pipeline event processing in try/catch following Phase 4 agent loop pattern. On error: logs via diagnostics.warn, sets pipelineResults to empty array, continues to next tick. Inner consequence loop has per-iteration try/catch. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | 387 related tests pass (361 fact + 26 effect pipeline). Canon pipeline error containment verified. |
+| Re-verification | Targeted tests: 387 passed. Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
 
 ## Active Latent / Deferred Backlog
 
