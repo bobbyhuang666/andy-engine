@@ -394,6 +394,18 @@ class EmotionVectorNative {
         this.mood[dim] = Math.max(lower, Math.min(1, this.mood[dim]));
       }
     }
+
+    // Stress homeostatic drift toward baseline 2.0
+    // Above baseline: exponential decay (same half-life as emotion dimensions)
+    // Below baseline: gradual drift so positive events can reduce stress
+    if (this.stress > 2.0) {
+      const stressDecayRate = 0.1;
+      this.stress = 2.0 + (this.stress - 2.0) * Math.exp(-stressDecayRate * dt);
+    } else if (this.stress < 2.0) {
+      // Gradual drift (10% per hour toward 2.0) instead of hard reset,
+      // so positive events can actually reduce stress below 2.0.
+      this.stress += (2.0 - this.stress) * 0.1 * dt;
+    }
   }
 
   _coActivationSpread() {

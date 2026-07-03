@@ -88,7 +88,10 @@ class AgentRuntime {
     const rawMinutes = env.minutesElapsed;
     const minutesElapsed = typeof rawMinutes === 'number' && Number.isFinite(rawMinutes) && rawMinutes >= 0
       ? rawMinutes : 5;
-    const hoursElapsed = minutesElapsed / 60;
+    // Finite guard on hoursElapsed: prevents NaN cascade from corrupted env data.
+    // hoursElapsed = 0 means no time passes, the safe default.
+    const rawHours = minutesElapsed / 60;
+    const hoursElapsed = (Number.isFinite(rawHours) && rawHours > 0) ? rawHours : 0;
 
     // 注入模拟时间
     if (env.simTime) {

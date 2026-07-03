@@ -25,3 +25,4 @@
 | 2026-06-26 | W1 | tests/fixtures/golden-campus-seed42-100ticks.json | 0-99 | W1 runtimeSnapshot 持久化扩展（EventDispatcher._nextId + Agent._ticksSinceReflection/_ticksSinceDriftCheck + PersonalMemory.presentations 完整 + memory.appraisal）intentional drift，replay-diff 100/100 tickHash 一致 | W1 |
 | 2026-06-28 | 1061a47 | tests/fixtures/golden-campus-seed42-100ticks.json | 0-99 | R18 修复导致序列化格式变更：BehaviorField 新增 _attractor/_attractorTicksLeft 持久化；IntrinsicMotivation 新增 _lastSimTime 持久化；eventLog/rngState 随之漂移。npm run golden:regen 重生成，tickHash 100/100 一致 | R18 |
 | 2026-07-02 | R51 | tests/fixtures/golden-campus-seed42-100ticks.json | 6-99 | R51 修复 PerceptionRuntime 重复感知同一 event.id，避免 emotion/memory/stress 在 eventLog 滑窗内重复应用；行为语义有意改变，npm run golden:regen 重生成 | R51 |
+| 2026-07-03 | R89 | tests/fixtures/golden-campus-seed42-100ticks.json | 全部 | R89-STRESS-HARDRESET-1: 替换 stress < 2.0 硬重置为 10%/h 渐变漂移，stress > 2.0 添加指数衰减；行为语义有意改变，npm run golden:regen 重生成 | R89 |
