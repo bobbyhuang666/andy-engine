@@ -1295,6 +1295,51 @@ plus verification: SQLiteStore prune guard and null-safe encounter region.
 | Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
 | Status | Fixed and verified. |
 
+## R92 - Config Injection Completion (Contagion + PersonalMemory)
+
+This section records two config-injection fixes completing the R90 pattern:
+EmotionVector contagion config and PersonalMemory config.
+
+### R92-CONTAGION-DEADCONFIG-1
+
+| Field | Detail |
+|---|---|
+| ID | R92-CONTAGION-DEADCONFIG-1 |
+| Severity | P3 |
+| Audit finding | `ANDY_DEFAULTS.contagion` defines `baseSusceptibility`, `baseExpressiveness`, and `interactionRadius`, but nobody imports or references this config object anywhere in `src/`. `EmotionVector._socialContagion()` hardcodes `negativityBias = 1.4` and `contagionRate = 0.3 * negativityBias` or `0.3` instead of reading from ANDY_DEFAULTS.contagion. The defaults are dead code — users cannot tune contagion via config. |
+| Evidence | `ANDY_DEFAULTS.contagion` defined in `config/defaults.js` but never imported by `EmotionVector.js`. `_socialContagion()` lines 413-414 hardcode `1.4` and `0.3`. No `contagionConfig` parameter in constructor. |
+| Verification verdict | Confirmed by independent Verification AI. Dead config is a silent tunability gap — no crash, no incorrect behavior, but users cannot override contagion parameters. Downgraded from P2 to P3: no correctness impact, only tunability. |
+| Fix | Added `contagionConfig` as 5th constructor parameter to EmotionVector. Merged `ANDY_DEFAULTS.contagion` with user config into `this._contagionConfig`. `_socialContagion()` now reads `negativityBias` and `baseContagionRate` from `this._contagionConfig` with `||` fallback preserving existing defaults. Same pattern applied to `EmotionVector.native.js`. Threaded through `AgentSubsystemFactory`. |
+| Files | `src/agent/psychology/EmotionVector.js`; `src/agent/psychology/EmotionVector.native.js`; `src/agent/lifecycle/AgentSubsystemFactory.js` |
+| Regression test | 3233 tests pass / 28 skipped. No behavioral change when no config provided. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. |
+| Status | Fixed and verified. |
+
+### R92-MEMORY-CONFIG-1
+
+| Field | Detail |
+|---|---|
+| ID | R92-MEMORY-CONFIG-1 |
+| Severity | P2 |
+| Audit finding | `PersonalMemory` reads `ANDY_DEFAULTS.memory` at module level (line 17) and uses `cfg.moodCongruenceWeight`, `cfg.moodCongruenceScale`, and `cfg.recallEmotionDelta` directly. The constructor has no config parameter — unlike EmotionVector (emotionConfig), NeedsSystem (needsConfig), and IntrinsicMotivation (config). Users cannot override memory parameters via config. |
+| Evidence | `PersonalMemory.js:17` — `const cfg = ANDY_DEFAULTS.memory` at module scope. All `cfg.X` references throughout the file. Constructor signature has no config parameter. `AgentSubsystemFactory.js:41` — `new PersonalMemory(agentId, config.seedMemories \|\| [], null, domain, rng)` with no config arg. |
+| Verification verdict | Confirmed by independent Verification AI. Silent config override gap — users who set `config.memory.moodCongruenceWeight` see no effect because the value is never read. |
+| Fix | Added `memoryConfig = null` as 6th constructor parameter. Added `this._cfg = { ...cfg, ...(memoryConfig || {}) }` merge. Replaced all 16 `cfg.X` references with `this._cfg.X`. Threaded `config.memory || null` through `AgentSubsystemFactory` (create and restore paths). |
+| Files | `src/agent/memory/PersonalMemory.js`; `src/agent/lifecycle/AgentSubsystemFactory.js` |
+| Regression test | 3233 tests pass / 28 skipped. No behavioral change when no config provided. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. |
+| Status | Fixed and verified. |
+
+### R92-STATEMACHINE-DURATION-1 (INVALID)
+
+| Field | Detail |
+|---|---|
+| ID | R92-STATEMACHINE-DURATION-1 |
+| Severity | N/A — invalid finding |
+| Audit finding | StateMachine duration not overridable via config. |
+| Disposition | Invalid — architecture migration to BehaviorField + domain-driven state centers resolved this. StateMachine only holds metadata; behavior state comes from BehaviorField label / action layer / effect pipeline. No config seam needed. |
+| Status | Rejected by audit. No action taken. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

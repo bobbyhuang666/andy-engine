@@ -36,9 +36,9 @@ function createSubsystems(config, agentId, domain, rng) {
   }
 
   const personality = new Personality(personalityConfig);
-  const emotion = new EmotionVector(personality, null, rng, config.emotion || null);
+  const emotion = new EmotionVector(personality, null, rng, config.emotion || null, config.contagion || null);
   const stateMachine = new StateMachine(config.initialState || null, null, domain);
-  const memory = new PersonalMemory(agentId, config.seedMemories || [], null, domain, rng);
+  const memory = new PersonalMemory(agentId, config.seedMemories || [], null, domain, rng, config.memory || null);
   const proceduralMemory = new ProceduralMemory();
   const needs = new NeedsSystem(personality, null, domain, config.needs || null);
   const emotionRegulation = new EmotionRegulation(personality, null, rng);
@@ -80,9 +80,9 @@ function createSubsystems(config, agentId, domain, rng) {
  */
 function restoreSubsystems(savedState, config, agentId, domain, rng) {
   const personality = Personality.fromJSON(savedState.personality);
-  const emotion = new EmotionVector(personality, savedState.emotion, rng, config.emotion || null);
+  const emotion = new EmotionVector(personality, savedState.emotion, rng, config.emotion || null, config.contagion || null);
   const stateMachine = new StateMachine(null, savedState.stateMachine, domain);
-  const memory = new PersonalMemory(agentId, [], savedState.memory, domain, rng);
+  const memory = new PersonalMemory(agentId, [], savedState.memory, domain, rng, config.memory || null);
   if (savedState.appraisalBiases) {
     // R12: deep-copy to prevent shared reference mutation
     memory.appraisalBiases = savedState.appraisalBiases.map(b => ({ ...b }));

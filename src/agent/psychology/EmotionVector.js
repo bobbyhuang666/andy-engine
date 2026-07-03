@@ -19,6 +19,7 @@
 
 const { EMOTION_DIMENSIONS, CO_ACTIVATION, EMOTION_OPPOSITES, ANDY_DEFAULTS } = require('../../config/defaults');
 const cfg = ANDY_DEFAULTS.emotion;
+const contagionCfgDefaults = ANDY_DEFAULTS.contagion;
 
 const { RNG } = require('../../shared/rng');
 const POSITIVE_DIMS = new Set(['joy', 'contentment', 'satisfaction', 'excitement',
@@ -33,11 +34,13 @@ class EmotionVector {
    * @param {Object} [savedState] - 恢复的序列化状态
    * @param {Object} [rng] - RNG 实例（可选）
    * @param {Object} [emotionConfig] - 可选的情绪配置，覆盖 ANDY_DEFAULTS.emotion
+   * @param {Object} [contagionConfig] - 可选的社交传染配置，覆盖 ANDY_DEFAULTS.contagion
    */
-  constructor(personality, savedState = null, rng = null, emotionConfig = null) {
+  constructor(personality, savedState = null, rng = null, emotionConfig = null, contagionConfig = null) {
     this.personality = personality;
     this._rng = rng || new RNG(0);
     this._cfg = { ...cfg, ...(emotionConfig || {}) };
+    this._contagionConfig = { ...contagionCfgDefaults, ...(contagionConfig || {}) };
     this.baseline = { ...personality.emotionBaseline };
 
     if (savedState) {
@@ -407,7 +410,8 @@ class EmotionVector {
   _socialContagion(contagionInputs) {
     const susceptibility = this.personality.behavior.susceptibility;
 
-    const negativityBias = 1.4; // 负面情绪传染率高 40%
+    const negativityBias = this._contagionConfig.negativityBias || 1.4;
+    const baseContagionRate = this._contagionConfig.baseContagionRate || 0.3;
 
     for (const [agentId, input] of Object.entries(contagionInputs)) {
       const { emotion, weight, expressiveness } = input;
@@ -426,7 +430,7 @@ class EmotionVector {
         // the contagion rate is boosted (negative emotions spread faster).
         if (Math.abs(diff) > 0.05) {
           const isNegative = NEGATIVE_DIMS.has(dim) && theirVal > myVal;
-          const contagionRate = isNegative ? 0.3 * negativityBias : 0.3;
+          const contagionRate = isNegative ? baseContagionRate * negativityBias : baseContagionRate;
           this.current[dim] = myVal + diff * effectiveWeight * contagionRate;
         }
       }

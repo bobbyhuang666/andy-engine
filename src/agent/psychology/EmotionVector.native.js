@@ -21,6 +21,7 @@ const { EMOTION_DIMENSIONS, CO_ACTIVATION, EMOTION_OPPOSITES, ANDY_DEFAULTS } = 
 const { loadNativeModule } = require('../../shared/nativeLoader');
 const { diagnostics } = require('../../shared/Diagnostics');
 const cfg = ANDY_DEFAULTS.emotion;
+const contagionCfgDefaults = ANDY_DEFAULTS.contagion;
 
 let _NativeCtor = null;
 let _loadResult = null;
@@ -50,9 +51,10 @@ function _ensureNative() {
  * Wraps the Rust EmotionVectorJs with JS-side mirror objects for .current/.mood/.baseline
  */
 class EmotionVectorNative {
-  constructor(personality, savedState = null, emotionConfig = null) {
+  constructor(personality, savedState = null, emotionConfig = null, contagionConfig = null) {
     this.personality = personality;
     this._cfg = { ...cfg, ...(emotionConfig || {}) };
+    this._contagionConfig = { ...contagionCfgDefaults, ...(contagionConfig || {}) };
     this.baseline = { ...personality.emotionBaseline };
 
     const behaviorJson = JSON.stringify({

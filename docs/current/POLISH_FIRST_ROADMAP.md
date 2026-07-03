@@ -59,6 +59,8 @@ This changes sequencing:
 | IntrinsicMotivation config injection | Closed in R90 | IntrinsicMotivation used module-level ANDY_DEFAULTS with only domain-level config. Added three-way merge (user > domain > defaults) via config parameter, threaded through AgentSubsystemFactory. |
 | SQLiteStore prune guard | Closed in R91 | `prune(keepCount)` lacked guard for keepCount <= 0; OFFSET -1 was clamped to 0 by SQLite, keeping 1 snapshot instead of 0. Added early return guard matching MemoryStore.prune() pattern. |
 | Encounter null-safe region | Closed in R91 | `AndyWorld._evaluateSpatialInteractions` used 'unknown' fallback for null regionA, creating phantom region references in events. Changed to null-safe fallback; generateEncounterEvent handles null region gracefully. |
+| Contagion config injection | Closed in R92 | `ANDY_DEFAULTS.contagion` was dead config (unreferenced). Added `contagionConfig` parameter to EmotionVector constructor, merged with defaults, threaded through AgentSubsystemFactory. `_socialContagion()` now reads `negativityBias` and `baseContagionRate` from config. |
+| PersonalMemory config injection | Closed in R92 | `PersonalMemory` used module-level `ANDY_DEFAULTS.memory` with no constructor config parameter. Added `memoryConfig` parameter, merged with defaults, replaced all `cfg.X` with `this._cfg.X`, threaded through AgentSubsystemFactory. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

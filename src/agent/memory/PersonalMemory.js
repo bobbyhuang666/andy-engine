@@ -35,11 +35,12 @@ class PersonalMemory {
    * @param {Object[]} [savedMemories] - 恢复的序列化记忆
    * @param {Object} [domain] - DomainRegistry 实例
    */
-  constructor(agentId, seedMemories = [], savedMemories = null, domain = null, rng = null) {
+  constructor(agentId, seedMemories = [], savedMemories = null, domain = null, rng = null, memoryConfig = null) {
     this.agentId = agentId;
     if (!domain) throw new Error('PersonalMemory requires a domain config');
     this.domain = domain;
     this._rng = rng || new RNG(0);
+    this._cfg = { ...cfg, ...(memoryConfig || {}) };
 
     // 从 domain 取语义分类
     this._semanticCategories = this.domain.memoryTemplates.semanticCategories || SEMANTIC_EVENT_CATEGORIES;
@@ -232,7 +233,7 @@ class PersonalMemory {
     this.memories.push(memory);
 
     // 超过上限时，删除最不重要的记忆
-    if (this.memories.length > cfg.maxMemories) {
+    if (this.memories.length > this._cfg.maxMemories) {
       this._prune();
     }
 
@@ -303,16 +304,16 @@ class PersonalMemory {
       const involuntary = this._involuntaryRecall(memory, currentArousal);
 
       // ─── 6. 噪声 ───
-      const noise = this._logisticNoise(cfg.retrievalNoise);
+      const noise = this._logisticNoise(this._cfg.retrievalNoise);
 
       const A = B
         + spreading * 1.0
-        + moodCongruence * cfg.moodCongruenceWeight
+        + moodCongruence * this._cfg.moodCongruenceWeight
         + emotionalBoost
         + involuntary * 0.6
         + noise;
 
-      const P = 1 / (1 + Math.exp(-(A - cfg.retrievalThreshold) / cfg.retrievalNoise));
+      const P = 1 / (1 + Math.exp(-(A - this._cfg.retrievalThreshold) / this._cfg.retrievalNoise));
 
       // 只有概率足够高的记忆才值得进入候选池
       if (P <= 0.1) continue;
@@ -373,7 +374,7 @@ class PersonalMemory {
    * @private
    */
   _baseLevelActivation(memory, now) {
-    const d = cfg.decayRate;
+    const d = this._cfg.decayRate;
     let sum = 0;
     const minHours = 0.016; // ~1 分钟最小值，防止 log(∞)
 
@@ -391,7 +392,7 @@ class PersonalMemory {
    */
   _spreadingActivation(memory, context) {
     let activation = 0;
-    const { W, S } = cfg.spreadingActivation;
+    const { W, S } = this._cfg.spreadingActivation;
 
     // 关键词匹配（使用预计算的频率缓存）
     if (context.keywords) {
@@ -481,7 +482,7 @@ class PersonalMemory {
     const congruence = currentValence * memValence;
 
     // 归一化到 [-scale, scale]，可配置标量
-    return congruence * cfg.moodCongruenceScale;
+    return congruence * this._cfg.moodCongruenceScale;
   }
 
   /**
@@ -533,7 +534,7 @@ class PersonalMemory {
   _computeRecallDelta(memories, currentValence) {
     if (!memories || memories.length === 0) return {};
 
-    const rCfg = cfg.recallEmotionDelta;
+    const rCfg = this._cfg.recallEmotionDelta;
     if (!rCfg) return {};
 
     const delta = {};
@@ -717,17 +718,17 @@ class PersonalMemory {
       decayFactor = Math.min(1, decayFactor + accessBoost);
 
       if (!Number.isFinite(memory.importance)) {
-        memory.importance = cfg.pruneThreshold;
+        memory.importance = this._cfg.pruneThreshold;
       } else {
         memory.importance = Math.min(1, Math.max(
-          cfg.pruneThreshold,
+          this._cfg.pruneThreshold,
           memory.importance * decayFactor
         ));
       }
     }
 
     // 定期清理
-    if (this.memories.length > cfg.maxMemories * 0.9) {
+    if (this.memories.length > this._cfg.maxMemories * 0.9) {
       this._prune();
     }
   }
@@ -778,7 +779,7 @@ class PersonalMemory {
           }
 
           const sim = this._memorySimilarity(this.memories[i], this.memories[j]);
-          if (sim > cfg.consolidationThreshold) {
+          if (sim > this._cfg.consolidationThreshold) {
             const [keep, remove] = this.memories[i].importance >= this.memories[j].importance
               ? [i, j] : [j, i];
 
@@ -799,8 +800,8 @@ class PersonalMemory {
               }
             }
             // R7 fix: cap presentations after consolidation merge
-            if (this.memories[keep].presentations.length > cfg.maxPresentationsPerMemory) {
-              this.memories[keep].presentations = this.memories[keep].presentations.slice(-cfg.maxPresentationsPerMemory);
+            if (this.memories[keep].presentations.length > this._cfg.maxPresentationsPerMemory) {
+              this.memories[keep].presentations = this.memories[keep].presentations.slice(-this._cfg.maxPresentationsPerMemory);
             }
 
             toRemove.add(remove);
@@ -899,15 +900,15 @@ class PersonalMemory {
     memory.lastAccessed = new Date(this._simTime);
     memory.presentations.push(new Date(this._simTime));
     memory.accessCount++;
-    memory.importance = Math.min(1, memory.importance + cfg.importanceBoostOnAccess);
+    memory.importance = Math.min(1, memory.importance + this._cfg.importanceBoostOnAccess);
 
     // R7 fix: cap presentations to prevent unbounded growth. Each Date object
     // costs ~60 bytes; at 2000 ticks with frequent retrieval, a single memory
     // can accumulate 1000+ presentations (60KB per memory). Cap at
     // cfg.maxPresentationsPerMemory (default 50), keeping the most recent ones
     // which are most relevant for ACT-R base-level activation.
-    if (memory.presentations.length > cfg.maxPresentationsPerMemory) {
-      memory.presentations = memory.presentations.slice(-cfg.maxPresentationsPerMemory);
+    if (memory.presentations.length > this._cfg.maxPresentationsPerMemory) {
+      memory.presentations = memory.presentations.slice(-this._cfg.maxPresentationsPerMemory);
     }
   }
 
@@ -1075,7 +1076,7 @@ class PersonalMemory {
   /** @private */
   _prune() {
     this.memories.sort((a, b) => b.importance - a.importance);
-    this.memories = this.memories.slice(0, Math.floor(cfg.maxMemories * 0.8));
+    this.memories = this.memories.slice(0, Math.floor(this._cfg.maxMemories * 0.8));
   }
 
   /** @private */
