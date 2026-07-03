@@ -316,6 +316,9 @@ class SQLiteStore {
    * 保留最近 N 个快照
    */
   prune(keepCount = 720) {
+    // keepCount <= 0 时保留 0 个快照
+    if (keepCount <= 0) return 0;
+
     // 找到第 keepCount 个快照的 tick（保留 keepCount 个最新的）
     const stmt = this._prepare('findPruneTick', `
       SELECT tick FROM snapshots

@@ -676,7 +676,7 @@ class AndyWorld {
       if (this.rng.next() > encounter.probability) continue;
       const event = this.eventDispatcher.generateEncounterEvent(
         encounter.agentA, encounter.agentB,
-        encounter.regionA || 'unknown',
+        encounter.regionA || null, // R91: null-safe — 'unknown' would create phantom region references
         this.socialGraph, this.agents
       );
       if (event) {
