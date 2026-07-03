@@ -311,9 +311,13 @@ class IntrinsicMotivation {
    */
   _decayCuriosity(hoursElapsed) {
     const cfg = this._imConfig;
+    // R111-NAN-1: guard against NaN/Infinity config values (defense-in-depth;
+    // validate.js catches these at config time, but legacy save data may bypass).
+    const decayRate = cfg.curiosityDecayRate;
+    if (!Number.isFinite(decayRate)) return;
     // 衰减率被人格调制：开放性高的 Agent 好奇心衰减更快（更快渴望新体验）
     const opennessFactor = 0.7 + this._behavior.noveltySeeking * 0.6;
-    const effectiveRate = cfg.curiosityDecayRate * opennessFactor;
+    const effectiveRate = decayRate * opennessFactor;
 
     // 好奇心缓慢下降（不像饥饿那样快速）
     // 保留 5% 的存在性基线：即使长期无新奇体验，也保留微弱的好奇火花

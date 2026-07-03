@@ -337,8 +337,10 @@ function validateAgentConfig(agentConfig) {
     }
     if (p.ocean) {
       for (const [trait, value] of Object.entries(p.ocean)) {
-        if (typeof value !== 'number' || value < 0 || value > 1) {
-          errors.push(`personality.ocean.${trait} 必须是 0-1 之间的数字，当前值: ${value}`);
+        // R111-NAN-2: typeof NaN === 'number' is true, and NaN < 0 / NaN > 1 are both false,
+        // so NaN would bypass the original range check. Number.isFinite catches NaN/Infinity.
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
+          errors.push(`personality.ocean.${trait} 必须是 0-1 之间的有限数字，当前值: ${value}`);
         }
       }
     }

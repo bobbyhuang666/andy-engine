@@ -46,9 +46,11 @@ class Personality {
       // 以 MBTI 查表为基础
       this.ocean = { ...MBTI_TO_OCEAN[config.mbti] };
       // 如果同时显式指定了 ocean 参数，允许覆盖特定维度
+      // R111-NAN-2: guard against NaN/Infinity overrides (defense-in-depth;
+      // validate.js also catches these, but direct construction bypasses validation).
       if (config.ocean) {
         for (const dim of ['openness', 'conscientiousness', 'extraversion', 'agreeableness', 'neuroticism']) {
-          if (config.ocean[dim] !== undefined) {
+          if (config.ocean[dim] !== undefined && Number.isFinite(config.ocean[dim])) {
             this.ocean[dim] = config.ocean[dim];
           }
         }

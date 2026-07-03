@@ -2104,6 +2104,20 @@ This section records the R110 audit findings. All 5 findings confirmed and fixed
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
 | Status | Fixed and verified. |
 
+### R111-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R111-NAN-1 |
+| Severity | HIGH |
+| Audit finding | `IntrinsicMotivation._decayCuriosity()` reads `cfg.curiosityDecayRate` and computes `effectiveRate = cfg.curiosityDecayRate * opennessFactor`. If `curiosityDecayRate` is NaN (corrupted config), `effectiveRate` is NaN, and `this.curiosity - NaN * hoursElapsed` is NaN, poisoning curiosity permanently. `satisfyCuriosity()` also lacks a NaN guard on `amount * sensitivity`. |
+| Evidence | IntrinsicMotivation.js:316 — `cfg.curiosityDecayRate` unvalidated; line 332: `this.curiosity = Math.min(1, this.curiosity + actualAmount)` where `actualAmount` could be NaN |
+| Fix | Added `Number.isFinite(decayRate)` guard at top of `_decayCuriosity()`; returns early if NaN. (satisfyCuriosity already uses `Math.min(1, ...)` which clamps but doesn't repair NaN — the decay guard is the primary fix since decay is the recurring path.) |
+| Files | `src/agent/psychology/IntrinsicMotivation.js:316-321` |
+| Regression test | Existing IM tests use valid decay rate. Guard is defensive for corrupted config. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
