@@ -2516,6 +2516,23 @@ This section records the R120 audit findings. 2 HIGH and 2 MEDIUM findings fixed
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
 | Status | Fixed and verified. |
 
+## R121 - EmotionRegulation/EmotionVector Native Edge Cases
+
+This section records the R121 audit findings. 1 HIGH finding fixed.
+
+### R121-001
+
+| Field | Detail |
+|---|---|
+| ID | R121-001 |
+| Severity | HIGH |
+| Audit finding | `EmotionRegulation.tryRegulate()` computes `threshold = 0.15 - this.personality.ocean.neuroticism * 0.05` without finite guard. NaN neuroticism → NaN threshold → `triggerLevel < NaN` (always false) → regulation never fires, silently disabling emotion regulation for corrupted agents. |
+| Evidence | EmotionRegulation.js:152 — neuroticism unvalidated |
+| Fix | Added `Number.isFinite()` guard: `neuroticism` defaults to 0.5 if non-finite. |
+| Files | `src/agent/psychology/EmotionRegulation.js:152-155` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

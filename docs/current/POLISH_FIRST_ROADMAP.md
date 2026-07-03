@@ -116,6 +116,7 @@ This changes sequencing:
 | PhysiologyRuntime updateSocialEnergy behaviorParams guard | Closed in R120 | `updateSocialEnergy()` validated `agent.socialEnergy` but not `behaviorParams.socialEnergyDrain/recharge`; NaN drain produced NaN socialEnergy via `Math.max(0, NaN)`. Added finite guards + post-arithmetic re-validation. |
 | PhysiologyRuntime updateHealth neuroticism guard | Closed in R120 | `updateHealth()` computed `recoveryMod = 1.0 - (neuroticism * 0.3)` without finite guard; NaN neuroticism → NaN recoveryMod → NaN healthDelta. Added `Number.isFinite()` guard defaulting to 0.5. |
 | Appraisal _evalPleasantness NaN guard | Closed in R120 | `_evalPleasantness()` computed `rawPleasantness`, `moodBias`, `agreeablenessBias`, `traumaBias` without finite checks; corrupted event deltas or personality values produced NaN appraisal → stress → emotion cascade. Added `Number.isFinite()` guards on all 4 values. |
+| EmotionRegulation neuroticism NaN guard | Closed in R121 | `tryRegulate()` computed `threshold = 0.15 - neuroticism * 0.05` without finite guard; NaN neuroticism → NaN threshold → `triggerLevel < NaN` always false → emotion regulation silently disabled. Added `Number.isFinite()` guard defaulting to 0.5. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

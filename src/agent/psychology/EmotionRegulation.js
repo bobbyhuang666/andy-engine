@@ -149,7 +149,11 @@ class EmotionRegulation {
     // 神经质高的人触发阈值更低（更频繁调节）
     // 降低阈值使正常条件下的负面情绪也能触发调节
     // 参考 Gross (2015): 人们在日常生活中频繁使用情绪调节策略
-    const threshold = 0.15 - this.personality.ocean.neuroticism * 0.05;
+    // R121-001: guard against NaN neuroticism (defense-in-depth;
+    // Personality constructor validates, but direct mutation could bypass).
+    const neuroticism = Number.isFinite(this.personality.ocean.neuroticism)
+      ? this.personality.ocean.neuroticism : 0.5;
+    const threshold = 0.15 - neuroticism * 0.05;
     if (triggerLevel < threshold) {
       return null; // 情绪尚可，不需要调节
     }
