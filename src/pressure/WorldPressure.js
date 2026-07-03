@@ -27,9 +27,11 @@ class WorldPressure {
     // R20 M9: clamp total to [0, 1]. Without clamping, the sum of
     // individual pressure components (range [-1, 2.4]) could produce
     // total values outside the [0, 1] contract, violating consumer assumptions.
-    pressure.total = Math.max(0, Math.min(1,
-      pressure.time + pressure.location + pressure.crowding + pressure.event
-    ));
+    // R124-006: guard against NaN from corrupted component values.
+    const rawTotal = pressure.time + pressure.location + pressure.crowding + pressure.event;
+    pressure.total = Number.isFinite(rawTotal)
+      ? Math.max(0, Math.min(1, rawTotal))
+      : 0;
 
     return pressure;
   }

@@ -286,10 +286,12 @@ function _createFutureTendencyDeltas(fact, agents, rules) {
 }
 
 function _calculateImportance(fact) {
+  // R124-005: guard against NaN/Infinity (importance feeds into FutureTendencyDelta
+  // which uses it unguarded in importance comparisons).
   let importance = 0.3;
   if (fact.participants && fact.participants.length > 2) importance += 0.2;
   if (fact.scope === 'public') importance += 0.1;
-  return Math.min(1.0, importance);
+  return Number.isFinite(importance) ? Math.min(1.0, importance) : 0.3;
 }
 
 function _inferEmotionTag(fact, rules) {

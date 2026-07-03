@@ -120,11 +120,28 @@ function personalityCompatibility(agent, other) {
   const otherO = other.personality?.ocean;
   if (!myO || !otherO) return 0.5;
 
-  const opennessDiff = Math.abs(myO.openness - otherO.openness);
-  const agreeDiff = Math.abs(myO.agreeableness - otherO.agreeableness);
-  const extraDiff = Math.abs(myO.extraversion - otherO.extraversion);
-  const consDiff = Math.abs(myO.conscientiousness - otherO.conscientiousness);
-  const neuroDiff = Math.abs(myO.neuroticism - otherO.neuroticism);
+  // R124-004: guard against NaN ocean values (defense-in-depth;
+  // Personality constructor validates, but direct mutation could bypass).
+  const myFinite = {
+    openness: Number.isFinite(myO.openness) ? myO.openness : 0.5,
+    agreeableness: Number.isFinite(myO.agreeableness) ? myO.agreeableness : 0.5,
+    extraversion: Number.isFinite(myO.extraversion) ? myO.extraversion : 0.5,
+    conscientiousness: Number.isFinite(myO.conscientiousness) ? myO.conscientiousness : 0.5,
+    neuroticism: Number.isFinite(myO.neuroticism) ? myO.neuroticism : 0.5,
+  };
+  const otherFinite = {
+    openness: Number.isFinite(otherO.openness) ? otherO.openness : 0.5,
+    agreeableness: Number.isFinite(otherO.agreeableness) ? otherO.agreeableness : 0.5,
+    extraversion: Number.isFinite(otherO.extraversion) ? otherO.extraversion : 0.5,
+    conscientiousness: Number.isFinite(otherO.conscientiousness) ? otherO.conscientiousness : 0.5,
+    neuroticism: Number.isFinite(otherO.neuroticism) ? otherO.neuroticism : 0.5,
+  };
+
+  const opennessDiff = Math.abs(myFinite.openness - otherFinite.openness);
+  const agreeDiff = Math.abs(myFinite.agreeableness - otherFinite.agreeableness);
+  const extraDiff = Math.abs(myFinite.extraversion - otherFinite.extraversion);
+  const consDiff = Math.abs(myFinite.conscientiousness - otherFinite.conscientiousness);
+  const neuroDiff = Math.abs(myFinite.neuroticism - otherFinite.neuroticism);
 
   const similarity = 1 - (
     opennessDiff * 0.25 +

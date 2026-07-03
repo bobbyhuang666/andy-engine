@@ -148,13 +148,27 @@ class EventDispatcher {
       if (agentAInst && agentBInst) {
         const valenceA = agentAInst.emotion.getValence();
         const valenceB = agentBInst.emotion.getValence();
+        // R124-001: guard against NaN valence (EmotionVector finiteOr guards
+        // prevent this normally, but direct mutation could bypass).
+        const safeValenceA = Number.isFinite(valenceA) ? valenceA : 0;
+        const safeValenceB = Number.isFinite(valenceB) ? valenceB : 0;
         // 双方情绪都好 → 更可能互动
-        interactionProb += (valenceA + valenceB) * 0.1;
+        interactionProb += (safeValenceA + safeValenceB) * 0.1;
         // 一方社交能量低 → 降低概率
-        interactionProb -= (1 - Math.min(agentAInst.socialEnergy, agentBInst.socialEnergy)) * 0.2;
+        // R124-002: guard against NaN socialEnergy (PhysiologyRuntime guards
+        // prevent this normally, but direct mutation could bypass).
+        const seA = Number.isFinite(agentAInst.socialEnergy) ? agentAInst.socialEnergy : 0.7;
+        const seB = Number.isFinite(agentBInst.socialEnergy) ? agentBInst.socialEnergy : 0.7;
+        interactionProb -= (1 - Math.min(seA, seB)) * 0.2;
       }
     }
-    if (this._rand() > Math.max(0.05, Math.min(0.95, interactionProb))) {
+    // R124-003: clamp interactionProb to [0.05, 0.95] only if finite.
+    // NaN interactionProb → Math.max/min returns NaN → rand() > NaN always false
+    // → ALL events fire deterministically, bypassing probabilistic filter.
+    const clampedProb = Number.isFinite(interactionProb)
+      ? Math.max(0.05, Math.min(0.95, interactionProb))
+      : 0.3;
+    if (this._rand() > clampedProb) {
       return null;
     }
 

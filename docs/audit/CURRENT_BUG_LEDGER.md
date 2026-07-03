@@ -2724,6 +2724,88 @@ This section records the R123 post-review findings. 3 MEDIUM findings fixed.
 | External review | `opencode run --pure -m agnes/agnes-2.0-flash` reviewed the diff; the valid finding (missing `behaviorParams` guard) was fixed before commit. |
 | Status | Fixed and verified. |
 
+## R124 - EventDispatcher/InteractionFacade/WorldPressure Edge Cases
+
+This section records the R124 audit findings. 6 MEDIUM findings fixed.
+
+### R124-001
+
+| Field | Detail |
+|---|---|
+| ID | R124-001 |
+| Severity | Medium |
+| Audit finding | `EventDispatcher._evaluateEncounter()` reads `agentAInst.emotion.getValence()` and `agentBInst.emotion.getValence()` without finite guards. NaN valence → NaN interactionProb → `Math.max(0.05, Math.min(0.95, NaN))` = NaN → `rand() > NaN` always false → ALL encounters fire deterministically, bypassing probabilistic filter. |
+| Evidence | EventDispatcher.js:149-152 — valence unvalidated |
+| Fix | Added `Number.isFinite()` guards on both valence values; defaults to 0 if non-finite. |
+| Files | `src/runtime/EventDispatcher.js:149-152` |
+| Re-verification | Full `npm test`: 3271 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R124-002
+
+| Field | Detail |
+|---|---|
+| ID | R124-002 |
+| Severity | Medium |
+| Audit finding | `EventDispatcher._evaluateEncounter()` reads `agentAInst.socialEnergy` and `agentBInst.socialEnergy` without finite guards. NaN socialEnergy → NaN in `(1 - Math.min(NaN, x))` → NaN interactionProb → all encounters fire deterministically. |
+| Evidence | EventDispatcher.js:154 — socialEnergy unvalidated |
+| Fix | Added `Number.isFinite()` guards on both socialEnergy values; defaults to 0.7 if non-finite. |
+| Files | `src/runtime/EventDispatcher.js:154-156` |
+| Re-verification | Full `npm test`: 3271 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R124-003
+
+| Field | Detail |
+|---|---|
+| ID | R124-003 |
+| Severity | Medium |
+| Audit finding | `EventDispatcher._evaluateEncounter()` clamps `interactionProb` with `Math.max(0.05, Math.min(0.95, interactionProb))` without finite guard. NaN interactionProb → NaN clamp result → `rand() > NaN` always false. Even with valence/socialEnergy guards, a corrupted `strength` value could produce NaN interactionProb. |
+| Evidence | EventDispatcher.js:157 — interactionProb unvalidated before clamp |
+| Fix | Added `Number.isFinite()` check: if interactionProb is non-finite, use default 0.3. |
+| Files | `src/runtime/EventDispatcher.js:157-160` |
+| Re-verification | Full `npm test`: 3271 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R124-004
+
+| Field | Detail |
+|---|---|
+| ID | R124-004 |
+| Severity | Medium |
+| Audit finding | `InteractionFacade.personalityCompatibility()` reads all 5 `personality.ocean.*` values without finite guards. NaN ocean value → NaN diff → NaN similarity → `Math.max(0, Math.min(1, NaN))` = NaN, corrupting interaction valence calculations. |
+| Evidence | InteractionFacade.js:123-127 — all 5 ocean reads unvalidated |
+| Fix | Added `finiteOr()`-style `Number.isFinite()` guards on both agents' ocean values; defaults to 0.5 if non-finite. |
+| Files | `src/agent/facade/InteractionFacade.js:119-135` |
+| Re-verification | Full `npm test`: 3271 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R124-005
+
+| Field | Detail |
+|---|---|
+| ID | R124-005 |
+| Severity | Medium |
+| Audit finding | `EventEffectPipeline._calculateImportance()` returns `Math.min(1.0, importance)` without finite guard. If `fact.participants` or `fact.scope` were corrupted to produce non-finite importance, `Math.min` would return NaN, propagating to `FutureTendencyDelta` which stores it unguarded. |
+| Evidence | EventEffectPipeline.js:288-292 — importance unvalidated |
+| Fix | Added `Number.isFinite()` check: if importance is non-finite, return default 0.3. |
+| Files | `src/effects/EventEffectPipeline.js:288-294` |
+| Re-verification | Full `npm test`: 3271 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R124-006
+
+| Field | Detail |
+|---|---|
+| ID | R124-006 |
+| Severity | Medium |
+| Audit finding | `WorldPressure.compute()` sums 4 pressure components then clamps with `Math.max(0, Math.min(1, sum))` without finite guard. If any component is NaN (from corrupted agent/event data), the sum is NaN → total pressure becomes NaN → downstream consumers (UtilityScorer, ActionCandidate) receive NaN pressure values. |
+| Evidence | WorldPressure.js:30-32 — sum unvalidated before clamp |
+| Fix | Added `Number.isFinite()` check on raw total; defaults to 0 if non-finite. |
+| Files | `src/pressure/WorldPressure.js:27-33` |
+| Re-verification | Full `npm test`: 3271 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
