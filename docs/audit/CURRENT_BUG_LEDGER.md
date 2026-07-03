@@ -1955,6 +1955,38 @@ verified clean — zero confirmed bugs.
 | Finding | `Schedule` constructor accepts `config` parameter with `entries` array. No hardcoded values that should be configurable. Time calculations use seeded RNG, not wall-clock. |
 | Status | Clean. No action. |
 
+## R107 - EffectCommitter + Time Propagation + Agent Facade Re-Audit
+
+This section records the R107 manual audit results. All 3 scanned areas were
+verified clean — zero confirmed bugs.
+
+### R107-EFFECTCOMMITTER-GUARDS (CLEAN)
+
+| Field | Detail |
+|---|---|
+| ID | R107-EFFECTCOMMITTER-GUARDS |
+| Severity | N/A — clean |
+| Finding | All `_applyXxxDelta` methods in EffectCommitter have `Number.isFinite` guards on every numeric input (needs at line 98, stress at line 119, importance at lines 151/155, valence at line 183, weight at line 226). No unguarded numeric writes found. |
+| Status | Clean. No action. |
+
+### R107-TIME-PROPAGATION (CLEAN)
+
+| Field | Detail |
+|---|---|
+| ID | R107-TIME-PROPAGATION |
+| Severity | N/A — clean |
+| Finding | All `new Date()` calls in `src/runtime/` and `src/agent/` are intentional: serialization conversion (`new Date(evtTime)`), time cloning (`new Date(this.clock.time)`), future computation (`new Date(this.clock.time.getTime() + delayMs)`). No bare `new Date()` wall-clock leaks found. |
+| Status | Clean. No action. |
+
+### R107-AGENT-FACADE (CLEAN)
+
+| Field | Detail |
+|---|---|
+| ID | R107-AGENT-FACADE |
+| Severity | N/A — clean |
+| Finding | `agent/Agent.js` has no direct state mutations. `this.position = subs.position` is subsystem assignment. Lines 190-210 are read-only (emotion/needs for prompt). No writes to `agent.emotion.current`, `agent.memory`, `agent.needs`, `agent.relationship` found. |
+| Status | Clean. No action. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
