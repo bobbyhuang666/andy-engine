@@ -397,6 +397,9 @@ class AndyWorld {
 
     // ─── Phase 1: TIME_ADVANCE ───
     this.clock.advance(minutesElapsed);
+    // Must set simTime early so Phase 2 weather changes (setWeather → createEvent)
+    // use the current tick's simulation time, not the previous tick's stale value.
+    this.eventDispatcher.setSimTime(this.clock.time);
     result.tickNumber = this.clock.tickCount;
     result.phase.timeAdvance = { minutesElapsed, newTime: this.clock.toISOString() };
 
@@ -490,7 +493,6 @@ class AndyWorld {
     result.phase.agentThink = { agentCount: this.agents.size, results: agentResults };
 
     // ─── Phase 5: INTERACTION ───
-    this.eventDispatcher.setSimTime(this.clock.time);
     let interactionEvents;
     if (this.spatial) {
       interactionEvents = this._evaluateSpatialInteractions(env);

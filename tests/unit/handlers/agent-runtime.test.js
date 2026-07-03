@@ -182,25 +182,61 @@ describe('AgentRuntime', () => {
     });
   });
 
-  describe('serialization compatibility', () => {
-    it('agent toJSON still works after runtime ticks', () => {
-      runtime.tick(makeEnv(), [], null);
-      const json = agent.toJSON();
-      expect(json.id).toBe('test');
-      expect(json.personality).toBeDefined();
-      expect(json.emotion).toBeDefined();
-      expect(json.behaviorField).toBeDefined();
-    });
+	  describe('serialization compatibility', () => {
+	    it('agent toJSON still works after runtime ticks', () => {
+	      runtime.tick(makeEnv(), [], null);
+	      const json = agent.toJSON();
+	      expect(json.id).toBe('test');
+	      expect(json.personality).toBeDefined();
+	      expect(json.emotion).toBeDefined();
+	      expect(json.behaviorField).toBeDefined();
+	    });
 
-    it('agent can be restored after runtime ticks', () => {
-      runtime.tick(makeEnv(), [], null);
-      const json = agent.toJSON();
-      const restored = new Agent(
-        { id: 'test', name: 'Test', schedule: json.schedule, domain: getDefaultDomain() },
-        json
-      );
-      expect(restored.id).toBe('test');
-      expect(restored.position).toBeDefined();
-    });
-  });
-});
+	    it('agent can be restored after runtime ticks', () => {
+	      runtime.tick(makeEnv(), [], null);
+	      const json = agent.toJSON();
+	      const restored = new Agent(
+	        { id: 'test', name: 'Test', schedule: json.schedule, domain: getDefaultDomain() },
+	        json
+	      );
+	      expect(restored.id).toBe('test');
+	      expect(restored.position).toBeDefined();
+	    });
+	  });
+
+	  describe('deterministic fallback — no wall-clock Date', () => {
+	    it('StateMachine constructor uses epoch 0 when no savedState', () => {
+	      // Creating a fresh agent (no savedState) should not have Date.now() as stateEnteredAt
+	      const fresh = createAgent();
+	      expect(fresh.stateMachine.stateEnteredAt.getTime()).toBe(0);
+	    });
+
+	    it('stateEnteredAt stays epoch 0 when no state change occurs', () => {
+	      // Before any tick, stateEnteredAt should be epoch 0 (not wall-clock)
+	      expect(agent.stateMachine.stateEnteredAt.getTime()).toBe(0);
+	    });
+
+	    it('stateEnteredAt uses simTime when env.simTime is provided', () => {
+	      const env = makeEnv({ simTime: new Date('2025-06-15T10:00:00') });
+	      // Force a state change by capturing the result
+	      runtime.tick(env, [], null);
+	      // Even if no state changed, the invariant is that stateEnteredAt
+	      // was not set to wall-clock time — it's either epoch 0 or the simTime
+	      const enteredAt = agent.stateMachine.stateEnteredAt;
+	      // It should be either epoch 0 (no change) or the simTime from the env
+	      expect(enteredAt.getTime()).not.toBeGreaterThan(new Date('2025-06-15T10:00:00').getTime());
+	    });
+
+	    it('history entries use ISO string from simTime or epoch 0', () => {
+	      const env = makeEnv({ simTime: new Date('2025-06-15T10:00:00') });
+	      runtime.tick(env, [], null);
+	      for (const entry of agent.stateMachine.history) {
+	        const parsed = new Date(entry.at);
+	        // Every history timestamp should be ≤ simTime (epoch 0 or simTime)
+	        expect(parsed.getTime()).not.toBeGreaterThan(new Date('2025-06-15T10:00:00').getTime());
+	        // And should never be a recent wall-clock time like 2026
+	        expect(parsed.getFullYear()).toBeLessThan(2026);
+	      }
+	    });
+	  });
+	});

@@ -702,6 +702,30 @@ class WorldFactStore {
   }
 
   /**
+   * Internal zero-copy accessor for hot-path read-only callers.
+   *
+   * Unlike _getByType(), this returns direct references to store-internal
+   * objects without deep-copying. Callers MUST NOT mutate the returned facts.
+   *
+   * Precedent: _hasActiveFact() at line ~442 also returns a zero-copy boolean
+   * and documents why copying is wasteful in hot paths.
+   *
+   * Current zero-copy callers (FactEmitter):
+   *   - emitAgentStateFacts() — builds a temporary Map<agentId, fact>
+   *   - emitRelationshipFacts() — builds a temporary Map<pairKey, fact>
+   *   - emitMemoryFacts() — builds a temporary Map<agentId+content, fact>
+   *
+   * @private
+   * @param {string} type
+   * @returns {Object[]}
+   */
+  _getByTypeReadOnly(type) {
+    const ids = this._byType.get(type);
+    if (!ids) return [];
+    return Array.from(ids).map(id => this._facts.get(id)).filter(Boolean);
+  }
+
+  /**
    * Convert a timestamp (Date or number) to milliseconds.
    * FactSchema accepts both Date and number for timestamp, but many call sites
    * need the numeric ms value for comparison/sort. This helper avoids the

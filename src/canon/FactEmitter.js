@@ -92,8 +92,10 @@ class FactEmitter {
 
     const facts = [];
     const now = this._getSimTime();
+    // Zero-copy read: emitAgentStateFacts only reads .agentId from returned
+    // facts to build a temporary lookup Map and never mutates the facts.
     const existingByAgentId = new Map(
-      this.store.getAgentStateFacts().map(f => [f.agentId, f]),
+      this.store._getByTypeReadOnly(FactType.AGENT_STATE).map(f => [f.agentId, f]),
     );
 
     for (const [agentId, agent] of agents) {
@@ -259,7 +261,9 @@ class FactEmitter {
     // 50 agents ≈ 1225 对关系,每 tick 调 1225 次 getRelationshipFacts(),实测
     // 50a×50t 耗时 23-31s(审计性能测试超 30s 阈值)。
     // 修复:循环外取一次,建 agent pair → fact 索引,循环内 O(1) 查。
-    const existingFacts = this.store.getRelationshipFacts();
+    // Zero-copy read: emitRelationshipFacts only reads .agentA, .agentB from
+    // returned facts to build a temporary lookup Map and never mutates the facts.
+    const existingFacts = this.store._getByTypeReadOnly(FactType.RELATIONSHIP);
     const pairIndex = new Map();
     for (const f of existingFacts) {
       // 用有序 pair 作 key,使 (A,B) 与 (B,A) 命中同一条
@@ -319,8 +323,10 @@ class FactEmitter {
 
     const facts = [];
     const now = this._getSimTime();
+    // Zero-copy read: emitMemoryFacts only reads .agentId, .content from
+    // returned facts to build a temporary lookup Map and never mutates the facts.
     const existingByAgentAndContent = new Map();
-    for (const fact of this.store.getMemoryFacts()) {
+    for (const fact of this.store._getByTypeReadOnly(FactType.MEMORY)) {
       existingByAgentAndContent.set(`${fact.agentId}\u0000${fact.content}`, fact);
     }
 

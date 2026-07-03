@@ -33,7 +33,7 @@ class StateMachine {
       this.history = [...(savedState.history || [])];
     } else {
       this.currentState = initialState || this.domain.fallback.defaultState;
-      this.stateEnteredAt = new Date();
+      this.stateEnteredAt = new Date(0); // deterministic sentinel — simTime provided via tick()
       this.history = [];
     }
   }

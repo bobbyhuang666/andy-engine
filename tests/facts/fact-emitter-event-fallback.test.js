@@ -76,7 +76,7 @@ describe('FactEmitter memory fact performance guards', () => {
   it('emitMemoryFacts indexes existing memory facts once per call', () => {
     const store = new WorldFactStore();
     const emitter = new FactEmitter(store);
-    const getMemoryFactsSpy = vi.spyOn(store, 'getMemoryFacts');
+    const getMemoryFactsSpy = vi.spyOn(store, '_getByTypeReadOnly');
     const agents = new Map([
       ['alice', {
         memory: {
@@ -141,7 +141,7 @@ describe('FactEmitter agent state performance guards', () => {
   it('emitAgentStateFacts indexes existing state facts once per call', () => {
     const store = new WorldFactStore();
     const emitter = new FactEmitter(store);
-    const getAgentStateFactsSpy = vi.spyOn(store, 'getAgentStateFacts');
+    const getAgentStateFactsSpy = vi.spyOn(store, '_getByTypeReadOnly');
     const agents = new Map([
       ['alice', {
         stateMachine: { currentState: 'focused' },
@@ -166,6 +166,6 @@ describe('FactEmitter agent state performance guards', () => {
 
     expect(facts).toHaveLength(3);
     expect(store.getAgentStateFacts()).toHaveLength(3);
-    expect(getAgentStateFactsSpy).toHaveBeenCalledTimes(3);
+    expect(getAgentStateFactsSpy).toHaveBeenCalledTimes(2);
   });
 });

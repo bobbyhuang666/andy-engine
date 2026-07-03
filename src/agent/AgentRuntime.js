@@ -174,11 +174,11 @@ class AgentRuntime {
         to: behaviorResult.label,
         time: env.simTime?.toISOString(),
       });
-      agent.stateMachine.stateEnteredAt = env.simTime || new Date();
+      agent.stateMachine.stateEnteredAt = env.simTime || new Date(0); // deterministic sentinel
       agent.stateMachine.history.push({
         from: prevLabel,
         to: behaviorResult.label,
-        at: (env.simTime || new Date()).toISOString(),
+        at: (env.simTime || new Date(0)).toISOString(),
       });
       if (agent.stateMachine.history.length > 20) {
         agent.stateMachine.history = agent.stateMachine.history.slice(-20);

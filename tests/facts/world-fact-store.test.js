@@ -649,6 +649,71 @@ describe('WorldFactStore - 持久化', () => {
 });
 
 // ═══════════════════════════════════════════
+// _getByTypeReadOnly — zero-copy hot path
+// ═══════════════════════════════════════════
+
+describe('WorldFactStore - _getByTypeReadOnly zero-copy', () => {
+  let store;
+
+  beforeEach(() => {
+    store = new WorldFactStore();
+    store.addFact(makeAgentState({ agentId: 'alice', state: '看书' }));
+    store.addFact(makeAgentState({ agentId: 'bob', state: '跑步' }));
+    store.addFact(makeRelationship({ agentA: 'alice', agentB: 'bob', relationType: '朋友' }));
+    store.addFact(makeMemory({ agentId: 'alice', content: '今天很开心' }));
+  });
+
+  it('应该返回与 _getByType 相同数量的事实', () => {
+    const readOnly = store._getByTypeReadOnly(FactType.AGENT_STATE);
+    const safeCopy = store.getAgentStateFacts();
+    expect(readOnly).toHaveLength(safeCopy.length);
+    expect(readOnly).toHaveLength(2);
+  });
+
+  it('应该返回与 _getByType 相同的事实 ID', () => {
+    const readOnly = store._getByTypeReadOnly(FactType.RELATIONSHIP);
+    const safeCopy = store.getRelationshipFacts();
+    expect(readOnly[0].id).toBe(safeCopy[0].id);
+  });
+
+  it('应该返回与 _getByType 相同的字段值', () => {
+    const readOnly = store._getByTypeReadOnly(FactType.AGENT_STATE);
+    const safeCopy = store.getAgentStateFacts();
+    for (let i = 0; i < readOnly.length; i++) {
+      expect(readOnly[i].agentId).toBe(safeCopy[i].agentId);
+      expect(readOnly[i].state).toBe(safeCopy[i].state);
+      expect(readOnly[i].type).toBe(safeCopy[i].type);
+    }
+  });
+
+  it('非变异操作对两种路径结果一致', () => {
+    // Filter/built-in read operations should behave identically
+    const readOnly = store._getByTypeReadOnly(FactType.MEMORY);
+    const safeCopy = store.getMemoryFacts();
+    const roFiltered = readOnly.filter(f => f.agentId === 'alice');
+    const scFiltered = safeCopy.filter(f => f.agentId === 'alice');
+    expect(roFiltered).toHaveLength(scFiltered.length);
+  });
+
+  it('对不存在的类型返回空数组', () => {
+    expect(store._getByTypeReadOnly('NONEXISTENT')).toEqual([]);
+  });
+
+  it('_getByTypeReadOnly 返回内部引用（变异会污染 store）', () => {
+    // This test demonstrates zero-copy: mutating the returned object affects
+    // the store. This is the documented risk — callers must not mutate.
+    const readOnly = store._getByTypeReadOnly(FactType.AGENT_STATE);
+    const originalState = readOnly[0].state;
+    readOnly[0].state = '被污染';
+    // The store's internal fact is also mutated (zero-copy)
+    const verify = store._getByTypeReadOnly(FactType.AGENT_STATE);
+    expect(verify[0].state).toBe('被污染');
+    // Clean up: restore state
+    readOnly[0].state = originalState;
+  });
+});
+
+// ═══════════════════════════════════════════
 // 统计
 // ═══════════════════════════════════════════
 
