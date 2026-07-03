@@ -20,8 +20,8 @@
 | External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
-| Current gate snapshot | 2026-07-03 R98 BehaviorField nested weights repair: targeted behavior/config/serialization suite 147 passed; `npm test` 3253 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` passed; `npm run typecheck` clean; `npm run smoke:pack` 19 passed; `npm run perf:check` all PASS in 3-run median mode; `git diff --check` clean. Older detailed R48-R97 gate lineage remains below as provenance. |
-| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`. R98 records the latest nested-config repair and is the next verified baseline in this ledger. |
+| Current gate snapshot | 2026-07-03 R99 IntrinsicMotivation domain map repair: targeted intrinsic/config/serialization suite 86 passed; `npm test` 3258 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` passed; `npm run typecheck` clean; `npm run smoke:pack` 19 passed; `npm run perf:check` all PASS in 3-run median mode; `git diff --check` clean. Older detailed R48-R98 gate lineage remains below as provenance. |
+| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`. R99 records the latest config-chain repair and is the next verified baseline in this ledger. |
 
 ## How To Use This Ledger
 
@@ -1651,6 +1651,27 @@ The round checked restore/fromJSON and remaining partial nested config paths.
 | Files | `src/agent/psychology/BehaviorField.js`; `src/config/validate.js`; `tests/behavior-field.test.js`; `tests/unit/config/validate-config.test.js`; `tests/unit/serialization-roundtrip.test.js` |
 | Regression test | `npx vitest run tests/behavior-field.test.js tests/unit/config/validate-config.test.js tests/unit/serialization-roundtrip.test.js --no-color` -> 147 passed. New tests cover partial behavior weights, finite gradient/B output, behavior config validation, and fromJSON config restore. |
 | Re-verification | `npm test -- --no-color` -> 3253 passed / 28 skipped; `npm run test:domain -- --no-color` -> 82 passed; `npm run check:boundaries -- --no-color` -> passed; `npm run typecheck` -> clean; `npm run smoke:pack -- --no-color` -> 19 passed; `npm run perf:check -- --no-color` -> all PASS; `git diff --check` -> clean. |
+| Status | Fixed and verified. |
+
+## R99 - IntrinsicMotivation Domain Map Config Repair
+
+This section records the final config-chain repair in the R96-R99 nested config
+hardening line. The round checked domain/user config merges and static restore
+paths after the BehaviorField fix.
+
+### R99-INTRINSIC-DOMAIN-MAP-1
+
+| Field | Detail |
+|---|---|
+| ID | R99-INTRINSIC-DOMAIN-MAP-1 |
+| Severity | P1 quality gate / P2 runtime behavior |
+| Audit finding | `IntrinsicMotivation` merged defaults, domain config, and user config with a shallow spread. A partial user `domainRegionMap` override replaced the entire preset domain map, silently dropping mappings such as campus `图书馆自习 -> 图书馆` or tavern `森林探索 -> 森林`. Static `fromJSON()` also had no config parameter, so isolated restore callers could not preserve custom IM config. |
+| Evidence | Before fix, `new IntrinsicMotivation(p, null, campusDomain, null, { domainRegionMap: { customState: '校园广场' } })` produced `_imConfig.domainRegionMap` containing only `customState`; `_domainToRegion('图书馆自习', '宿舍')` fell back to another region instead of `图书馆`. |
+| Verification verdict | Confirmed by deterministic local repro. External-free `agnes/agnes-2.0-flash` reviewed the diff and returned "Patch is correct and well-tested"; it found no issues and noted only that future additional nested IM config keys would need explicit merge handling. |
+| Fix | Added `mergeIntrinsicMotivationConfig()` with domain/user `domainRegionMap` merge; constructor and static `fromJSON()` use the same merge path; added static `mergeConfig()` helper; extended validation for additional intrinsic numeric fields, `domainRegionMap`, and `explorationStates`. |
+| Files | `src/agent/psychology/IntrinsicMotivation.js`; `src/config/validate.js`; `tests/unit/intrinsic-domain.test.js`; `tests/unit/config/validate-config.test.js`; `tests/unit/serialization-roundtrip.test.js` |
+| Regression test | `npx vitest run tests/unit/intrinsic-domain.test.js tests/unit/config/validate-config.test.js tests/unit/serialization-roundtrip.test.js --no-color` -> 86 passed. New tests cover partial user domainRegionMap preserving preset maps, fromJSON config propagation, and new validation paths. |
+| Re-verification | `npm test -- --no-color` -> 3258 passed / 28 skipped; `npm run test:domain -- --no-color` -> 82 passed; `npm run check:boundaries -- --no-color` -> passed; `npm run typecheck` -> clean; `npm run smoke:pack -- --no-color` -> 19 passed; `npm run perf:check -- --no-color` -> all PASS; `git diff --check` -> clean. |
 | Status | Fixed and verified. |
 
 ## Active Latent / Deferred Backlog

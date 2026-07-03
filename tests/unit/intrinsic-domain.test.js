@@ -21,4 +21,17 @@ describe('IntrinsicMotivation domain boundaries', () => {
     expect(goal.target).not.toBe('宿舍');
     expect(goal.target).not.toBe('食堂');
   });
+
+  it('partial user domainRegionMap preserves preset domain mappings', () => {
+    const personality = new Personality({ mbti: 'INFP' });
+    const domain = new DomainRegistry(tavernDomain);
+    const intrinsic = new IntrinsicMotivation(personality, null, domain, null, {
+      domainRegionMap: { customCraft: '铁匠铺' },
+    });
+
+    expect(intrinsic._imConfig.domainRegionMap['森林探索']).toBe('森林');
+    expect(intrinsic._imConfig.domainRegionMap.customCraft).toBe('铁匠铺');
+    expect(intrinsic._domainToRegion('森林探索', '小屋')).toBe('森林');
+    expect(intrinsic._domainToRegion('customCraft', '小屋')).toBe('铁匠铺');
+  });
 });

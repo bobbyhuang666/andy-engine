@@ -32,6 +32,19 @@
 const { ANDY_DEFAULTS } = require('../../config/defaults');
 
 const { RNG } = require('../../shared/rng');
+
+function mergeIntrinsicMotivationConfig(defaultConfig, domainConfig = {}, userConfig = {}) {
+  return {
+    ...defaultConfig,
+    ...(domainConfig || {}),
+    ...(userConfig || {}),
+    domainRegionMap: {
+      ...(domainConfig?.domainRegionMap || {}),
+      ...(userConfig?.domainRegionMap || {}),
+    },
+  };
+}
+
 class IntrinsicMotivation {
   /**
    * @param {Object} personality - Personality 实例
@@ -48,7 +61,7 @@ class IntrinsicMotivation {
     this._rng = rng || new RNG(0);
     const domainConfig = (domain && domain.intrinsicMotivationConfig) || {};
     const userConfig = config || {};
-    this._imConfig = { ...cfg, ...domainConfig, ...userConfig };
+    this._imConfig = mergeIntrinsicMotivationConfig(cfg, domainConfig, userConfig);
 
     if (savedState) {
       this.curiosity = Number.isFinite(savedState.curiosity) ? savedState.curiosity : 0.5;
@@ -880,9 +893,13 @@ class IntrinsicMotivation {
    * @param {Object} [rng] - RNG 实例
    * @returns {IntrinsicMotivation}
    */
-  static fromJSON(json, personality = null, domain = null, rng = null) {
+  static fromJSON(json, personality = null, domain = null, rng = null, config = null) {
     const p = personality || { behavior: { noveltySeeking: 0.5, competenceMotivation: 0.5, explorationDrive: 0.5 } };
-    return new IntrinsicMotivation(p, json, domain, rng);
+    return new IntrinsicMotivation(p, json, domain, rng, config);
+  }
+
+  static mergeConfig(defaultConfig, domainConfig = {}, userConfig = {}) {
+    return mergeIntrinsicMotivationConfig(defaultConfig, domainConfig, userConfig);
   }
 }
 

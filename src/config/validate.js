@@ -187,8 +187,42 @@ function validateConfig(config) {
     if (im.needGateThreshold !== undefined) {
       checkRange(im.needGateThreshold, 0, 1, 'intrinsicMotivation.needGateThreshold', errors);
     }
+    if (im.forgettingHours !== undefined) {
+      checkRange(im.forgettingHours, 1, 10000, 'intrinsicMotivation.forgettingHours', errors);
+    }
+    if (im.goalGenerationInterval !== undefined) {
+      checkRange(im.goalGenerationInterval, 1, 10000, 'intrinsicMotivation.goalGenerationInterval', errors);
+    }
     if (im.maxActiveGoals !== undefined) {
       checkRange(im.maxActiveGoals, 1, 10, 'intrinsicMotivation.maxActiveGoals', errors);
+    }
+    if (im.goalDeadlineHours !== undefined) {
+      checkRange(im.goalDeadlineHours, 1, 10000, 'intrinsicMotivation.goalDeadlineHours', errors);
+    }
+    if (im.curiositySatisfyOnNovelty !== undefined) {
+      checkRange(im.curiositySatisfyOnNovelty, 0, 1, 'intrinsicMotivation.curiositySatisfyOnNovelty', errors);
+    }
+    if (im.domainRegionMap !== undefined) {
+      if (!im.domainRegionMap || typeof im.domainRegionMap !== 'object' || Array.isArray(im.domainRegionMap)) {
+        errors.push('intrinsicMotivation.domainRegionMap 必须是对象');
+      } else {
+        for (const [key, value] of Object.entries(im.domainRegionMap)) {
+          if (typeof value !== 'string') {
+            errors.push(`intrinsicMotivation.domainRegionMap.${key} 必须是字符串，当前值: ${value}`);
+          }
+        }
+      }
+    }
+    if (im.explorationStates !== undefined) {
+      if (!Array.isArray(im.explorationStates)) {
+        errors.push('intrinsicMotivation.explorationStates 必须是数组');
+      } else {
+        for (const [index, value] of im.explorationStates.entries()) {
+          if (typeof value !== 'string') {
+            errors.push(`intrinsicMotivation.explorationStates.${index} 必须是字符串，当前值: ${value}`);
+          }
+        }
+      }
     }
   }
 

@@ -162,6 +162,20 @@ describe('Wave 4 — serialization round-trip', () => {
       im._lastGoalId = 2;
       roundTrip(IntrinsicMotivation, im, null, campusDomain);
     });
+
+    it('fromJSON accepts partial intrinsic domainRegionMap without dropping domain defaults', () => {
+      const im = new IntrinsicMotivation(personality, null, campusDomain);
+      const restored = IntrinsicMotivation.fromJSON(
+        im.toJSON(),
+        personality,
+        campusDomain,
+        null,
+        { domainRegionMap: { customStudy: '图书馆' } }
+      );
+
+      expect(restored._imConfig.domainRegionMap['图书馆自习']).toBe('图书馆');
+      expect(restored._imConfig.domainRegionMap.customStudy).toBe('图书馆');
+    });
   });
 
   // ── StateMachine ───────────────────────────────────────────────

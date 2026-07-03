@@ -200,6 +200,26 @@ describe('validateConfig — intrinsicMotivation block', () => {
   it('rejects maxActiveGoals below 1', () => {
     expect(() => validateConfig({ intrinsicMotivation: { maxActiveGoals: 0 } })).toThrow(/intrinsicMotivation\.maxActiveGoals/);
   });
+  it('rejects additional intrinsicMotivation numeric values out of range', () => {
+    expect(() => validateConfig({ intrinsicMotivation: { forgettingHours: 0 } })).toThrow(/intrinsicMotivation\.forgettingHours/);
+    expect(() => validateConfig({ intrinsicMotivation: { goalGenerationInterval: 0 } })).toThrow(/intrinsicMotivation\.goalGenerationInterval/);
+    expect(() => validateConfig({ intrinsicMotivation: { goalDeadlineHours: 0 } })).toThrow(/intrinsicMotivation\.goalDeadlineHours/);
+    expect(() => validateConfig({ intrinsicMotivation: { curiositySatisfyOnNovelty: 2 } })).toThrow(/intrinsicMotivation\.curiositySatisfyOnNovelty/);
+  });
+  it('validates intrinsicMotivation domain maps and exploration states', () => {
+    expect(() => validateConfig({ intrinsicMotivation: { domainRegionMap: [] } })).toThrow(/intrinsicMotivation\.domainRegionMap/);
+    expect(() => validateConfig({ intrinsicMotivation: { domainRegionMap: { study: 123 } } })).toThrow(/intrinsicMotivation\.domainRegionMap\.study/);
+    expect(() => validateConfig({ intrinsicMotivation: { explorationStates: 'study' } })).toThrow(/intrinsicMotivation\.explorationStates/);
+    expect(() => validateConfig({ intrinsicMotivation: { explorationStates: ['study', 123] } })).toThrow(/intrinsicMotivation\.explorationStates\.1/);
+  });
+  it('allows partial intrinsicMotivation domainRegionMap overrides', () => {
+    expect(() => validateConfig({
+      intrinsicMotivation: {
+        domainRegionMap: { customStudy: '图书馆' },
+        explorationStates: ['在图书馆'],
+      },
+    })).not.toThrow();
+  });
 });
 
 // ═══════════════════════════════════════════
