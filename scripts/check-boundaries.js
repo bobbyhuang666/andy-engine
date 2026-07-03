@@ -1409,9 +1409,9 @@ const CORE_RANDOM_TIME_DIRS = [
 
 const CORE_RANDOM_TIME_ALLOWLIST = {
   'src/runtime/AndyWorld.js': {
-    'Date.now': 3,
-    'Math.random': 1,
-    reason: 'unseeded autoSeed initialization plus tick duration metrics',
+    'Date.now': 2,
+    'Math.random': 0,
+    reason: 'tick duration metrics only; Math.random auto-seed removed in R95',
   },
   'agent/Agent.js': {
     'Date.now': 0,

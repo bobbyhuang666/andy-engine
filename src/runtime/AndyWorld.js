@@ -38,15 +38,10 @@ class AndyWorld {
     // ─── Domain & RNG ───
     if (!domain) throw new Error('AndyWorld requires a domain config');
     this.domain = domain;
-    // RFC RNG_STRICTNESS: Engine 恒持 RNG 实例。上游未传时内部生成种子，
-    // 使核心模拟路径不再出现 `? Math.random()` 回退。此处的 Math.random
-    // 是 unseeded mode 的种子生成，是核心路径唯一可接受的 Math.random。
-    if (rng) {
-      this.rng = rng;
-    } else {
-      const autoSeed = (Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0;
-      this.rng = new RNG(autoSeed);
-    }
+    // R95: eliminate bare Math.random() from core simulation path.
+    // Engine must be seeded deterministically; pass explicit `rng` for
+    // reproducible runs. Default seed 0 matches subsystem fallback pattern.
+    this.rng = rng || new RNG(0);
     if (savedState && savedState.rngState !== undefined) {
       this.rng.setState(savedState.rngState);
     }
@@ -179,7 +174,8 @@ class AndyWorld {
 
     // ─── 社交图谱 ───
     this.socialGraph = new SocialGraph(
-      savedState ? savedState.socialGraph : null
+      savedState ? savedState.socialGraph : null,
+      config.relationship || null
     );
 
     // ─── 事件系统 ───

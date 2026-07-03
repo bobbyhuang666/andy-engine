@@ -69,6 +69,9 @@ This changes sequencing:
 | NaN guard: EmotionRegulation tryRegulate | Closed in R94 | `tryRegulate` could propagate NaN from corrupted emotion state through `getValence`/`getArousal` into `_regulationResource`. Added finite guard returning null early. |
 | NaN guard: EmotionRegulation attention deployment | Closed in R94 | `_execAttentionDeployment` iterated `recallEmotionDelta` without finite guard on values. Added `Number.isFinite(value)` check to skip NaN entries. |
 | Boundary: AndyBridge restore clamp | Closed in R94 | `_restoreAgents` raw-assigned emotion.current/needs.needs without calling `_clamp()`. Added `_clamp()` calls after restore loops; added `_clamp()` to NeedsSystem. |
+| Relationship config injection | Closed in R95 | `Relationship.js` had config param but 2 remaining `cfg.X` references (decayRate, threshold) bypassed it. Fixed to `this._cfg.X`. `SocialGraph.js` config was already complete. |
+| AndyWorld Math.random auto-seed removal | Closed in R95 | AndyWorld used `Math.random()` to generate auto-seed when no RNG provided. Replaced with deterministic `new RNG(0)` default. Updated boundary allowlist. |
+| Dead config: SpatialEngine baseProb/distanceDecay | Closed in R95 | `SpatialEngine` stored `baseProb` and `distanceDecay` from config but never used them. Removed dead config chain from defaults, SpatialEngine, and AndyWorld. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

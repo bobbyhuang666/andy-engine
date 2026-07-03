@@ -1538,6 +1538,57 @@ config removal (P3).
 | Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
 | Status | Fixed and verified. |
 
+## R95 - Relationship Config Completion + Math.random Auto-Seed Elimination
+
+This section records three scoped no-quota fixes: two remaining cfg.X
+references in Relationship.js (P2), AndyWorld Math.random auto-seed removal
+(P2), and dead SpatialEngine config cleanup (P3).
+
+### R95-RELATIONSHIP-CONFIG-1
+
+| Field | Detail |
+|---|---|
+| ID | R95-RELATIONSHIP-CONFIG-1 |
+| Severity | P2 |
+| Audit finding | `Relationship.js` already had config injection (constructor accepts `config` parameter, `this._cfg = { ...cfg, ...(config || {}) }` merge), but two remaining module-level `cfg.X` references bypassed the instance config: `cfg.decayRate` at line 181 (effectiveDecay calculation) and `cfg.threshold` at line 212 (_updateType hysteresis thresholds). These two references silently ignored user-supplied relationship tuning for decay rate and type thresholds. `SocialGraph.js` config injection was already complete (no remaining cfg.X references). |
+| Evidence | `Relationship.js:181` — `cfg.decayRate * (1 - Math.min(safeBond * 0.1, 0.5))`. `Relationship.js:212` — `const t = cfg.threshold`. All other cfg.X references already use `this._cfg.X`. |
+| Verification verdict | Confirmed by independent Verification AI. Two remaining module-level references bypassed instance config. SocialGraph config injection was already complete. |
+| Fix | Changed `cfg.decayRate` → `this._cfg.decayRate` at line 181 and `cfg.threshold` → `this._cfg.threshold` at line 212. Relationship.js now has zero module-level cfg.X references. |
+| Files | `src/social/Relationship.js` |
+| Regression test | 3233 tests pass / 28 skipped. No behavioral change when no config provided. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
+| Status | Fixed and verified. |
+
+### R95-RANDOM-SEED-1
+
+| Field | Detail |
+|---|---|
+| ID | R95-RANDOM-SEED-1 |
+| Severity | P2 |
+| Audit finding | `AndyWorld.js:47` — `const autoSeed = (Date.now() ^ (Math.random() * 0xFFFFFFFF)) >>> 0; this.rng = new RNG(autoSeed);` used bare `Math.random()` to generate the auto-seed when no `rng` was passed. This violated the seeded RNG rule: no bare `Math.random()` in core simulation paths. The `Math.random()` made the first tick sequence non-reproducible across runs. |
+| Evidence | `AndyWorld.js:41-48` — auto-seed block with `Math.random()`. `check-boundaries.js:1413` — allowlisted `Math.random: 1` for AndyWorld.js with reason "unseeded autoSeed initialization". |
+| Verification verdict | Confirmed by independent Verification AI. `Math.random()` is non-deterministic and platform-dependent. Seeding the engine RNG from it makes simulation traces non-reproducible. Updated boundary allowlist to reflect removal. |
+| Fix | Replaced auto-seed block with deterministic default: `this.rng = rng || new RNG(0);`. Removed bare `Math.random()` entirely from AndyWorld. Updated `scripts/check-boundaries.js` allowlist: Math.random count from 1 to 0, Date.now count from 3 to 2. |
+| Files | `src/runtime/AndyWorld.js`; `scripts/check-boundaries.js` |
+| Regression test | 3233 tests pass / 28 skipped. `perf:check`: all passed. Boundary checks: all passed. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
+| Status | Fixed and verified. |
+
+### R95-DEADCONFIG-SPATIAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R95-DEADCONFIG-SPATIAL-1 |
+| Severity | P3 |
+| Audit finding | `SpatialEngine` stored `baseProb` and `distanceDecay` from config but never used them. `computeInteractions` shadows `baseProb` with a local `tierProbabilities[tier]` variable, and `distanceDecay` is never referenced in any method body. `ANDY_DEFAULTS.spatial.continuous` defined both keys, and `AndyWorld.js` passed them at construction, but neither parameter influenced interaction computation. |
+| Evidence | `SpatialEngine.js:368` — `const baseProb = tierProbabilities[tier] || 0` shadows config. `grep -rn "distanceDecay" src/spatial/` → zero method-body references. `grep -rn "baseProb" src/spatial/` → only the local shadow variable. `grep -rn "baseProb\|distanceDecay" src/config/defaults.js` → zero results after fix. |
+| Verification verdict | Confirmed by independent Verification AI. Dead config degrades trust in the configuration system. Removed from `ANDY_DEFAULTS.spatial.continuous`, `SpatialEngine` constructor, and `AndyWorld` construction call. |
+| Fix | Removed `baseProb` and `distanceDecay` from `ANDY_DEFAULTS.spatial.continuous` in defaults.js, from `SpatialEngine` constructor parameters and `this.config` assignments, and from `AndyWorld.js` spatial config construction. |
+| Files | `src/config/defaults.js`; `src/spatial/SpatialEngine.js`; `src/runtime/AndyWorld.js` |
+| Regression test | 3233 tests pass / 28 skipped. No behavioral change (dead code removal). |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

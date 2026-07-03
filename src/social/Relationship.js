@@ -24,14 +24,18 @@ class Relationship {
    * @param {string} agentA - Agent A 的 ID
    * @param {string} agentB - Agent B 的 ID
    * @param {Object} [savedState] - 恢复状态
+   * @param {Object} [config] - 用户配置（可选）
    */
-  constructor(agentA, agentB, savedState = null) {
+  constructor(agentA, agentB, savedState = null, config = null) {
     this.agentA = agentA;
     this.agentB = agentB;
 
+    // Instance-level config merge: user config overrides defaults
+    this._cfg = { ...cfg, ...(config || {}) };
+
     if (savedState) {
       this.type = savedState.type || 'stranger';
-      this.strength = Number.isFinite(savedState.strength) ? savedState.strength : cfg.initialStrength;
+      this.strength = Number.isFinite(savedState.strength) ? savedState.strength : this._cfg.initialStrength;
       // R23 P0 fix: guard against undefined/null lastInteraction.
       // new Date(undefined) → Invalid Date → toISOString() crashes;
       // new Date(null) → epoch (1970) which silently corrupts recency.
@@ -52,7 +56,7 @@ class Relationship {
       }));
     } else {
       this.type = 'stranger';
-      this.strength = cfg.initialStrength;
+      this.strength = this._cfg.initialStrength;
       this.lastInteraction = new Date(0); // epoch sentinel: deterministic fallback for new relationships
       this._hoursSinceLastInteraction = 0;
       this.interactionCount = 0;
@@ -87,7 +91,7 @@ class Relationship {
     // R41 H3 fix: NaN guard BEFORE branching decision, not after.
     // NaN < 0.55 → false, routing strength to the relational growth branch,
     // where _relationalInteractions increments and NaN propagates further.
-    if (!Number.isFinite(this.strength)) this.strength = cfg.initialStrength;
+    if (!Number.isFinite(this.strength)) this.strength = this._cfg.initialStrength;
 
     // 计算关系强度变化
     // R5 修复：调整 calculative→relational 阈值从 0.4 到 0.55，
@@ -95,14 +99,14 @@ class Relationship {
     let delta;
     if (this.strength < 0.55) {
       // calculative mode: 线性增长（R5: 阈值从 0.4 提高到 0.55）
-      delta = cfg.strengthIncrement * (1 + valence) * 0.6; // R5: 0.5→0.6 略增线性速度
+      delta = this._cfg.strengthIncrement * (1 + valence) * 0.6; // R5: 0.5→0.6 略增线性速度
     } else {
       // relational mode: 对数增长（收益递减）
       // 关键修复：使用 relationalInteractions（进入此模式后的交互次数）
       // 而非 interactionCount（全局），避免 calculative 阶段的交互拖累增长
       this._relationalInteractions++;
       const logFactor = Math.log2(this._relationalInteractions + 8); // R5: +4→+8 使初始增长更平滑
-      delta = cfg.strengthIncrement * (1 + valence) * 0.5 / logFactor;
+      delta = this._cfg.strengthIncrement * (1 + valence) * 0.5 / logFactor;
 
       // 深度交互奖励：高情感效价的交互比日常寒暄更有价值
       // |valence| > 0.5 的交互（深聊、冲突、帮助）增长加倍
@@ -121,7 +125,7 @@ class Relationship {
     if (valence < 0) {
       const negativity = Math.abs(valence);
       // 基础惩罚
-      let negDelta = -cfg.strengthDecrement * negativity;
+      let negDelta = -this._cfg.strengthDecrement * negativity;
       // 关系韧性：亲密关系对冲突有一定缓冲（修复：原先完全覆盖 delta，丢失关系深度信息）
       // 朋友间的争吵不会像陌生人之间的冲突那样破坏关系
       const resilience = Math.min(0.6, this.strength * 0.5);
@@ -132,7 +136,7 @@ class Relationship {
     // R41 H3 fix: NaN guard is now at the top of recordInteraction() (line 90).
     // The guard below was duplicated — kept for defense-in-depth if strength
     // was re-corrupted between the guard and here.
-    if (!Number.isFinite(this.strength)) this.strength = cfg.initialStrength;
+    if (!Number.isFinite(this.strength)) this.strength = this._cfg.initialStrength;
     this.strength = Math.max(0, Math.min(1, this.strength + delta));
 
     // 更新印象（R11: cap at 5.0 to prevent unbounded growth; bondStrength * 0.1
@@ -174,7 +178,7 @@ class Relationship {
     // If either impression is NaN, bondStrength is NaN → effectiveDecay is NaN →
     // decayFactor is NaN → this.strength becomes NaN via NaN multiplication.
     const safeBond = Number.isFinite(bondStrength) ? bondStrength : 0;
-    let effectiveDecay = cfg.decayRate * (1 - Math.min(safeBond * 0.1, 0.5));
+    let effectiveDecay = this._cfg.decayRate * (1 - Math.min(safeBond * 0.1, 0.5));
 
     // 关系冷却：长期不交互时衰减加速
     // 48小时无交互 → 1.5倍衰减
@@ -193,7 +197,7 @@ class Relationship {
     // R41 M4 fix: guard decayFactor against NaN before multiplication.
     // effectiveDecay can be NaN via bondStrength, and Math.exp(NaN) → NaN.
     const safeDecay = Number.isFinite(decayFactor) ? decayFactor : 1;
-    if (!Number.isFinite(this.strength)) this.strength = cfg.initialStrength;
+    if (!Number.isFinite(this.strength)) this.strength = this._cfg.initialStrength;
     this.strength = Math.max(0, this.strength * safeDecay);
 
     this._updateType();
@@ -205,7 +209,7 @@ class Relationship {
    * @private
    */
   _updateType() {
-    const t = cfg.threshold;
+    const t = this._cfg.threshold;
     // 滞后带：降级阈值比升级阈值低 0.08
     // R5: 从 0.05 增大到 0.08，减少 friend/acquaintance 边界的频繁振荡
     // 例：friend 升级阈值 0.4，降级阈值 0.32
