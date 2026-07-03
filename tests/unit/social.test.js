@@ -93,6 +93,56 @@ describe('SocialGraph 模块', () => {
     });
   });
 
+  describe('自定义关系配置', () => {
+    it('applies a partial threshold override consistently across graph queries', () => {
+      const g = new SocialGraph(null, { threshold: { acquaintance: 0.9 } });
+      const ab = g.getOrCreateRelationship('A', 'B');
+      const bc = g.getOrCreateRelationship('B', 'C');
+      ab.strength = 0.5;
+      bc.strength = 0.5;
+
+      expect(g.getCommonFriends('A', 'C')).toEqual([]);
+      expect(g.isTwoHopsAway('A', 'C')).toBe(false);
+      expect(g.getSocialDistance('A', 'C')).toBe(-1);
+    });
+
+    it('passes merged config into relationships without dropping nested defaults', () => {
+      const g = new SocialGraph(null, {
+        initialStrength: 0.22,
+        threshold: { acquaintance: 0.2 },
+      });
+      const rel = g.getOrCreateRelationship('A', 'B');
+
+      expect(rel.strength).toBe(0.22);
+      expect(rel._cfg.threshold.friend).toBe(ANDY_DEFAULTS.relationship.threshold.friend);
+      expect(rel._cfg.threshold.closeFriend).toBe(ANDY_DEFAULTS.relationship.threshold.closeFriend);
+
+      rel.strength = 0.95;
+      rel._updateType();
+      expect(rel.type).toBe('closeFriend');
+    });
+
+    it('restores saved edges with the graph relationship config', () => {
+      const saved = {
+        edges: [{
+          agentA: 'A',
+          agentB: 'B',
+          type: 'stranger',
+          strength: 0.35,
+          lastInteraction: '2026-06-01T00:00:00.000Z',
+          impression: { positive: 0, negative: 0 },
+          history: [],
+        }],
+        _tickCount: 0,
+      };
+      const g = SocialGraph.fromJSON(saved, { threshold: { friend: 0.3 } });
+      const rel = g.getRelationship('A', 'B');
+
+      rel._updateType();
+      expect(rel.type).toBe('friend');
+    });
+  });
+
   describe('共同朋友', () => {
     it('应该找到共同朋友', () => {
       // 建立 A-B 关系

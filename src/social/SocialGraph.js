@@ -11,13 +11,14 @@
  */
 
 const Relationship = require('./Relationship');
-const { ANDY_DEFAULTS } = require('../config/defaults');
 
 class SocialGraph {
   /**
    * @param {Object[]} [savedEdges] - 恢复的关系数据
+   * @param {Object} [config] - 用户配置（可选）
    */
-  constructor(savedEdges = null) {
+  constructor(savedEdges = null, config = null) {
+    this._cfg = Relationship.mergeConfig(config);
     /** @type {Map<string, Map<string, Relationship>>} agentId → { otherId → Relationship } */
     this._adjacency = new Map();
 
@@ -30,7 +31,7 @@ class SocialGraph {
 
     if (edges) {
       for (const edge of edges) {
-        const rel = new Relationship(edge.agentA, edge.agentB, edge);
+        const rel = new Relationship(edge.agentA, edge.agentB, edge, this._cfg);
         this._ensureNode(edge.agentA);
         this._ensureNode(edge.agentB);
         this._adjacency.get(edge.agentA).set(edge.agentB, rel);
@@ -73,7 +74,7 @@ class SocialGraph {
     const rel = this._adjacency.get(agentA).get(agentB);
     if (rel) return rel;
 
-    const newRel = new Relationship(agentA, agentB);
+    const newRel = new Relationship(agentA, agentB, null, this._cfg);
     this._adjacency.get(agentA).set(agentB, newRel);
     this._adjacency.get(agentB).set(agentA, newRel);
     return newRel;
@@ -140,8 +141,8 @@ class SocialGraph {
    * @returns {string[]}
    */
   getCommonFriends(agentA, agentB) {
-    // R41 L2 fix: use threshold from ANDY_DEFAULTS instead of hardcoded 0.15.
-    const acquaintanceThreshold = ANDY_DEFAULTS.relationship.threshold.acquaintance;
+    // R41 L2 fix: use threshold from merged config instead of hardcoded 0.15.
+    const acquaintanceThreshold = this._cfg.threshold.acquaintance;
     const friendsA = new Set(
       this.getRelationships(agentA)
         .filter(r => r.strength > acquaintanceThreshold)
@@ -164,7 +165,7 @@ class SocialGraph {
    */
   isTwoHopsAway(agentA, agentB) {
     // Use configurable acquaintance threshold (consistent with getCommonFriends).
-    const hopThreshold = ANDY_DEFAULTS.relationship.threshold.acquaintance;
+    const hopThreshold = this._cfg.threshold.acquaintance;
     const friendsA = this.getRelationships(agentA)
       .filter(r => r.strength > hopThreshold)
       .map(r => r.getOther(agentA));
@@ -197,7 +198,7 @@ class SocialGraph {
         const rels = this.getRelationships(current);
         for (const rel of rels) {
           // Use configurable acquaintance threshold (consistent with getCommonFriends).
-          if (rel.strength < ANDY_DEFAULTS.relationship.threshold.acquaintance) continue;
+          if (rel.strength < this._cfg.threshold.acquaintance) continue;
           const other = rel.getOther(current);
           if (other === agentB) return distance;
           if (!visited.has(other)) {
@@ -397,7 +398,7 @@ class SocialGraph {
   _projectDunbarLayers(agentId) {
     const rels = this.getRelationships(agentId)
       .sort((a, b) => b.strength - a.strength);
-    const { maxStrongTies, maxMediumTies } = ANDY_DEFAULTS.relationship;
+    const { maxStrongTies, maxMediumTies } = this._cfg;
 
     const layers = {
       closeFriends: [],
@@ -446,10 +447,10 @@ class SocialGraph {
    * @param {Object|Object[]} json - toJSON() 产出（object with edges + _tickCount, or legacy edges array）
    * @returns {SocialGraph}
    */
-  static fromJSON(json) {
+  static fromJSON(json, config = null) {
     // R9 fix: handle both new format {edges, _tickCount} and legacy format (plain array)
     const edges = Array.isArray(json) ? json : json.edges;
-    const graph = new SocialGraph(edges);
+    const graph = new SocialGraph(edges, config);
     if (!Array.isArray(json) && typeof json._tickCount === 'number') {
       graph._tickCount = json._tickCount;
     }

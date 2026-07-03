@@ -20,8 +20,8 @@
 | External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
-| Current gate snapshot | 2026-07-03 no-quota + external-free verification: `npm test` 3233 passed / 28 skipped; R48 store/replay/config suite 464 passed; R49 action/effects/writeback suite 355 passed; R50 domain/config suite 82 + 128 passed; R51 runtime/social/spatial suite 116 passed; R52 public API/package suite 167 passed; R53 external-audit regression suite 245 passed / 4 skipped; R54 SDK/narrative/grounding suite 206 passed; R55 native/store/package suite 47 passed; R56 SDK/LLM provider suite 100 passed; R57 persistence/bridge suite 93 passed; R58 long-run facts/knowledge suite 189 passed; R59 perf gate suite 5 passed; R60 package subpath type suite 83 passed; R61 Node baseline/package suite 83 passed; R62 fact-retention suite 88 passed; R63 social/Dunbar suite 32 passed; R64 action canonicalization suite 223 passed / 11 skipped; R65 ScheduleHandler writeback suite 97 passed; R66 PerceptionRuntime memory writeback suite 77 passed; R67 PerceptionRuntime effects writeback suite 108 passed; R68 env service boundary suite 99 passed; R69 public facade writeback suite 161 passed; R70 SDK/bridge/narrative suite 226 passed; R71 internal stress writeback suite 98 passed; R72 discrete emotion writeback suite 107 passed; R74 boundary guard suite 58 passed; R75 RNG/time boundary guard suite 59 passed; R76 UTC accessor boundary guard suite 60 passed; R77 memory write boundary guard suite 61 passed; R78 position write boundary guard suite 62 passed; R79 relationship interaction boundary guard suite 63 passed; R80 fact/knowledge write authority suite 64 passed; R81 action provider read-only suite 65 passed; R82 narrative/LLM world-write suite 66 passed; R83 canonical SDK data mutation suite 67 passed; R84 WorldFactStore zero-copy perf suite 64 passed; R84 EventDispatcher simTime suite 60 passed; R84 StateMachine epoch fallback suite 35 passed; R85 AutoTick determinism suite 75 passed; R85 type declaration hardening suite typecheck clean + consumer typecheck clean; R85 AndyBridge partial restore documentation suite 23 passed; full test/domain/boundary/typecheck clean; boundaries clean including env service, canonical `src/sdk` memory guard, direct emotion exception guard, direct memory experience guard, direct position guard, direct relationship interaction guard, fact/knowledge write authority guard, action provider read-only guard, narrative/LLM world-write guard, canonical SDK relationship/facts/knowledge mutation guard, core runtime Date.now/Math.random guard, and core UTC accessor guard; replay diff 100/100 matched; smoke 19/19; perf all PASS in 3-run median mode (100 agents 0.57x baseline, 300 agents 0.40x baseline); `git diff --check` clean |
-| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`. Worktree is clean. |
+| Current gate snapshot | 2026-07-03 R95 post-review repair: targeted relationship/config/serialization suite 86 passed; `npm test` 3239 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` passed; `npm run typecheck` clean; `npm run smoke:pack` 19 passed; `npm run perf:check` all PASS in 3-run median mode; `git diff --check` clean. Older detailed R48-R95 gate lineage remains below as provenance. |
+| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`. R96 records the post-review repair that should be treated as the next verified baseline once committed. |
 
 ## How To Use This Ledger
 
@@ -1588,6 +1588,29 @@ references in Relationship.js (P2), AndyWorld Math.random auto-seed removal
 | Regression test | 3233 tests pass / 28 skipped. No behavioral change (dead code removal). |
 | Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
 | Status | Fixed and verified. |
+
+## R96 - R95 Post-Review Relationship Config Repair
+
+This section records the Chief Planner post-review repair performed after R95.
+R95's direction was correct, but its relationship-config completion claim was
+too narrow: it checked remaining `cfg.X` references in `Relationship.js` but did
+not verify nested config merging, `SocialGraph` restore/new-edge propagation, or
+graph query/projection paths.
+
+### R96-RELATIONSHIP-CONFIG-CHAIN-1
+
+| Field | Detail |
+|---|---|
+| ID | R96-RELATIONSHIP-CONFIG-CHAIN-1 |
+| Severity | P1 quality gate / P2 runtime behavior |
+| Audit finding | R95 left a half-connected relationship config path. `Relationship` used a shallow config merge, so partial overrides such as `{ threshold: { acquaintance: 0.9 } }` erased default `friend` and `closeFriend` thresholds. `SocialGraph` accepted config but did not pass it into new/restored `Relationship` edges, and `isTwoHopsAway`, `getSocialDistance`, and Dunbar projection still read module-level defaults. |
+| Evidence | Minimal repro before fix: `new SocialGraph(null, { threshold: { acquaintance: 0.9 } })` with A-B/B-C strengths at 0.5 returned `isTwoHopsAway('A','C') === true` and `getSocialDistance('A','C') === 2`, contradicting the configured threshold. `new Relationship('A','B', null, { threshold: { acquaintance: 0.9 } })` at strength 0.95 remained `acquaintance` because `friend`/`closeFriend` were undefined after shallow merge. |
+| Verification verdict | Confirmed by Chief Planner first-principles review and deterministic repro. External-free agnes review also marked R95 quality as FAIL and identified inconsistent threshold usage, lost Relationship config propagation, and missing nested threshold validation. |
+| Fix | Added deep relationship config merge preserving nested threshold defaults; exposed `Relationship.mergeConfig()` for SocialGraph; passed merged graph config into new and restored Relationship edges; moved SocialGraph two-hop, social-distance, and Dunbar projection paths to instance config; added relationship `threshold.*` and `maxMediumTies` validation; updated Chief Planner handoff rules to require full config-chain verification. |
+| Files | `src/social/Relationship.js`; `src/social/SocialGraph.js`; `src/config/validate.js`; `tests/unit/social.test.js`; `tests/unit/config/validate-config.test.js`; `docs/current/CHIEF_PLANNER_HANDOFF_MANUAL.md`; `docs/current/POLISH_FIRST_ROADMAP.md` |
+| Regression test | `npx vitest run tests/unit/social.test.js tests/unit/config/validate-config.test.js tests/unit/serialization-roundtrip.test.js --no-color` -> 86 passed. New tests cover partial threshold override across graph queries, merged config propagation into Relationship, restore with config, invalid nested threshold validation, and partial threshold validation acceptance. |
+| Re-verification | `npm test -- --no-color` -> 3239 passed / 28 skipped; `npm run test:domain -- --no-color` -> 82 passed; `npm run check:boundaries -- --no-color` -> passed; `npm run typecheck` -> clean; `npm run smoke:pack -- --no-color` -> 19 passed; `npm run perf:check -- --no-color` -> all PASS; `git diff --check` -> clean. |
+| Status | Fixed and verified as the R96 baseline repair. |
 
 ## Active Latent / Deferred Backlog
 

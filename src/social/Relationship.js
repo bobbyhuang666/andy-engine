@@ -19,6 +19,17 @@
 const { ANDY_DEFAULTS } = require('../config/defaults');
 const cfg = ANDY_DEFAULTS.relationship;
 
+function mergeRelationshipConfig(config = null) {
+  return {
+    ...cfg,
+    ...(config || {}),
+    threshold: {
+      ...cfg.threshold,
+      ...(config?.threshold || {}),
+    },
+  };
+}
+
 class Relationship {
   /**
    * @param {string} agentA - Agent A 的 ID
@@ -30,8 +41,8 @@ class Relationship {
     this.agentA = agentA;
     this.agentB = agentB;
 
-    // Instance-level config merge: user config overrides defaults
-    this._cfg = { ...cfg, ...(config || {}) };
+    // Instance-level config merge: user config overrides defaults.
+    this._cfg = mergeRelationshipConfig(config);
 
     if (savedState) {
       this.type = savedState.type || 'stranger';
@@ -285,8 +296,12 @@ class Relationship {
    * @param {Object} json - toJSON() 产出
    * @returns {Relationship}
    */
-  static fromJSON(json) {
-    return new Relationship(json.agentA, json.agentB, json);
+  static fromJSON(json, config = null) {
+    return new Relationship(json.agentA, json.agentB, json, config);
+  }
+
+  static mergeConfig(config = null) {
+    return mergeRelationshipConfig(config);
   }
 }
 

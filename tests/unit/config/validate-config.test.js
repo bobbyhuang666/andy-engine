@@ -135,6 +135,15 @@ describe('validateConfig — relationship block', () => {
   it('rejects maxStrongTies below 1', () => {
     expect(() => validateConfig({ relationship: { maxStrongTies: 0 } })).toThrow(/relationship\.maxStrongTies/);
   });
+  it('rejects maxMediumTies below 1', () => {
+    expect(() => validateConfig({ relationship: { maxMediumTies: 0 } })).toThrow(/relationship\.maxMediumTies/);
+  });
+  it('rejects threshold values outside 0..1', () => {
+    expect(() => validateConfig({ relationship: { threshold: { acquaintance: 2 } } })).toThrow(/relationship\.threshold\.acquaintance/);
+  });
+  it('allows partial threshold overrides', () => {
+    expect(() => validateConfig({ relationship: { threshold: { acquaintance: 0.2 } } })).not.toThrow();
+  });
 });
 
 // ═══════════════════════════════════════════

@@ -347,6 +347,34 @@ Patch rules:
 - avoid unrelated refactors;
 - do not change stable contracts without migration.
 
+### Configuration Injection Completion Rule
+
+Configuration work is not complete just because a constructor accepts a config
+parameter or one code path reads `this._cfg`. R95 exposed this failure mode:
+`Relationship` and `SocialGraph` looked partially config-aware, but nested
+threshold overrides were shallow-merged, restored/new relationship edges did not
+all receive the graph config, and several graph queries still read
+`ANDY_DEFAULTS` directly.
+
+For any future config-injection, dead-config removal, or "config is already
+complete" claim, the Chief Planner must require all of the following checks:
+
+- Trace the config from public/runtime entry through factory/restore paths into
+  every owned child object that consumes it.
+- Check both creation and restore paths: constructor, `fromJSON`, saved-state
+  restore, factory create/restore, and any compatibility adapter path.
+- Deep-merge nested config blocks such as `threshold`, `weights`, `decayRate`,
+  and mode maps. Partial user overrides must preserve unspecified defaults.
+- Replace module-level default reads in runtime behavior, query helpers,
+  projection/cache helpers, and tick/update paths, not only in obvious mutators.
+- Add targeted regression tests for partial override behavior, restore behavior,
+  and invalid value validation when the config is public.
+- Treat broad green gates as insufficient evidence. The targeted test must
+  demonstrate the specific override would have failed before the fix.
+
+If an AI claims a config path is complete without these checks, classify that
+claim as unverified documentation, not as engineering truth.
+
 ### 5. Fix Verification
 
 After debug:

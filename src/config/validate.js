@@ -107,6 +107,14 @@ function validateConfig(config) {
     if (r.maxStrongTies !== undefined) {
       checkRange(r.maxStrongTies, 1, 20, 'relationship.maxStrongTies', errors);
     }
+    if (r.maxMediumTies !== undefined) {
+      checkRange(r.maxMediumTies, 1, 150, 'relationship.maxMediumTies', errors);
+    }
+    if (r.threshold) {
+      for (const [tier, threshold] of Object.entries(r.threshold)) {
+        checkRange(threshold, 0, 1, `relationship.threshold.${tier}`, errors);
+      }
+    }
   }
 
   // ─── 自发动机参数 ───
