@@ -934,7 +934,7 @@ mismatches, and AndyBridge partial restore documentation.
 
 ## Current Gate Results
 
-Last verified after R84 perf/determinism hardening (commit `3ff5024`):
+Last verified after R85 SDK determinism + type declaration hardening (commit `62db2c7`):
 
 | Gate | Result |
 |---|---|
