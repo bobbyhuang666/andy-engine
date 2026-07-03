@@ -90,6 +90,8 @@ This changes sequencing:
 | getInteractionWillingness NaN guard | Closed in R110 | `Relationship.getInteractionWillingness()` used unvalidated `strength`; NaN propagated through social encounter selection. Added `Number.isFinite(this.strength)` guard → returns 0. |
 | PressureContext.getTotalPressure finite guard | Closed in R110 | Sum of 5 pressure totals could overflow to Infinity, propagating as valid truthy value. Added `Number.isFinite(raw) ? raw : 0` guard. |
 | _pinkNoiseDrift amplitude guard | Closed in R110 | `_pinkNoiseDrift()` used unvalidated `noiseAmplitude` multiplier; NaN amplitude contaminated all emotion dimensions. Added `Number.isFinite(amp)` guard → early return. |
+| IntrinsicMotivation curiosityDecayRate guard | Closed in R111 | `_decayCuriosity()` used `cfg.curiosityDecayRate` unvalidated; NaN rate propagated to curiosity via `effectiveRate * hoursElapsed`. Added `Number.isFinite(decayRate)` guard → early return. |
+| Personality ocean NaN override guard | Closed in R111 | `Personality` constructor copied `config.ocean[dim]` without finite check; NaN overrides bypassed MBTI defaults. Added `Number.isFinite()` guard in constructor + validate.js range check now rejects NaN (typeof NaN === 'number' is true, NaN < 0 and NaN > 1 are both false). |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 
