@@ -61,6 +61,9 @@ This changes sequencing:
 | Encounter null-safe region | Closed in R91 | `AndyWorld._evaluateSpatialInteractions` used 'unknown' fallback for null regionA, creating phantom region references in events. Changed to null-safe fallback; generateEncounterEvent handles null region gracefully. |
 | Contagion config injection | Closed in R92 | `ANDY_DEFAULTS.contagion` was dead config (unreferenced). Added `contagionConfig` parameter to EmotionVector constructor, merged with defaults, threaded through AgentSubsystemFactory. `_socialContagion()` now reads `negativityBias` and `baseContagionRate` from config. |
 | PersonalMemory config injection | Closed in R92 | `PersonalMemory` used module-level `ANDY_DEFAULTS.memory` with no constructor config parameter. Added `memoryConfig` parameter, merged with defaults, replaced all `cfg.X` with `this._cfg.X`, threaded through AgentSubsystemFactory. |
+| BehaviorField config injection | Closed in R93 | `AgentSubsystemFactory` passed `{}` instead of `config.behavior || {}` to BehaviorField constructor, silently discarding user config. Fixed to pass `config.behavior || {}` in both create and restore paths. |
+| WorldClock epoch sentinel default | Closed in R93 | `WorldClock` constructor defaulted to `new Date()` (wall-clock). Changed to `new Date(0)` (epoch sentinel) following R86-R92 pattern. All callers already provided explicit startTime. |
+| EventDispatcher dead fallback removal | Closed in R93 | `EventDispatcher` had unreachable `|| new Date()` fallback on `_simTime` branch. Removed dead code; `_simTime` is always initialized to `new Date(0)`. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

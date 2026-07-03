@@ -44,7 +44,7 @@ function createSubsystems(config, agentId, domain, rng) {
   const emotionRegulation = new EmotionRegulation(personality, null, rng);
   const intrinsicMotivation = new IntrinsicMotivation(personality, null, domain, rng, config.intrinsicMotivation || null);
   const schedule = new Schedule(config.schedule || {}, null, rng);
-  const behaviorField = new BehaviorField(personality, null, {}, domain, rng);
+  const behaviorField = new BehaviorField(personality, null, config.behavior || {}, domain, rng);
 
   const position = config.initialPosition || (domain ? domain.fallback.defaultRegion : '住处');
   const { socialEnergy, health, isOnline } = AGENT_DEFAULTS;
@@ -93,7 +93,7 @@ function restoreSubsystems(savedState, config, agentId, domain, rng) {
   const intrinsicMotivation = new IntrinsicMotivation(personality, savedState.intrinsicMotivation, domain, rng, config.intrinsicMotivation || null);
   const scheduleConfig = config.schedule || savedState.schedule || {};
   const schedule = new Schedule(scheduleConfig, savedState.schedule, rng);
-  const behaviorField = new BehaviorField(personality, savedState.behaviorField || null, {}, domain, rng);
+  const behaviorField = new BehaviorField(personality, savedState.behaviorField || null, config.behavior || {}, domain, rng);
 
   const position = savedState.position;
   const socialEnergy = Number.isFinite(savedState.socialEnergy) ? savedState.socialEnergy : AGENT_DEFAULTS.socialEnergy;

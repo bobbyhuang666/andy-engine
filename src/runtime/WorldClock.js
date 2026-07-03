@@ -9,7 +9,7 @@ class WorldClock {
   /**
    * @param {Date} [startTime] - 初始模拟时间
    */
-  constructor(startTime = new Date()) {
+  constructor(startTime = new Date(0)) {
     this.time = new Date(startTime);
     if (isNaN(this.time.getTime())) {
       throw new Error(

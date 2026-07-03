@@ -1340,6 +1340,57 @@ EmotionVector contagion config and PersonalMemory config.
 | Disposition | Invalid — architecture migration to BehaviorField + domain-driven state centers resolved this. StateMachine only holds metadata; behavior state comes from BehaviorField label / action layer / effect pipeline. No config seam needed. |
 | Status | Rejected by audit. No action taken. |
 
+## R93 - Config Propagation + Epoch Sentinel Hygiene
+
+This section records three scoped no-quota fixes: BehaviorField config
+injection (P2), WorldClock epoch sentinel default (P3), and EventDispatcher
+dead wall-clock fallback removal (P3).
+
+### R93-BEHAVIOR-CONFIG-1
+
+| Field | Detail |
+|---|---|
+| ID | R93-BEHAVIOR-CONFIG-1 |
+| Severity | P2 |
+| Audit finding | `AgentSubsystemFactory.createSubsystems()` passes `{}` as the config argument to `new BehaviorField(personality, null, {}, domain, rng)` at line 47. `BehaviorField`'s constructor merges config with DEFAULTS via `this.cfg = { ...DEFAULTS, ...config }`, but the empty object silently discards any user-supplied `config.behavior` values. Inconsistent with R86-R92 pattern where all other subsystems receive their config sections. |
+| Evidence | `AgentSubsystemFactory.js:47` — `new BehaviorField(..., {}, ...)`. `BehaviorField.js:117-118` — constructor accepts config and merges with DEFAULTS. ANDY_DEFAULTS.behavior defines 7 tunable parameters (gamma, sigma, dt, boundaryReflection, boundaryStrength, and 5 weight parameters). |
+| Verification verdict | Confirmed by independent Verification AI. Silent config override — user's behavior tuning parameters are ignored. Behavior dynamics always run with hardcoded defaults. |
+| Fix | Changed `{}` to `config.behavior || {}` in both `createSubsystems` (line 47) and `restoreSubsystems` (line 96). Empty object merge preserves DEFAULTS when no config provided. |
+| Files | `src/agent/lifecycle/AgentSubsystemFactory.js` |
+| Regression test | 3233 tests pass / 28 skipped. No behavioral change when no config provided. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. |
+| Status | Fixed and verified. |
+
+### R93-WORLDCLOCK-DATE-1
+
+| Field | Detail |
+|---|---|
+| ID | R93-WORLDCLOCK-DATE-1 |
+| Severity | P3 |
+| Audit finding | `WorldClock.js:12` — `constructor(startTime = new Date())` uses wall-clock time as default parameter. If instantiated without arguments, simulation clock starts at real time, breaking determinism. All current callers provide explicit startTime, but the latent risk remains. |
+| Evidence | `WorldClock.js:12` — default parameter `new Date()`. `AndyWorld.js:69` — passes `config.startTime || new Date(0)`. `sdk/Andy.js:42` and `sdk/Character.js:70` — pass explicit startTime. No direct instantiations without arguments found. |
+| Verification verdict | Confirmed by independent Verification AI. Zero current impact (all callers provide explicit args), but default parameter is a latent determinism risk. Downgraded from P2 to P3: no correctness impact, only future risk. |
+| Fix | Changed default parameter from `new Date()` to `new Date(0)` (epoch sentinel pattern, consistent with R86-R92). |
+| Files | `src/runtime/WorldClock.js` |
+| Regression test | 3233 tests pass / 28 skipped. No behavioral change. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R93-EVENTDISPATCHER-DATE-2
+
+| Field | Detail |
+|---|---|
+| ID | R93-EVENTDISPATCHER-DATE-2 |
+| Severity | P3 |
+| Audit finding | `EventDispatcher.js:89` — `time: params.time || this._simTime || new Date()` has an unreachable `|| new Date()` fallback. `_simTime` is initialized to `new Date(0)` at line 43 and is always truthy. The `new Date()` branch can never execute unless someone mutates `_simTime` to null/undefined. Dead code that also happens to leak wall-clock time if ever reached. |
+| Evidence | `EventDispatcher.js:43` — `this._simTime = new Date(0)`. `EventDispatcher.js:89` — `params.time || this._simTime || new Date()`. Since `_simTime` is a Date object (always truthy), `|| new Date()` is unreachable. |
+| Verification verdict | Confirmed by independent Verification AI. Zero current impact (dead code). Downgraded to P3: correctness risk only if refactoring changes `_simTime` initialization pattern. |
+| Fix | Removed unreachable `|| new Date()` fallback: `time: params.time || this._simTime`. |
+| Files | `src/runtime/EventDispatcher.js` |
+| Regression test | 3233 tests pass / 28 skipped. No behavioral change. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

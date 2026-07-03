@@ -86,7 +86,7 @@ class EventDispatcher {
     // Core fields: always present with defaults.
     const event = {
       id: `evt_${this._nextId++}`,
-      time: params.time || this._simTime || new Date(),
+	      time: params.time || this._simTime,
       type: params.type || 'general',
       scope: params.scope || 'local',
       participants: params.participants || [],
