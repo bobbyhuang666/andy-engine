@@ -2238,6 +2238,38 @@ This section records the R114 audit findings. 2 HIGH and 1 MEDIUM finding fixed.
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
 | Status | Fixed and verified. |
 
+## R115 - NeedsSystem Config Merge + Drive Gradient Edge Cases
+
+This section records the R115 audit findings. 2 Medium findings fixed.
+
+### R115-002
+
+| Field | Detail |
+|---|---|
+| ID | R115-002 |
+| Severity | Medium |
+| Audit finding | `NeedsSystem._mergeNeedsConfig()` spreads user-provided config values (`needsCfg[key]`) into `merged[key]` without validating that individual values are finite. If a user passes `{ needs: { decayRate: { hunger: NaN } } }`, the NaN survives the merge and propagates to `_calcDecayRates()` → `tick()` → behavior gradient computation. Constructor NaN guards catch this for the initial construction, but config re-merge (e.g., from domain config override) could introduce NaN after guards have run. |
+| Evidence | NeedsSystem.js:40 — `{ ...base[key], ...needsCfg[key] }` without finite check on individual values |
+| Fix | Added `Number.isFinite()` validation in `_mergeNeedsConfig`: each user-provided value is checked; if non-finite, falls back to the base config value (or 0 if base is also missing). |
+| Files | `src/agent/psychology/NeedsSystem.js:38-44` |
+| Regression test | Existing needs tests use valid config. Guard is defensive for corrupted user config. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R115-003
+
+| Field | Detail |
+|---|---|
+| ID | R115-003 |
+| Severity | Medium |
+| Audit finding | `NeedsSystem.getDriveGradient()` computes `urgency = threshold - value` without finite guard. If a need value is NaN (e.g., from corrupted state or direct mutation bypassing `tick()` guards), `urgency` becomes NaN, and `{ need, urgency, gradient }` is pushed into the drives array. NaN urgency feeds into BehaviorField gradient computation, where `Math.max/min` with NaN produces NaN, silently corrupting behavior selection. |
+| Evidence | NeedsSystem.js:363 — `urgency = threshold - value` without finite check; line 367 — NaN urgency pushed into drives |
+| Fix | Added `if (!Number.isFinite(urgency)) continue;` guard after urgency computation, before pushing to drives array. |
+| Files | `src/agent/psychology/NeedsSystem.js:363-364` |
+| Regression test | Existing drive gradient tests use finite need values. Guard is defensive for corrupted state. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

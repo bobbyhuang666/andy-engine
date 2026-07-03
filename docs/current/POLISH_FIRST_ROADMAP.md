@@ -99,6 +99,8 @@ This changes sequencing:
 | AffectCompiler clamp() NaN guard | Closed in R114 | `clamp()` used `Math.max(0, Math.min(1, value))` without NaN guard; NaN propagated through all 6 AffectFrame fields into narrative LLM prompts. Added `Number.isFinite()` guard → returns 0. |
 | StoryGenerator emotion delta NaN guard | Closed in R114 | `generateFromSignal()` accumulated emotion deltas without finite checks; NaN deltas produced NaN posSum/negSum, silently corrupting story importance. Added `Number.isFinite(delta) continue` guard. |
 | Serialization _restoreConfig deep copy | Closed in R114 | Shallow spread shared nested config references between restored engine and caller's original config. Added `JSON.parse(JSON.stringify())` deep-copy. |
+| NeedsSystem config merge NaN guard | Closed in R115 | `_mergeNeedsConfig()` spread user config without finite checks; NaN values propagated to decay/recovery calculations. Added per-value `Number.isFinite()` validation with base fallback. |
+| NeedsSystem getDriveGradient urgency guard | Closed in R115 | `getDriveGradient()` computed `urgency = threshold - value` without finite guard; NaN urgency corrupted behavior selection. Added `Number.isFinite(urgency) continue` guard. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

@@ -37,7 +37,12 @@ function _mergeNeedsConfig(userConfig) {
   const merged = { ...base };
   for (const key of ['decayRate', 'recoveryRate', 'threshold']) {
     if (needsCfg[key] && typeof needsCfg[key] === 'object') {
-      merged[key] = { ...base[key], ...needsCfg[key] };
+      // R115-002: guard against NaN/Infinity in user-provided config values.
+      const sanitized = {};
+      for (const [need, val] of Object.entries(needsCfg[key])) {
+        sanitized[need] = Number.isFinite(val) ? val : base[key]?.[need] ?? 0;
+      }
+      merged[key] = { ...base[key], ...sanitized };
     }
   }
   return merged;
@@ -361,6 +366,8 @@ class NeedsSystem {
       if (value >= threshold) continue;
 
       const urgency = threshold - value;
+      // R115-003: guard against NaN urgency (if value is NaN, urgency is NaN).
+      if (!Number.isFinite(urgency)) continue;
       const target = NEED_DEPRIVATION_GRADIENT_TARGETS[need];
       if (!target) continue;
 
