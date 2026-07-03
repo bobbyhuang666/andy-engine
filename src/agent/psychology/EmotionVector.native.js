@@ -23,6 +23,17 @@ const { diagnostics } = require('../../shared/Diagnostics');
 const cfg = ANDY_DEFAULTS.emotion;
 const contagionCfgDefaults = ANDY_DEFAULTS.contagion;
 
+function mergeEmotionConfig(emotionConfig = null) {
+  return {
+    ...cfg,
+    ...(emotionConfig || {}),
+    circadian: {
+      ...cfg.circadian,
+      ...(emotionConfig?.circadian || {}),
+    },
+  };
+}
+
 let _NativeCtor = null;
 let _loadResult = null;
 
@@ -53,7 +64,7 @@ function _ensureNative() {
 class EmotionVectorNative {
   constructor(personality, savedState = null, emotionConfig = null, contagionConfig = null) {
     this.personality = personality;
-    this._cfg = { ...cfg, ...(emotionConfig || {}) };
+    this._cfg = mergeEmotionConfig(emotionConfig);
     this._contagionConfig = { ...contagionCfgDefaults, ...(contagionConfig || {}) };
     this.baseline = { ...personality.emotionBaseline };
 
@@ -355,9 +366,13 @@ class EmotionVectorNative {
    * @param {Object} [personality] - Personality 实例
    * @returns {EmotionVectorNative}
    */
-  static fromJSON(json, personality = null) {
+  static fromJSON(json, personality = null, emotionConfig = null, contagionConfig = null) {
     const p = personality || { emotionBaseline: (json && json.baseline) || {}, behavior: {} };
-    return new EmotionVectorNative(p, json);
+    return new EmotionVectorNative(p, json, emotionConfig, contagionConfig);
+  }
+
+  static mergeConfig(emotionConfig = null) {
+    return mergeEmotionConfig(emotionConfig);
   }
 
   _timeDecay(dt) {

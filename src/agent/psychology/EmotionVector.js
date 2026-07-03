@@ -28,6 +28,17 @@ const NEGATIVE_DIMS = new Set(['sadness', 'anger', 'fear', 'disgust',
   'nervousness', 'frustration', 'guilt', 'shame', 'horror', 'boredom', 'loneliness']);
 const NON_NEGATIVE_DIMS = new Set(['loneliness', 'boredom', 'nervousness', 'guilt', 'shame', 'embarrassment']);
 
+function mergeEmotionConfig(emotionConfig = null) {
+  return {
+    ...cfg,
+    ...(emotionConfig || {}),
+    circadian: {
+      ...cfg.circadian,
+      ...(emotionConfig?.circadian || {}),
+    },
+  };
+}
+
 class EmotionVector {
   /**
    * @param {Object} personality - Personality 实例，提供情绪基线和行为参数
@@ -39,7 +50,7 @@ class EmotionVector {
   constructor(personality, savedState = null, rng = null, emotionConfig = null, contagionConfig = null) {
     this.personality = personality;
     this._rng = rng || new RNG(0);
-    this._cfg = { ...cfg, ...(emotionConfig || {}) };
+    this._cfg = mergeEmotionConfig(emotionConfig);
     this._contagionConfig = { ...contagionCfgDefaults, ...(contagionConfig || {}) };
     this.baseline = { ...personality.emotionBaseline };
 
@@ -812,9 +823,13 @@ class EmotionVector {
    * @param {Object} [rng] - RNG 实例
    * @returns {EmotionVector}
    */
-  static fromJSON(json, personality = null, rng = null) {
-    const p = personality || { emotionBaseline: (json && json.baseline) || {} };
-    return new EmotionVector(p, json, rng);
+  static fromJSON(json, personality = null, rng = null, emotionConfig = null, contagionConfig = null) {
+    const p = personality || { emotionBaseline: (json && json.baseline) || {}, behavior: {} };
+    return new EmotionVector(p, json, rng, emotionConfig, contagionConfig);
+  }
+
+  static mergeConfig(emotionConfig = null) {
+    return mergeEmotionConfig(emotionConfig);
   }
 }
 

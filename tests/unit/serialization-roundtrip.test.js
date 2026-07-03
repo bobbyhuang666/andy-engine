@@ -92,6 +92,22 @@ describe('Wave 4 — serialization round-trip', () => {
       const restored = EmotionVector.fromJSON(j, personality);
       expect(restored.toJSON()).to.deep.equal(j);
     });
+
+    it('fromJSON accepts partial emotion config without dropping circadian defaults', () => {
+      const ev = new EmotionVector(personality);
+      const restored = EmotionVector.fromJSON(
+        ev.toJSON(),
+        personality,
+        null,
+        { circadian: { positiveAffectAmp: 0.2 } }
+      );
+
+      expect(restored._cfg.circadian.positiveAffectPeak).toBeDefined();
+      expect(restored._cfg.circadian.negativeAffectPeak).toBeDefined();
+      restored._circadianModulation(12);
+      expect(Number.isFinite(restored.current.joy)).toBe(true);
+      expect(Number.isFinite(restored.current.sadness)).toBe(true);
+    });
   });
 
  // ── NeedsSystem ───────────────────────────────────────────────
@@ -181,6 +197,24 @@ describe('Wave 4 — serialization round-trip', () => {
       const pm = new PersonalMemory('agent1', [{ content: 'x' }], null, campusDomain);
       const j = pm.toJSON();
       expect(PersonalMemory.fromJSON(j, 'agent1', campusDomain).toJSON()).to.deep.equal(j);
+    });
+
+    it('fromJSON accepts partial memory config without dropping nested defaults', () => {
+      const pm = new PersonalMemory('agent1', [], null, campusDomain);
+      const restored = PersonalMemory.fromJSON(
+        pm.toJSON(),
+        'agent1',
+        campusDomain,
+        null,
+        {
+          spreadingActivation: { W: 2 },
+          recallEmotionDelta: { sad: { sadness: 0.02 } },
+        }
+      );
+
+      expect(restored._cfg.spreadingActivation.S).toBeDefined();
+      expect(restored._cfg.recallEmotionDelta.importanceScale).toBeDefined();
+      expect(restored._cfg.recallEmotionDelta.ruminationMultiplier).toBeDefined();
     });
   });
 

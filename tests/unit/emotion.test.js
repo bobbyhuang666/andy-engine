@@ -75,6 +75,19 @@ describe('EmotionVector 模块', () => {
       emotion.tick(0.083, 2); // 凌晨 2 点
       expect(emotion.current.loneliness).toBeDefined();
     });
+
+    it('partial circadian config should preserve default fields and stay finite', () => {
+      const custom = new EmotionVector(personality, null, null, {
+        circadian: { positiveAffectAmp: 0.2 },
+      });
+
+      custom._circadianModulation(12);
+
+      expect(custom._cfg.circadian.positiveAffectPeak).toBeDefined();
+      expect(custom._cfg.circadian.negativeAffectPeak).toBeDefined();
+      expect(Number.isFinite(custom.current.joy)).toBe(true);
+      expect(Number.isFinite(custom.current.sadness)).toBe(true);
+    });
   });
 
   describe('社交传染', () => {

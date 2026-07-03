@@ -53,6 +53,20 @@ function validateConfig(config) {
     if (e.baselineDriftRate !== undefined) {
       checkRange(e.baselineDriftRate, 0, 0.01, 'emotion.baselineDriftRate', errors);
     }
+    if (e.circadian) {
+      if (e.circadian.positiveAffectPeak !== undefined) {
+        checkRange(e.circadian.positiveAffectPeak, 0, 24, 'emotion.circadian.positiveAffectPeak', errors);
+      }
+      if (e.circadian.negativeAffectPeak !== undefined) {
+        checkRange(e.circadian.negativeAffectPeak, 0, 24, 'emotion.circadian.negativeAffectPeak', errors);
+      }
+      if (e.circadian.positiveAffectAmp !== undefined) {
+        checkRange(e.circadian.positiveAffectAmp, 0, 1, 'emotion.circadian.positiveAffectAmp', errors);
+      }
+      if (e.circadian.negativeAffectAmp !== undefined) {
+        checkRange(e.circadian.negativeAffectAmp, 0, 1, 'emotion.circadian.negativeAffectAmp', errors);
+      }
+    }
   }
 
   // ─── 记忆系统参数 ───
@@ -69,6 +83,25 @@ function validateConfig(config) {
     }
     if (m.retrievalNoise !== undefined) {
       checkRange(m.retrievalNoise, 0, 2, 'memory.retrievalNoise', errors);
+    }
+    if (m.spreadingActivation) {
+      if (m.spreadingActivation.W !== undefined) {
+        checkRange(m.spreadingActivation.W, 0, 10, 'memory.spreadingActivation.W', errors);
+      }
+      if (m.spreadingActivation.S !== undefined) {
+        checkRange(m.spreadingActivation.S, 0, 10, 'memory.spreadingActivation.S', errors);
+      }
+    }
+    if (m.recallEmotionDelta) {
+      for (const [key, value] of Object.entries(m.recallEmotionDelta)) {
+        if (key === 'importanceScale' || key === 'ruminationMultiplier') {
+          checkRange(value, 0, 10, `memory.recallEmotionDelta.${key}`, errors);
+        } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+          for (const [dim, delta] of Object.entries(value)) {
+            checkRange(delta, -1, 1, `memory.recallEmotionDelta.${key}.${dim}`, errors);
+          }
+        }
+      }
     }
   }
 

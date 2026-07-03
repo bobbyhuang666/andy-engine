@@ -48,6 +48,13 @@ describe('validateConfig — emotion block', () => {
   it('rejects baselineDriftRate above 0.01', () => {
     expect(() => validateConfig({ emotion: { baselineDriftRate: 0.1 } })).toThrow(/emotion\.baselineDriftRate/);
   });
+  it('rejects circadian values out of range', () => {
+    expect(() => validateConfig({ emotion: { circadian: { positiveAffectPeak: 30 } } })).toThrow(/emotion\.circadian\.positiveAffectPeak/);
+    expect(() => validateConfig({ emotion: { circadian: { negativeAffectAmp: 2 } } })).toThrow(/emotion\.circadian\.negativeAffectAmp/);
+  });
+  it('allows partial circadian overrides', () => {
+    expect(() => validateConfig({ emotion: { circadian: { positiveAffectAmp: 0.2 } } })).not.toThrow();
+  });
   it('accepts valid emotion config', () => {
     expect(() => validateConfig({
       emotion: { decayLambda: 0.5, inertia: 0.5, maxDeltaPerTick: 0.1, noiseAmplitude: 0.1, coActivationWeight: 0.5, baselineDriftRate: 0.005 },
@@ -73,6 +80,18 @@ describe('validateConfig — memory block', () => {
   });
   it('rejects retrievalNoise above 2', () => {
     expect(() => validateConfig({ memory: { retrievalNoise: 5 } })).toThrow(/memory\.retrievalNoise/);
+  });
+  it('rejects nested memory config values out of range', () => {
+    expect(() => validateConfig({ memory: { spreadingActivation: { W: 11 } } })).toThrow(/memory\.spreadingActivation\.W/);
+    expect(() => validateConfig({ memory: { recallEmotionDelta: { sad: { sadness: 2 } } } })).toThrow(/memory\.recallEmotionDelta\.sad\.sadness/);
+  });
+  it('allows partial nested memory overrides', () => {
+    expect(() => validateConfig({
+      memory: {
+        spreadingActivation: { W: 2 },
+        recallEmotionDelta: { sad: { sadness: 0.02 } },
+      },
+    })).not.toThrow();
   });
 });
 

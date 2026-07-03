@@ -17,6 +17,36 @@ const { ANDY_DEFAULTS, SEMANTIC_EVENT_CATEGORIES } = require('../../config/defau
 const cfg = ANDY_DEFAULTS.memory;
 
 const { RNG } = require('../../shared/rng');
+
+function mergeRecallEmotionDelta(userRecallConfig = null) {
+  const merged = { ...cfg.recallEmotionDelta };
+  if (!userRecallConfig) return merged;
+
+  for (const [key, value] of Object.entries(userRecallConfig)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      merged[key] = {
+        ...(cfg.recallEmotionDelta[key] || {}),
+        ...value,
+      };
+    } else {
+      merged[key] = value;
+    }
+  }
+  return merged;
+}
+
+function mergeMemoryConfig(memoryConfig = null) {
+  return {
+    ...cfg,
+    ...(memoryConfig || {}),
+    spreadingActivation: {
+      ...cfg.spreadingActivation,
+      ...(memoryConfig?.spreadingActivation || {}),
+    },
+    recallEmotionDelta: mergeRecallEmotionDelta(memoryConfig?.recallEmotionDelta),
+  };
+}
+
 function nextDynamicMemoryId(agentId, memories = []) {
   const escapedAgentId = String(agentId).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const pattern = new RegExp(`^mem_${escapedAgentId}_(\\d+)$`);
@@ -40,7 +70,7 @@ class PersonalMemory {
     if (!domain) throw new Error('PersonalMemory requires a domain config');
     this.domain = domain;
     this._rng = rng || new RNG(0);
-    this._cfg = { ...cfg, ...(memoryConfig || {}) };
+    this._cfg = mergeMemoryConfig(memoryConfig);
 
     // 从 domain 取语义分类
     this._semanticCategories = this.domain.memoryTemplates.semanticCategories || SEMANTIC_EVENT_CATEGORIES;
@@ -1137,8 +1167,12 @@ class PersonalMemory {
    * @param {Object} [rng] - RNG 实例
    * @returns {PersonalMemory}
    */
-  static fromJSON(json, agentId = 'restored', domain = null, rng = null) {
-    return new PersonalMemory(agentId, [], json, domain, rng);
+  static fromJSON(json, agentId = 'restored', domain = null, rng = null, memoryConfig = null) {
+    return new PersonalMemory(agentId, [], json, domain, rng, memoryConfig);
+  }
+
+  static mergeConfig(memoryConfig = null) {
+    return mergeMemoryConfig(memoryConfig);
   }
 
   /**

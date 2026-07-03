@@ -20,8 +20,8 @@
 | External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
-| Current gate snapshot | 2026-07-03 R95 post-review repair: targeted relationship/config/serialization suite 86 passed; `npm test` 3239 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` passed; `npm run typecheck` clean; `npm run smoke:pack` 19 passed; `npm run perf:check` all PASS in 3-run median mode; `git diff --check` clean. Older detailed R48-R95 gate lineage remains below as provenance. |
-| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`. R96 records the post-review repair that should be treated as the next verified baseline once committed. |
+| Current gate snapshot | 2026-07-03 R97 nested config repair: targeted emotion/memory/config/serialization suite 110 passed; `npm test` 3248 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` passed; `npm run typecheck` clean; `npm run smoke:pack` 19 passed; first `npm run perf:check` exited 0 with machine-variance WARN, immediate rerun all PASS in 3-run median mode; `git diff --check` clean. Older detailed R48-R96 gate lineage remains below as provenance. |
+| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`. R97 records the latest nested-config repair and is the next verified baseline in this ledger. |
 
 ## How To Use This Ledger
 
@@ -1611,6 +1611,27 @@ graph query/projection paths.
 | Regression test | `npx vitest run tests/unit/social.test.js tests/unit/config/validate-config.test.js tests/unit/serialization-roundtrip.test.js --no-color` -> 86 passed. New tests cover partial threshold override across graph queries, merged config propagation into Relationship, restore with config, invalid nested threshold validation, and partial threshold validation acceptance. |
 | Re-verification | `npm test -- --no-color` -> 3239 passed / 28 skipped; `npm run test:domain -- --no-color` -> 82 passed; `npm run check:boundaries -- --no-color` -> passed; `npm run typecheck` -> clean; `npm run smoke:pack -- --no-color` -> 19 passed; `npm run perf:check -- --no-color` -> all PASS; `git diff --check` -> clean. |
 | Status | Fixed and verified as the R96 baseline repair. |
+
+## R97 - Emotion/Memory Nested Config Repair
+
+This section records the next no-quota config-chain repair after R96. The round
+searched for other shallow nested config merges that could produce the same
+"looks configurable, breaks on partial override" failure class.
+
+### R97-NESTED-CONFIG-1
+
+| Field | Detail |
+|---|---|
+| ID | R97-NESTED-CONFIG-1 |
+| Severity | P1 quality gate / P2 runtime behavior |
+| Audit finding | `EmotionVector` and `PersonalMemory` still used shallow top-level config merges while consuming nested config blocks. Partial `emotion.circadian` overrides dropped default peak/amp fields and could drive circadian modulation to NaN. Partial `memory.spreadingActivation` overrides dropped `S`, producing NaN spreading activation. Partial `memory.recallEmotionDelta` overrides dropped `importanceScale` / `ruminationMultiplier`, producing NaN recall emotion deltas. |
+| Evidence | Before fix, `new EmotionVector(personality, null, null, { circadian: { positiveAffectAmp: 0.2 } })._circadianModulation(12)` produced non-finite `joy`/`sadness`. `new PersonalMemory(..., { spreadingActivation: { W: 2 } })._spreadingActivation(...)` returned non-finite activation. `new PersonalMemory(..., { recallEmotionDelta: { sad: { sadness: 0.02 } } })._computeRecallDelta(...)` returned non-finite `sadness`. |
+| Verification verdict | Confirmed by deterministic local repro. External-free `agnes/agnes-2.0-flash` reviewed the diff and returned "Patch is correct"; it found no regression in partial nested overrides and noted only that static `fromJSON` callers must pass config explicitly when they need custom config. |
+| Fix | Added nested-safe emotion config merge preserving `circadian` defaults in JS and native EmotionVector wrappers. Added nested-safe memory config merge preserving `spreadingActivation` defaults and deep-merging `recallEmotionDelta` category maps while keeping scalar metadata. Extended `fromJSON` signatures to accept config. Added nested config validation for emotion circadian and memory spreading/recall blocks. |
+| Files | `src/agent/psychology/EmotionVector.js`; `src/agent/psychology/EmotionVector.native.js`; `src/agent/memory/PersonalMemory.js`; `src/config/validate.js`; `tests/unit/emotion.test.js`; `tests/unit/memory.test.js`; `tests/unit/config/validate-config.test.js`; `tests/unit/serialization-roundtrip.test.js` |
+| Regression test | `npx vitest run tests/unit/emotion.test.js tests/unit/memory.test.js tests/unit/config/validate-config.test.js tests/unit/serialization-roundtrip.test.js --no-color` -> 110 passed. New tests cover partial circadian, partial spreadingActivation, partial recallEmotionDelta, nested validation, and static fromJSON config restore. |
+| Re-verification | `npm test -- --no-color` -> 3248 passed / 28 skipped; `npm run test:domain -- --no-color` -> 82 passed; `npm run check:boundaries -- --no-color` -> passed; `npm run typecheck` -> clean; `npm run smoke:pack -- --no-color` -> 19 passed; first `npm run perf:check -- --no-color` exited 0 with machine-variance WARN, immediate rerun all PASS; `git diff --check` -> clean. |
+| Status | Fixed and verified. |
 
 ## Active Latent / Deferred Backlog
 

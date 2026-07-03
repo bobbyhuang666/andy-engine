@@ -74,6 +74,36 @@ describe('PersonalMemory 模块', () => {
     });
   });
 
+  describe('自定义记忆配置', () => {
+    it('partial spreadingActivation config should preserve nested defaults', () => {
+      const custom = new PersonalMemory('custom_agent', [], null, campusDomain, null, {
+        spreadingActivation: { W: 2 },
+      });
+      const activation = custom._spreadingActivation({
+        content: 'coffee chat',
+        emotionSnapshot: {},
+        associations: [],
+        semanticCategory: null,
+      }, { keywords: ['coffee'] });
+
+      expect(custom._cfg.spreadingActivation.S).toBeDefined();
+      expect(Number.isFinite(activation)).toBe(true);
+    });
+
+    it('partial recallEmotionDelta config should preserve nested scalar defaults', () => {
+      const custom = new PersonalMemory('custom_agent', [], null, campusDomain, null, {
+        recallEmotionDelta: { sad: { sadness: 0.02 } },
+      });
+      const delta = custom._computeRecallDelta([
+        { emotionTag: 'sad', importance: 0.8 },
+      ], -0.5);
+
+      expect(custom._cfg.recallEmotionDelta.importanceScale).toBeDefined();
+      expect(custom._cfg.recallEmotionDelta.ruminationMultiplier).toBeDefined();
+      expect(Number.isFinite(delta.sadness)).toBe(true);
+    });
+  });
+
   describe('记忆衰减', () => {
     it('重要性应该保持正值', () => {
       mem.tick(24); // 24 小时
