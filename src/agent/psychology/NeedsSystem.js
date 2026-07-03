@@ -182,6 +182,10 @@ class NeedsSystem {
         this.needs[need] = 0.5;
         continue;
       }
+      // R102-NANO-1: guard rate against NaN. Corrupted _decayRates or
+      // external modification can produce NaN rate, which permanently
+      // corrupts the need via Math.max(0, NaN) = NaN propagation.
+      if (!Number.isFinite(rate)) continue;
       const effectiveRate = rate * (0.5 + current * 0.5);
       this.needs[need] = Math.max(0, current - effectiveRate * hoursElapsed);
     }
@@ -234,6 +238,8 @@ class NeedsSystem {
         this.needs[need] = 0.5;
         continue;
       }
+      // R102-NANO-1: guard rate against NaN (same defense-in-depth as tick())
+      if (!Number.isFinite(rate)) continue;
       const effectiveRate = rate * (0.5 + current * 0.5);
       this.needs[need] = Math.max(0, current - effectiveRate * hoursElapsed);
     }
@@ -384,7 +390,11 @@ class NeedsSystem {
         distSq += diff * diff;
       }
       const distance = Math.sqrt(distSq);
-      const factor = Math.max(0, 1 - distance / maxDist);
+      // R102-NANO-2: guard factor against NaN from corrupted behaviorVector.
+      // If any behaviorVector[d] is NaN, distance is NaN → factor is NaN.
+      // While tickWithBehavior() guards rate downstream, preventing NaN
+      // production here is defense-in-depth.
+      const factor = Number.isFinite(distance) ? Math.max(0, 1 - distance / maxDist) : 0;
       const baseRate = this._cfg.recoveryRate[need] || 0.3;
       const multiplier = (this._recoveryMultipliers && this._recoveryMultipliers[need]) || 1.0;
       rates[need] = baseRate * factor * multiplier;

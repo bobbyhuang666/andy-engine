@@ -77,6 +77,8 @@ This changes sequencing:
 | Dead config: SpatialEngine baseProb/distanceDecay | Closed in R95 | `SpatialEngine` stored `baseProb` and `distanceDecay` from config but never used them. Removed dead config chain from defaults, SpatialEngine, and AndyWorld. |
 | IntrinsicMotivation needs threshold config | Closed in R100 | `_applyNeedGate` read `ANDY_DEFAULTS.needs.threshold` directly, bypassing instance config. Added `needsThresholdConfig` parameter to `tick()`, threaded through `AgentRuntime`. |
 | MindWander NaN propagation guard | Closed in R100 | `mindWander()` emotion-delta loops lacked finite guards. Added `addIfFinite()` helper with `Number.isFinite()` check to all 5 accumulation loops. |
+| NeedsSystem decay rate NaN guard | Closed in R102 | `tick()` and `tickWithBehavior()` guarded `current` but not `rate` against NaN. Added `if (!Number.isFinite(rate)) continue` in both methods. |
+| NeedsSystem behavior recovery NaN guard | Closed in R102 | `getRecoveryRatesForBehavior()` computed factor from behaviorVector without finite guard. Added `Number.isFinite(distance)` check; NaN distance → zero recovery. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

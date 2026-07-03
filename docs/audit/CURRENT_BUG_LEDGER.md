@@ -1710,6 +1710,68 @@ read (P1), and MindWander emotion delta NaN propagation guard (P2).
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
 | Status | Fixed and verified. |
 
+## R101 - Config Propagation Completeness Verification
+
+This section records the R101 audit results. Both findings were independently
+verified as **false positives** — the config propagation is already complete.
+
+### R101-MINDWANDER-CONFIG-1 (REJECTED)
+
+| Field | Detail |
+|---|---|
+| ID | R101-MINDWANDER-CONFIG-1 |
+| Severity | P1 — rejected |
+| Audit finding | `agent._mindWanderConfig` is never assigned; `getMindWanderConfig()` always falls through to defaults. |
+| Disposition | False positive — `Agent.js:52` assigns `this._mindWanderConfig = mergeMindWanderConfig(config.mindWander || null)`. The audit agent missed this line. Config routing is complete. |
+| Status | Rejected by independent verification. No action taken. |
+
+### R101-RESTORE-CONFIG-1 (REJECTED)
+
+| Field | Detail |
+|---|---|
+| ID | R101-RESTORE-CONFIG-1 |
+| Severity | P2 — rejected |
+| Audit finding | `_restoreConfig` not merged into config during deserialization. |
+| Disposition | False positive — `index.js:88` merges `savedState?._restoreConfig` into `this.config` via `...(savedState?._restoreConfig || {})`. `_agentSubsystemConfig()` reads from `this.config`. Round-trip is complete. |
+| Status | Rejected by independent verification. No action taken. |
+
+## R102 - NeedsSystem NaN Guard Defense-in-Depth
+
+This section records two defense-in-depth NaN guard additions in NeedsSystem.
+Both locations already had partial guards (current value guarded, rate unguarded);
+the fix adds rate guards to prevent permanent state corruption from corrupted
+_decayRates or behaviorVector inputs.
+
+### R102-NANO-1
+
+| Field | Detail |
+|---|---|
+| ID | R102-NANO-1 |
+| Severity | P2 |
+| Audit finding | `NeedsSystem.tick()` line 185 and `tickWithBehavior()` line 237 compute `effectiveRate = rate * (0.5 + current * 0.5)` without guarding `rate` against NaN. If `_decayRates[need]` is NaN (from corrupted savedState or external modification), `Math.max(0, current - NaN * hoursElapsed)` = NaN, permanently corrupting the need value. The constructor guards `_decayRates` once at init, but tick-level corruption can bypass this. |
+| Evidence | `NeedsSystem.js:181-186` — `current` guarded but `rate` unguarded. `NeedsSystem.js:119-123` — constructor guards `_decayRates` once. `NeedsSystem.js:237-242` — same gap in `tickWithBehavior()`. |
+| Verification verdict | Confirmed by independent Verification AI. Risk is bounded (constructor guard + EffectCommitter downstream guards), but defense-in-depth warranted for core need decay path. |
+| Fix | Added `if (!Number.isFinite(rate)) continue;` guard before `effectiveRate` computation in both `tick()` (line 188) and `tickWithBehavior()` (line 244). NaN rate silently skips decay for that need in the current tick. |
+| Files | `src/agent/psychology/NeedsSystem.js` |
+| Regression test | 3264 tests pass / 28 skipped. Guard is defensive — no existing test exercises NaN decay rate. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
+| Status | Fixed and verified. |
+
+### R102-NANO-2
+
+| Field | Detail |
+|---|---|
+| ID | R102-NANO-2 |
+| Severity | P2 |
+| Audit finding | `NeedsSystem.getRecoveryRatesForBehavior()` line 387 computes `factor = Math.max(0, 1 - distance / maxDist)` where `distance = Math.sqrt(distSq)` and `distSq` accumulates `diff * diff` from `behaviorVector[d] - target[d]`. If any `behaviorVector[d]` is NaN, `distance` is NaN, `factor` is NaN, and `rates[need] = baseRate * NaN * multiplier` = NaN. `tickWithBehavior()` guards `rate` downstream (line 248), but NaN is produced unnecessarily. |
+| Evidence | `NeedsSystem.js:386-390` — `distance` from `Math.sqrt(distSq)` without finite guard. `NeedsSystem.js:248` — downstream rate guard catches NaN. |
+| Verification verdict | Confirmed by independent Verification AI. Downstream guard prevents state corruption, but preventing NaN production is defense-in-depth. |
+| Fix | Added `Number.isFinite(distance)` guard: `const factor = Number.isFinite(distance) ? Math.max(0, 1 - distance / maxDist) : 0;`. NaN distance → zero recovery factor instead of NaN rate. |
+| Files | `src/agent/psychology/NeedsSystem.js` |
+| Regression test | 3264 tests pass / 28 skipped. Guard is defensive — no existing test exercises NaN behaviorVector. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
