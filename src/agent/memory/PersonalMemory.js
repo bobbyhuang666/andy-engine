@@ -134,7 +134,7 @@ class PersonalMemory {
         content: m.content || m,
         category: m.category || 'background',
         emotionTag: m.emotionTag || 'neutral',
-        importance: m.importance || 0.8,
+        importance: m.importance ?? 0.8,
         timestamp: safeDate(m.timestamp || this._simTime || 0),
         lastAccessed: new Date(this._simTime || 0),
         presentations: [new Date(this._simTime || 0)],

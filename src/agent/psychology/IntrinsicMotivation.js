@@ -705,16 +705,19 @@ class IntrinsicMotivation {
     // satisfaction < 0.5: 严重匮乏，好奇心被强烈抑制
     // satisfaction 0.5-1.0: 线性恢复
     // satisfaction > 1.0: 基本需求满足，好奇心略微增强
+    // R126-001: guard against division by zero/NaN in needGateThreshold.
+    // threshold=0 → line 711: minSatisfaction/0 = Infinity; threshold=1 → line 714: 1-1=0 division.
+    const threshold = this._imConfig.needGateThreshold;
+    if (!Number.isFinite(threshold) || threshold <= 0 || threshold >= 1) {
+      return rawCuriosity * Math.max(0, minSatisfaction);
+    }
     let gate;
-    if (minSatisfaction < this._imConfig.needGateThreshold) {
+    if (minSatisfaction < threshold) {
       // 严重匮乏：指数抑制
-      gate = Math.pow(minSatisfaction / this._imConfig.needGateThreshold, 2);
-    } else if (minSatisfaction < 1) {
-      // 轻度匮乏：线性恢复
-      gate = (minSatisfaction - this._imConfig.needGateThreshold) / (1 - this._imConfig.needGateThreshold);
+      gate = Math.pow(minSatisfaction / threshold, 2);
     } else {
-      // 需求满足：略微增强（"饱暖思淫欲"效应）
-      gate = 1 + Math.min(0.2, (minSatisfaction - 1) * 0.2);
+      // 轻度匮乏/满足：线性恢复
+      gate = (minSatisfaction - threshold) / (1 - threshold);
     }
 
     return rawCuriosity * Math.max(0, gate);

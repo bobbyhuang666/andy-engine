@@ -2820,6 +2820,36 @@ Neither constitutes an actionable vulnerability in production. No code changes r
 
 | Status | Clean audit — no findings. |
 
+## R126 - IntrinsicMotivation/PersonalMemory Edge Cases
+
+This section records the R126 audit findings. 1 HIGH and 1 MEDIUM finding fixed.
+
+### R126-001
+
+| Field | Detail |
+|---|---|
+| ID | R126-001 |
+| Severity | HIGH |
+| Audit finding | `IntrinsicMotivation._computeCuriosityGate()` divides by `this._imConfig.needGateThreshold` without guard. `threshold=0` → `minSatisfaction/0 = Infinity`; `threshold=1` → `1-1=0` division. NaN/Infinity propagates into `gate` → `rawCuriosity * gate` → corrupted curiosity return value. |
+| Evidence | IntrinsicMotivation.js:711,714 — threshold unvalidated before division |
+| Fix | Added finite range guard: if threshold is non-finite or in `[0,1]`, fall back to `rawCuriosity * Math.max(0, minSatisfaction)`. |
+| Files | `src/agent/psychology/IntrinsicMotivation.js:708-720` |
+| Re-verification | Full `npm test`: 3271 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R126-013
+
+| Field | Detail |
+|---|---|
+| ID | R126-013 |
+| Severity | Medium |
+| Audit finding | `PersonalMemory._seedMemories()` uses `m.importance || 0.8` which masks legitimate `0` importance with `0.8`. If a seed memory explicitly has `importance: 0`, it gets inflated to `0.8`, incorrectly overriding the pruning system's importance model. |
+| Evidence | PersonalMemory.js:137 — `|| 0.8` treats `0` as missing |
+| Fix | Changed `m.importance || 0.8` to `m.importance ?? 0.8` to distinguish `undefined` (missing) from `0` (explicit zero importance). |
+| Files | `src/agent/memory/PersonalMemory.js:137` |
+| Re-verification | Full `npm test`: 3271 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

@@ -126,6 +126,8 @@ This changes sequencing:
 | EventEffectPipeline _calculateImportance NaN guard | Closed in R124 | `_calculateImportance()` returned `Math.min(1.0, importance)` without finite guard; corrupted fact data could produce NaN importance → NaN FutureTendencyDelta. Added `Number.isFinite()` check with 0.3 default. |
 | WorldPressure total NaN guard | Closed in R124 | `WorldPressure.compute()` summed 4 pressure components without finite guard; NaN component → NaN total → downstream consumers received NaN pressure. Added `Number.isFinite()` check on raw total. |
 | R125 full codebase re-scan | Clean | Comprehensive re-scan of all 50+ source files confirmed all R110-R124 fixes cover all critical paths. Two LOW-severity config-injection-only gaps identified (_coActivationSpread weight, _enforceBoundary reflect) — no code changes required. |
+| IntrinsicMotivation needGateThreshold division guard | Closed in R126 | `_computeCuriosityGate()` divided by `needGateThreshold` without finite guard; threshold=0 or 1 produced Infinity/NaN, corrupting curiosity. Added range guard falling back to `rawCuriosity * Math.max(0, minSatisfaction)`. |
+| PersonalMemory seed importance || masking | Closed in R126 | `_seedMemories()` used `m.importance || 0.8` which inflated legitimate `importance: 0` to `0.8`. Changed to `m.importance ?? 0.8` to preserve explicit zero importance. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 
