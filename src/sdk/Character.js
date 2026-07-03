@@ -151,7 +151,7 @@ class Character {
 
     // 1. 自动推进时间
     try {
-      this._autoTick.advance(this._engine);
+      this._autoTick.advance(this._engine, this._engine.world.time.getTime());
     } catch (e) {
       diagnostics.warn(`AutoTick advance error: ${e.message}`);
       diagnostics.collect({ type: 'auto_tick_error', error: e.message });
@@ -247,7 +247,7 @@ class Character {
       return;
     }
     try {
-      this._autoTick.advance(this._engine);
+      this._autoTick.advance(this._engine, this._engine.world.time.getTime());
     } catch (e) {
       diagnostics.warn(`AutoTick advance error: ${e.message}`);
       diagnostics.collect({ type: 'auto_tick_error', error: e.message });

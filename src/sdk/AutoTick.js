@@ -46,11 +46,18 @@ class AutoTick {
   /**
    * 计算在处理用户消息前需要推进的 tick 数
    *
+   * 当提供 `now` 参数时，计算结果仅依赖于输入状态，与墙钟时间无关，
+   * 确保可重现性。不传 `now` 时使用 Date.now() 保持向后兼容。
+   *
    * @param {Object} engine - AndyEngine 实例
+   * @param {number} [now] - 可选的时间戳（ms since epoch），用于替代 Date.now()
+   *                         传入 engine.world.time.getTime() 可实现确定性 tick 计算
    * @returns {number} 需要推进的 tick 数
    */
-  calculateTicksToAdvance(engine) {
-    const now = Date.now();
+  calculateTicksToAdvance(engine, now) {
+    if (now === undefined) {
+      now = Date.now();
+    }
 
     if (!this._lastMessageTime) {
       // 第一条消息，不推进
@@ -82,13 +89,14 @@ class AutoTick {
    * 在处理用户消息前推进引擎
    *
    * @param {Object} engine - AndyEngine 实例
+   * @param {number} [now] - 可选的时间戳（ms since epoch），传给 calculateTicksToAdvance
    * @returns {number} 实际推进的 tick 数
    */
-  advance(engine) {
+  advance(engine, now) {
     if (!engine || !engine.world) {
       throw new Error('AutoTick.advance(): engine 必须是有效的 AndyEngine 实例');
     }
-    const ticks = this.calculateTicksToAdvance(engine);
+    const ticks = this.calculateTicksToAdvance(engine, now);
     if (ticks > 0) {
       engine.runTicks(ticks);
     }

@@ -294,6 +294,29 @@ describe('AndyBridge deprecated aliases', () => {
 });
 
 describe('AndyBridge.init wiring', () => {
+  it('emits console.warn when restoring from snapshot with tickCount > 0', async () => {
+    const bridge = makeBridge();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    bridge.store = {
+      tickCount: 42,
+      virtualTime: 100000,
+      init: async ({ onRestore }) => { onRestore(Buffer.from('[]')); },
+    };
+    bridge._serializeAgents = vi.fn(() => Buffer.alloc(0));
+    bridge._restoreAgents = vi.fn();
+    await bridge.init();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[AndyBridge] Restored from snapshot'),
+      expect.any(Number),
+      expect.any(String),
+    );
+    expect(warnSpy.mock.calls[0][0]).toContain('memory');
+    expect(warnSpy.mock.calls[0][0]).toContain('personality');
+    expect(warnSpy.mock.calls[0][0]).toContain('futureTendency');
+    expect(warnSpy.mock.calls[0][0]).toContain('appraisalBiases');
+    warnSpy.mockRestore();
+  });
+
   it('init wires onSnapshot/onRestore and returns restoredTick/Time; second init is no-op', async () => {
     const bridge = makeBridge();
     let snapshotCalled = false;

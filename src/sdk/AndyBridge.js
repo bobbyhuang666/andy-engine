@@ -91,6 +91,20 @@ class AndyBridge {
     });
 
     this._initialized = true;
+
+    if (this.store.tickCount > 0) {
+      console.warn(
+        '[AndyBridge] Restored from snapshot (tick=%d, time=%s). ' +
+        'Bridge snapshots are partial: memory, personality, schedule, ' +
+        'intrinsicMotivation, emotionRegulation, proceduralMemory, ' +
+        'futureTendency, _actionTraceHistory, _perceivedEventIds, ' +
+        'isOnline, name, and appraisalBiases are NOT restored. ' +
+        'Use AndyEngine.fromJSON() for full state reconstruction.',
+        this.store.tickCount,
+        this.store.virtualTime ? new Date(this.store.virtualTime).toISOString() : 'N/A',
+      );
+    }
+
     return {
       restoredTick: this.store.tickCount,
       restoredTime: this.store.virtualTime,
@@ -308,11 +322,17 @@ class AndyBridge {
   /**
    * 从快照恢复 agent 状态
    * R9 fix: expanded restore to cover more subsystems while respecting SDK→agent boundary.
-   * Restores: emotion (current + stress + mood), needs, position, health, socialEnergy,
-   * behaviorField (B vector), stateMachine (currentState), _ticksSinceReflection/DriftCheck.
-   * Memory, personality, schedule, intrinsicMotivation, emotionRegulation, and
-   * proceduralMemory require full fromJSON reconstruction — those need
-   * AndyEngine.fromJSON() (the canonical full restore path).
+   * Restores: emotion (current + stress + mood + baseline), needs, position, health,
+   * socialEnergy, behaviorField (B + velocity + _prevB + _lastLabel + _lastLabelConfidence
+   * + _tickCount), stateMachine (currentState), _ticksSinceReflection/DriftCheck.
+   *
+   * NOT restored (serialized by toJSON but skipped in _restoreAgents):
+   * memory, personality, schedule, intrinsicMotivation, emotionRegulation,
+   * proceduralMemory, futureTendency, _actionTraceHistory, _perceivedEventIds,
+   * isOnline, name, appraisalBiases.
+   *
+   * These require full fromJSON reconstruction via AndyEngine.fromJSON()
+   * (the canonical full restore path).
    * @private
    */
   _restoreAgents(data) {

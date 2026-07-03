@@ -247,8 +247,12 @@ interface SelectedAction {
 }
 
 interface StateDelta {
-  type: 'need' | 'emotion' | 'memory' | 'relationship' | 'locationMeaning' | 'futureTendency';
+  type: 'need' | 'emotion' | 'memory' | 'relationship' | 'locationMeaning' | 'futureTendency' | 'position';
+  target?: string;
+  agentId?: string;
+  timestamp?: number | Date;
   [key: string]: any;
+  toJSON(): object;
 }
 
 /**
@@ -266,6 +270,92 @@ interface EffectResult {
   readonly locationMeaningDeltas: StateDelta[];
   readonly futureTendencyDeltas: StateDelta[];
   toLegacyFormat(): { event: Record<string, any>; stateDeltas: Record<string, any>; updatedReasonTrace: Record<string, any> };
+}
+
+declare class EffectCommitter {
+  constructor(options: { world?: any; agents?: Map<string, any> });
+  commit(result: EffectResult): { applied: any[]; skipped: any[]; errors: any[] };
+}
+
+declare class NeedDelta {
+  type: string;
+  target: string;
+  agentId: string;
+  changes: Record<string, number>;
+  constructor(agentId: string, changes: Record<string, number>);
+  toJSON(): object;
+}
+
+declare class EmotionDelta {
+  type: string;
+  target: string;
+  agentId: string;
+  changes: Record<string, number>;
+  multiplier: number;
+  appraisalModifiers: object | null;
+  stress: number | null;
+  constructor(agentId: string, changes: Record<string, number>, options?: { multiplier?: number; appraisalModifiers?: object; stress?: number });
+  toJSON(): object;
+}
+
+declare class MemoryDelta {
+  type: string;
+  target: string;
+  agentId: string;
+  kind: string;
+  memoryType: string;
+  target_: string | null;
+  content: string;
+  constructor(agentId: string, payload: { kind?: string; type?: string; target?: string | null; content?: string; event?: object; category?: string; importance?: number; emotionTag?: string; bias?: object });
+  toJSON(): object;
+}
+
+declare class RelationshipDelta {
+  type: string;
+  target: string;
+  agentId: string;
+  targetAgentId: string;
+  interactionType: string;
+  valence: number;
+  content: string;
+  constructor(agentId: string, payload: { targetAgentId: string; interactionType?: string; valence?: number; content?: string });
+  toJSON(): object;
+}
+
+declare class LocationMeaningDelta {
+  type: string;
+  target: string;
+  agentId: string | null;
+  location: string;
+  meaningType: string;
+  weight: number;
+  reason: string;
+  from: string | null;
+  to: string | null;
+  constructor(agentId: string | null, payload: { location: string; meaningType: string; weight?: number; reason?: string; from?: string | null; to?: string | null });
+  toJSON(): object;
+}
+
+declare class FutureTendencyDelta {
+  type: string;
+  target: string;
+  agentId: string;
+  location: string;
+  delta: number[];
+  importance: number;
+  constructor(agentId: string, payload: { location: string; delta?: number[]; importance?: number });
+  toJSON(): object;
+}
+
+declare class PositionDelta {
+  type: string;
+  target: string;
+  agentId: string;
+  to: string;
+  from: string | null;
+  reason: string;
+  constructor(agentId: string, payload: { to: string; from?: string; reason?: string });
+  toJSON(): object;
 }
 
 /**

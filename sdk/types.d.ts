@@ -95,6 +95,12 @@ export interface CharacterConfig {
   scenario?: string;
   /** 共享的 AndyEngine 实例（可使用 custom-domain engine） */
   engine?: object;
+  /** 启用 facts/grounding 语义层 */
+  enableFacts?: boolean;
+  /** Seed for deterministic simulation setup */
+  seed?: number | string;
+  /** RNG instance or random function for deterministic simulation setup */
+  rng?: RNG;
   /** 模拟开始时间 */
   startTime?: Date;
   /** 初始天气 */
@@ -112,6 +118,8 @@ export interface CharacterContext {
   narrative: string;
   /** 世界上下文数据 */
   worldContext: WorldContext;
+  /** facts/grounding package */
+  groundingPackage?: object;
   /** 对话历史 */
   conversationHistory: Array<{ role: string; content: string }>;
 }
@@ -187,13 +195,19 @@ export class Character {
 
 export interface AndyConfig {
   /** 默认 LLM 配置 */
-  llm?: LLMConfig;
+  llm?: LLMConfig | LLMFunction;
   /** 模拟开始时间 */
   startTime?: Date;
   /** 初始天气 */
   weather?: string;
   /** 自定义 domain 配置（默认使用 presets/campus） */
   domain?: DomainConfig;
+  /** 启用 facts/grounding 语义层 */
+  enableFacts?: boolean;
+  /** Seed for deterministic simulation setup */
+  seed?: number | string;
+  /** RNG instance or random function for deterministic simulation setup */
+  rng?: RNG;
 }
 
 export class Andy {
@@ -227,7 +241,7 @@ export class Andy {
   save(): object;
 
   /** 从保存的状态恢复 */
-  static load(state: object): Andy;
+  static load(state: object, options?: { domain?: DomainConfig; llm?: LLMConfig | LLMFunction }): Andy;
 }
 
 // ═══════════════════════════════════════════
@@ -235,6 +249,8 @@ export class Andy {
 // ═══════════════════════════════════════════
 
 export type LLMFunction = (messages: Array<{ role: string; content: string }>) => Promise<string>;
+
+export type RNG = object | (() => number);
 
 export interface LLMConfig {
   /** 'openai' | 'anthropic' | 'openai-compatible' | 'ollama' */
@@ -312,6 +328,25 @@ export class ConversationLog {
   clear(): void;
   toJSON(): object;
   static fromJSON(data: object): ConversationLog;
+}
+
+// ═══════════════════════════════════════════
+// AndyBridge
+// ═══════════════════════════════════════════
+
+export class AndyBridge {
+  constructor(options?: { andy?: object; agentId?: string; dbPath?: string; snapshotInterval?: number; persistence?: { type?: string; path?: string }; rng?: RNG });
+  init(): Promise<{ restoredTick: number; restoredTime: string }>;
+  shutdown(): Promise<void>;
+  onUserMessage(userText: string): { effect: object; intent: string; matchedKeywords?: string[] };
+  onTick(tickResult: object): { stories: Array; signalConsumed: object | null };
+  getStoriesForAgent(hours?: number, limit?: number): Array;
+  getAgentEmotion(): object | null;
+  getStats(): object;
+  /** @deprecated Use getStoriesForAgent instead */
+  getStoriesForBobby(hours?: number, limit?: number): Array;
+  /** @deprecated Use getAgentEmotion instead */
+  getBobbyEmotion(): object | null;
 }
 
 // ═══════════════════════════════════════════

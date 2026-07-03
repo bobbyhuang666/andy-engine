@@ -233,6 +233,114 @@ describe('AutoTick', () => {
     expect(() => at.calculateTicksToAdvance(engine)).not.toThrow();
     expect(at.calculateTicksToAdvance(engine)).toBe(1);
   });
+
+  describe('deterministic tick advance with virtual time', () => {
+    it('returns same tick count when called with identical sim time (chat-in-progress)', () => {
+      const at = new AutoTick({ rng: new RNG('autotick'), chatTickMin: 1, chatTickMax: 1 });
+      const engine = new (require('../index.js').default || require('../index.js'))();
+      engine.createCharacter({ id: 'test', name: 'Test', mbti: 'INFP' });
+
+      const simTime = engine.world.time.getTime();
+
+      // First call — sets _lastMessageTime, returns 0
+      expect(at.calculateTicksToAdvance(engine, simTime)).toBe(0);
+
+      // Second call with same sim time — deterministic: always 1 (same elapsed)
+      const result1 = at.calculateTicksToAdvance(engine, simTime);
+      const result2 = at.calculateTicksToAdvance(engine, simTime);
+      const result3 = at.calculateTicksToAdvance(engine, simTime);
+
+      // All must return the same value since inputs are identical
+      expect(result1).toBe(result2);
+      expect(result2).toBe(result3);
+      // With chatTickMin=chatTickMax=1, should always be 1
+      expect(result1).toBe(1);
+    });
+
+    it('returns same catch-up tick count when sim time elapses identically', () => {
+      const at = new AutoTick({ rng: new RNG('autotick'), tickIntervalMinutes: 5, maxCatchupTicks: 288 });
+      const engine = new (require('../index.js').default || require('../index.js'))();
+      engine.createCharacter({ id: 'test', name: 'Test', mbti: 'INFP' });
+
+      const startTime = engine.world.time.getTime();
+
+      // First call — initialization
+      expect(at.calculateTicksToAdvance(engine, startTime)).toBe(0);
+
+      // Simulate 30 minutes of sim time passing
+      const laterTime = startTime + 30 * 60 * 1000;
+
+      // Reset so that both fresh instances start from the same base state
+      const atA = new AutoTick({ rng: new RNG('autotick'), tickIntervalMinutes: 5, maxCatchupTicks: 288 });
+      const atB = new AutoTick({ rng: new RNG('autotick'), tickIntervalMinutes: 5, maxCatchupTicks: 288 });
+      const engineA = new (require('../index.js').default || require('../index.js'))();
+      engineA.createCharacter({ id: 'test', name: 'Test', mbti: 'INFP' });
+      const engineB = new (require('../index.js').default || require('../index.js'))();
+      engineB.createCharacter({ id: 'test', name: 'Test', mbti: 'INFP' });
+
+      // Both start with the same sim time
+      const baseTimeA = engineA.world.time.getTime();
+      const baseTimeB = engineB.world.time.getTime();
+
+      // Initialize both
+      atA.calculateTicksToAdvance(engineA, baseTimeA);
+      atB.calculateTicksToAdvance(engineB, baseTimeB);
+
+      // Advance both by the same sim-time delta (30 minutes)
+      const laterTimeA = baseTimeA + 30 * 60 * 1000;
+      const laterTimeB = baseTimeB + 30 * 60 * 1000;
+
+      const r1 = atA.calculateTicksToAdvance(engineA, laterTimeA);
+      const r2 = atB.calculateTicksToAdvance(engineB, laterTimeB);
+
+      // Same sim state + same elapsed sim time => same tick count
+      expect(r1).toBe(r2);
+      // 30 min / 5 min per tick = 6 ticks
+      expect(r1).toBe(6);
+    });
+
+    it('produces different results from Date.now() path vs sim-time path', () => {
+      // This verifies that the virtual time path is actually used when `now` is passed
+      const at = new AutoTick({ rng: new RNG('autotick'), chatTickMin: 1, chatTickMax: 1 });
+      const engine = new (require('../index.js').default || require('../index.js'))();
+      engine.createCharacter({ id: 'test', name: 'Test', mbti: 'INFP' });
+
+      const simTime = engine.world.time.getTime();
+
+      // First call with sim time
+      at.calculateTicksToAdvance(engine, simTime);
+      // Second call with sim time + 1ms (still < 5 min)
+      const ticksFromSim = at.calculateTicksToAdvance(engine, simTime + 1);
+
+      // Reset and do the same with Date.now()
+      const at2 = new AutoTick({ rng: new RNG('autotick'), chatTickMin: 1, chatTickMax: 1 });
+      const engine2 = new (require('../index.js').default || require('../index.js'))();
+      engine2.createCharacter({ id: 'test', name: 'Test', mbti: 'INFP' });
+
+      at2.calculateTicksToAdvance(engine2);
+      at2._lastMessageTime = Date.now() - 1; // Simulate 1ms elapsed
+      const ticksFromWall = at2.calculateTicksToAdvance(engine2);
+
+      // Both should return 1 (chat-in-progress, min=max=1)
+      expect(ticksFromSim).toBe(1);
+      expect(ticksFromWall).toBe(1);
+    });
+
+    it('supports serialization round-trip of _lastSimTime', () => {
+      const at = new AutoTick({ rng: new RNG('autotick') });
+      const engine = new (require('../index.js').default || require('../index.js'))();
+      engine.createCharacter({ id: 'test', name: 'Test', mbti: 'INFP' });
+
+      const simTime = engine.world.time.getTime();
+      at.calculateTicksToAdvance(engine, simTime);
+
+      const saved = at.toJSON();
+      expect(saved.lastSimTime).toBe(simTime);
+
+      const restored = AutoTick.fromJSON(saved);
+      expect(restored._lastSimTime).toBe(simTime);
+    });
+  });
 });
 
 describe('Character.chatStream diagnostics', () => {
