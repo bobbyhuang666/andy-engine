@@ -1067,7 +1067,7 @@ and two latent regression fixes exposed by epoch-0 timestamps.
 
 ## Current Gate Results
 
-Last verified after R90 config propagation: emotion + IM injection (commit `6275421`):
+Last verified after R91 spatial/serialization edge case hardening (commit `7a641d0`):
 
 | Gate | Result |
 |---|---|
@@ -1128,6 +1128,8 @@ Last verified after R90 config propagation: emotion + IM injection (commit `6275
 | EmotionVector stress homeostatic drift R89 tests | `tests/unit/behavior-field.test.js` -> 66 passed |
 | EmotionVector config injection R90 tests | `tests/unit/behavior-field.test.js`, emotion-contagion-cluster -> 35 passed |
 | IntrinsicMotivation config injection R90 tests | All IM-related tests across 92 test files -> 1345 passed |
+| SQLiteStore prune guard R91 tests | `tests/store` -> 56 passed |
+| AndyWorld encounter null-safe region R91 tests | All runtime/spatial tests -> 193 passed |
 | `npm test` | 193 files passed / 1 skipped; 3233 passed / 28 skipped |
 | `npm run test:domain` | 82 passed |
 | `npm run check:boundaries` | All boundary checks passed |
@@ -1255,6 +1257,41 @@ with no user config injection path.
 | Fix | Added `config` 5th parameter to IntrinsicMotivation constructor. Three-way merge: user config > domain config > ANDY_DEFAULTS. Replaced `this._cfg = cfg` with merged `this._imConfig`. Threaded through AgentSubsystemFactory `createSubsystems` and `restoreSubsystems`. |
 | Files | `src/agent/psychology/IntrinsicMotivation.js`; `src/agent/lifecycle/AgentSubsystemFactory.js` |
 | Regression test | 1345 tests pass across 92 test files. No regressions. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+## R91 - Spatial/Serialization Edge Case Hardening
+
+This section records two scoped no-quota fixes from R89 spatial audit
+plus verification: SQLiteStore prune guard and null-safe encounter region.
+
+### R91-PRUNE-GUARD-1
+
+| Field | Detail |
+|---|---|
+| ID | R91-PRUNE-GUARD-1 |
+| Severity | P2 |
+| Audit finding | `SQLiteStore.prune(keepCount)` computed `OFFSET = keepCount - 1`, producing `-1` when `keepCount = 0`. SQLite treats OFFSET -1 as 0, so `prune(0)` (delete all snapshots) kept 1 snapshot instead of 0. The method contract says "keep N snapshots, delete older ones" — keeping 1 when N=0 is a semantic violation. |
+| Evidence | `SQLiteStore.js:325` — `const boundary = stmt.get(keepCount - 1);` with no guard for keepCount <= 0. `MemoryStore.prune()` handles this correctly with `if (this.snapshots.length <= keepCount) return 0;`. |
+| Verification verdict | Confirmed by independent Verification AI. SQLite clamps negative OFFSET to 0 (not a crash, but incorrect result). Reachability requires explicit `snapshotKeepCount: 0` (default is 720). Downgraded from P1 to P2: no crash, but semantic contract violation. |
+| Fix | Added `if (keepCount <= 0) return 0;` guard at top of `prune()`. Matches `MemoryStore.prune()` pattern. |
+| Files | `src/store/SQLiteStore.js` |
+| Regression test | 56 store tests pass (12 SQLiteStore, 19 MemoryStore, 25 abstract interface). |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R91-ENCOUNTER-UNKNOWN-REGION-1
+
+| Field | Detail |
+|---|---|
+| ID | R91-ENCOUNTER-UNKNOWN-REGION-1 |
+| Severity | P2 |
+| Audit finding | `AndyWorld._evaluateSpatialInteractions()` used `encounter.regionA || 'unknown'` as fallback when `regionA` is null (which happens when SpatialEngine coordinates don't map to any defined region). The string `'unknown'` is not a valid domain region — it creates phantom region references in events and awkward narrative text like "在unknown". |
+| Evidence | `AndyWorld.js:679` — `encounter.regionA || 'unknown'`; `SpatialEngine.js:397` — `regionA: ... || null` final fallback; `WorldMap.js:74-78` — `pointToRegion()` returns `null` for out-of-region coordinates; `'unknown'` not found in any domain config. |
+| Verification verdict | Confirmed by independent Verification AI. `'unknown'` is not a valid domain region. `generateEncounterEvent` already handles null region gracefully (location: null, downstream consumers check for falsy location). Changed to `encounter.regionA || null`. |
+| Fix | Changed `encounter.regionA || 'unknown'` to `encounter.regionA || null` with comment explaining null-safe handling. `generateEncounterEvent` already handles null region gracefully. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | All 193 test files pass (3233 tests). Encounter events with null region handled correctly. |
 | Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
 | Status | Fixed and verified. |
 

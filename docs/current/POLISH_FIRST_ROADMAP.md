@@ -57,6 +57,8 @@ This changes sequencing:
 | Stress homeostatic drift | Closed in R89 | Stress was hard-reset to 2.0 baseline every tick, preventing natural stress reduction from positive events. Replaced with gradual drift (10%/hour toward baseline) in EmotionVector._timeDecay(). |
 | Emotion config injection | Closed in R90 | EmotionVector used module-level ANDY_DEFAULTS.emotion with no user config path. Added emotionConfig parameter, merged with defaults, threaded through AgentSubsystemFactory. Follows NeedsSystem pattern. |
 | IntrinsicMotivation config injection | Closed in R90 | IntrinsicMotivation used module-level ANDY_DEFAULTS with only domain-level config. Added three-way merge (user > domain > defaults) via config parameter, threaded through AgentSubsystemFactory. |
+| SQLiteStore prune guard | Closed in R91 | `prune(keepCount)` lacked guard for keepCount <= 0; OFFSET -1 was clamped to 0 by SQLite, keeping 1 snapshot instead of 0. Added early return guard matching MemoryStore.prune() pattern. |
+| Encounter null-safe region | Closed in R91 | `AndyWorld._evaluateSpatialInteractions` used 'unknown' fallback for null regionA, creating phantom region references in events. Changed to null-safe fallback; generateEncounterEvent handles null region gracefully. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 
