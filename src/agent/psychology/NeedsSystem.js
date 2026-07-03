@@ -394,6 +394,17 @@ class NeedsSystem {
   }
 
   /**
+   * 边界截断与 NaN 修复
+   * @private
+   */
+  _clamp() {
+    for (const key of Object.keys(this.needs)) {
+      if (!Number.isFinite(this.needs[key])) this.needs[key] = 0.5;
+      this.needs[key] = Math.max(0, Math.min(1, this.needs[key]));
+    }
+  }
+
+  /**
    * 序列化
    */
   toJSON() {

@@ -150,8 +150,7 @@ const ANDY_DEFAULTS = {
     goalGenerationInterval: 6,     // 目标生成检查间隔（ticks，~30 分钟）
     maxActiveGoals: 2,             // 最大同时活跃目标数
     goalDeadlineHours: 12,         // 目标截止时间（小时）
-    curiositySatisfyOnNovelty: 0.1,// 新奇体验满足好奇心的量
-    explorationStateBoost: 1.5,    // 探索状态在状态机中的权重加成
+	    curiositySatisfyOnNovelty: 0.1,// 新奇体验满足好奇心的量
   },
 
   // ═══════════════════════════════════════════
@@ -230,10 +229,8 @@ const ANDY_DEFAULTS = {
       interactionTierNames: ['conversation', 'awareness', 'presence'],
       interactionRadius: 25,
       maxInteractionsPerTick: 5,
-      tierProbabilities: [0.8, 0.3, 0.0],
-      tierRelationDeltas: [0.05, 0.01, 0.0],
-      baseProb: 0.3,
-      distanceDecay: 0.3,
+	      tierProbabilities: [0.8, 0.3, 0.0],
+	      tierRelationDeltas: [0.05, 0.01, 0.0],
     },
   },
 

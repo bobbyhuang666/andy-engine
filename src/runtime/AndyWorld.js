@@ -150,22 +150,20 @@ class AndyWorld {
         regionCoords: this.domain.regionCoords,
         regions: this.domain.regions,
       });
-      this.spatial = new SpatialEngine({
-        worldWidth: spatialConfig.worldWidth || 500,
-        worldHeight: spatialConfig.worldHeight || 500,
-        cellSize: spatialConfig.cellSize || 25,
-        interactionRadius: spatialConfig.interactionRadius || 25,
-        interactionRadii: spatialConfig.interactionRadii || [3, 10, 25],
-        interactionTierNames: spatialConfig.interactionTierNames || ['conversation', 'awareness', 'presence'],
-        tierProbabilities: spatialConfig.tierProbabilities || [0.8, 0.3, 0.0],
-        tierRelationDeltas: spatialConfig.tierRelationDeltas || [0.05, 0.01, 0.0],
-        maxInteractionsPerTick: spatialConfig.maxInteractionsPerTick || 5,
-        baseProb: spatialConfig.baseProb || 0.3,
-        distanceDecay: spatialConfig.distanceDecay || 0.3,
-        regions: regionDefs,
-        adjacency: this._buildAdjacencyMap(this.domain.adjacency),
-        rng: this.rng,
-      });
+	      this.spatial = new SpatialEngine({
+	        worldWidth: spatialConfig.worldWidth || 500,
+	        worldHeight: spatialConfig.worldHeight || 500,
+	        cellSize: spatialConfig.cellSize || 25,
+	        interactionRadius: spatialConfig.interactionRadius || 25,
+	        interactionRadii: spatialConfig.interactionRadii || [3, 10, 25],
+	        interactionTierNames: spatialConfig.interactionTierNames || ['conversation', 'awareness', 'presence'],
+	        tierProbabilities: spatialConfig.tierProbabilities || [0.8, 0.3, 0.0],
+	        tierRelationDeltas: spatialConfig.tierRelationDeltas || [0.05, 0.01, 0.0],
+	        maxInteractionsPerTick: spatialConfig.maxInteractionsPerTick || 5,
+	        regions: regionDefs,
+	        adjacency: this._buildAdjacencyMap(this.domain.adjacency),
+	        rng: this.rng,
+	      });
       // SER-1 fix: restore continuous typed-array state BEFORE the addAgent loop
       // (which runs later in AndyEngine constructor). addAgent 对已存在的 agentId
       // 幂等（见 SpatialEngine.addAgent），不会覆盖已恢复的连续坐标/速度。

@@ -1391,6 +1391,87 @@ dead wall-clock fallback removal (P3).
 | Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
 | Status | Fixed and verified. |
 
+## R94 - Dead Config + NaN Guard + Boundary Hardening
+
+This section records five scoped no-quota fixes: two dead config removals
+(P3), two NaN propagation guards (P2), and one boundary clamp after restore
+(P2).
+
+### R94-DEADCONFIG-1
+
+| Field | Detail |
+|---|---|
+| ID | R94-DEADCONFIG-1 |
+| Severity | P3 |
+| Audit finding | `ANDY_DEFAULTS.intrinsicMotivation` defines `explorationStateBoost: 1.5` ("探索状态在状态机中的权重加成"), but it has zero references in `src/`. Never imported, merged, or read by any production code. Dead config that degrades trust in the configuration system. |
+| Evidence | `config/defaults.js:154` — `explorationStateBoost: 1.5`. Grep across `src/` finds no usage outside `defaults.js` and `validate.js`. |
+| Verification verdict | Confirmed by independent Verification AI. Dead config with no behavioral effect. |
+| Fix | Removed `explorationStateBoost` from `ANDY_DEFAULTS.intrinsicMotivation` in `config/defaults.js`. No validation entry existed, so no validate.js change needed. |
+| Files | `src/config/defaults.js` |
+| Regression test | 3233 tests pass / 28 skipped. No behavioral change. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R94-DEADCONFIG-2
+
+| Field | Detail |
+|---|---|
+| ID | R94-DEADCONFIG-2 |
+| Severity | P3 |
+| Audit finding | `SpatialEngine` constructor accepts `baseProb` and `distanceDecay` parameters, stores them in `this.config`, and they're populated from `ANDY_DEFAULTS.spatial.continuous`. But `computeInteractions()` at line 374 shadows `baseProb` with `const baseProb = tierProbabilities[tier] || 0`, completely ignoring the config value. `distanceDecay` is stored but never referenced in any method body. Neither parameter affects interaction computation. |
+| Evidence | `SpatialEngine.js:43-44` — constructor params. `SpatialEngine.js:374` — local `baseProb` shadows config. `SpatialEngine.js:65-66` — stored in `this.config` but never read. `ANDY_DEFAULTS.spatial.continuous` defines both. `AndyWorld.js:163-164` — passes both from defaults. |
+| Verification verdict | Confirmed by independent Verification AI. Dead config — tierProbabilities array is the effective probability system. |
+| Fix | Removed `baseProb` and `distanceDecay` from SpatialEngine constructor, `this.config` storage, JSDoc, and `ANDY_DEFAULTS.spatial.continuous`. Removed from `AndyWorld.js` SpatialEngine options object. |
+| Files | `src/spatial/SpatialEngine.js`; `src/config/defaults.js`; `src/runtime/AndyWorld.js` |
+| Regression test | 3233 tests pass / 28 skipped. No behavioral change. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R94-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R94-NAN-1 |
+| Severity | P2 |
+| Audit finding | `EmotionRegulation.tryRegulate()` calls `getValence()` and `getArousal()` to compute `triggerLevel`. If any `current[dim]` is NaN (from corrupted save or edge-case), `getValence()` produces NaN, `Math.max(0, -NaN)` → NaN, `triggerLevel` = NaN. Since `NaN < threshold` always returns false, regulation proceeds instead of returning null. NaN cascades through `_selectStrategy` → `_execReappraisal` → `commitStress` computes `stress - NaN * power * 0.3` = NaN, making `_regulationResource` NaN until next `tick()` recovery path fixes it. |
+| Evidence | `EmotionRegulation.js:136-144` — `tryRegulate()` reads valence/arousal with no finite guard. `EmotionVector.js:623` — `getValence()` sum/count division can produce NaN. `EmotionRegulation.js:335` — `commitStress` propagates NaN into `_regulationResource`. |
+| Verification verdict | Confirmed by independent Verification AI. While downstream `commitEmotion` and `EffectCommitter` have `Number.isFinite` output guards preventing state corruption, `_regulationResource` becomes NaN transiently, breaking regulation resource tracking. |
+| Fix | Added `if (!Number.isFinite(valence) || !Number.isFinite(arousal)) return null;` guard at top of `tryRegulate()` after reading valence/arousal values. |
+| Files | `src/agent/psychology/EmotionRegulation.js` |
+| Regression test | 3233 tests pass / 28 skipped. Defense-in-depth guard; no behavioral change for finite inputs. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R94-NAN-2
+
+| Field | Detail |
+|---|---|
+| ID | R94-NAN-2 |
+| Severity | P2 |
+| Audit finding | `EmotionRegulation._execAttentionDeployment()` iterates over `recallEmotionDelta` entries and blindly adds values to `emotionDelta[dim]`. If any value is NaN (from corrupted memory data or edge-case in `PersonalMemory._computeRecallDelta`), NaN propagates into `emotionDelta`. Downstream `commitEmotion` has finite guards, but the behavioral output is silently wrong — no emotion change despite successful memory retrieval. |
+| Evidence | `EmotionRegulation.js:391-392` — unguarded iteration over `recallEmotionDelta` entries. |
+| Verification verdict | Confirmed by independent Verification AI. Silent drop of expected emotion effect when recall delta contains NaN. |
+| Fix | Added `if (Number.isFinite(value))` guard when iterating recallEmotionDelta entries. NaN values are silently skipped. |
+| Files | `src/agent/psychology/EmotionRegulation.js` |
+| Regression test | 3233 tests pass / 28 skipped. Defense-in-depth guard; no behavioral change for finite inputs. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R94-BOUNDARY-1
+
+| Field | Detail |
+|---|---|
+| ID | R94-BOUNDARY-1 |
+| Severity | P2 |
+| Audit finding | `AndyBridge._restoreAgents()` performs raw assignments to `agent.emotion.current[dim]`, `agent.emotion.mood[dim]`, `agent.emotion.baseline[dim]`, and `agent.needs.needs[need]` without calling `_clamp()` afterwards. This bypasses range enforcement (clamping to [-1, 1] for emotions, [0, 1] for needs) and NaN repair. Out-of-range values from corrupted save data could persist. |
+| Evidence | `AndyBridge.js:~354` — `agent.emotion.current[dim] = val` (finite-checked but not clamped). `AndyBridge.js:~379` — `agent.needs.needs[need] = val`. Neither calls `_clamp()` after restore. |
+| Verification verdict | Confirmed by independent Verification AI. Partial restore path is documented, but raw writes skip lifecycle methods. Added `_clamp()` calls after restore loops. Also added `_clamp()` to `NeedsSystem` (didn't exist yet, follows `EmotionVector._clamp()` pattern). |
+| Fix | After emotion.current restore loop: `agent.emotion._clamp()`. After needs.needs restore loop: `agent.needs._clamp()`. Added `_clamp()` method to `NeedsSystem` (clamps to [0, 1], repairs NaN with default 0.5). |
+| Files | `src/sdk/AndyBridge.js`; `src/agent/psychology/NeedsSystem.js` |
+| Regression test | 3233 tests pass / 28 skipped. All andy-bridge tests pass (23/23 + 3/3). |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

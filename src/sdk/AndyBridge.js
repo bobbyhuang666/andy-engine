@@ -353,6 +353,10 @@ class AndyBridge {
               for (const [dim, val] of Object.entries(state.emotion.current)) {
                 if (Number.isFinite(val)) agent.emotion.current[dim] = val;
               }
+              // R94-BOUNDARY-1: clamp emotion values to valid range after raw restore
+              if (agent.emotion._clamp) {
+                agent.emotion._clamp();
+              }
             }
             if (Number.isFinite(state.emotion.stress) && agent.emotion.setStress) {
               agent.emotion.setStress(state.emotion.stress);
@@ -374,11 +378,15 @@ class AndyBridge {
           }
           // R9: restore needs
           if (agent.needs && state.needs && state.needs.needs) {
-            for (const [need, val] of Object.entries(state.needs.needs)) {
-              if (Number.isFinite(val) && agent.needs.needs[need] !== undefined) {
-                agent.needs.needs[need] = val;
+              for (const [need, val] of Object.entries(state.needs.needs)) {
+                if (Number.isFinite(val) && agent.needs.needs[need] !== undefined) {
+                  agent.needs.needs[need] = val;
+                }
               }
-            }
+              // R94-BOUNDARY-1: clamp needs after raw restore
+              if (agent.needs._clamp) {
+                agent.needs._clamp();
+              }
           }
           // R35 P1 fix: validate position is a non-empty string. Invalid position
           // (number, object, empty string) breaks all region-based subsystems

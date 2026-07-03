@@ -137,6 +137,9 @@ class EmotionRegulation {
     const arousal = agent.emotion.getArousal();
     const stress = agent.emotion.stress || 0;
 
+    // NaN 保护：如果效价或唤醒度为 NaN，跳过调节
+    if (!Number.isFinite(valence) || !Number.isFinite(arousal)) return null;
+
     // ─── 检查是否需要调节 ───
     // 触发条件：负面效价、高压力、或高唤醒
     const negativeIntensity = Math.max(0, -valence);
@@ -389,7 +392,9 @@ class EmotionRegulation {
         // 比硬编码值更准确，因为考虑了记忆重要性和情绪标签
         if (recallEmotionDelta && Object.keys(recallEmotionDelta).length > 0) {
           for (const [dim, value] of Object.entries(recallEmotionDelta)) {
-            emotionDelta[dim] = (emotionDelta[dim] || 0) + value;
+            if (Number.isFinite(value)) {
+              emotionDelta[dim] = (emotionDelta[dim] || 0) + value;
+            }
           }
         } else {
           // 降级：如果没有 recallEmotionDelta，使用基础正面情绪增量

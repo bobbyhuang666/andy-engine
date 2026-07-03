@@ -64,6 +64,11 @@ This changes sequencing:
 | BehaviorField config injection | Closed in R93 | `AgentSubsystemFactory` passed `{}` instead of `config.behavior || {}` to BehaviorField constructor, silently discarding user config. Fixed to pass `config.behavior || {}` in both create and restore paths. |
 | WorldClock epoch sentinel default | Closed in R93 | `WorldClock` constructor defaulted to `new Date()` (wall-clock). Changed to `new Date(0)` (epoch sentinel) following R86-R92 pattern. All callers already provided explicit startTime. |
 | EventDispatcher dead fallback removal | Closed in R93 | `EventDispatcher` had unreachable `|| new Date()` fallback on `_simTime` branch. Removed dead code; `_simTime` is always initialized to `new Date(0)`. |
+| Dead config: explorationStateBoost | Closed in R94 | `ANDY_DEFAULTS.intrinsicMotivation.explorationStateBoost` had zero references in `src/`. Removed dead key. |
+| Dead config: SpatialEngine baseProb/distanceDecay | Closed in R94 | `SpatialEngine` stored `baseProb` and `distanceDecay` from config but never used them — `computeInteractions` shadows `baseProb` with local tier-based variable. Removed dead config chain from defaults, SpatialEngine, and AndyWorld. |
+| NaN guard: EmotionRegulation tryRegulate | Closed in R94 | `tryRegulate` could propagate NaN from corrupted emotion state through `getValence`/`getArousal` into `_regulationResource`. Added finite guard returning null early. |
+| NaN guard: EmotionRegulation attention deployment | Closed in R94 | `_execAttentionDeployment` iterated `recallEmotionDelta` without finite guard on values. Added `Number.isFinite(value)` check to skip NaN entries. |
+| Boundary: AndyBridge restore clamp | Closed in R94 | `_restoreAgents` raw-assigned emotion.current/needs.needs without calling `_clamp()`. Added `_clamp()` calls after restore loops; added `_clamp()` to NeedsSystem. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

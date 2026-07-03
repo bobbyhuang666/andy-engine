@@ -17,54 +17,48 @@ const SpatialHash = require('./SpatialHash');
 const { WorldMap } = require('./WorldMap');
 
 class SpatialEngine {
-  /**
-   * @param {Object} options
-   * @param {number} options.worldWidth - 世界宽度（米）
-   * @param {number} options.worldHeight - 世界高度（米）
-   * @param {number} options.cellSize - 网格尺寸（米），默认 10
-   * @param {number} options.interactionRadius - 交互半径（米），默认 5
-   * @param {number} options.maxInteractionsPerTick - 每 agent 每 tick 最大交互数，默认 5
-   * @param {number} options.baseProb - 基础交互概率，默认 0.3
-   * @param {number} options.distanceDecay - 距离衰减系数，默认 0.3
-   * @param {Object[]} options.regions - 区域定义
-   * @param {Object} options.adjacency - 区域邻接关系
-   */
+	/**
+	 * @param {Object} options
+	 * @param {number} options.worldWidth - 世界宽度（米）
+	 * @param {number} options.worldHeight - 世界高度（米）
+	 * @param {number} options.cellSize - 网格尺寸（米），默认 10
+	 * @param {number} options.interactionRadius - 交互半径（米），默认 5
+	 * @param {number} options.maxInteractionsPerTick - 每 agent 每 tick 最大交互数，默认 5
+	 * @param {Object[]} options.regions - 区域定义
+	 * @param {Object} options.adjacency - 区域邻接关系
+	 */
   constructor(options = {}) {
-    const {
-      worldWidth = 500,
-      worldHeight = 500,
-      cellSize: rawCellSize = 25,
-      interactionRadius = 25,
-      interactionRadii = [3, 10, 25],
-      interactionTierNames = ['conversation', 'awareness', 'presence'],
-      tierProbabilities = [0.8, 0.3, 0.0],
-      tierRelationDeltas = [0.05, 0.01, 0.0],
-      maxInteractionsPerTick = 5,
-      baseProb = 0.3,
-      distanceDecay = 0.3,
-      regions = [],
-      adjacency = {},
-      rng = null,
-    } = options;
+	    const {
+	      worldWidth = 500,
+	      worldHeight = 500,
+	      cellSize: rawCellSize = 25,
+	      interactionRadius = 25,
+	      interactionRadii = [3, 10, 25],
+	      interactionTierNames = ['conversation', 'awareness', 'presence'],
+	      tierProbabilities = [0.8, 0.3, 0.0],
+	      tierRelationDeltas = [0.05, 0.01, 0.0],
+	      maxInteractionsPerTick = 5,
+	      regions = [],
+	      adjacency = {},
+	      rng = null,
+	    } = options;
 
     // 最大交互半径用于网格查询
     const maxRadius = Math.max(...interactionRadii, interactionRadius);
     // 约束：cellSize 必须 ≥ 最大交互半径
     const cellSize = Math.max(rawCellSize, maxRadius);
 
-    this.config = {
-      worldWidth,
-      worldHeight,
-      cellSize,
-      interactionRadius: maxRadius,
-      interactionRadii: [...interactionRadii].sort((a, b) => a - b),
-      interactionTierNames,
-      tierProbabilities,
-      tierRelationDeltas,
-      maxInteractionsPerTick,
-      baseProb,
-      distanceDecay,
-    };
+	    this.config = {
+	      worldWidth,
+	      worldHeight,
+	      cellSize,
+	      interactionRadius: maxRadius,
+	      interactionRadii: [...interactionRadii].sort((a, b) => a - b),
+	      interactionTierNames,
+	      tierProbabilities,
+	      tierRelationDeltas,
+	      maxInteractionsPerTick,
+	    };
 
     // 空间哈希网格
     this.grid = new SpatialHash({
