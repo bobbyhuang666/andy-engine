@@ -20,8 +20,8 @@
 | External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
-| Current gate snapshot | 2026-07-03 no-quota + external-free verification: `npm test` 3218 passed / 28 skipped; R48 store/replay/config suite 464 passed; R49 action/effects/writeback suite 355 passed; R50 domain/config suite 82 + 128 passed; R51 runtime/social/spatial suite 116 passed; R52 public API/package suite 167 passed; R53 external-audit regression suite 245 passed / 4 skipped; R54 SDK/narrative/grounding suite 206 passed; R55 native/store/package suite 47 passed; R56 SDK/LLM provider suite 100 passed; R57 persistence/bridge suite 93 passed; R58 long-run facts/knowledge suite 189 passed; R59 perf gate suite 5 passed; R60 package subpath type suite 83 passed; R61 Node baseline/package suite 83 passed; R62 fact-retention suite 88 passed; R63 social/Dunbar suite 32 passed; R64 action canonicalization suite 223 passed / 11 skipped; R65 ScheduleHandler writeback suite 97 passed; R66 PerceptionRuntime memory writeback suite 77 passed; R67 PerceptionRuntime effects writeback suite 108 passed; R68 env service boundary suite 99 passed; R69 public facade writeback suite 161 passed; R70 SDK/bridge/narrative suite 226 passed; R71 internal stress writeback suite 98 passed; R72 discrete emotion writeback suite 107 passed; R74 boundary guard suite 58 passed; R75 RNG/time boundary guard suite 59 passed; R76 UTC accessor boundary guard suite 60 passed; R77 memory write boundary guard suite 61 passed; R78 position write boundary guard suite 62 passed; R79 relationship interaction boundary guard suite 63 passed; R80 fact/knowledge write authority suite 64 passed; R81 action provider read-only suite 65 passed; R82 narrative/LLM world-write suite 66 passed; R83 canonical SDK data mutation suite 67 passed; full test/domain/boundary/typecheck clean; boundaries clean including env service, canonical `src/sdk` memory guard, direct emotion exception guard, direct memory experience guard, direct position guard, direct relationship interaction guard, fact/knowledge write authority guard, action provider read-only guard, narrative/LLM world-write guard, canonical SDK relationship/facts/knowledge mutation guard, core runtime Date.now/Math.random guard, and core UTC accessor guard; replay diff 100/100 matched; smoke 19/19; perf exit 0 in rerun 3-run median mode with no WARN after one machine-variance WARN; `git diff --check` clean |
-| Current caveat | R43-R73 baseline is committed at `2260fd6`. Current uncommitted work is narrow R74-R83 boundary-guard hardening. |
+| Current gate snapshot | 2026-07-03 no-quota + external-free verification: `npm test` 3228 passed / 28 skipped; R48 store/replay/config suite 464 passed; R49 action/effects/writeback suite 355 passed; R50 domain/config suite 82 + 128 passed; R51 runtime/social/spatial suite 116 passed; R52 public API/package suite 167 passed; R53 external-audit regression suite 245 passed / 4 skipped; R54 SDK/narrative/grounding suite 206 passed; R55 native/store/package suite 47 passed; R56 SDK/LLM provider suite 100 passed; R57 persistence/bridge suite 93 passed; R58 long-run facts/knowledge suite 189 passed; R59 perf gate suite 5 passed; R60 package subpath type suite 83 passed; R61 Node baseline/package suite 83 passed; R62 fact-retention suite 88 passed; R63 social/Dunbar suite 32 passed; R64 action canonicalization suite 223 passed / 11 skipped; R65 ScheduleHandler writeback suite 97 passed; R66 PerceptionRuntime memory writeback suite 77 passed; R67 PerceptionRuntime effects writeback suite 108 passed; R68 env service boundary suite 99 passed; R69 public facade writeback suite 161 passed; R70 SDK/bridge/narrative suite 226 passed; R71 internal stress writeback suite 98 passed; R72 discrete emotion writeback suite 107 passed; R74 boundary guard suite 58 passed; R75 RNG/time boundary guard suite 59 passed; R76 UTC accessor boundary guard suite 60 passed; R77 memory write boundary guard suite 61 passed; R78 position write boundary guard suite 62 passed; R79 relationship interaction boundary guard suite 63 passed; R80 fact/knowledge write authority suite 64 passed; R81 action provider read-only suite 65 passed; R82 narrative/LLM world-write suite 66 passed; R83 canonical SDK data mutation suite 67 passed; R84 WorldFactStore zero-copy perf suite 64 passed; R84 EventDispatcher simTime suite 60 passed; R84 StateMachine epoch fallback suite 35 passed; full test/domain/boundary/typecheck clean; boundaries clean including env service, canonical `src/sdk` memory guard, direct emotion exception guard, direct memory experience guard, direct position guard, direct relationship interaction guard, fact/knowledge write authority guard, action provider read-only guard, narrative/LLM world-write guard, canonical SDK relationship/facts/knowledge mutation guard, core runtime Date.now/Math.random guard, and core UTC accessor guard; replay diff 100/100 matched; smoke 19/19; perf all PASS in 3-run median mode (100 agents 0.53x baseline, 300 agents 0.38x baseline); `git diff --check` clean |
+| Current caveat | R43-R73 baseline committed at `2260fd6`; R74-R83 boundary guard hardening committed at `c108562`; R84 perf/determinism fixes committed at `3ff5024`. Worktree is clean. |
 
 ## How To Use This Ledger
 
@@ -830,9 +830,60 @@ stores directly; those writes belong to typed deltas or canon/knowledge owners.
 | Result | Boundary check now reports `SDK data mutation: clean (relationship/facts/knowledge)`. Architecture boundary suite: 1 file / 67 passed. Full `npm test`: 193 files passed / 1 skipped; 3217 passed / 28 skipped. Domain tests 82 passed. Typecheck clean. Smoke pack 19 passed / 0 failed. Replay diff matched 100/100. First perf check exited 0 with one machine-variance WARN; immediate rerun reported all PASS with no WARN. Diff check clean. |
 | Status | R83 fixed and verified in current worktree. No new P0/P1 confirmed; this is a regression-prevention guard against public SDK/facade data-authority leaks. |
 
+## R84 - Perf / Determinism Hardening
+
+This section records three no-quota fixes from an internal free-model audit plus
+local verification: WorldFactStore deep-copy waste, EventDispatcher simTime
+staleness, and StateMachine wall-clock fallback.
+
+### R84-WFS-DEEPCOPY-1
+
+| Field | Detail |
+|---|---|
+| ID | R84-WFS-DEEPCOPY-1 |
+| Severity | P2 |
+| Audit finding | `WorldFactStore._getByType()` deep-copied every fact via `_deepCopyFact()` on every tick. `FactEmitter.emitAgentStateFacts`, `emitRelationshipFacts`, and `emitMemoryFacts` called `getAgentStateFacts()`/`getRelationshipFacts()`/`getMemoryFacts()` which delegate to `_getByType()`, but only used returned facts to build read-only temporary lookup Maps. |
+| Evidence | `WorldFactStore.js:695-702` — `_getByType` maps through `_deepCopyFact`; `FactEmitter.js:95-97` — builds Map from `getAgentStateFacts()` reading only `.agentId`/`.id`; `FactEmitter.js:262-268` — builds pair index from `getRelationshipFacts()` reading only `.agentA`/`.agentB`/`.id`. |
+| Verification verdict | Confirmed by independent Verification AI. No caller mutates returned facts. Precedent exists: `_hasActiveFact()` (line 441) documented as zero-copy hot-path read for the same reason. `emitMemoryFacts` is dead code (never called from `step()`), reducing scope. |
+| Fix | Added `_getByTypeReadOnly(type)` internal zero-copy accessor in `WorldFactStore`. `FactEmitter` now uses it for agent-state, relationship, and memory fact lookups. Public deep-copy accessors preserved for external callers. |
+| Files | `src/canon/WorldFactStore.js`; `src/canon/FactEmitter.js`; `tests/facts/world-fact-store.test.js`; `tests/facts/fact-emitter-event-fallback.test.js` |
+| Regression test | 8 zero-copy tests including one that mutates a returned reference and verifies the mutation propagates into the store (proving zero-copy). FactEmitter spy targets updated to `_getByTypeReadOnly`. |
+| Re-verification | Targeted tests: 64 passed. Full `npm test`: 3228 passed / 28 skipped. Perf improved: 100 agents 0.53x baseline (from 0.61x), 300 agents 0.38x baseline (from 0.42x). |
+| Status | Fixed and verified in commit `3ff5024`. |
+
+### R84-EVENTDISPATCHER-TIME-1
+
+| Field | Detail |
+|---|---|
+| ID | R84-EVENTDISPATCHER-TIME-1 |
+| Severity | P3 |
+| Audit finding | `eventDispatcher.setSimTime(this.clock.time)` was called in Phase 5 of `AndyWorld.step()`, but weather changes in Phase 2 (`_maybeChangeWeather` → `setWeather` → `createEvent`) used the previous tick's `_simTime`, causing weather events to be timestamped 1 tick stale. |
+| Evidence | `AndyWorld.js:493` — `setSimTime` in Phase 5; `AndyWorld.js:405-407` — Phase 2 calls `_maybeChangeWeather`; `AndyWorld.js:280-286` — `setWeather` calls `createEvent`; `EventDispatcher.js:89` — `createEvent` uses `params.time || this._simTime || new Date()`. |
+| Verification verdict | Confirmed by independent Verification AI. Weather events in Phase 2 used stale `_simTime` from previous tick. The `new Date()` constructor pre-seed is not a determinism hole in normal operation (Phase 7 events always have correct time), but the 1-tick staleness for weather events is a real fidelity issue. |
+| Fix | Moved `eventDispatcher.setSimTime(this.clock.time)` from Phase 5 to Phase 1 (after clock advance), so all subsequent phases use current simulation time. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | Existing event-dispatcher-branches and runtime tests cover the timing change; no new test needed for pure reorder. |
+| Re-verification | Targeted tests: 60 passed. Full `npm test`: 3228 passed / 28 skipped. Replay diff 100/100. |
+| Status | Fixed and verified in commit `3ff5024`. |
+
+### R84-STATEMACHINE-DATE-1
+
+| Field | Detail |
+|---|---|
+| ID | R84-STATEMACHINE-DATE-1 |
+| Severity | P2 |
+| Audit finding | `StateMachine` constructor set `stateEnteredAt = new Date()` (wall-clock) when no `savedState` provided. `AgentRuntime.tick()` line 177 used `env.simTime || new Date()` for state transitions, and line 181 used `(env.simTime || new Date()).toISOString()` for history entries. In isolated/SDK agent usage where `env.simTime` is null, wall-clock timestamps broke seeded determinism for state tracking. |
+| Evidence | `StateMachine.js:36` — `this.stateEnteredAt = new Date()`; `AgentRuntime.js:177` — `env.simTime || new Date()`; `AgentRuntime.js:181` — `(env.simTime || new Date()).toISOString()`. Normal `AndyWorld.step()` path always provides `simTime` via `RuntimeContext.js:42`. |
+| Verification verdict | Confirmed by independent Verification AI. `stateEnteredAt` feeds only into `getInfo().elapsed` for narrative/status output (not behavioral logic). L4 replay hash excludes `runtimeSnapshot`. Normal runtime path is clean; only isolated/SDK usage hits the fallback. Severity P2 because it affects deterministic replay for non-default agent usage patterns. |
+| Fix | Replaced `new Date()` fallback with `new Date(0)` (epoch sentinel) in `StateMachine` constructor and `AgentRuntime` state-change handler. Preserves `Date` type, deterministic across runs, `toJSON()`/`fromJSON()` round-trip unaffected. |
+| Files | `src/agent/psychology/StateMachine.js`; `src/agent/AgentRuntime.js`; `tests/unit/handlers/agent-runtime.test.js` |
+| Regression test | 4 tests: constructor uses epoch 0, stateEnteredAt stays epoch 0 without state change, uses simTime when provided, history entries use ISO from simTime or epoch 0. |
+| Re-verification | Targeted tests: 35 passed. Full `npm test`: 3228 passed / 28 skipped. Typecheck clean. |
+| Status | Fixed and verified in commit `3ff5024`. |
+
 ## Current Gate Results
 
-Last verified after R83 canonical SDK data mutation boundary guard:
+Last verified after R84 perf/determinism hardening (commit `3ff5024`):
 
 | Gate | Result |
 |---|---|
@@ -874,41 +925,10 @@ Last verified after R83 canonical SDK data mutation boundary guard:
 | Action provider read-only R81 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 65 passed; boundary check reports action providers as read-only candidate sources |
 | Narrative / LLM world-write R82 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 66 passed; boundary check reports narrative/LLM world writes clean |
 | Canonical SDK data mutation R83 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 67 passed; boundary check reports SDK relationship/facts/knowledge data mutation clean |
-| External-free audit | `opencode/deepseek-v4-flash-free` persistence/replay no-edit audit: P1 candidate rejected by smoke; P2 tickHash Date issue confirmed and fixed |
-| External-free action audit | `opencode/deepseek-v4-flash-free` action/effects no-edit audit: P1 active location-meaning writeback confirmed and fixed; temperature/no-seed candidate rejected by smoke |
-| External-free domain audit | `opencode/deepseek-v4-flash-free` domain/config no-edit audit: minimal-domain IM fallback and ScheduleHandler state-center P1s confirmed and fixed |
-| External-free runtime/social audit | `opencode/deepseek-v4-flash-free` runtime/social no-edit audit: perception dedup P0 and Dunbar cap P1 confirmed/fixed; canon/encounter overlap downgraded pending stronger evidence |
-| External-free package audit | `opencode/deepseek-v4-flash-free` public API/package no-edit audit: `store/index.d.ts` strict TS P1 confirmed/fixed; missing secondary subpath types deferred as P2 |
-| External user-provided core recheck | AutoTick RNG, WorldPressure time semantics, SimulationStore interval, AndyBridge snapshot delimiter, and WorldFactStore observation/memory growth confirmed/fixed or bounded as R53; FactEmitter/KnowledgeStore prior fixes reconfirmed |
-| External-free SDK/narrative audit | `opencode/deepseek-v4-flash-free` SDK/narrative no-edit audit: no P0/P1 confirmed; getContext grounding gap, chatStream diagnostics, and custom-domain AgentNarrative center lookup fixed as P2 hardening |
-| External-free native/store audit | `opencode/deepseek-v4-flash-free` native/SQLite/store no-edit audit: no P0/P1 confirmed; no-SQLite fresh-consumer false positive and store type/runtime surface gap fixed as P2 hardening |
-| External-free SDK/LLM audit | `opencode/deepseek-v4-flash-free` SDK/LLM no-edit audit: Anthropic env priority P1 confirmed/fixed; chatStream break and SDK type gaps fixed as P2 hardening |
-| External-free persistence audit | `opencode/deepseek-v4-flash-free` persistence/bridge no-edit audit: final snapshot failure meta-advance P1 confirmed/fixed; bridge same-tick story persistence P1 confirmed locally and fixed |
-| External-free long-run stability audit | `opencode/deepseek-v4-flash-free` facts/knowledge/event/perception no-edit audit: restore stale knowledge P1 confirmed/fixed; empty `_byAgent` P2 fixed |
-| External-free performance audit | `opencode/deepseek-v4-flash-free` perf-gate no-edit audit: single-run and missing-metric false-pass P1s confirmed/fixed; subprocess diagnostics fixed as P2 hardening |
-| External-free package subpath audit | `opencode/deepseek-v4-flash-free` package/release no-edit audit: secondary public subpath `.d.ts` gap reproduced locally as strict TS7016 and fixed |
-| External-free Node baseline audit | `opencode/deepseek-v4-flash-free` Node 18 / optional SQLite no-edit audit: `engines.node >=18` publish claim contradicted current dev tooling and `better-sqlite3` 12.x; fixed by tightening published baseline to Node.js 20+ |
-| External-free fact-retention audit | `opencode/deepseek-v4-flash-free` long-run fact-retention no-edit audit: OBSERVATION/MEMORY unbounded-growth concern rejected as stale; INVALIDATED retention P2 fixed |
-| External-free SocialGraph/Dunbar audit | `opencode/deepseek-v4-flash-free` social no-edit audit: shared bidirectional relationship demotion confirmed as P1 and fixed via agent-local layer projection |
-| External-free agent/action audit | `opencode/deepseek-v4-flash-free` agent/action no-edit audit: runtime did not import legacy action files, but package publish surface and legacy tests exposed stale duplicate implementations; tests migrated to canonical `src/action`, package surface narrowed, and repo-local `agent/action` files deleted |
-| External-free ScheduleHandler audit | `opencode/deepseek-v4-flash-free` ScheduleHandler writeback audit: direct position and skip-memory writes confirmed as P0-002; fixed by routing ScheduleHandler consequences through typed deltas and `EffectCommitter`, while preserving raw skip-memory event context |
-| External-free PerceptionRuntime audit | R66 fell back to `opencode/deepseek-v4-flash-free` after a temporary agnes token failure; it confirmed direct experience-memory writeback and identified broader perception emotion/stress/appraisal-bias direct mutations as follow-up candidates. R67 rechecked `agnes/agnes-2.0-flash` and confirmed it is executable. |
-| External-free Perception effects audit | `agnes/agnes-2.0-flash` available and used for R67; confirmed personality drift bookkeeping can remain direct while perception emotion/stress/appraisal-bias writes should route through typed deltas / `EffectCommitter` |
-| External-free env service audit | `agnes/agnes-2.0-flash` reviewed `env._world` removal; implementation now uses explicit `effectCommitter` / `effectWorld` env services and locks the rule in `check:boundaries` |
-| External-free public facade writeback audit | `agnes/agnes-2.0-flash` post-R68 audit identified `InteractionFacade` as the remaining public writeback side door; `ExternalExperience` and `InteractionFacade` now route through typed deltas / `EffectCommitter` |
-| External-free SDK bridge/helper audit | `agnes/agnes-2.0-flash` classified bridge restore writes as restore-time exceptions and flagged active bridge signal plus narrative transient emotion paths; bridge signals now prefer `EffectCommitter`, and narrative empathy restores native-like mirrors |
-| External-free internal stress audit | `agnes/agnes-2.0-flash` classified reflection/regulation direct stress writes as P2 internal hardening and confirmed synchronous `EffectCommitter` routing preserves tick ordering |
-| Runtime grounding smoke | `enableFacts=true` + action event mode: `actionFacts=0`, other-agent `AGENT_STATE=0` in Alice grounding |
-| Config restore smoke | `fromWorldState(toWorldState(engine))` restored `enableFacts=true`, custom needs decay, event action mode, and factStore |
-| Date canonicalization smoke | `canonicalize(new Date('2026-09-01T08:00:00Z'))` -> `2026-09-01T08:00:00.000Z` |
-| Action active move smoke | `enableFacts=true` active move wrote live position, RegionGrid, and `movement_target` location meaning |
-| Provider read-only scan | `src/action/providers` had no direct memory/fact/knowledge/position/relationship write APIs |
-| Event visibility smoke | `action_selected` internal events were not visible through `filterEventsForAgent` |
-| Event config smoke | custom `eventConfig.maxEventLogSize=3` kept eventLog/eventIndex capped at 3 |
-| UTC replay smoke | `TZ=UTC npx vitest run tests/unit/golden-seed-replay.test.js --no-color` -> 3 passed |
-| `npm pack --dry-run` | succeeded; tarball contains 198 files and no `agent/action/*` files |
-| Package metadata scan | expected 10 exports; no `package.json.files` entries missing |
-| `npm test` | 193 files passed / 1 skipped; 3217 passed / 28 skipped |
+| WorldFactStore zero-copy perf R84 tests | `tests/facts/world-fact-store.test.js` plus `tests/facts/fact-emitter-event-fallback.test.js` -> 64 passed |
+| EventDispatcher simTime R84 tests | `tests/unit/runtime/event-dispatcher-branches.test.js` plus `tests/unit/runtime/runtime.test.js` -> 60 passed |
+| StateMachine epoch fallback R84 tests | `tests/unit/handlers/agent-runtime.test.js` plus `tests/unit/runtime/reflection-runtime.test.js` -> 35 passed |
+| `npm test` | 193 files passed / 1 skipped; 3228 passed / 28 skipped |
 | `npm run test:domain` | 82 passed |
 | `npm run check:boundaries` | All boundary checks passed |
 | `npm run smoke:pack` | 19 passed / 0 failed |
@@ -918,7 +938,7 @@ Last verified after R83 canonical SDK data mutation boundary guard:
 | `npm run sqlite:smoke` | SQLite smoke OK |
 | `npm run fresh:consumer` | Basic CJS, `--omit=optional` No-SQLite init fallback, and TypeScript subpath consumer checks passed |
 | `npm run release:check` | `npm test`, `test:domain`, `check:boundaries`, and pack dry-run all passed |
-| `npm run perf:check` | First run exit 0 with one machine-variance WARN; immediate rerun exit 0 in default 3-run median mode with 5 PASS / 0 WARN |
+| `npm run perf:check` | All PASS in 3-run median mode: 100 agents 0.53x baseline, 300 agents 0.38x baseline, no WARN |
 | `git diff --check` | clean |
 
 ## Active Latent / Deferred Backlog
@@ -935,6 +955,13 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | TICKHASH-DATE-1 | P2 diagnostic | `tickHash.canonicalize(Date)` erased Date values to `{}`. | Fixed in R48; keep row until next release freeze review confirms no downstream fixture migration needed. |
 | FACT-RETENTION | P2/P1 design | Non-EVENT facts can grow without global retention policy. | Needs design: cap/TTL/compaction semantics. |
 | SOCIAL-DUNBAR | P2/P1 design | Shared bidirectional `Relationship` means Dunbar demotion is symmetric, which may not match per-agent social capacity semantics. | Needs design: shared edge vs per-agent perception. |
+| R84-ANDYBRIDGE-RESTORE-1 | P2 | `AndyBridge._restoreAgents` drops ~10 serialized fields (personality, memory, schedule, emotionRegulation, intrinsicMotivation, futureTendency, _actionTraceHistory, _perceivedEventIds, appraisalBiases). Documented as partial restore; full continuity requires bridge-mediated save/restore cycle. | Deferred: documented partial restore; not in default persistence path. |
+| R84-CHARACTER-SAVE-LLM-1 | P2 | `Character.save()` omits `_defaultLLM` config; standalone Character round-trip loses LLM provider/apiKey. `Andy.save()` correctly persists it at wrapper level. | Deferred: affects standalone Character save only; Andy multi-character path is correct. |
+| R84-WORLD-SNAPSHOT-1 | P3 | `AndyWorld.snapshot()` output is not safe for round-trip restore (missing events full, spatial, rngState, _restoreConfig, factStore, etc.). `toJSON()` is correct for persistence; `snapshot()` is a footgun for external consumers. | Deferred: internal code uses `toJSON()`; `snapshot()` API consumers at own risk. |
+| R84-SOCIALGRAPH-SNAPSHOT-1 | P3 | `SocialGraph.snapshot()` drops `_tickCount`; `toJSON()` preserves it. `snapshot()`→`fromJSON()` round-trip resets Dunbar timing. | Deferred: internal code uses `toJSON()`; not currently wired to restore. |
+| R84-FACTEMITTER-DEADCODE-1 | P3 | `emitMemoryFacts()` is defined but never called from `AndyWorld.step()` or any `src/` runtime path. Dead code on the hot path surface. | Deferred: zero runtime impact; cleanup when fact emission is next touched. |
+| R84-TYPE-DECL-MISMATCH-1 | P2/P3 | `sdk/types.d.ts` missing `groundingPackage`, `enableFacts`, `seed`, `rng` on CharacterConfig/AndyConfig; `Andy.load` missing options param; `AndyBridge` entirely absent; `facts/index.d.ts` CanonEventPipeline constructor arity crash (2 vs 3 params) and wrong `processEvent` return shape; `WorldFactStore.factCount` phantom property. | Deferred: opt-in facts/SDK paths; TS consumers can work around with type assertions. Raise to P1 if publish decision reopens. |
+| R84-UTC-GETTERS-1 | P2 design | `UtilityScorer.js:427,448` still uses `getUTCHours()` fallback; `WorldPressure.js:42` uses `getHours()` on constructed Date. R76 boundary guard locks the exact count, but UTC/local semantics remain a design debt item (TZ-1 family). | Deferred: active runtime always provides `environment.hour` from local time; falls back only on missing context. Tracked under TZ-1. |
 
 ## Rules For Future Entries
 

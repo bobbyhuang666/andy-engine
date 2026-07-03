@@ -38,6 +38,9 @@ This changes sequencing:
 | Action provider read-only guard | Closed in R81 | `check:boundaries` now prevents candidate providers from writing state, accessing `EffectCommitter`, committing deltas, or constructing typed deltas directly. |
 | Narrative/LLM world-write guard | Closed in R82 | `check:boundaries` now prevents narrative code from writing facts, knowledge, agent state, regions, or effect deltas, preserving grounding as expression rather than world authority. |
 | Canonical SDK data mutation guard | Closed in R83 | `check:boundaries` now scans canonical SDK, public facades, and compatibility agent entry points for relationship/facts/knowledge write verbs, keeping public APIs out of direct data authority. |
+| WorldFactStore zero-copy perf | Closed in R84 | FactEmitter hot paths used `_getByType()` which deep-copied every fact per tick for read-only index building. Added `_getByTypeReadOnly()` zero-copy accessor; public deep-copy accessors preserved. 8 regression tests; perf improved to 0.53x/0.38x baseline. |
+| EventDispatcher simTime ordering | Closed in R84 | `setSimTime()` was called in Phase 5, but Phase 2 weather changes used previous tick's `_simTime`. Moved to Phase 1 after clock advance so all phases use current simulation time. |
+| StateMachine deterministic fallback | Closed in R84 | `StateMachine` constructor and `AgentRuntime` state-change handler used `new Date()` wall-clock fallback when `env.simTime` was null. Replaced with `new Date(0)` epoch sentinel for seeded determinism in isolated/SDK agent usage. 4 regression tests. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 
