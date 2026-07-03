@@ -1828,6 +1828,41 @@ debt. Zero confirmed bugs.
 | Disposition | Documented intentional for snapshot-restore path. Finite guard + _clamp() present. Side effects correctly deferred to next tick. |
 | Status | No action. Documented intentional boundary exception. |
 
+## R104 - Contagion Config Validation + KnowledgeStore Normalization
+
+This section records two scoped no-quota fixes: contagion config validation
+gap (P2) and KnowledgeStore legacy sources normalization (P2).
+
+### R104-CONTAGION-VALIDATION-1
+
+| Field | Detail |
+|---|---|
+| ID | R104-CONTAGION-VALIDATION-1 |
+| Severity | P2 |
+| Audit finding | `ANDY_DEFAULTS.contagion` contained `baseSusceptibility`, `baseExpressiveness`, and `interactionRadius` but was missing `negativityBias` and `baseContagionRate` — the two fields that `_socialContagion()` reads at runtime with hardcoded `|| 1.4` / `|| 0.3` fallbacks. `validateConfig()` had zero validation for `config.contagion`, meaning user-provided values for any contagion parameter were silently accepted without bounds checking. Out-of-range values (e.g., `negativityBias: -5` or `baseContagionRate: 0`) would alter simulation dynamics with no error. |
+| Evidence | `defaults.js:106-110` — contagion block missing `negativityBias` and `baseContagionRate`. `validate.js` — no `config.contagion` validator. `EmotionVector.js:424-425` — hardcoded fallbacks. |
+| Verification verdict | Confirmed by independent Verification AI. Config validation gap — silent acceptance of invalid contagion parameters. |
+| Fix | Added `negativityBias: 1.4` and `baseContagionRate: 0.3` to `ANDY_DEFAULTS.contagion`. Added `config.contagion` validator in `validate.js` with range checks: `baseSusceptibility` [0,1], `baseExpressiveness` [0,1], `interactionRadius` [0,10], `negativityBias` [0.5,3], `baseContagionRate` [0,1]. |
+| Files | `src/config/defaults.js`; `src/config/validate.js` |
+| Regression test | 3264 tests pass / 28 skipped. Validation tests added for contagion range checking. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
+| Status | Fixed and verified. |
+
+### R104-KNOWLEDGE-NORMALIZE-1
+
+| Field | Detail |
+|---|---|
+| ID | R104-KNOWLEDGE-NORMALIZE-1 |
+| Severity | P2 |
+| Audit finding | `KnowledgeStore.fromJSON()` had two paths for restoring evidence: `data.evidence` (preferred) correctly called `_normalizeEvidence()` on every entry, but the legacy `data.sources` fallback only called `_normalizeEvidence()` for string sources. Evidence objects in the `sources` path were stored directly without normalization, meaning `confidence` could be NaN, `learnedAt` could be non-finite, and `propagatedFrom` could be `undefined` instead of `null`. |
+| Evidence | `KnowledgeStore.js:296-310` — `data.evidence` path normalizes, `data.sources` path does not normalize Evidence objects. |
+| Verification verdict | Confirmed by independent Verification AI. Legacy deserialization path bypasses normalization, potentially producing un-normalized evidence that propagates NaN into downstream probability calculations. |
+| Fix | Changed `store._evidence.set(key, source)` to `store._evidence.set(key, store._normalizeEvidence(source))` in the `data.sources` Evidence object branch. Both paths now normalize consistently. |
+| Files | `src/knowledge/KnowledgeStore.js` |
+| Regression test | 3264 tests pass / 28 skipped. No existing test exercises the legacy sources path with Evidence objects. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

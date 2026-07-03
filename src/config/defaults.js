@@ -107,6 +107,8 @@ const ANDY_DEFAULTS = {
     baseSusceptibility: 0.4,    // 基础易感性
     baseExpressiveness: 0.2,    // 基础表达性
     interactionRadius: 1,       // 交互半径（区域单位，同一区域=1）
+    negativityBias: 1.4,        // 负面情绪传染加成系数
+    baseContagionRate: 0.3,     // 基础传染率
   },
 
   // ═══════════════════════════════════════════

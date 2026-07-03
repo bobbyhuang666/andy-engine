@@ -69,6 +69,26 @@ function validateConfig(config) {
     }
   }
 
+  // ─── 社交传染参数 ───
+  if (config.contagion) {
+    const c = config.contagion;
+    if (c.baseSusceptibility !== undefined) {
+      checkRange(c.baseSusceptibility, 0, 1, 'contagion.baseSusceptibility', errors);
+    }
+    if (c.baseExpressiveness !== undefined) {
+      checkRange(c.baseExpressiveness, 0, 1, 'contagion.baseExpressiveness', errors);
+    }
+    if (c.interactionRadius !== undefined) {
+      checkRange(c.interactionRadius, 0, 10, 'contagion.interactionRadius', errors);
+    }
+    if (c.negativityBias !== undefined) {
+      checkRange(c.negativityBias, 0.5, 3, 'contagion.negativityBias', errors);
+    }
+    if (c.baseContagionRate !== undefined) {
+      checkRange(c.baseContagionRate, 0, 1, 'contagion.baseContagionRate', errors);
+    }
+  }
+
   // ─── 记忆系统参数 ───
   if (config.memory) {
     const m = config.memory;

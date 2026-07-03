@@ -79,6 +79,8 @@ This changes sequencing:
 | MindWander NaN propagation guard | Closed in R100 | `mindWander()` emotion-delta loops lacked finite guards. Added `addIfFinite()` helper with `Number.isFinite()` check to all 5 accumulation loops. |
 | NeedsSystem decay rate NaN guard | Closed in R102 | `tick()` and `tickWithBehavior()` guarded `current` but not `rate` against NaN. Added `if (!Number.isFinite(rate)) continue` in both methods. |
 | NeedsSystem behavior recovery NaN guard | Closed in R102 | `getRecoveryRatesForBehavior()` computed factor from behaviorVector without finite guard. Added `Number.isFinite(distance)` check; NaN distance → zero recovery. |
+| Contagion config validation | Closed in R104 | `negativityBias` and `baseContagionRate` added to ANDY_DEFAULTS.contagion. Added `config.contagion` validator with range checks for all 5 fields. |
+| KnowledgeStore legacy sources normalization | Closed in R104 | `fromJSON()` data.sources path bypassed `_normalizeEvidence()` for Evidence objects. Fixed to normalize consistently with data.evidence path. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

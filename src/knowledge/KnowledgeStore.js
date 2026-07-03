@@ -304,8 +304,9 @@ class KnowledgeStore {
         if (typeof source === 'string') {
           store._evidence.set(key, store._normalizeEvidence(source));
         } else {
-          // 已经是 Evidence 对象（旧升级格式）
-          store._evidence.set(key, source);
+          // R104-3: normalize Evidence objects in legacy sources path
+          // to ensure confidence, learnedAt, propagatedFrom have proper defaults.
+          store._evidence.set(key, store._normalizeEvidence(source));
         }
       }
     }
