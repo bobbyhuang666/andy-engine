@@ -147,10 +147,18 @@ function mindWander(agent, env = null) {
   const mwCfg = getMindWanderConfig(agent).effects || {};
   const emotionDelta = {};
 
+  // R100-NAN-GAP-1: finite guard on effect values to prevent NaN
+  // propagation from malformed user config or corrupted memory data.
+  const addIfFinite = (target, dim, value) => {
+    if (Number.isFinite(value)) {
+      target[dim] = (target[dim] || 0) + value;
+    }
+  };
+
   // Recall → emotion feedback
   if (recallEmotionDelta && Object.keys(recallEmotionDelta).length > 0) {
     for (const [dim, value] of Object.entries(recallEmotionDelta)) {
-      emotionDelta[dim] = (emotionDelta[dim] || 0) + value;
+      addIfFinite(emotionDelta, dim, value);
     }
   }
 
@@ -158,22 +166,22 @@ function mindWander(agent, env = null) {
   if (thought.type === typeRumination) {
     const rum = mwCfg.rumination || { sadness: 0.018, nervousness: 0.012, frustration: 0.008 };
     for (const [dim, value] of Object.entries(rum)) {
-      emotionDelta[dim] = (emotionDelta[dim] || 0) + value;
+      addIfFinite(emotionDelta, dim, value);
     }
   } else if (thought.type === typeWorry) {
     const worry = mwCfg.worry || { nervousness: 0.020, frustration: 0.012 };
     for (const [dim, value] of Object.entries(worry)) {
-      emotionDelta[dim] = (emotionDelta[dim] || 0) + value;
+      addIfFinite(emotionDelta, dim, value);
     }
   } else if (thought.type === typeNostalgia) {
     const nost = mwCfg.nostalgia || { joy: 0.018, calm: 0.008 };
     for (const [dim, value] of Object.entries(nost)) {
-      emotionDelta[dim] = (emotionDelta[dim] || 0) + value;
+      addIfFinite(emotionDelta, dim, value);
     }
   } else if (thought.type === typeDaydream) {
     const daydream = mwCfg.daydream || { hope: 0.012, interest: 0.008, calm: 0.005 };
     for (const [dim, value] of Object.entries(daydream)) {
-      emotionDelta[dim] = (emotionDelta[dim] || 0) + value;
+      addIfFinite(emotionDelta, dim, value);
     }
   }
 

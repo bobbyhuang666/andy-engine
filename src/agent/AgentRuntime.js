@@ -135,6 +135,7 @@ class AgentRuntime {
       hoursElapsed,
       simTime: env.simTime,
       needsState: agent.needs.needs,
+      needsThresholdConfig: agent.needs._cfg.threshold,
     });
     context.imResult = imResult;
 

@@ -1674,6 +1674,42 @@ paths after the BehaviorField fix.
 | Re-verification | `npm test -- --no-color` -> 3258 passed / 28 skipped; `npm run test:domain -- --no-color` -> 82 passed; `npm run check:boundaries -- --no-color` -> passed; `npm run typecheck` -> clean; `npm run smoke:pack -- --no-color` -> 19 passed; `npm run perf:check -- --no-color` -> all PASS; `git diff --check` -> clean. |
 | Status | Fixed and verified. |
 
+## R100 - Config Propagation Completion + MindWander NaN Guards
+
+This section records two scoped no-quota fixes completing the config-injection
+audit: IntrinsicMotivation._applyNeedGate module-level ANDY_DEFAULTS.needs
+read (P1), and MindWander emotion delta NaN propagation guard (P2).
+
+### R100-MODULE-DEFAULTS-1
+
+| Field | Detail |
+|---|---|
+| ID | R100-MODULE-DEFAULTS-1 |
+| Severity | P1 |
+| Audit finding | `IntrinsicMotivation._applyNeedGate()` at line 688 read `ANDY_DEFAULTS.needs.threshold` directly via module-level import, bypassing the agent's instance config. The constructor properly merged `ANDY_DEFAULTS.intrinsicMotivation` into `this._imConfig`, but `_applyNeedGate` crossed config boundaries to read needs thresholds from a different config section. User overrides of `needs.threshold` (e.g., custom hunger/fatigue thresholds) were silently ignored by the curiosity gate logic. |
+| Evidence | `IntrinsicMotivation.js:688` — `const thresholds = ANDY_DEFAULTS.needs.threshold;`. `NeedsSystem.js` properly injects `needsConfig` and stores `this._cfg.threshold`, but `_applyNeedGate` never reads it. `AgentRuntime.js:131` passes `needsState: agent.needs.needs` (values only, not config) to `im.tick()`. |
+| Verification verdict | Confirmed by independent Verification AI. Silent config override — user-configured need thresholds are ignored by intrinsic motivation need-gating. P1 because it affects the core curiosity-drive coupling in default behavior. |
+| Fix | Added `needsThresholdConfig` parameter to `IntrinsicMotivation.tick()`. `_applyNeedGate` now accepts `thresholdConfig` as 3rd parameter and uses `thresholdConfig || ANDY_DEFAULTS.needs.threshold`. `AgentRuntime.js` passes `agent.needs._cfg.threshold` as `needsThresholdConfig`. Removed stale `const cfg = this._imConfig` local variable that was unused in `_applyNeedGate`; gate logic now reads directly from `this._imConfig.needGateThreshold`. |
+| Files | `src/agent/psychology/IntrinsicMotivation.js`; `src/agent/AgentRuntime.js` |
+| Regression test | 3264 tests pass / 28 skipped. Config injection restore test verifies `needs.threshold` flows through `_restoreConfig` to restored agents. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
+| Status | Fixed and verified. |
+
+### R100-NAN-GAP-1
+
+| Field | Detail |
+|---|---|
+| ID | R100-NAN-GAP-1 |
+| Severity | P2 |
+| Audit finding | `MindWanderRuntime.mindWander()` iterates over `mwCfg` effect values (rumination, worry, nostalgia, daydream) and `recallEmotionDelta` without finite guards. If a user passes malformed config (e.g., `mindWander: { effects: { rumination: { sadness: NaN } } }`) or corrupted memory data produces NaN in `recallEmotionDelta`, the NaN propagates into `emotionDelta` via `emotionDelta[dim] = (emotionDelta[dim] || 0) + value`. While `commitEmotion` → `applyEffect` guards with `Number.isFinite(delta)`, this is a silent per-tick skip — the caller assumes emotion was applied when nothing happened. |
+| Evidence | `MindWanderRuntime.js:152-153,160-161,165-166,170-171,175-176` — all 5 emotion-delta accumulation loops lack `Number.isFinite(value)` guard. `validate.js` now validates `mindWander.effects` ranges (R99), but validation only runs at engine construction, not on per-tick config reads. |
+| Verification verdict | Confirmed by independent Verification AI. NaN propagation path verified through mindWander → emotionDelta → commitEmotion. Validation at construction time partially mitigates, but guard is defense-in-depth. |
+| Fix | Added `addIfFinite(target, dim, value)` helper that checks `Number.isFinite(value)` before accumulation. All 5 emotion-delta loops now use `addIfFinite()` instead of direct addition. NaN values are silently skipped with comment explaining the guard. |
+| Files | `src/agent/runtime/MindWanderRuntime.js` |
+| Regression test | 3264 tests pass / 28 skipped. Guard is defensive — no existing test exercises NaN effect values. Validation test (R99) covers range checking at construction. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

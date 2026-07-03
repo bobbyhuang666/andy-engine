@@ -113,7 +113,7 @@ class IntrinsicMotivation {
    * @param {Object} params.needsState - NeedsSystem.needs 快照
    * @returns {Object} { drive, newEvents, emotionEffects }
    */
-  tick({ position, state, hour, hoursElapsed, simTime, needsState }) {
+  tick({ position, state, hour, hoursElapsed, simTime, needsState, needsThresholdConfig }) {
     // R24 P0 fix: guard against null simTime. 6 downstream call sites call
     // simTime.getTime() unconditionally, which crashes when env.simTime is null.
     // Use _lastSimTime as fallback.
@@ -681,11 +681,10 @@ class IntrinsicMotivation {
    * @param {Object} needsState - NeedsSystem.needs 快照
    * @returns {number} 有效好奇心值
    */
-  _applyNeedGate(rawCuriosity, needsState) {
+  _applyNeedGate(rawCuriosity, needsState, thresholdConfig) {
     if (!needsState) return rawCuriosity;
 
-    const cfg = this._imConfig;
-    const thresholds = ANDY_DEFAULTS.needs.threshold;
+    const thresholds = thresholdConfig || ANDY_DEFAULTS.needs.threshold;
 
     // 计算最低需求满足度（最匮乏的需求决定门控）
     let minSatisfaction = 1;
@@ -703,12 +702,12 @@ class IntrinsicMotivation {
     // satisfaction 0.5-1.0: 线性恢复
     // satisfaction > 1.0: 基本需求满足，好奇心略微增强
     let gate;
-    if (minSatisfaction < cfg.needGateThreshold) {
+    if (minSatisfaction < this._imConfig.needGateThreshold) {
       // 严重匮乏：指数抑制
-      gate = Math.pow(minSatisfaction / cfg.needGateThreshold, 2);
+      gate = Math.pow(minSatisfaction / this._imConfig.needGateThreshold, 2);
     } else if (minSatisfaction < 1) {
       // 轻度匮乏：线性恢复
-      gate = (minSatisfaction - cfg.needGateThreshold) / (1 - cfg.needGateThreshold);
+      gate = (minSatisfaction - this._imConfig.needGateThreshold) / (1 - this._imConfig.needGateThreshold);
     } else {
       // 需求满足：略微增强（"饱暖思淫欲"效应）
       gate = 1 + Math.min(0.2, (minSatisfaction - 1) * 0.2);

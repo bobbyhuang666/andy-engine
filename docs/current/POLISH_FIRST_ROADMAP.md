@@ -75,6 +75,8 @@ This changes sequencing:
 | IntrinsicMotivation domain map config | Closed in R99 | User `intrinsicMotivation.domainRegionMap` partial overrides replaced preset domain maps, silently dropping domain-driven exploration mappings. Added domain/user map merge, fromJSON config propagation, validation, and regression tests. |
 | AndyWorld Math.random auto-seed removal | Closed in R95 | AndyWorld used `Math.random()` to generate auto-seed when no RNG provided. Replaced with deterministic `new RNG(0)` default. Updated boundary allowlist. |
 | Dead config: SpatialEngine baseProb/distanceDecay | Closed in R95 | `SpatialEngine` stored `baseProb` and `distanceDecay` from config but never used them. Removed dead config chain from defaults, SpatialEngine, and AndyWorld. |
+| IntrinsicMotivation needs threshold config | Closed in R100 | `_applyNeedGate` read `ANDY_DEFAULTS.needs.threshold` directly, bypassing instance config. Added `needsThresholdConfig` parameter to `tick()`, threaded through `AgentRuntime`. |
+| MindWander NaN propagation guard | Closed in R100 | `mindWander()` emotion-delta loops lacked finite guards. Added `addIfFinite()` helper with `Number.isFinite()` check to all 5 accumulation loops. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 
