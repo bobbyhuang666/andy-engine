@@ -84,6 +84,7 @@ This changes sequencing:
 | Relationship strengthDecrement validation | Closed in R105 | Added `strengthDecrement` range check [0,0.5] to relationship validator in validate.js. |
 | Memory 6 missing field validations | Closed in R105 | Added validators for maxPresentationsPerMemory, importanceBoostOnAccess, consolidationThreshold, pruneThreshold, moodCongruenceWeight, moodCongruenceScale. |
 | Serialization _restoreConfig key filter | Closed in R105 | `deserialize()` now filters non-config keys (seed, domain, rng, id, name) from caller config before merging into _restoreConfig. |
+| ReflectionRuntime NaN propagation guard | Closed in R108 | `assessStateConsequences()` lacked finite guards on weightedValence, neuroticism, and expectedValue. Added guards; NaN inputs produce safe defaults instead of cascading NaN through state decision logic. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

@@ -153,7 +153,7 @@ function assessStateConsequences(agent, env = null) {
       totalWeight += weight;
     }
 
-    if (totalWeight > 0) {
+    if (totalWeight > 0 && Number.isFinite(weightedValence)) {
       consequences[nextState] = {
         expectedValue: weightedValence / totalWeight,
         sampleSize: relevantMemories.length,
@@ -162,10 +162,15 @@ function assessStateConsequences(agent, env = null) {
     }
   }
 
-  const dampeningFactor = 1.0 - (agent.personality.ocean.neuroticism * 0.2);
+  const neuroticism = agent.personality?.ocean?.neuroticism;
+  const dampeningFactor = Number.isFinite(neuroticism)
+    ? 1.0 - (neuroticism * 0.2)
+    : 1.0;
   if (hasData) {
     for (const [, data] of Object.entries(consequences)) {
-      data.expectedValue *= dampeningFactor;
+      if (Number.isFinite(data.expectedValue)) {
+        data.expectedValue *= dampeningFactor;
+      }
     }
   }
 

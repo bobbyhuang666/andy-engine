@@ -1987,6 +1987,25 @@ verified clean — zero confirmed bugs.
 | Finding | `agent/Agent.js` has no direct state mutations. `this.position = subs.position` is subsystem assignment. Lines 190-210 are read-only (emotion/needs for prompt). No writes to `agent.emotion.current`, `agent.memory`, `agent.needs`, `agent.relationship` found. |
 | Status | Clean. No action. |
 
+## R108 - ReflectionRuntime NaN Propagation Guard
+
+This section records one P1 NaN propagation guard fix in ReflectionRuntime.
+
+### R108-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R108-NAN-1 |
+| Severity | P1 |
+| Audit finding | `ReflectionRuntime.assessStateConsequences()` computed `weightedValence / totalWeight` (line 158) without guarding `weightedValence` against NaN from corrupted `_getValence()`/`_getArousal()` snapshots. Then `dampeningFactor = 1.0 - (agent.personality.ocean.neuroticism * 0.2)` (line 165) without guarding `neuroticism`. If either input is NaN, `data.expectedValue *= NaN` corrupts ALL consequence values, producing structurally valid but semantically broken state decision data. |
+| Evidence | `ReflectionRuntime.js:156-158` — `totalWeight > 0` guard but no `Number.isFinite(weightedValence)` guard. `ReflectionRuntime.js:165` — `neuroticism` read without finite guard. `ReflectionRuntime.js:168` — `expectedValue *= dampeningFactor` propagates NaN. |
+| Verification verdict | Confirmed by independent Verification AI. NaN propagation path verified through assessStateConsequences → state machine decisions. P1 because it silently corrupts state transition reasoning with no error signal. |
+| Fix | Added `Number.isFinite(weightedValence)` guard before division at line 156. Added `Number.isFinite(neuroticism)` guard for `dampeningFactor` computation at line 165; NaN neuroticism → default dampeningFactor of 1.0. Added `Number.isFinite(data.expectedValue)` guard before multiplication at line 168. |
+| Files | `src/agent/runtime/ReflectionRuntime.js` |
+| Regression test | 3264 tests pass / 28 skipped. Guard is defensive — no existing test exercises NaN personality/emotion snapshots. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
