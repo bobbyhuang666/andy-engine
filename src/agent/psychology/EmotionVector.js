@@ -32,10 +32,12 @@ class EmotionVector {
    * @param {Object} personality - Personality 实例，提供情绪基线和行为参数
    * @param {Object} [savedState] - 恢复的序列化状态
    * @param {Object} [rng] - RNG 实例（可选）
+   * @param {Object} [emotionConfig] - 可选的情绪配置，覆盖 ANDY_DEFAULTS.emotion
    */
-  constructor(personality, savedState = null, rng = null) {
+  constructor(personality, savedState = null, rng = null, emotionConfig = null) {
     this.personality = personality;
     this._rng = rng || new RNG(0);
+    this._cfg = { ...cfg, ...(emotionConfig || {}) };
     this.baseline = { ...personality.emotionBaseline };
 
     if (savedState) {
@@ -141,7 +143,7 @@ class EmotionVector {
    * @private
    */
   _timeDecay(dt) {
-    const lambda = this.personality.behavior.emotionDecayRate || cfg.decayLambda;
+    const lambda = this.personality.behavior.emotionDecayRate || this._cfg.decayLambda;
 
     // 享乐适应因子（Frederick & Loewenstein 1999）：
     // 正面情绪高于 mood 时衰减更快（~20% 加速）
@@ -218,7 +220,7 @@ class EmotionVector {
    * @private
    */
   _circadianModulation(hour) {
-    const { positiveAffectPeak, positiveAffectAmp, negativeAffectPeak, negativeAffectAmp } = cfg.circadian;
+    const { positiveAffectPeak, positiveAffectAmp, negativeAffectPeak, negativeAffectAmp } = this._cfg.circadian;
     const twoPiOver24 = 2 * Math.PI / 24;
     const alpha = 0.05; // 非常小的混合系数，防止累积
 
@@ -256,7 +258,7 @@ class EmotionVector {
    * @private
    */
   _pinkNoiseDrift() {
-    const amp = cfg.noiseAmplitude;
+    const amp = this._cfg.noiseAmplitude;
     const n = this._pinkNoiseState.length;
     const rand = this._rng.next.bind(this._rng);
 
@@ -299,7 +301,7 @@ class EmotionVector {
    * @private
    */
   _coActivationSpread() {
-    const weight = cfg.coActivationWeight;
+    const weight = this._cfg.coActivationWeight;
     const deltas = {};
 
     // 使用快照防止读-写顺序问题
@@ -378,7 +380,7 @@ class EmotionVector {
    * @private
    */
   _inertiaFilter() {
-    const maxDelta = cfg.maxDeltaPerTick;
+    const maxDelta = this._cfg.maxDeltaPerTick;
     for (const dim of EMOTION_DIMENSIONS) {
       const val = this.current[dim] || 0;
       const base = this.baseline[dim] || 0;
@@ -437,7 +439,7 @@ class EmotionVector {
    * @private
    */
   _baselineDrift() {
-    const rate = cfg.baselineDriftRate;
+    const rate = this._cfg.baselineDriftRate;
     for (const dim of EMOTION_DIMENSIONS) {
       const current = this.current[dim] || 0;
       const base = this.baseline[dim] || 0;
@@ -478,7 +480,7 @@ class EmotionVector {
    * @private
    */
   _velocityLimit() {
-    const maxVelocity = cfg.maxDeltaPerTick; // 0.05
+    const maxVelocity = this._cfg.maxDeltaPerTick; // 0.05
     if (!this._preTickValues) return;
 
     for (const dim of EMOTION_DIMENSIONS) {
@@ -536,7 +538,7 @@ class EmotionVector {
    */
   applyEffect(effects, multiplier = 1, appraisalModifiers = null) {
     if (!effects) return;
-    const inertia = this.personality.behavior.emotionalInertia || cfg.inertia;
+    const inertia = this.personality.behavior.emotionalInertia || this._cfg.inertia;
 
     for (const [dim, delta] of Object.entries(effects)) {
       // R32 P0-002 fix: typeof NaN === 'number' is true, so NaN deltas
@@ -551,7 +553,7 @@ class EmotionVector {
         // 惯性调制：高惯性的角色对情绪变化有抵抗力
         const effectiveDelta = delta * multiplier * appraisalMult * (1 - inertia * 0.5);
         // 速度限制：单次效果不超过 maxDeltaPerTick
-        const clampedDelta = Math.max(-cfg.maxDeltaPerTick, Math.min(cfg.maxDeltaPerTick, effectiveDelta));
+        const clampedDelta = Math.max(-this._cfg.maxDeltaPerTick, Math.min(this._cfg.maxDeltaPerTick, effectiveDelta));
         this.current[dim] += clampedDelta;
 
         // 事件也缓慢影响 mood（10% 的效果渗透到中期心境）

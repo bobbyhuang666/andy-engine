@@ -39,14 +39,16 @@ class IntrinsicMotivation {
    * @param {Object} [domain] - DomainRegistry 实例
    * @param {Object} [rng] - RNG 实例（可选）
    */
-  constructor(personality, savedState = null, domain = null, rng = null) {
+  constructor(personality, savedState = null, domain = null, rng = null, config = null) {
     const cfg = ANDY_DEFAULTS.intrinsicMotivation;
     const behavior = personality.behavior;
 
     if (!domain) throw new Error('IntrinsicMotivation requires a domain config');
     this.domain = domain;
     this._rng = rng || new RNG(0);
-    this._imConfig = this.domain.intrinsicMotivationConfig;
+    const domainConfig = (domain && domain.intrinsicMotivationConfig) || {};
+    const userConfig = config || {};
+    this._imConfig = { ...cfg, ...domainConfig, ...userConfig };
 
     if (savedState) {
       this.curiosity = Number.isFinite(savedState.curiosity) ? savedState.curiosity : 0.5;
@@ -74,7 +76,7 @@ class IntrinsicMotivation {
     }
 
     this._behavior = behavior;
-    this._cfg = cfg;
+    this._cfg = this._imConfig;
     this._noveltySensitivity = behavior.noveltySeeking;
     this._competenceSensitivity = behavior.competenceMotivation;
     this._explorationDrive = behavior.explorationDrive;
@@ -295,7 +297,7 @@ class IntrinsicMotivation {
    * @private
    */
   _decayCuriosity(hoursElapsed) {
-    const cfg = this._cfg;
+    const cfg = this._imConfig;
     // 衰减率被人格调制：开放性高的 Agent 好奇心衰减更快（更快渴望新体验）
     const opennessFactor = 0.7 + this._behavior.noveltySeeking * 0.6;
     const effectiveRate = cfg.curiosityDecayRate * opennessFactor;
@@ -669,7 +671,7 @@ class IntrinsicMotivation {
   _applyNeedGate(rawCuriosity, needsState) {
     if (!needsState) return rawCuriosity;
 
-    const cfg = this._cfg;
+    const cfg = this._imConfig;
     const thresholds = ANDY_DEFAULTS.needs.threshold;
 
     // 计算最低需求满足度（最匮乏的需求决定门控）
@@ -720,7 +722,7 @@ class IntrinsicMotivation {
    */
   _computeEmotionEffects(effectiveCuriosity) {
     const effects = {};
-    const cfg = this._cfg;
+    const cfg = this._imConfig;
 
     // 好奇心匮乏产生无聊和挫败
     if (effectiveCuriosity < 0.2) {

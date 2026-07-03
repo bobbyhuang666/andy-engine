@@ -36,13 +36,13 @@ function createSubsystems(config, agentId, domain, rng) {
   }
 
   const personality = new Personality(personalityConfig);
-  const emotion = new EmotionVector(personality, null, rng);
+  const emotion = new EmotionVector(personality, null, rng, config.emotion || null);
   const stateMachine = new StateMachine(config.initialState || null, null, domain);
   const memory = new PersonalMemory(agentId, config.seedMemories || [], null, domain, rng);
   const proceduralMemory = new ProceduralMemory();
   const needs = new NeedsSystem(personality, null, domain, config.needs || null);
   const emotionRegulation = new EmotionRegulation(personality, null, rng);
-  const intrinsicMotivation = new IntrinsicMotivation(personality, null, domain, rng);
+  const intrinsicMotivation = new IntrinsicMotivation(personality, null, domain, rng, config.intrinsicMotivation || null);
   const schedule = new Schedule(config.schedule || {}, null, rng);
   const behaviorField = new BehaviorField(personality, null, {}, domain, rng);
 
@@ -80,7 +80,7 @@ function createSubsystems(config, agentId, domain, rng) {
  */
 function restoreSubsystems(savedState, config, agentId, domain, rng) {
   const personality = Personality.fromJSON(savedState.personality);
-  const emotion = new EmotionVector(personality, savedState.emotion, rng);
+  const emotion = new EmotionVector(personality, savedState.emotion, rng, config.emotion || null);
   const stateMachine = new StateMachine(null, savedState.stateMachine, domain);
   const memory = new PersonalMemory(agentId, [], savedState.memory, domain, rng);
   if (savedState.appraisalBiases) {
@@ -90,7 +90,7 @@ function restoreSubsystems(savedState, config, agentId, domain, rng) {
   const proceduralMemory = new ProceduralMemory(savedState.proceduralMemory);
   const needs = new NeedsSystem(personality, savedState.needs, domain, config.needs || null);
   const emotionRegulation = new EmotionRegulation(personality, savedState.emotionRegulation, rng);
-  const intrinsicMotivation = new IntrinsicMotivation(personality, savedState.intrinsicMotivation, domain, rng);
+  const intrinsicMotivation = new IntrinsicMotivation(personality, savedState.intrinsicMotivation, domain, rng, config.intrinsicMotivation || null);
   const scheduleConfig = config.schedule || savedState.schedule || {};
   const schedule = new Schedule(scheduleConfig, savedState.schedule, rng);
   const behaviorField = new BehaviorField(personality, savedState.behaviorField || null, {}, domain, rng);

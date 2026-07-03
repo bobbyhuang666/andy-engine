@@ -50,30 +50,31 @@ function _ensureNative() {
  * Wraps the Rust EmotionVectorJs with JS-side mirror objects for .current/.mood/.baseline
  */
 class EmotionVectorNative {
-  constructor(personality, savedState = null) {
+  constructor(personality, savedState = null, emotionConfig = null) {
     this.personality = personality;
+    this._cfg = { ...cfg, ...(emotionConfig || {}) };
     this.baseline = { ...personality.emotionBaseline };
 
     const behaviorJson = JSON.stringify({
       emotionBaseline: personality.emotionBaseline || {},
-      emotion_decay_rate: personality.behavior.emotionDecayRate || cfg.decayLambda,
-      emotional_inertia: personality.behavior.emotionalInertia || cfg.inertia,
+      emotion_decay_rate: personality.behavior.emotionDecayRate || this._cfg.decayLambda,
+      emotional_inertia: personality.behavior.emotionalInertia || this._cfg.inertia,
       susceptibility: personality.behavior.susceptibility || 0.5,
       expressiveness: personality.behavior.expressiveness || 0.6,
     });
 
     const configJson = JSON.stringify({
-      decay_lambda: cfg.decayLambda,
-      inertia: cfg.inertia,
-      max_delta_per_tick: cfg.maxDeltaPerTick,
-      noise_amplitude: cfg.noiseAmplitude,
-      co_activation_weight: cfg.coActivationWeight,
-      baseline_drift_rate: cfg.baselineDriftRate,
+      decay_lambda: this._cfg.decayLambda,
+      inertia: this._cfg.inertia,
+      max_delta_per_tick: this._cfg.maxDeltaPerTick,
+      noise_amplitude: this._cfg.noiseAmplitude,
+      co_activation_weight: this._cfg.coActivationWeight,
+      baseline_drift_rate: this._cfg.baselineDriftRate,
       circadian: {
-        positive_affect_peak: cfg.circadian.positiveAffectPeak,
-        positive_affect_amp: cfg.circadian.positiveAffectAmp,
-        negative_affect_peak: cfg.circadian.negativeAffectPeak,
-        negative_affect_amp: cfg.circadian.negativeAffectAmp,
+        positive_affect_peak: this._cfg.circadian.positiveAffectPeak,
+        positive_affect_amp: this._cfg.circadian.positiveAffectAmp,
+        negative_affect_peak: this._cfg.circadian.negativeAffectPeak,
+        negative_affect_amp: this._cfg.circadian.negativeAffectAmp,
       },
     });
 
@@ -358,7 +359,7 @@ class EmotionVectorNative {
   }
 
   _timeDecay(dt) {
-    const lambda = this.personality.behavior.emotionDecayRate || cfg.decayLambda;
+    const lambda = this.personality.behavior.emotionDecayRate || this._cfg.decayLambda;
     const hedonicAdaptFactor = 1.2;
     const negativityBiasFactor = 0.7;
     const positiveDims = new Set(['joy', 'contentment', 'satisfaction', 'excitement',
@@ -409,7 +410,7 @@ class EmotionVectorNative {
   }
 
   _coActivationSpread() {
-    const weight = cfg.coActivationWeight;
+    const weight = this._cfg.coActivationWeight;
     const deltas = {};
     const snapshot = {};
     for (const dim of EMOTION_DIMENSIONS) snapshot[dim] = this.current[dim] || 0;
