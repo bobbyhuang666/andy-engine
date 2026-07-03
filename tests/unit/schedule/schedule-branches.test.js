@@ -97,10 +97,10 @@ describe('Schedule._maybeRegenerateVariations — probability skip', () => {
     s.getCurrentActivity(9, 1, '2026-09-01');
     expect(s._todayVariations[0]).toBeNull();
   });
-  it('uses Date().toDateString() when simDate omitted', () => {
+  it('uses epoch sentinel when simDate omitted (deterministic fallback)', () => {
     const s = makeSchedule();
     s.getCurrentActivity(9, 1); // no simDate
-    expect(s._lastVariationDate).toBe(new Date().toDateString());
+    expect(s._lastVariationDate).toBe('Thu Jan 01 1970');
   });
 });
 

@@ -932,9 +932,60 @@ mismatches, and AndyBridge partial restore documentation.
 | Re-verification | Targeted tests: 23 passed. Full `npm test`: 3233 passed / 28 skipped. |
 | Status | Fixed and verified in commit `62db2c7`. |
 
+## R86 - Determinism Fallback Hardenings + Dead Type Cleanup
+
+This section records three no-quota fixes from an internal free-model audit plus
+local verification: dead duplicate .d.ts removal, Schedule epoch sentinel,
+and Relationship timestamp epoch sentinels.
+
+### R86-TYPE-DECL-DEADFILE-1
+
+| Field | Detail |
+|---|---|
+| ID | R86-TYPE-DECL-DEADFILE-1 |
+| Severity | P2 |
+| Audit finding | `sdk/types.d.ts` at the top level is a dead/duplicate type declaration file that shadows `src/sdk/types.d.ts`. It is NOT imported by any `.d.ts` chain from the package's exports map (`sdk/index.d.ts` imports from `../src/sdk/types`). Contains stale/duplicate declarations that could diverge from the canonical `src/sdk/types.d.ts`. Listed in `tests/package-boundary.test.js` as a "required file" but that test only checks file existence, not importability. |
+| Evidence | `sdk/types.d.ts` (11KB) vs `src/sdk/types.d.ts` (10KB); `sdk/index.d.ts:6-14` imports from `../src/sdk/types`; `package.json` exports map has no `./sdk/types` subpath. |
+| Verification verdict | Confirmed by independent Verification AI. File is dead code — never imported by any TS consumer through the package's declared entry points. Deleting it removes a maintainability hazard without breaking any import path. Package-boundary test updated to reference `src/sdk/types.d.ts` instead. |
+| Fix | Deleted `sdk/types.d.ts`. Updated `tests/package-boundary.test.js:110` to require `src/sdk/types.d.ts`. |
+| Files | `sdk/types.d.ts` (deleted); `tests/package-boundary.test.js` |
+| Regression test | Package-boundary test (74/74 passed) confirms `src/sdk/types.d.ts` exists and all package structure checks pass. |
+| Re-verification | `npm test`: 3233 passed / 28 skipped. `check:boundaries`: all passed. `typecheck`: clean. |
+| Status | Fixed and verified. |
+
+### R86-SCHEDULE-SIMDATE-1
+
+| Field | Detail |
+|---|---|
+| ID | R86-SCHEDULE-SIMDATE-1 |
+| Severity | P2 |
+| Audit finding | `Schedule._maybeRegenerateVariations()` used `new Date().toDateString()` as fallback when `simDate` was not provided. Wall-clock date could cause schedule variation regeneration mid-simulation if `simDate` is ever null/undefined, breaking seeded determinism. |
+| Evidence | `Schedule.js:142` — `const today = simDate || new Date().toDateString();`. JSDoc says simDate is provided by callers (lines 57, 96 always pass it), but the fallback is not deterministic. |
+| Verification verdict | Confirmed by independent Verification AI. Normal runtime always provides `simDate`. The wall-clock fallback is only hit in edge cases (tests, future code changes), but it creates a determinism hole that could be triggered unexpectedly. `new Date(0).toDateString()` → `"Thu Jan 01 1970"` is deterministic and never regenerates variations if simDate is missing (safe since simDate is always provided). |
+| Fix | Replaced `new Date().toDateString()` with `new Date(0).toDateString()` (epoch sentinel). Added comment referencing R84 pattern. Updated companion test to expect `"Thu Jan 01 1970"`. |
+| Files | `src/agent/schedule/Schedule.js`; `tests/unit/schedule/schedule-branches.test.js` |
+| Regression test | Schedule-branches test updated: expects epoch sentinel `"Thu Jan 01 1970"` when simDate omitted. All schedule tests pass. |
+| Re-verification | Targeted tests: schedule + relationship suites pass. Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R86-RELATIONSHIP-TIME-1
+
+| Field | Detail |
+|---|---|
+| ID | R86-RELATIONSHIP-TIME-1 |
+| Severity | P2 |
+| Audit finding | `Relationship.js` had 4 locations where `new Date()` (wall-clock) was used as fallback for timestamps: constructor `savedState.lastInteraction` null fallback, new-relationship else branch, `recordInteraction` `lastInteraction` assignment, and history entry `time`. Wall-clock timestamps leak into relationship decay and history queries when `simTime` is not provided. |
+| Evidence | `Relationship.js:40` — `new Date()` when savedState.lastInteraction is null; `Relationship.js:56` — `new Date()` for new relationship; `Relationship.js:84` — `simTime || new Date()`; `Relationship.js:154` — `(simTime || new Date()).toISOString()`. Normal runtime provides `simTime` from EventDispatcher, but fallbacks are non-deterministic. |
+| Verification verdict | Confirmed by independent Verification AI. All 4 replacements verified. Remaining `new Date()` calls at lines 39 and 51 are guarded conversions from serialized timestamps (legitimate). Round-trip serialization works correctly with epoch sentinel. All relationship tests pass (23/23). |
+| Fix | Replaced all 4 `new Date()` fallbacks with `new Date(0)` epoch sentinel. Added brief comments explaining the deterministic fallback pattern. `Date` type preserved throughout. |
+| Files | `src/social/Relationship.js` |
+| Regression test | Relationship unit tests (13/13), relationship-writeback (8/8), relationship-social-writeback (2/2), golden seed replay (3/3) all pass. |
+| Re-verification | Targeted tests: 23 passed. Full `npm test`: 3233 passed / 28 skipped. `check:boundaries`: all passed. |
+| Status | Fixed and verified. |
+
 ## Current Gate Results
 
-Last verified after R85 SDK determinism + type declaration hardening (commit `62db2c7`):
+Last verified after R86 determinism fallback hardening + dead type cleanup:
 
 | Gate | Result |
 |---|---|
@@ -982,6 +1033,9 @@ Last verified after R85 SDK determinism + type declaration hardening (commit `62
 | AutoTick determinism R85 tests | `tests/sdk.test.js` -> 75 passed |
 | Type declaration hardening R85 tests | `npm run typecheck` clean; `npm run typecheck:consumer` clean |
 | AndyBridge partial restore documentation R85 tests | `tests/unit/andy-bridge-internal.test.js` -> 23 passed |
+| Dead type declaration removal R86 tests | `tests/package-boundary.test.js` -> 74 passed |
+| Schedule epoch sentinel R86 tests | `tests/unit/schedule/schedule-branches.test.js` -> all schedule tests passed |
+| Relationship epoch sentinel R86 tests | `tests/unit/social.test.js`, `tests/unit/relationship-writeback.test.js`, `tests/facts/relationship-social-writeback.test.js` -> 23 passed |
 | `npm test` | 193 files passed / 1 skipped; 3233 passed / 28 skipped |
 | `npm run test:domain` | 82 passed |
 | `npm run check:boundaries` | All boundary checks passed |

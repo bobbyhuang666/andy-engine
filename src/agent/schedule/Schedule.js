@@ -139,7 +139,8 @@ class Schedule {
    * @private
    */
   _maybeRegenerateVariations(dayOfWeek, simDate) {
-    const today = simDate || new Date().toDateString();
+    // 使用 epoch sentinel (new Date(0)) 作为确定性 fallback，参见 R84 模式
+    const today = simDate || new Date(0).toDateString();
     if (this._lastVariationDate === today) return;
 
     this._todayVariations = {};

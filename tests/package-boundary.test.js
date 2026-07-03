@@ -107,7 +107,7 @@ describe('Package Boundary', () => {
       const requiredFiles = [
       'index.js',
       'index.d.ts',
-      'sdk/types.d.ts',
+      'src/sdk/types.d.ts',
       'domain/index.js',
       'src/domain/validateDomain.js',
       'src/domain/DomainRegistry.js',

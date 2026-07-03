@@ -37,7 +37,7 @@ class Relationship {
       // new Date(null) → epoch (1970) which silently corrupts recency.
       this.lastInteraction = (savedState.lastInteraction != null)
         ? new Date(savedState.lastInteraction)
-        : new Date();
+        : new Date(0); // epoch sentinel: deterministic fallback, matches R84 pattern
       this._hoursSinceLastInteraction = savedState._hoursSinceLastInteraction || 0;
       this.interactionCount = savedState.interactionCount || 0;
       this._relationalInteractions = savedState._relationalInteractions || 0;
@@ -53,7 +53,7 @@ class Relationship {
     } else {
       this.type = 'stranger';
       this.strength = cfg.initialStrength;
-      this.lastInteraction = new Date();
+      this.lastInteraction = new Date(0); // epoch sentinel: deterministic fallback for new relationships
       this._hoursSinceLastInteraction = 0;
       this.interactionCount = 0;
       this._relationalInteractions = 0;
@@ -81,7 +81,7 @@ class Relationship {
   recordInteraction(type, valence, content = '', simTime = null) {
     if (!Number.isFinite(valence)) return;
     this.interactionCount++;
-    this.lastInteraction = simTime || new Date();
+    this.lastInteraction = simTime || new Date(0); // epoch sentinel: deterministic fallback
     this._hoursSinceLastInteraction = 0; // 重置自上次交互以来的小时数
 
     // R41 H3 fix: NaN guard BEFORE branching decision, not after.
@@ -151,7 +151,7 @@ class Relationship {
       type,
       valence,
       content,
-      time: (simTime || new Date()).toISOString(),
+      time: (simTime || new Date(0)).toISOString(), // epoch sentinel: deterministic fallback
       strengthAfter: this.strength,
     });
     if (this.history.length > 20) {

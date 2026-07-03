@@ -44,6 +44,9 @@ This changes sequencing:
 | AutoTick SDK determinism | Closed in R85 | `calculateTicksToAdvance()` used `Date.now()` for wall-clock elapsed time, breaking seeded determinism for `Character.chat()`/`chatStream()`. Added optional `now` parameter; Character passes `engine.world.time.getTime()` as deterministic virtual time. 4 regression tests. |
 | Type declaration hardening | Closed in R85 | Expanded and corrected `.d.ts` files: CanonEventPipeline 3-param constructor, FactEmitter constructor, WorldFactStore 15+ methods, KnowledgeStore corrected API, CharacterConfig/AndyConfig enableFacts/seed/rng, Andy.load options, AndyBridge full class, StateDelta fields, EffectCommitter + delta classes. |
 | AndyBridge partial restore warning | Closed in R85 | `_restoreAgents` JSDoc now lists all 12 non-restored fields. `init()` emits `console.warn` when restoring from snapshot, directing users to `AndyEngine.fromJSON()` for full state reconstruction. |
+| Dead type declaration removal | Closed in R86 | `sdk/types.d.ts` was a dead/duplicate file shadowing `src/sdk/types.d.ts`. Deleted; package-boundary test updated to reference canonical `src/sdk/types.d.ts`. |
+| Schedule deterministic fallback | Closed in R86 | `Schedule._maybeRegenerateVariations` used `new Date().toDateString()` when `simDate` was omitted. Replaced with `new Date(0).toDateString()` epoch sentinel (R84 pattern). Companion test updated. |
+| Relationship epoch sentinels | Closed in R86 | `Relationship.js` had 4 `new Date()` wall-clock fallbacks (constructor, recordInteraction). Replaced with `new Date(0)` epoch sentinel. All relationship tests pass. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 
