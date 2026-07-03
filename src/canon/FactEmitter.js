@@ -55,8 +55,8 @@ class FactEmitter {
           confidence: 1.0,
           scope: FactScope.PUBLIC,
         });
-        this.store.addFact(fact);
-        facts.push(fact);
+        const added = this.store.addFact(fact);
+        facts.push(added);
       }
     }
 
@@ -71,8 +71,8 @@ class FactEmitter {
           confidence: 1.0,
           scope: FactScope.PUBLIC,
         });
-        this.store.addFact(fact);
-        facts.push(fact);
+        const added = this.store.addFact(fact);
+        facts.push(added);
       }
     }
 
@@ -140,7 +140,7 @@ class FactEmitter {
       } else {
         const added = this.store.addFact(fact);
         existingByAgentId.set(agentId, added);
-        facts.push(fact);
+        facts.push(added);
       }
     }
 
@@ -301,10 +301,10 @@ class FactEmitter {
           });
           facts.push(updated || fact);
         } else {
-          this.store.addFact(fact);
+          const added = this.store.addFact(fact);
           // 新增的 fact 加入索引,避免同 tick 后续重复添加
-          pairIndex.set(pairKey, fact);
-          facts.push(fact);
+          pairIndex.set(pairKey, added);
+          facts.push(added);
         }
       }
     }

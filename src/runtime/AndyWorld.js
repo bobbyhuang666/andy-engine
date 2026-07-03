@@ -531,29 +531,43 @@ class AndyWorld {
 
     // ─── Phase 8: CANON_PIPELINE ───
     if (this.canonEventPipeline && dispatched.length > 0) {
-      const pipelineResults = this.canonEventPipeline.processEvents(
-        dispatched, this.agents
-      );
+      let pipelineResults = [];
+      let pipelineError = null;
+      try {
+        pipelineResults = this.canonEventPipeline.processEvents(
+          dispatched, this.agents
+        );
+      } catch (err) {
+        pipelineError = err.message;
+        diagnostics.warn(`CanonEventPipeline.processEvents failed: ${err.message}`);
+      }
+
       let memoryUpdateCount = 0;
       let locationUpdateCount = 0;
-      for (const pr of pipelineResults) {
-        if (pr.fact) {
-          const consequences = applyEventConsequences({
-            fact: pr.fact,
-            agents: this.agents,
-            factStore: this.factStore,
-            domain: this.domain,
-          });
-          const commitResult = this.effectCommitter.commit({ deltas: consequences });
-          // R12: log effect committer errors instead of silently swallowing
-          if (commitResult.errors && commitResult.errors.length > 0) {
-            for (const { delta, error } of commitResult.errors) {
-              diagnostics.warn(`EffectCommitter error for ${delta.type}: ${error.message}`);
+      if (pipelineResults.length > 0) {
+        for (const pr of pipelineResults) {
+          if (pr.fact) {
+            try {
+              const consequences = applyEventConsequences({
+                fact: pr.fact,
+                agents: this.agents,
+                factStore: this.factStore,
+                domain: this.domain,
+              });
+              const commitResult = this.effectCommitter.commit({ deltas: consequences });
+              // R12: log effect committer errors instead of silently swallowing
+              if (commitResult.errors && commitResult.errors.length > 0) {
+                for (const { delta, error } of commitResult.errors) {
+                  diagnostics.warn(`EffectCommitter error for ${delta.type}: ${error.message}`);
+                }
+              }
+
+              memoryUpdateCount += consequences.filter(d => d.type === 'memory').length;
+              locationUpdateCount += consequences.filter(d => d.type === 'locationMeaning').length;
+            } catch (err) {
+              diagnostics.warn(`Canon pipeline consequence processing failed: ${err.message}`);
             }
           }
-
-          memoryUpdateCount += consequences.filter(d => d.type === 'memory').length;
-          locationUpdateCount += consequences.filter(d => d.type === 'locationMeaning').length;
         }
       }
       result.phase.canonEventPipeline = {
@@ -561,6 +575,7 @@ class AndyWorld {
         knowledgeUpdates: pipelineResults.reduce((sum, r) => sum + r.knowledgeUpdates.length, 0),
         memoryUpdates: memoryUpdateCount,
         locationMeaningUpdates: locationUpdateCount,
+        pipelineError: pipelineError || undefined,
       };
     }
 
