@@ -1472,6 +1472,72 @@ This section records five scoped no-quota fixes: two dead config removals
 | Re-verification | Full `npm test`: 3233 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. |
 | Status | Fixed and verified. |
 
+## R94 - NaN Propagation Guards + Boundary Hygiene
+
+This section records four scoped no-quota fixes: two NaN propagation guards
+in EmotionRegulation (P2), AndyBridge restore boundary clamp (P2), and dead
+config removal (P3).
+
+### R94-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R94-NAN-1 |
+| Severity | P2 |
+| Audit finding | `EmotionRegulation.tryRegulate()` calls `agent.emotion.getValence()` and `agent.emotion.getArousal()` to compute `triggerLevel`. If any `current[dim]` is NaN (from corrupted save, edge-case in `_processDecay`, or co-activation), then `getValence()` produces NaN, `Math.max(0, -NaN)` → NaN, `triggerLevel` = NaN. NaN comparisons always return false, so `NaN < threshold` → false and regulation proceeds instead of returning null. NaN cascades through strategy selection → `negativeReduction = NaN`. While `commitEmotion` guards with `Number.isFinite(delta)`, `commitStress` computes `agent.emotion.stress - triggerLevel * power * 0.3` = NaN, and `_regulationResource - cost` where cost = `0.05 + NaN * 0.05` = NaN, making `_regulationResource` NaN until `tick()` recovery. |
+| Evidence | `EmotionRegulation.js:136-144` — `tryRegulate()` extracts valence/arousal without finite guard. `EmotionRegulation.js:335` — `commitStress` computes with triggerLevel that can be NaN. `EmotionRegulation.js:119` — `_regulationResource` updated with cost that can be NaN. `EmotionVector.js:623` — `getValence()` uses `sum / count` without finite guard. |
+| Verification verdict | Confirmed by independent Verification AI. NaN propagation path verified through tryRegulate → strategy selection → commitEmotion/commitStress. `commitEmotion` and `EffectCommitter` catch NaN deltas downstream, but `_regulationResource` becomes NaN transiently. |
+| Fix | Added `Number.isFinite` guard at `EmotionRegulation.js:141`: `if (!Number.isFinite(valence) || !Number.isFinite(arousal)) return null;`. Returns null matching existing "no regulation needed" path. |
+| Files | `src/agent/psychology/EmotionRegulation.js` |
+| Regression test | 3233 tests pass / 28 skipped. NaN guard tested implicitly by existing regulation tests. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. |
+| Status | Fixed and verified. |
+
+### R94-NAN-2
+
+| Field | Detail |
+|---|---|
+| ID | R94-NAN-2 |
+| Severity | P2 |
+| Audit finding | `EmotionRegulation._execAttentionDeployment()` retrieves positive memories and gets `recallEmotionDelta`. At lines 391-392, it iterates over delta entries and blindly adds values to `emotionDelta[dim]`. If `value` is NaN (from corrupted memory data or edge-case in `PersonalMemory._computeRecallDelta`), NaN propagates into `emotionDelta`. While `commitEmotion` guards with `Number.isFinite(delta)`, this is a silent data-dependent skip — the caller assumes a positive emotion was applied when nothing happened. |
+| Evidence | `EmotionRegulation.js:391-392` — `emotionDelta[dim] = (emotionDelta[dim] || 0) + value` with no finite guard on `value`. `PersonalMemory.js` — `_computeRecallDelta` can produce NaN from corrupted memory data (importance/activation calculations). |
+| Verification verdict | Confirmed by independent Verification AI. NaN in recallEmotionDelta silently skips the emotion effect, producing wrong behavioral output (no emotion change despite successful memory retrieval). |
+| Fix | Added `Number.isFinite(value)` guard in the loop at `EmotionRegulation.js:395`: `if (Number.isFinite(value)) { emotionDelta[dim] = (emotionDelta[dim] || 0) + value; }`. NaN values are skipped. |
+| Files | `src/agent/psychology/EmotionRegulation.js` |
+| Regression test | 3233 tests pass / 28 skipped. Guard is defensive — no existing test exercises NaN recall delta. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R94-BOUNDARY-1
+
+| Field | Detail |
+|---|---|
+| ID | R94-BOUNDARY-1 |
+| Severity | P2 |
+| Audit finding | `AndyBridge._restoreAgents()` directly assigns to `agent.emotion.current[dim]`, `agent.emotion.mood[dim]`, `agent.emotion.baseline[dim]` (lines 354, 363, 371) and `agent.needs.needs[need]` (line 379). This bypasses `EmotionVector._clamp()` (which also repairs NaN), `setStress()` (which guards NaN), the effect pipeline, and `NeedsSystem.set()` (which applies clamping and personality modulation). Out-of-range values from corrupted save data could persist without being clamped to [-1, 1]. |
+| Evidence | `AndyBridge.js:354` — `agent.emotion.current[dim] = val` raw assignment. `EmotionVector._clamp()` at line 521 enforces [-1, 1] range and NaN repair. `_clamp()` was previously inside the `if (state.emotion.current && agent.emotion.current)` block, so it didn't run when `current` was absent from saved data, and didn't cover `mood`/`baseline`. |
+| Verification verdict | Confirmed by independent Verification AI. Raw assignment bypasses lifecycle methods. `_clamp()` now runs unconditionally after all emotion fields are restored, providing NaN repair and `current` clamping. `mood`/`baseline` clamping remains a future extension to `_clamp()`. |
+| Fix | Moved `_clamp()` call outside the `current` restoration block in `AndyBridge._restoreAgents()` so it runs after all three emotion arrays (`current`, `mood`, `baseline`) are populated. Needs `_clamp()` already correctly positioned after needs loop. |
+| Files | `src/sdk/AndyBridge.js` |
+| Regression test | 3233 tests pass / 28 skipped. Bridge restore tests pass. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. `npm run check:boundaries`: all passed. |
+| Status | Fixed and verified. |
+
+### R94-DEADCONFIG-1
+
+| Field | Detail |
+|---|---|
+| ID | R94-DEADCONFIG-1 |
+| Severity | P3 |
+| Audit finding | `ANDY_DEFAULTS.intrinsicMotivation.explorationStateBoost` (value 1.5) is defined in `src/config/defaults.js` and validated in `validate.js`, but has ZERO references in `src/` production code. Never imported, merged into `_imConfig`, or read in any method. The comment says "探索状态在状态机中的权重加成" (exploration state weight bonus in the state machine), but StateMachine has been migrated to BehaviorField+domain-driven state centers. The parameter has no effect — users tuning it get zero result. |
+| Evidence | `grep -rn "explorationStateBoost" src/` → no results after fix. `defaults.js` intrinsicMotivation block previously contained the key. No validation entry existed in `validate.js`. No references in `IntrinsicMotivation.js`. |
+| Verification verdict | Confirmed by independent Verification AI. Dead config degrades trust in the configuration system — users expect tuning to have effect. Removed from defaults.js. |
+| Fix | Removed `explorationStateBoost: 1.5` from `ANDY_DEFAULTS.intrinsicMotivation` in `src/config/defaults.js`. No other references existed. |
+| Files | `src/config/defaults.js` |
+| Regression test | 3233 tests pass / 28 skipped. No behavioral change (dead code removal). |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

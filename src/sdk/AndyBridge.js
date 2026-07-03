@@ -353,10 +353,10 @@ class AndyBridge {
               for (const [dim, val] of Object.entries(state.emotion.current)) {
                 if (Number.isFinite(val)) agent.emotion.current[dim] = val;
               }
-              // R94-BOUNDARY-1: clamp emotion values to valid range after raw restore
-              if (agent.emotion._clamp) {
-                agent.emotion._clamp();
-              }
+            }
+            // R94-BOUNDARY-1: clamp all emotion fields after raw restore
+            if (agent.emotion._clamp) {
+              agent.emotion._clamp();
             }
             if (Number.isFinite(state.emotion.stress) && agent.emotion.setStress) {
               agent.emotion.setStress(state.emotion.stress);
