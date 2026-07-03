@@ -258,7 +258,8 @@ function _createLocationMeaningDeltas(fact, factStore, rules) {
       deltas.push(new LocationMeaningDelta(null, {
         location: fact.location,
         meaningType: rule.meaningType,
-        weight: rule.weight,
+        // R116-008: guard against NaN/Infinity weight from domain config.
+        weight: Number.isFinite(rule.weight) ? rule.weight : 0,
         reason: desc,
       }));
       break;
@@ -306,7 +307,11 @@ function _computeTendencyDelta(fact, rules) {
   const tendencyRules = (rules && rules.tendencyRules) || [];
   for (const rule of tendencyRules) {
     if (rule.keywords.some(kw => desc.includes(kw))) {
-      for (let i = 0; i < 4; i++) delta[i] = rule.delta[i];
+      // R116-007: validate rule.delta[i] values against NaN/Infinity
+      // (domain config could contain non-finite values).
+      for (let i = 0; i < 4; i++) {
+        delta[i] = Number.isFinite(rule.delta[i]) ? rule.delta[i] : 0;
+      }
       break;
     }
   }

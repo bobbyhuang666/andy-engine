@@ -673,6 +673,8 @@ class AndyWorld {
     }
 
     for (const encounter of spatialResult.encounters) {
+      // R116-015: guard against NaN probability (corrupted encounter data).
+      if (!Number.isFinite(encounter.probability)) continue;
       if (this.rng.next() > encounter.probability) continue;
       const event = this.eventDispatcher.generateEncounterEvent(
         encounter.agentA, encounter.agentB,

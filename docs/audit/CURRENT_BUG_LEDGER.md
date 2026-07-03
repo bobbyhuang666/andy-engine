@@ -2270,6 +2270,127 @@ This section records the R115 audit findings. 2 Medium findings fixed.
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
 | Status | Fixed and verified. |
 
+## R116 - Spatial/Social/Event Edge Cases
+
+This section records the R116 audit findings. 5 HIGH and 3 MEDIUM findings fixed.
+
+### R116-001
+
+| Field | Detail |
+|---|---|
+| ID | R116-001 |
+| Severity | HIGH |
+| Audit finding | `SpatialEngine._moveAgents()` reads `cx`/`cy` from `this._coords` without NaN guard. If coordinates are corrupted (e.g., NaN from deserialized state), `dx = target.x - NaN = NaN`, `dist = NaN`, and `dx / dist` at line 270 produces NaN positions that permanently corrupt the grid. |
+| Evidence | SpatialEngine.js:237-238 — `cx`/`cy` read without finite check; line 270: `dx / dist` with NaN produces NaN |
+| Fix | Added `if (!Number.isFinite(cx) || !Number.isFinite(cy)) { this._moving[i] = 0; continue; }` guard at method entry. |
+| Files | `src/spatial/SpatialEngine.js:237-242` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R116-002
+
+| Field | Detail |
+|---|---|
+| ID | R116-002 |
+| Severity | HIGH |
+| Audit finding | `SpatialEngine.restore()` loads `this._coords = new Float32Array(data.coords)` without scanning for NaN values. If serialized data contains NaN (from a prior tick that produced NaN before serialization), the restore silently loads NaN into Float32Array. |
+| Evidence | SpatialEngine.js:109 — Float32Array construction without NaN scan |
+| Fix | Guard at read time in `_moveAgents` (R116-001) covers this path. Additionally, `_computeEncounters` distSq guard (R116-003) prevents NaN distance propagation. |
+| Files | Covered by R116-001 and R116-003 |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R116-003
+
+| Field | Detail |
+|---|---|
+| ID | R116-003 |
+| Severity | HIGH |
+| Audit finding | `SpatialEngine._computeEncounters()` computes `distSq` from potentially NaN coordinates. `Math.sqrt(NaN)` = NaN, producing NaN `distance` in encounter objects that corrupt social graph updates. |
+| Evidence | SpatialEngine.js:345 — `distSq` unvalidated before `Math.sqrt` at line 348 |
+| Fix | Added `if (!Number.isFinite(distSq)) continue;` guard before pushing to nearby array. |
+| Files | `src/spatial/SpatialEngine.js:345-346` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R116-005
+
+| Field | Detail |
+|---|---|
+| ID | R116-005 |
+| Severity | Medium |
+| Audit finding | `SpatialHash.queryRadius()` computes `radiusSq = radius * radius` without finite guard. NaN radius → NaN radiusSq → `distSq <= NaN` always false (silently filters all neighbors). Infinity radius → Infinity radiusSq → O(N) scan of all agents. |
+| Evidence | SpatialHash.js:154 — `radius * radius` without guard |
+| Fix | Added `if (!Number.isFinite(radius)) return [];` at method entry. |
+| Files | `src/spatial/SpatialHash.js:150` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R116-007
+
+| Field | Detail |
+|---|---|
+| ID | R116-007 |
+| Severity | HIGH |
+| Audit finding | `EventEffectPipeline._computeTendencyDelta()` copies `rule.delta[i]` from domain config without NaN guard. NaN values flow into `FutureTendencyDelta.delta`, then into `agent.futureTendency.updateTendency()`, corrupting future tendency arrays. |
+| Evidence | EventEffectPipeline.js:309 — `delta[i] = rule.delta[i]` without finite check |
+| Fix | Added `Number.isFinite(rule.delta[i]) ? rule.delta[i] : 0` validation for each delta element. |
+| Files | `src/effects/EventEffectPipeline.js:309-312` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R116-008
+
+| Field | Detail |
+|---|---|
+| ID | R116-008 |
+| Severity | Medium |
+| Audit finding | `EventEffectPipeline._createLocationMeaningDeltas()` passes `rule.weight` to `LocationMeaningDelta` without finite guard. Infinity weight propagates through EffectCommitter. |
+| Evidence | EventEffectPipeline.js:261 — `weight: rule.weight` without finite check |
+| Fix | Added `Number.isFinite(rule.weight) ? rule.weight : 0` guard. |
+| Files | `src/effects/EventEffectPipeline.js:261` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R116-009
+
+| Field | Detail |
+|---|---|
+| ID | R116-009 |
+| Severity | Medium |
+| Audit finding | `FutureTendencyDelta` constructor uses `this.importance = payload.importance || 0.3`. The `||` operator treats `0` as falsy, so legitimate `importance: 0` gets silently coerced to `0.3`, skewing tendency updates. |
+| Evidence | FutureTendencyDelta.js:21 — `|| 0.3` coerces legitimate 0 to default |
+| Fix | Changed to `typeof payload.importance === 'number' && Number.isFinite(payload.importance) ? payload.importance : 0.3`, matching MemoryDelta pattern. |
+| Files | `src/effects/FutureTendencyDelta.js:21` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R116-015
+
+| Field | Detail |
+|---|---|
+| ID | R116-015 |
+| Severity | HIGH |
+| Audit finding | `AndyWorld` evaluates encounters with `if (this.rng.next() > encounter.probability)`. NaN probability makes the comparison always false, so **all encounters fire deterministically** — bypassing the probabilistic filter entirely and corrupting social dynamics with spurious interactions. |
+| Evidence | AndyWorld.js:676 — NaN probability → `rng.next() > NaN` is always false |
+| Fix | Added `if (!Number.isFinite(encounter.probability)) continue;` guard before the RNG check. |
+| Files | `src/runtime/AndyWorld.js:676` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R116-016
+
+| Field | Detail |
+|---|---|
+| ID | R116-016 |
+| Severity | HIGH |
+| Audit finding | `SpatialEngine._computeEncounters()` uses `rel.strength` without finite guard: `prob += rel.strength * 0.15`. NaN strength → NaN prob. `Math.min(NaN, 1.0)` = NaN, so encounter is pushed with NaN probability. |
+| Evidence | SpatialEngine.js:378 — `rel.strength` unvalidated; line 381: `Math.min(NaN, 1.0)` = NaN |
+| Fix | Added `const strength = Number.isFinite(rel.strength) ? rel.strength : 0;` guard before probability computation. |
+| Files | `src/spatial/SpatialEngine.js:378-380` |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

@@ -101,6 +101,12 @@ This changes sequencing:
 | Serialization _restoreConfig deep copy | Closed in R114 | Shallow spread shared nested config references between restored engine and caller's original config. Added `JSON.parse(JSON.stringify())` deep-copy. |
 | NeedsSystem config merge NaN guard | Closed in R115 | `_mergeNeedsConfig()` spread user config without finite checks; NaN values propagated to decay/recovery calculations. Added per-value `Number.isFinite()` validation with base fallback. |
 | NeedsSystem getDriveGradient urgency guard | Closed in R115 | `getDriveGradient()` computed `urgency = threshold - value` without finite guard; NaN urgency corrupted behavior selection. Added `Number.isFinite(urgency) continue` guard. |
+| SpatialEngine _moveAgents NaN coord guard | Closed in R116 | `_moveAgents()` read `cx`/`cy` from `_coords` without finite check; NaN coordinates produced NaN dx/dy/dist, permanently corrupting grid positions. Added `Number.isFinite()` guard → skip movement for corrupted agent. |
+| SpatialEngine _computeEncounters NaN distance guard | Closed in R116 | `_computeEncounters()` computed `distSq` from unvalidated coordinates; NaN distSq produced NaN encounter distance. Added `Number.isFinite(distSq) continue` guard. |
+| SpatialEngine rel.strength NaN guard | Closed in R116 | `_computeEncounters()` used `rel.strength` without finite check; NaN strength produced NaN encounter probability. Added `Number.isFinite(rel.strength) ? rel.strength : 0` guard. |
+| AndyWorld encounter probability NaN guard | Closed in R116 | NaN encounter probability made `rng.next() > NaN` always false, bypassing probabilistic filter. All encounters fired deterministically. Added `Number.isFinite(encounter.probability) continue` guard. |
+| EventEffectPipeline tendency delta NaN guard | Closed in R116 | `_computeTendencyDelta()` copied raw `rule.delta[i]` without validation; NaN from domain config corrupted FutureTendency arrays. Added per-element `Number.isFinite()` guard. |
+| FutureTendencyDelta importance coercion fix | Closed in R116 | `|| 0.3` coerced legitimate `importance: 0` to `0.3`, skewing tendency updates. Changed to proper finite check matching MemoryDelta pattern. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

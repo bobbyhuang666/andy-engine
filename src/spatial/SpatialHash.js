@@ -147,6 +147,8 @@ class SpatialHash {
    * @returns {Array<{idx: number, distSq: number}>} 邻居列表（含距离平方）
    */
   queryRadius(coords, agentIdx, radius) {
+    // R116-005: guard against NaN/Infinity radius.
+    if (!Number.isFinite(radius)) return [];
     const ax = coords[agentIdx * 2];
     const ay = coords[agentIdx * 2 + 1];
     const cid = this.cellId(ax, ay);

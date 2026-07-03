@@ -236,6 +236,11 @@ class SpatialEngine {
       const targetRegionName = this._regionNames[targetIdx];
       const cx = this._coords[i * 2];
       const cy = this._coords[i * 2 + 1];
+      // R116-001: guard against NaN coordinates (corrupted state or deserialization).
+      if (!Number.isFinite(cx) || !Number.isFinite(cy)) {
+        this._moving[i] = 0;
+        continue;
+      }
 
       // 检查是否已在目标区域内
       if (this.worldMap.pointToRegion(cx, cy) === targetRegionName) {
@@ -338,6 +343,8 @@ class SpatialEngine {
         const dx = ax - this._coords[j * 2];
         const dy = ay - this._coords[j * 2 + 1];
         const distSq = dx * dx + dy * dy;
+        // R116-003: guard against NaN distance from corrupted coordinates.
+        if (!Number.isFinite(distSq)) continue;
 
         if (distSq <= maxRadiusSq) {
           nearby.push({ j, dist: Math.sqrt(distSq) });
@@ -375,7 +382,9 @@ class SpatialEngine {
         if (socialGraph) {
           const rel = socialGraph.getRelationship(idA, idB);
           if (rel) {
-            prob += rel.strength * 0.15;
+            // R116-016: guard against NaN strength (corrupted social graph state).
+            const strength = Number.isFinite(rel.strength) ? rel.strength : 0;
+            prob += strength * 0.15;
           }
         }
         prob = Math.min(prob, 1.0);

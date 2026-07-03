@@ -18,7 +18,10 @@ class FutureTendencyDelta extends StateDelta {
     super('futureTendency', 'agent', agentId);
     this.location = payload.location;
     this.delta = payload.delta || [0, 0, 0, 0];
-    this.importance = payload.importance || 0.3;
+    // R116-009: typeof 0 === 'number' and 0 is falsy, so `|| 0.3` would
+    // coerce legitimate importance:0 to 0.3. Use Number.isFinite check instead.
+    this.importance = typeof payload.importance === 'number' && Number.isFinite(payload.importance)
+      ? payload.importance : 0.3;
   }
 
   toJSON() {
