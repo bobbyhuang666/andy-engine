@@ -28,6 +28,16 @@ This changes sequencing:
 | SDK bridge/helper emotion | Closed in R70 | `AndyBridge` user-message emotion signals now prefer world `EffectCommitter`; narrative empathy restores native-like emotion mirrors before returning; `check:boundaries` scans canonical `src/sdk` for direct memory writes. |
 | Internal stress writeback | Closed in R71 | Reflection and reappraisal absolute stress updates now route through runtime `effectCommitter` when available, with direct-call fallback for isolated unit callers. |
 | Discrete internal emotion feedback | Closed in R72 | Intrinsic motivation, mind wandering, reflection recall, and emotion regulation strategy deltas now prefer runtime `effectCommitter`; `PhysiologyRuntime` remains a tracked continuous-dynamics exception rather than a discrete writeback bug. |
+| Direct emotion write guard | Closed in R74 | `check:boundaries` now locks the classified direct emotion write exceptions by file and count, so new unreviewed direct writes fail the boundary gate. |
+| Core RNG/time guard | Closed in R75 | `check:boundaries` now locks classified core runtime `Date.now()` / `Math.random()` exceptions by file and count, preventing silent drift in seeded simulation paths. |
+| Core UTC accessor guard | Closed in R76 | `check:boundaries` now locks classified core UTC time accessor exceptions by file and count, preventing silent reintroduction of UTC/local drift. |
+| Direct memory write guard | Closed in R77 | `check:boundaries` now locks source-level `addExperience()` exceptions to `PersonalMemory` and `EffectCommitter`, preventing direct memory writeback from returning outside typed deltas. |
+| Direct position write guard | Closed in R78 | `check:boundaries` now locks source-level `agent.position =` exceptions to `EffectCommitter`, `AndyWorld` system fallbacks, and `AndyBridge` restore, preventing direct movement writeback from returning outside typed deltas. |
+| Direct relationship interaction guard | Closed in R79 | `check:boundaries` now locks source-level `recordInteraction()` exceptions to `Relationship` and `EffectCommitter`, preventing relationship writeback from bypassing typed `RelationshipDelta` ownership. |
+| Fact/knowledge write authority guard | Closed in R80 | `check:boundaries` now limits source-level fact and knowledge writes to canonical canon/knowledge owners, while keeping deprecated FactEmitter fallback isolated from runtime/agent/sdk callers. |
+| Action provider read-only guard | Closed in R81 | `check:boundaries` now prevents candidate providers from writing state, accessing `EffectCommitter`, committing deltas, or constructing typed deltas directly. |
+| Narrative/LLM world-write guard | Closed in R82 | `check:boundaries` now prevents narrative code from writing facts, knowledge, agent state, regions, or effect deltas, preserving grounding as expression rather than world authority. |
+| Canonical SDK data mutation guard | Closed in R83 | `check:boundaries` now scans canonical SDK, public facades, and compatibility agent entry points for relationship/facts/knowledge write verbs, keeping public APIs out of direct data authority. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 
@@ -45,11 +55,10 @@ This changes sequencing:
 
 ## Near-Term Sequence
 
-1. Audit remaining classified direct emotion writes: `PhysiologyRuntime`
-   continuous needs/health coupling, SDK restore/transient narrative exceptions,
-   committer implementation, and direct-call fallbacks.
-2. Consider behavior-preserving runtime extractions such as `ContagionGatherer`
+1. Consider behavior-preserving runtime extractions such as `ContagionGatherer`
    only if the audit stays clean.
+2. Re-audit another high-recurrence bug family with no-quota external models
+   before starting any large refactor.
 
 ## Guardrail
 

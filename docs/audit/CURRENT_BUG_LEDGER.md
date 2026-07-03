@@ -20,8 +20,8 @@
 | External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
-| Current gate snapshot | 2026-07-03 no-quota + external-free verification: `npm test` 3207 passed / 28 skipped; R48 store/replay/config suite 464 passed; R49 action/effects/writeback suite 355 passed; R50 domain/config suite 82 + 128 passed; R51 runtime/social/spatial suite 116 passed; R52 public API/package suite 167 passed; R53 external-audit regression suite 245 passed / 4 skipped; R54 SDK/narrative/grounding suite 206 passed; R55 native/store/package suite 47 passed; R56 SDK/LLM provider suite 100 passed; R57 persistence/bridge suite 93 passed; R58 long-run facts/knowledge suite 189 passed; R59 perf gate suite 5 passed; R60 package subpath type suite 83 passed; R61 Node baseline/package suite 83 passed; R62 fact-retention suite 88 passed; R63 social/Dunbar suite 32 passed; R64 action canonicalization suite 223 passed / 11 skipped; R65 ScheduleHandler writeback suite 97 passed; R66 PerceptionRuntime memory writeback suite 77 passed; R67 PerceptionRuntime effects writeback suite 108 passed; R68 env service boundary suite 99 passed; R69 public facade writeback suite 161 passed; R70 SDK/bridge/narrative suite 226 passed; R71 internal stress writeback suite 98 passed; R72 discrete emotion writeback suite 107 passed; full test/domain/boundary/typecheck clean; boundaries clean including env service and canonical `src/sdk` memory guard; replay diff 100/100 matched; smoke 19/19; perf exit 0 in 3-run median mode with no WARN; `git diff --check` clean |
-| Current caveat | Worktree contains a large mixed changeset plus documentation moves. Do not assume every modified file belongs to the latest repair round. |
+| Current gate snapshot | 2026-07-03 no-quota + external-free verification: `npm test` 3218 passed / 28 skipped; R48 store/replay/config suite 464 passed; R49 action/effects/writeback suite 355 passed; R50 domain/config suite 82 + 128 passed; R51 runtime/social/spatial suite 116 passed; R52 public API/package suite 167 passed; R53 external-audit regression suite 245 passed / 4 skipped; R54 SDK/narrative/grounding suite 206 passed; R55 native/store/package suite 47 passed; R56 SDK/LLM provider suite 100 passed; R57 persistence/bridge suite 93 passed; R58 long-run facts/knowledge suite 189 passed; R59 perf gate suite 5 passed; R60 package subpath type suite 83 passed; R61 Node baseline/package suite 83 passed; R62 fact-retention suite 88 passed; R63 social/Dunbar suite 32 passed; R64 action canonicalization suite 223 passed / 11 skipped; R65 ScheduleHandler writeback suite 97 passed; R66 PerceptionRuntime memory writeback suite 77 passed; R67 PerceptionRuntime effects writeback suite 108 passed; R68 env service boundary suite 99 passed; R69 public facade writeback suite 161 passed; R70 SDK/bridge/narrative suite 226 passed; R71 internal stress writeback suite 98 passed; R72 discrete emotion writeback suite 107 passed; R74 boundary guard suite 58 passed; R75 RNG/time boundary guard suite 59 passed; R76 UTC accessor boundary guard suite 60 passed; R77 memory write boundary guard suite 61 passed; R78 position write boundary guard suite 62 passed; R79 relationship interaction boundary guard suite 63 passed; R80 fact/knowledge write authority suite 64 passed; R81 action provider read-only suite 65 passed; R82 narrative/LLM world-write suite 66 passed; R83 canonical SDK data mutation suite 67 passed; full test/domain/boundary/typecheck clean; boundaries clean including env service, canonical `src/sdk` memory guard, direct emotion exception guard, direct memory experience guard, direct position guard, direct relationship interaction guard, fact/knowledge write authority guard, action provider read-only guard, narrative/LLM world-write guard, canonical SDK relationship/facts/knowledge mutation guard, core runtime Date.now/Math.random guard, and core UTC accessor guard; replay diff 100/100 matched; smoke 19/19; perf exit 0 in rerun 3-run median mode with no WARN after one machine-variance WARN; `git diff --check` clean |
+| Current caveat | R43-R73 baseline is committed at `2260fd6`. Current uncommitted work is narrow R74-R83 boundary-guard hardening. |
 
 ## How To Use This Ledger
 
@@ -662,12 +662,177 @@ writeback-boundary hardening theme, after independent triple-audit verification.
 | Ambiguous 2 ruling | `AndyWorld.js:654` `regions.place()` — **P3 redundant call**. EffectCommitter:211 already calls `regions.place` because committer holds world reference (`AndyWorld:197` `new EffectCommitter({ world: this, ... })`). Repeated place of same position is idempotent/harmless. Optional cleanup, no fix required. |
 | Ambiguous 3 ruling | `RuntimeContext.js:53` `regions.place()` — **P3 infrastructure**. `_setRegionChanged` RegionGrid index sync callback for action-selection/scheduler position changes, not event-consequence writeback. Accepted, no fix. |
 | Ambiguous 4 ruling | `src/canon/FactEmitter.js:383` `propagateEventKnowledge()` — **P3 dead code**. grep confirms zero runtime/agent/sdk callers; only the definition remains. Deprecated fallback locked per AGENTS.md. Optional removal candidate; no fix required for convergence. |
-| Baseline note | All R43–R72 gate-green results currently uncommitted in worktree (last commit `157380a` = R42). Baseline freeze pending user decision on commit landing point per AGENTS.md "Commit or push only when the user asks". `.understand-anything/` added to `.gitignore` to keep machine-generated local knowledge graph out of the baseline. |
+| Baseline note | R43–R73 gate-green baseline landed in commit `2260fd6` (`fix(R43-R73): verified baseline — writeback boundary theme convergence`). `.understand-anything/` is ignored to keep machine-generated local knowledge graph output out of source control. |
 | Status | R64–R72 writeback-boundary theme declared CONVERGENT. No confirmed P0/P1 remains in active scope. P3 backlog recorded above. |
+
+## R74 - Direct Emotion Write Boundary Guard
+
+This section records a no-quota hardening pass that converts the R73 direct
+emotion-write exception classification into an automated boundary gate.
+
+| Field | Detail |
+|---|---|
+| Scope | `scripts/check-boundaries.js` and architecture boundary regression tests. No runtime behavior changed. |
+| External model audit | `agnes/agnes-2.0-flash` reviewed the proposed exact-count allowlist guard and approved it as sound boundary hardening. It noted the main risk is false positives if the inventory is incomplete; local `rg` inventory confirmed the current 17 direct emotion write hits before enforcement. |
+| Verification verdict | Confirmed as useful polish-first prevention. Direct emotion writes were already classified in R73; R74 prevents silent drift by failing the boundary gate when a new unclassified file appears or an allowlisted file's direct-write count changes. |
+| Fix | Added `checkDirectEmotionWrites()` to `scripts/check-boundaries.js`. It scans `src/agent`, `src/runtime`, `src/sdk`, and `src/effects` for `agent.emotion.applyEffect()`, `agent.emotion.setStress()`, and `emotion.applyEffect()`, then enforces exact counts and reasons for the current exceptions: `EffectCommitter`, `PhysiologyRuntime`, SDK restore/transient paths, and committer-aware fallback helpers. Added an architecture test that executes the boundary script and asserts the new guard is active. |
+| Files | `scripts/check-boundaries.js`; `tests/architecture/boundary-check.test.js`; `docs/audit/CURRENT_BUG_LEDGER.md`; `docs/current/POLISH_FIRST_ROADMAP.md` |
+| Commands | `opencode run --pure ... -m agnes/agnes-2.0-flash`; `npm run check:boundaries -- --no-color`; `npx vitest run tests/architecture/boundary-check.test.js --no-color`; `npm run typecheck`; `npm run test:domain -- --no-color`; `npm test -- --run --no-color`; `npm run smoke:pack`; `npm run replay:diff`; `npm run perf:check`; `git diff --check`. |
+| Result | Boundary check now reports `Direct emotion writes: classified exceptions only`. Architecture boundary suite: 1 file / 58 passed. Full `npm test`: 193 files passed / 1 skipped; 3208 passed / 28 skipped. Domain tests 82 passed. Typecheck clean. Smoke pack 19 passed / 0 failed. Replay diff matched 100/100. Perf check all PASS with no WARN. Diff check clean. |
+| Status | R74 fixed and verified in current worktree. No new P0/P1 confirmed; this is a regression-prevention guard for the already-converged writeback boundary theme. |
+
+## R75 - Core RNG / Wall-Clock Boundary Guard
+
+This section records a no-quota hardening pass over the high-recurrence
+determinism family: bare `Math.random()` and `Date.now()` in core runtime paths.
+
+| Field | Detail |
+|---|---|
+| Scope | Core runtime source only: `src/agent`, `src/runtime`, `src/action`, `src/effects`, `src/pressure`, `src/social`, `src/spatial`, `src/canon`, `src/knowledge`, `src/narrative`, plus the public compatibility facade `agent/Agent.js`. SDK/store/shared tooling paths remain outside this core simulation boundary. |
+| External model audit | `agnes/agnes-2.0-flash` reviewed the proposal and required a wider scope than only `src/runtime`. The final guard follows that recommendation by scanning core runtime subtrees while avoiding SDK/store false positives. |
+| Verification verdict | Confirmed as prevention rather than a new bug fix. Local inventory found only accepted non-comment hits: `AndyWorld` has one unseeded auto-seed `Math.random()`, three `Date.now()` uses for auto-seed and tick duration metrics, and `agent/Agent.js` has one legacy standalone Agent fallback. Existing deterministic checks still protect `src/action` and facts paths. |
+| Fix | Added `checkCoreRandomTimeBoundary()` to `scripts/check-boundaries.js`. It enforces exact `Date.now` / `Math.random` counts for the current classified exceptions and fails when any other core runtime file introduces a bare wall-clock/random call. Added an architecture test that executes the boundary script and asserts the new guard is active. |
+| Files | `scripts/check-boundaries.js`; `tests/architecture/boundary-check.test.js`; `docs/audit/CURRENT_BUG_LEDGER.md`; `docs/current/POLISH_FIRST_ROADMAP.md` |
+| Commands | `opencode run --pure ... -m agnes/agnes-2.0-flash`; `npm run check:boundaries -- --no-color`; `npx vitest run tests/architecture/boundary-check.test.js --no-color`; `npm run typecheck`; `npm run test:domain -- --no-color`; `npm test -- --run --no-color`; `npm run smoke:pack`; `npm run replay:diff`; `npm run perf:check`; `git diff --check`. |
+| Result | Boundary check now reports `Core runtime Date.now/Math.random: classified exceptions only`. Architecture boundary suite: 1 file / 59 passed. Full `npm test`: 193 files passed / 1 skipped; 3209 passed / 28 skipped. Domain tests 82 passed. Typecheck clean. Smoke pack 19 passed / 0 failed. Replay diff matched 100/100. Perf check all PASS with no WARN. Diff check clean. |
+| Status | R75 fixed and verified in current worktree. No new P0/P1 confirmed; this is a regression-prevention guard for seeded core runtime discipline. |
+
+## R76 - Core UTC Accessor Boundary Guard
+
+This section records a no-quota hardening pass over UTC/local time-mixing drift,
+after earlier P1 fixes around `WorldPressure` time semantics.
+
+| Field | Detail |
+|---|---|
+| Scope | Core runtime source only: the same core subtrees scanned by R75. Tests, SDK, store/tooling, presets, and fixtures are outside this boundary. |
+| External model audit | `agnes/agnes-2.0-flash` reviewed the proposal and approved the minimal guard: exactly two `UtilityScorer.getUTCHours()` fallback hits are allowed; any new core UTC accessor should fail review. |
+| Verification verdict | Confirmed as prevention, not a semantic migration. Local inventory found only `src/action/UtilityScorer.js` with two `getUTCHours()` fallback hits. R73 already classified these as non-P0/P1 because active runtime supplies `environment.hour` from `RuntimeContext` local time. TZ-1 golden-fixture binding remains a documented P2 architecture decision, not patched here. |
+| Fix | Added `checkCoreUtcTimeBoundary()` to `scripts/check-boundaries.js`. It scans core runtime files for `getUTC*`, `setUTC*`, `Date.UTC`, and `toUTCString()` in non-comment lines, enforcing the current `UtilityScorer` exact-count exception. Added an architecture test that executes the boundary script and asserts the UTC guard is active. |
+| Files | `scripts/check-boundaries.js`; `tests/architecture/boundary-check.test.js`; `docs/audit/CURRENT_BUG_LEDGER.md`; `docs/current/POLISH_FIRST_ROADMAP.md` |
+| Commands | `opencode run --pure ... -m agnes/agnes-2.0-flash`; `npm run check:boundaries -- --no-color`; `npx vitest run tests/architecture/boundary-check.test.js --no-color`; `npm run typecheck`; `npm run test:domain -- --no-color`; `npm test -- --run --no-color`; `npm run smoke:pack`; `npm run replay:diff`; `npm run perf:check`; `git diff --check`. |
+| Result | Boundary check now reports `Core runtime UTC accessors: classified exceptions only`. Architecture boundary suite: 1 file / 60 passed. Full `npm test`: 193 files passed / 1 skipped; 3210 passed / 28 skipped. Domain tests 82 passed. Typecheck clean. Smoke pack 19 passed / 0 failed. Replay diff matched 100/100. Perf check all PASS with no WARN. Diff check clean. |
+| Status | R76 fixed and verified in current worktree. No new P0/P1 confirmed; this is a regression-prevention guard against reintroducing UTC/local time drift in core runtime code. |
+
+## R77 - Direct Memory Experience Boundary Guard
+
+This section records a no-quota hardening pass over direct experience-memory
+writeback, a bug family previously repaired in ScheduleHandler, PerceptionRuntime,
+and public facade paths.
+
+| Field | Detail |
+|---|---|
+| Scope | Source-level direct `addExperience()` writes in `src/agent`, `src/runtime`, `src/sdk`, `src/effects`, top-level `agent`, and top-level `sdk`. Tests are excluded. |
+| External model audit | `agnes/agnes-2.0-flash` approved the proposal. It agreed that `PersonalMemory.addExperience()` as the canonical method definition and `EffectCommitter` as the authorized `MemoryDelta` owner are the only accepted source-level hits, with non-comment scanning to avoid noisy false positives. |
+| Verification verdict | Confirmed as prevention, not a new behavior fix. Local inventory found only `src/agent/memory/PersonalMemory.js` defining `addExperience()` once and `src/effects/EffectCommitter.js` calling `agent.memory.addExperience()` once. Existing SDK/facade memory guard remains in place and now has a broader source-level companion. |
+| Fix | Added `checkDirectMemoryExperienceWrites()` to `scripts/check-boundaries.js`. It scans non-comment source lines for direct experience-memory writes and enforces exact-count exceptions for `PersonalMemory` and `EffectCommitter`. Added an architecture test that executes the boundary script and asserts the new guard is active. |
+| Files | `scripts/check-boundaries.js`; `tests/architecture/boundary-check.test.js`; `docs/audit/CURRENT_BUG_LEDGER.md`; `docs/current/POLISH_FIRST_ROADMAP.md` |
+| Commands | `opencode run --pure ... -m agnes/agnes-2.0-flash`; `npm run check:boundaries -- --no-color`; `npx vitest run tests/architecture/boundary-check.test.js --no-color`; `npm run typecheck`; `npm run test:domain -- --no-color`; `npm test -- --run --no-color`; `npm run smoke:pack`; `npm run replay:diff`; `npm run perf:check`; `git diff --check`. |
+| Result | Boundary check now reports `Direct memory experience writes: classified exceptions only`. Architecture boundary suite: 1 file / 61 passed. Full `npm test`: 193 files passed / 1 skipped; 3211 passed / 28 skipped. Domain tests 82 passed. Typecheck clean. Smoke pack 19 passed / 0 failed. Replay diff matched 100/100. Perf check all PASS with no WARN. Diff check clean. |
+| Status | R77 fixed and verified in current worktree. No new P0/P1 confirmed; this is a regression-prevention guard against reintroducing direct memory experience writeback outside the `MemoryDelta` / `EffectCommitter` path. |
+
+## R78 - Direct Position Write Boundary Guard
+
+This section records a no-quota hardening pass over direct `agent.position`
+assignment, a bug family previously connected to schedule movement, active
+writeback, spatial rollback, and bridge restore sync.
+
+| Field | Detail |
+|---|---|
+| Scope | Source-level direct `agent.position = ...` assignments in `src/runtime`, `src/agent`, `src/sdk`, `src/effects`, top-level `agent`, and top-level `sdk`. Tests are excluded. `regions.place()` is not locked in this pass because R73 classified those calls separately as infrastructure/idempotent sync. |
+| External model audit | `agnes/agnes-2.0-flash` approved the exact-count guard and suggested changing the two `AndyWorld` fallback assignments into throws. Chief-planner ruling for this round: defer that semantic change because R73 classified them as P3 system-integrity fallback guards and changing them to throws would alter `addAgent()` / tick isolation behavior. |
+| Verification verdict | Confirmed as prevention, not a new behavior fix. Local inventory found four non-comment source hits: `EffectCommitter` as the authorized `PositionDelta` owner, two `AndyWorld` fallback assignments when `RegionGrid.place()` rejects an invalid region, and `AndyBridge` snapshot restore with RegionGrid/spatial sync. |
+| Fix | Added `checkDirectPositionWrites()` to `scripts/check-boundaries.js`. It scans non-comment source lines for direct `agent.position =` writes and enforces exact-count exceptions for `EffectCommitter`, `AndyWorld`, and `AndyBridge`. Added an architecture test that executes the boundary script and asserts the new guard is active. |
+| Files | `scripts/check-boundaries.js`; `tests/architecture/boundary-check.test.js`; `docs/audit/CURRENT_BUG_LEDGER.md`; `docs/current/POLISH_FIRST_ROADMAP.md` |
+| Commands | `opencode run --pure ... -m agnes/agnes-2.0-flash`; `npm run check:boundaries -- --no-color`; `npx vitest run tests/architecture/boundary-check.test.js --no-color`; `npm run typecheck`; `npm run test:domain -- --no-color`; `npm test -- --run --no-color`; `npm run smoke:pack`; `npm run replay:diff`; `npm run perf:check`; `git diff --check`. |
+| Result | Boundary check now reports `Direct position writes: classified exceptions only`. Architecture boundary suite: 1 file / 62 passed. Full `npm test`: 193 files passed / 1 skipped; 3212 passed / 28 skipped. Domain tests 82 passed. Typecheck clean. Smoke pack 19 passed / 0 failed. Replay diff matched 100/100. Perf check all PASS with no WARN. Diff check clean. |
+| Status | R78 fixed and verified in current worktree. No new P0/P1 confirmed; this is a regression-prevention guard against reintroducing direct position writeback outside `PositionDelta` / restore / system fallback paths. |
+
+## R79 - Direct Relationship Interaction Boundary Guard
+
+This section records a no-quota hardening pass over direct relationship
+interaction writes, the source-level API used by relationship deltas.
+
+| Field | Detail |
+|---|---|
+| Scope | Source-level `recordInteraction()` calls in `src/social`, `src/effects`, `src/agent`, `src/runtime`, `src/sdk`, top-level `agent`, and top-level `sdk`. Tests are excluded. |
+| External model audit | `agnes/agnes-2.0-flash` reviewed the proposal and approved it as low-risk boundary hardening. It specifically noted that module-origin distinction matters; the final guard enforces exact paths and counts rather than allowing any same-named call. |
+| Verification verdict | Confirmed as prevention, not a new behavior fix. Local inventory found only two source hits: `src/social/Relationship.js` defines the canonical method once, and `src/effects/EffectCommitter.js` calls it once as the authorized `RelationshipDelta` owner. |
+| Fix | Added `checkDirectRelationshipInteractionWrites()` to `scripts/check-boundaries.js`. It scans non-comment source lines for `recordInteraction()` and enforces exact-count exceptions for `Relationship` and `EffectCommitter`. Added an architecture test that executes the boundary script and asserts the new guard is active. |
+| Files | `scripts/check-boundaries.js`; `tests/architecture/boundary-check.test.js`; `docs/audit/CURRENT_BUG_LEDGER.md`; `docs/current/POLISH_FIRST_ROADMAP.md` |
+| Commands | `opencode run --pure ... -m agnes/agnes-2.0-flash`; `npm run check:boundaries -- --no-color`; `npx vitest run tests/architecture/boundary-check.test.js --no-color`; `npm run typecheck`; `npm run test:domain -- --no-color`; `npm test -- --run --no-color`; `npm run smoke:pack`; `npm run replay:diff`; `npm run perf:check`; `git diff --check`. |
+| Result | Boundary check now reports `Direct relationship interaction writes: classified exceptions only`. Architecture boundary suite: 1 file / 63 passed. Full `npm test`: 193 files passed / 1 skipped; 3213 passed / 28 skipped. Domain tests 82 passed. Typecheck clean. Smoke pack 19 passed / 0 failed. Replay diff matched 100/100. Perf check all PASS with no WARN. Diff check clean. |
+| Status | R79 fixed and verified in current worktree. No new P0/P1 confirmed; this is a regression-prevention guard against reintroducing direct relationship interaction writeback outside the `RelationshipDelta` / `EffectCommitter` path. |
+
+## R80 - Fact/Knowledge Write Authority Boundary Guard
+
+This section records a no-quota hardening pass over fact and knowledge write
+authority: which modules may create world facts or attach epistemic knowledge.
+
+| Field | Detail |
+|---|---|
+| Scope | Source-level `factStore.addFact()`, `knowledgeStore.addKnowledge()`, and `this.addKnowledge()` calls in `src/agent`, `src/runtime`, `src/sdk`, `src/effects`, `src/canon`, `src/knowledge`, `src/narrative`, top-level `agent`, and top-level `sdk`. Tests and fixtures are excluded. |
+| External model audit | `agnes/agnes-2.0-flash` approved adding this guard as complementary to the existing FactEmitter fallback caller ban. It recommended path whitelisting rather than exact count checks, so canonical propagation logic can evolve without turning the guard into brittle version-number bookkeeping. |
+| Verification verdict | Confirmed as prevention, not a new behavior fix. Local inventory found source writes only in `src/canon/CanonEventPipeline.js` (canonical event -> fact/knowledge pipeline), `src/canon/FactEmitter.js` (deprecated fallback implementation), and `src/knowledge/KnowledgeStore.js` (canonical method and restore path). Runtime/agent/sdk callers of the deprecated FactEmitter fallback remain separately forbidden by `checkFactEmitterEventFallback()`. |
+| Fix | Added `checkFactKnowledgeWriteAuthority()` to `scripts/check-boundaries.js`. It fails any fact/knowledge authority write outside the path whitelist of `CanonEventPipeline`, `FactEmitter`, and `KnowledgeStore`. Added an architecture test that executes the boundary script and asserts the new guard is active. |
+| Files | `scripts/check-boundaries.js`; `tests/architecture/boundary-check.test.js`; `docs/audit/CURRENT_BUG_LEDGER.md`; `docs/current/POLISH_FIRST_ROADMAP.md` |
+| Commands | `opencode run --pure ... -m agnes/agnes-2.0-flash`; `npm run check:boundaries -- --no-color`; `npx vitest run tests/architecture/boundary-check.test.js --no-color`; `npm run typecheck`; `npm run test:domain -- --no-color`; `npm test -- --run --no-color`; `npm run smoke:pack`; `npm run replay:diff`; `npm run perf:check`; `git diff --check`. |
+| Result | Boundary check now reports `Fact/knowledge write authority: clean (canon/knowledge owners only)`. Architecture boundary suite: 1 file / 64 passed. Full `npm test`: 193 files passed / 1 skipped; 3214 passed / 28 skipped. Domain tests 82 passed. Typecheck clean. Smoke pack 19 passed / 0 failed. Replay diff matched 100/100. Perf check all PASS with no WARN. Diff check clean. |
+| Status | R80 fixed and verified in current worktree. No new P0/P1 confirmed; this is a regression-prevention guard against reintroducing fact/knowledge writes outside canonical authority modules. |
+
+## R81 - Action Provider Read-Only Boundary Guard
+
+This section records a no-quota hardening pass over the action provider matrix.
+Providers must remain read-only candidate sources and must not commit state,
+construct typed deltas, or bypass seeded/delta-owned runtime paths.
+
+| Field | Detail |
+|---|---|
+| Scope | `src/action/providers/*.js` non-comment source lines. Tests are excluded. |
+| External model audit | `agnes/agnes-2.0-flash` approved the guard as useful and recommended trimming `Math.random()` / `Date.now()` from this specific check because R75 already owns the seeded RNG/time family. The final guard therefore focuses on actual state mutation, commit access, and typed-delta construction terms. |
+| Verification verdict | Confirmed as prevention, not a new behavior fix. Local inventory found no provider hits for direct memory/emotion/position/relationship/fact/knowledge writes, region placement, effect committer access, commit calls, or typed delta construction. |
+| Fix | Added `checkActionProviderReadOnlyBoundary()` to `scripts/check-boundaries.js`. It fails if any provider tries to write memory/emotion/position/relationship/facts/knowledge, place regions, access `effectCommitter`, call `.commit()`, or construct typed deltas. Added an architecture test that executes the boundary script and asserts the new guard is active. |
+| Files | `scripts/check-boundaries.js`; `tests/architecture/boundary-check.test.js`; `docs/audit/CURRENT_BUG_LEDGER.md`; `docs/current/POLISH_FIRST_ROADMAP.md` |
+| Commands | `opencode run --pure ... -m agnes/agnes-2.0-flash`; `npm run check:boundaries -- --no-color`; `npx vitest run tests/architecture/boundary-check.test.js --no-color`; `npm run typecheck`; `npm run test:domain -- --no-color`; `npm test -- --run --no-color`; `npm run smoke:pack`; `npm run replay:diff`; `npm run perf:check`; `git diff --check`. |
+| Result | Boundary check now reports `Action providers: read-only candidate sources`. Architecture boundary suite: 1 file / 65 passed. Full `npm test`: 193 files passed / 1 skipped; 3215 passed / 28 skipped. Domain tests 82 passed. Typecheck clean. Smoke pack 19 passed / 0 failed. Replay diff matched 100/100. Perf check all PASS with no WARN. Diff check clean. |
+| Status | R81 fixed and verified in current worktree. No new P0/P1 confirmed; this is a regression-prevention guard against provider-side world writes and EffectCommitter bypasses. |
+
+## R82 - Narrative / LLM No-World-Write Boundary Guard
+
+This section records a no-quota hardening pass over the narrative and LLM-facing
+layer. Narrative may express grounded facts, but it must not create facts,
+commit deltas, or mutate world/agent state.
+
+| Field | Detail |
+|---|---|
+| Scope | `src/narrative/*.js` non-comment source lines. Tests are excluded. |
+| External model audit | `agnes/agnes-2.0-flash` approved the guard as directly enforcing the AGENTS.md rule that Narrative/LLM can only express grounding-allowed facts and must not create world facts or write world state. |
+| Verification verdict | Confirmed as prevention, not a new behavior fix. Local inventory found no narrative hits for typed-delta construction, effect committer access, commit calls, memory/emotion/position/relationship/fact/knowledge writes, or region placement. |
+| Fix | Added `checkNarrativeNoWorldWrites()` to `scripts/check-boundaries.js`. It fails if `src/narrative` tries to construct typed deltas, access/commit through `EffectCommitter`, write memory/emotion/position/relationship/facts/knowledge, or place regions. Added an architecture test that executes the boundary script and asserts the new guard is active. |
+| Files | `scripts/check-boundaries.js`; `tests/architecture/boundary-check.test.js`; `docs/audit/CURRENT_BUG_LEDGER.md`; `docs/current/POLISH_FIRST_ROADMAP.md` |
+| Commands | `opencode run --pure ... -m agnes/agnes-2.0-flash`; `npm run check:boundaries -- --no-color`; `npx vitest run tests/architecture/boundary-check.test.js --no-color`; `npm run typecheck`; `npm run test:domain -- --no-color`; `npm test -- --run --no-color`; `npm run smoke:pack`; `npm run replay:diff`; `npm run perf:check`; `git diff --check`. |
+| Result | Boundary check now reports `Narrative/LLM world writes: clean`. Architecture boundary suite: 1 file / 66 passed. Full `npm test`: 193 files passed / 1 skipped; 3216 passed / 28 skipped. Domain tests 82 passed. Typecheck clean. Smoke pack 19 passed / 0 failed. Replay diff matched 100/100. Perf check all PASS with no WARN. Diff check clean. |
+| Status | R82 fixed and verified in current worktree. No new P0/P1 confirmed; this is a regression-prevention guard against narrative/LLM world-state authority leaks. |
+
+## R83 - Canonical SDK Data Mutation Boundary Guard
+
+This section records a no-quota hardening pass over public SDK and facade entry
+points. Public-facing SDK code must not mutate relationship/facts/knowledge
+stores directly; those writes belong to typed deltas or canon/knowledge owners.
+
+| Field | Detail |
+|---|---|
+| Scope | `sdk`, `src/sdk`, `src/agent/facade`, and top-level `agent` source files. Tests are excluded. |
+| External model audit | `agnes/agnes-2.0-flash` approved expanding the existing SDK data mutation guard to canonical `src/sdk` and public facades. It recommended matching only property + write-verb pairs to avoid false positives from legitimate read-only access. |
+| Verification verdict | Confirmed as prevention, not a new behavior fix. Local inventory found zero direct relationship/facts/knowledge write-verb hits across the expanded public SDK/facade surface. |
+| Fix | Expanded `checkSdkDataMutation()` in `scripts/check-boundaries.js` from top-level `sdk` only to `sdk`, `src/sdk`, `src/agent/facade`, and `agent`. It now scans singular/plural relationship, facts/factStore, knowledge/knowledgeStore, socialGraph, and relGraph properties only when followed by write verbs such as set/add/remove/update/record/invalidate/merge/apply/upsert/batch. Added an architecture test that executes the boundary script and asserts the guard is active. |
+| Files | `scripts/check-boundaries.js`; `tests/architecture/boundary-check.test.js`; `docs/audit/CURRENT_BUG_LEDGER.md`; `docs/current/POLISH_FIRST_ROADMAP.md` |
+| Commands | `opencode run --pure ... -m agnes/agnes-2.0-flash`; `npm run check:boundaries -- --no-color`; `npx vitest run tests/architecture/boundary-check.test.js --no-color`; `npm run typecheck`; `npm run test:domain -- --no-color`; `npm test -- --run --no-color`; `npm run smoke:pack`; `npm run replay:diff`; `npm run perf:check`; repeated `npm run perf:check`; `git diff --check`. |
+| Result | Boundary check now reports `SDK data mutation: clean (relationship/facts/knowledge)`. Architecture boundary suite: 1 file / 67 passed. Full `npm test`: 193 files passed / 1 skipped; 3217 passed / 28 skipped. Domain tests 82 passed. Typecheck clean. Smoke pack 19 passed / 0 failed. Replay diff matched 100/100. First perf check exited 0 with one machine-variance WARN; immediate rerun reported all PASS with no WARN. Diff check clean. |
+| Status | R83 fixed and verified in current worktree. No new P0/P1 confirmed; this is a regression-prevention guard against public SDK/facade data-authority leaks. |
 
 ## Current Gate Results
 
-Last verified after R72 discrete internal emotion writeback recheck:
+Last verified after R83 canonical SDK data mutation boundary guard:
 
 | Gate | Result |
 |---|---|
@@ -699,6 +864,16 @@ Last verified after R72 discrete internal emotion writeback recheck:
 | SDK bridge/narrative R70 tests | `tests/unit/andy-bridge-internal.test.js`, `tests/unit/build-narrative-emotion-safety.test.js`, `tests/sdk.test.js`, `tests/sdk-smoke.test.js`, `tests/integration/engine.test.js`, `tests/package-boundary.test.js` -> 226 passed |
 | Internal stress writeback R71 tests | `tests/unit/runtime/reflection-runtime.test.js`, `tests/unit/state-label-cleanup.test.js`, `tests/unit/effect-delta-contract.test.js`, `tests/unit/handlers/agent-runtime.test.js` -> 98 passed |
 | Discrete internal emotion writeback R72 tests | `tests/unit/handlers/agent-runtime.test.js`, `tests/unit/handlers/mind-wander-handler.test.js`, `tests/unit/runtime/reflection-runtime.test.js`, `tests/unit/state-label-cleanup.test.js`, `tests/unit/effect-delta-contract.test.js` -> 107 passed |
+| Direct emotion write boundary R74 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 58 passed; boundary check reports direct emotion writes classified exceptions only |
+| Core RNG/wall-clock boundary R75 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 59 passed; boundary check reports core runtime Date.now/Math.random classified exceptions only |
+| Core UTC accessor boundary R76 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 60 passed; boundary check reports core runtime UTC accessors classified exceptions only |
+| Direct memory experience boundary R77 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 61 passed; boundary check reports direct memory experience writes classified exceptions only |
+| Direct position write boundary R78 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 62 passed; boundary check reports direct position writes classified exceptions only |
+| Direct relationship interaction boundary R79 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 63 passed; boundary check reports direct relationship interaction writes classified exceptions only |
+| Fact/knowledge write authority R80 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 64 passed; boundary check reports fact/knowledge write authority clean |
+| Action provider read-only R81 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 65 passed; boundary check reports action providers as read-only candidate sources |
+| Narrative / LLM world-write R82 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 66 passed; boundary check reports narrative/LLM world writes clean |
+| Canonical SDK data mutation R83 tests | `tests/architecture/boundary-check.test.js` plus `npm run check:boundaries` -> 67 passed; boundary check reports SDK relationship/facts/knowledge data mutation clean |
 | External-free audit | `opencode/deepseek-v4-flash-free` persistence/replay no-edit audit: P1 candidate rejected by smoke; P2 tickHash Date issue confirmed and fixed |
 | External-free action audit | `opencode/deepseek-v4-flash-free` action/effects no-edit audit: P1 active location-meaning writeback confirmed and fixed; temperature/no-seed candidate rejected by smoke |
 | External-free domain audit | `opencode/deepseek-v4-flash-free` domain/config no-edit audit: minimal-domain IM fallback and ScheduleHandler state-center P1s confirmed and fixed |
@@ -733,7 +908,7 @@ Last verified after R72 discrete internal emotion writeback recheck:
 | UTC replay smoke | `TZ=UTC npx vitest run tests/unit/golden-seed-replay.test.js --no-color` -> 3 passed |
 | `npm pack --dry-run` | succeeded; tarball contains 198 files and no `agent/action/*` files |
 | Package metadata scan | expected 10 exports; no `package.json.files` entries missing |
-| `npm test` | 193 files passed / 1 skipped; 3202 passed / 28 skipped |
+| `npm test` | 193 files passed / 1 skipped; 3217 passed / 28 skipped |
 | `npm run test:domain` | 82 passed |
 | `npm run check:boundaries` | All boundary checks passed |
 | `npm run smoke:pack` | 19 passed / 0 failed |
@@ -743,7 +918,7 @@ Last verified after R72 discrete internal emotion writeback recheck:
 | `npm run sqlite:smoke` | SQLite smoke OK |
 | `npm run fresh:consumer` | Basic CJS, `--omit=optional` No-SQLite init fallback, and TypeScript subpath consumer checks passed |
 | `npm run release:check` | `npm test`, `test:domain`, `check:boundaries`, and pack dry-run all passed |
-| `npm run perf:check` | Exit 0 in default 3-run median mode; 5 PASS / 0 WARN |
+| `npm run perf:check` | First run exit 0 with one machine-variance WARN; immediate rerun exit 0 in default 3-run median mode with 5 PASS / 0 WARN |
 | `git diff --check` | clean |
 
 ## Active Latent / Deferred Backlog

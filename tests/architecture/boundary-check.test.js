@@ -10,6 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { execFileSync } from 'child_process';
 import { readFileSync, readdirSync, statSync, existsSync } from 'fs';
 import path from 'path';
 
@@ -408,6 +409,94 @@ describe('Architecture: boundary docs and script exist', () => {
 
   it('scripts/check-boundaries.js exists', () => {
     expect(existsSync(path.join(ROOT, 'scripts', 'check-boundaries.js'))).toBe(true);
+  });
+
+  it('check-boundaries locks classified direct emotion write exceptions', () => {
+    const output = execFileSync('node', ['scripts/check-boundaries.js'], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+    });
+    expect(output).toContain('Direct emotion writes: classified exceptions only');
+  });
+
+  it('check-boundaries locks classified direct memory experience write exceptions', () => {
+    const output = execFileSync('node', ['scripts/check-boundaries.js'], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+    });
+    expect(output).toContain('Direct memory experience writes: classified exceptions only');
+  });
+
+  it('check-boundaries locks classified direct position write exceptions', () => {
+    const output = execFileSync('node', ['scripts/check-boundaries.js'], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+    });
+    expect(output).toContain('Direct position writes: classified exceptions only');
+  });
+
+  it('check-boundaries locks classified direct relationship interaction write exceptions', () => {
+    const output = execFileSync('node', ['scripts/check-boundaries.js'], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+    });
+    expect(output).toContain('Direct relationship interaction writes: classified exceptions only');
+  });
+
+  it('check-boundaries locks classified direct needs write exceptions', () => {
+    const output = execFileSync('node', ['scripts/check-boundaries.js'], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+    });
+    expect(output).toContain('Direct needs writes: classified exceptions only');
+  });
+
+  it('check-boundaries locks fact/knowledge write authority owners', () => {
+    const output = execFileSync('node', ['scripts/check-boundaries.js'], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+    });
+    expect(output).toContain('Fact/knowledge write authority: clean (canon/knowledge owners only)');
+  });
+
+  it('check-boundaries locks SDK relationship/facts/knowledge mutation boundary', () => {
+    const output = execFileSync('node', ['scripts/check-boundaries.js'], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+    });
+    expect(output).toContain('SDK data mutation: clean (relationship/facts/knowledge)');
+  });
+
+  it('check-boundaries locks action providers as read-only candidate sources', () => {
+    const output = execFileSync('node', ['scripts/check-boundaries.js'], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+    });
+    expect(output).toContain('Action providers: read-only candidate sources');
+  });
+
+  it('check-boundaries locks narrative/LLM world-write boundary', () => {
+    const output = execFileSync('node', ['scripts/check-boundaries.js'], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+    });
+    expect(output).toContain('Narrative/LLM world writes: clean');
+  });
+
+  it('check-boundaries locks core Date.now/Math.random exceptions', () => {
+    const output = execFileSync('node', ['scripts/check-boundaries.js'], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+    });
+    expect(output).toContain('Core runtime Date.now/Math.random: classified exceptions only');
+  });
+
+  it('check-boundaries locks core UTC time accessor exceptions', () => {
+    const output = execFileSync('node', ['scripts/check-boundaries.js'], {
+      cwd: ROOT,
+      encoding: 'utf-8',
+    });
+    expect(output).toContain('Core runtime UTC accessors: classified exceptions only');
   });
 });
 
