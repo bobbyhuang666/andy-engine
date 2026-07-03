@@ -235,6 +235,12 @@ class EmotionVector {
    */
   _circadianModulation(hour) {
     const { positiveAffectPeak, positiveAffectAmp, negativeAffectPeak, negativeAffectAmp } = this._cfg.circadian;
+    // R110-NAN-2: guard against NaN/Infinity config values (defense-in-depth;
+    // validate.js checkRange also catches these, but legacy save data may bypass validation).
+    if (!Number.isFinite(positiveAffectPeak) || !Number.isFinite(positiveAffectAmp) ||
+        !Number.isFinite(negativeAffectPeak) || !Number.isFinite(negativeAffectAmp)) {
+      return;
+    }
     const twoPiOver24 = 2 * Math.PI / 24;
     const alpha = 0.05; // 非常小的混合系数，防止累积
 
@@ -273,6 +279,8 @@ class EmotionVector {
    */
   _pinkNoiseDrift() {
     const amp = this._cfg.noiseAmplitude;
+    // R110-NAN-5: guard against NaN/Infinity amplitude.
+    if (!Number.isFinite(amp)) return;
     const n = this._pinkNoiseState.length;
     const rand = this._rng.next.bind(this._rng);
 
@@ -455,6 +463,7 @@ class EmotionVector {
    */
   _baselineDrift() {
     const rate = this._cfg.baselineDriftRate;
+    if (!Number.isFinite(rate)) return; // R110-NAN-3: guard against NaN/Infinity config
     for (const dim of EMOTION_DIMENSIONS) {
       const current = this.current[dim] || 0;
       const base = this.baseline[dim] || 0;
@@ -527,7 +536,12 @@ class EmotionVector {
   _clamp() {
     // R32 P0-001 fix: Math.max/min with NaN returns NaN, so NaN values
     // in current/stress/mood were permanent. Now we repair NaN before clamping.
+    // R110-NAN-3: also repair NaN in baseline (previously only current/stress were covered).
     for (const dim of EMOTION_DIMENSIONS) {
+      if (this.baseline[dim] !== undefined) {
+        if (!Number.isFinite(this.baseline[dim])) this.baseline[dim] = 0;
+        this.baseline[dim] = Math.max(-1, Math.min(1, this.baseline[dim]));
+      }
       if (this.current[dim] !== undefined) {
         if (!Number.isFinite(this.current[dim])) this.current[dim] = this.baseline[dim] || 0;
         const lower = NON_NEGATIVE_DIMS.has(dim) ? 0 : -1;

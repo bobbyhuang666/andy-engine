@@ -85,6 +85,11 @@ This changes sequencing:
 | Memory 6 missing field validations | Closed in R105 | Added validators for maxPresentationsPerMemory, importanceBoostOnAccess, consolidationThreshold, pruneThreshold, moodCongruenceWeight, moodCongruenceScale. |
 | Serialization _restoreConfig key filter | Closed in R105 | `deserialize()` now filters non-config keys (seed, domain, rng, id, name) from caller config before merging into _restoreConfig. |
 | ReflectionRuntime NaN propagation guard | Closed in R108 | `assessStateConsequences()` lacked finite guards on weightedValence, neuroticism, and expectedValue. Added guards; NaN inputs produce safe defaults instead of cascading NaN through state decision logic. |
+| _baselineDrift NaN guard + baseline _clamp repair | Closed in R110 | `_baselineDrift()` wrote NaN to `baseline[dim]` with no repair path since `_clamp()` only covered `current`/`stress`. Added `Number.isFinite(rate)` guard + extended `_clamp()` to repair NaN in baseline. |
+| _circadianModulation config value guard | Closed in R110 | `_circadianModulation()` used 4 config values without finite checks. Added `Number.isFinite()` guard; NaN config → early return (defense-in-depth beyond validate.js). |
+| getInteractionWillingness NaN guard | Closed in R110 | `Relationship.getInteractionWillingness()` used unvalidated `strength`; NaN propagated through social encounter selection. Added `Number.isFinite(this.strength)` guard → returns 0. |
+| PressureContext.getTotalPressure finite guard | Closed in R110 | Sum of 5 pressure totals could overflow to Infinity, propagating as valid truthy value. Added `Number.isFinite(raw) ? raw : 0` guard. |
+| _pinkNoiseDrift amplitude guard | Closed in R110 | `_pinkNoiseDrift()` used unvalidated `noiseAmplitude` multiplier; NaN amplitude contaminated all emotion dimensions. Added `Number.isFinite(amp)` guard → early return. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

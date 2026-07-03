@@ -258,6 +258,9 @@ class Relationship {
    * @returns {number} 交互意愿 (0-1)
    */
   getInteractionWillingness() {
+    // R110-NAN-4: guard against NaN strength (defense-in-depth; _clamp should
+    // prevent this, but legacy save data or direct mutation may bypass it).
+    if (!Number.isFinite(this.strength)) return 0;
     // 基础意愿 = 关系强度
     let willingness = this.strength;
 

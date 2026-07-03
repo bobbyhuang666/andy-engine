@@ -2030,6 +2030,80 @@ Effect pipeline clean. Zero confirmed bugs.
 | Disposition | False positive — `FutureTendencyDelta` is produced by the event consequence pipeline (`applyEventConsequences`), not the action pipeline (`applyActionEffect`). These are separate paths with separate delta types. The double-transform is intentional for backward compatibility with the active mode path. |
 | Status | Rejected. No action. |
 
+## R110 - NaN Guards: Pressure/Emotion/Social Edge Cases
+
+This section records the R110 audit findings. All 5 findings confirmed and fixed.
+
+### R110-NAN-3
+
+| Field | Detail |
+|---|---|
+| ID | R110-NAN-3 |
+| Severity | HIGH |
+| Audit finding | `EmotionVector._baselineDrift()` computes `base + (current - base) * rate` where `rate` comes from `this._cfg.baselineDriftRate`. If `rate` is NaN (e.g. corrupted config), NaN propagates to `this.baseline[dim]`. `_clamp()` repairs NaN in `current` and `stress` but not `baseline`, so NaN baseline is permanent. |
+| Evidence | EmotionVector.js:456-468 — `rate` unvalidated, `baseline[dim]` not repaired in `_clamp()` (lines 527-539) |
+| Fix | Added `if (!Number.isFinite(rate)) return;` guard at top of `_baselineDrift()`. Extended `_clamp()` to repair NaN in `baseline[dim]` before clamping (baseline NaN → 0). |
+| Files | `src/agent/psychology/EmotionVector.js:457,530-535` |
+| Regression test | Existing tests cover baseline drift with valid rate. Guard is defensive — no existing test exercises NaN config. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R110-NAN-2
+
+| Field | Detail |
+|---|---|
+| ID | R110-NAN-2 |
+| Severity | Medium |
+| Audit finding | `EmotionVector._circadianModulation()` destructures 4 config values (`positiveAffectPeak`, `positiveAffectAmp`, `negativeAffectPeak`, `negativeAffectAmp`) and uses them directly in `Math.cos()` arithmetic. NaN/Infinity config values produce NaN current emotion with no guard. `validate.js` `checkRange` catches non-finite values at config time, but legacy save data bypasses validation. |
+| Evidence | EmotionVector.js:237-244 — config values used without `Number.isFinite()` check |
+| Fix | Added `Number.isFinite()` guard for all 4 config values at method entry; returns early if any value is non-finite. |
+| Files | `src/agent/psychology/EmotionVector.js:237-242` |
+| Regression test | Existing circadian tests use valid config. Guard is defense-in-depth for legacy save data. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R110-NAN-4
+
+| Field | Detail |
+|---|---|
+| ID | R110-NAN-4 |
+| Severity | Medium |
+| Audit finding | `Relationship.getInteractionWillingness()` uses `this.strength` directly as base willingness. If `strength` is NaN (e.g. corrupted save data or direct mutation), `Math.min(1, willingness)` returns NaN, propagating to social encounter selection logic. |
+| Evidence | Relationship.js:262 — `strength` unvalidated, `Math.min(1, NaN)` returns NaN |
+| Fix | Added `if (!Number.isFinite(this.strength)) return 0;` guard at method entry. |
+| Files | `src/social/Relationship.js:262-264` |
+| Regression test | Existing relationship tests use finite strength. Guard is defensive against corrupted state. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R110-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R110-NAN-1 |
+| Severity | Low-Medium |
+| Audit finding | `PressureContext.getTotalPressure()` sums 5 pressure source totals and divides by 5. If any source `.total` is Infinity (pressure overflow), the sum is Infinity, and Infinity/5 is Infinity — which propagates as a valid number since `Infinity` passes `|| 0` (it's truthy) and `Number.isFinite()` checks are absent. |
+| Evidence | PressureContext.js:72-79 — no finite guard on raw sum |
+| Fix | Wrapped sum in `Number.isFinite(raw) ? raw : 0` guard. |
+| Files | `src/pressure/PressureContext.js:72-82` |
+| Regression test | Existing pressure tests use bounded values. Guard is defense-in-depth for overflow scenarios. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R110-NAN-5
+
+| Field | Detail |
+|---|---|
+| ID | R110-NAN-5 |
+| Severity | Low |
+| Audit finding | `EmotionVector._pinkNoiseDrift()` reads `this._cfg.noiseAmplitude` and uses it as multiplier for random noise. If `noiseAmplitude` is NaN (corrupted config), `(rand() * 2 - 1) * NaN` produces NaN, which propagates through the pink noise state array and contaminates all emotion dimensions. |
+| Evidence | EmotionVector.js:275 — `amp` unvalidated, used as multiplier in lines 280, 286 |
+| Fix | Added `if (!Number.isFinite(amp)) return;` guard at method entry. |
+| Files | `src/agent/psychology/EmotionVector.js:276-278` |
+| Regression test | Existing emotion tests use valid noise amplitude. Guard is defensive for corrupted config. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
