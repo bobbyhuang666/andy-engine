@@ -2806,6 +2806,20 @@ This section records the R124 audit findings. 6 MEDIUM findings fixed.
 | Re-verification | Full `npm test`: 3271 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
 | Status | Fixed and verified. |
 
+## R125 - Full Codebase Edge-Case Re-Scan
+
+This section records the R125 audit findings. **Clean round — no new vulnerabilities found.**
+
+R125 performed a comprehensive re-scan of all 50+ source files across runtime, agent, psychology, effects, social, spatial, store, pressure, config, and facade modules. All 8 audit areas (InteractionFacade valence guards, AndyWorld.tick() arithmetic, AgentRuntime state reads, SpatialEngine encounters, EmotionVector pipeline, RNG usage, delta/effect application, serialization round-trip) are comprehensively covered by R110-R124 fixes.
+
+Two minor LOW-severity gaps identified (config-injection-only scenarios requiring malicious user config):
+- `EmotionVector._coActivationSpread` weight not explicitly guarded (requires NaN in user config, already blocked by constructor defaults)
+- `BehaviorField._enforceBoundary` reflect not explicitly guarded (requires NaN in user config)
+
+Neither constitutes an actionable vulnerability in production. No code changes required.
+
+| Status | Clean audit — no findings. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
