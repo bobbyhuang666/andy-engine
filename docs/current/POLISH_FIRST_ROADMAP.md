@@ -96,6 +96,9 @@ This changes sequencing:
 | PersonalMemory addAppraisalBias NaN guard | Closed in R113 | `addAppraisalBias()` stored `valenceShift`/`decay` without finite check; NaN propagated through bias accumulation and decay. Added `Number.isFinite()` guards with safe defaults. |
 | FactConsistencyChecker allowedFacts null guard | Closed in R113 | 7 loops iterating `grounding.allowedFacts` lacked null-entry guards. Added `if (!fact) continue;` to all iterations. |
 | SimulationStore story importance sort NaN guard | Closed in R113 | `?? 0` doesn't catch NaN importance values, causing unpredictable sort ordering. Changed to `Number.isFinite()` guards. |
+| AffectCompiler clamp() NaN guard | Closed in R114 | `clamp()` used `Math.max(0, Math.min(1, value))` without NaN guard; NaN propagated through all 6 AffectFrame fields into narrative LLM prompts. Added `Number.isFinite()` guard → returns 0. |
+| StoryGenerator emotion delta NaN guard | Closed in R114 | `generateFromSignal()` accumulated emotion deltas without finite checks; NaN deltas produced NaN posSum/negSum, silently corrupting story importance. Added `Number.isFinite(delta) continue` guard. |
+| Serialization _restoreConfig deep copy | Closed in R114 | Shallow spread shared nested config references between restored engine and caller's original config. Added `JSON.parse(JSON.stringify())` deep-copy. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

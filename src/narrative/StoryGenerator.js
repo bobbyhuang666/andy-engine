@@ -187,6 +187,8 @@ class StoryGenerator {
     if (emotionEffect) {
       let posSum = 0, negSum = 0;
       for (const [dim, delta] of Object.entries(emotionEffect)) {
+        // R114-002: guard against NaN/Infinity delta values.
+        if (!Number.isFinite(delta)) continue;
         if (POSITIVE_DIMS.includes(dim)) posSum += delta;
         if (NEGATIVE_DIMS.includes(dim)) negSum += Math.abs(delta);
       }

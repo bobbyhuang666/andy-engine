@@ -171,6 +171,8 @@ function compile(input) {
  * @returns {number}
  */
 function clamp(value) {
+  // R114-001: guard against NaN/Infinity (Math.max(0, NaN) returns NaN).
+  if (!Number.isFinite(value)) return 0;
   return Math.max(0, Math.min(1, value));
 }
 

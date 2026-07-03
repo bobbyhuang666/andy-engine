@@ -80,11 +80,13 @@ class Serialization {
       const filteredConfig = Object.fromEntries(
         Object.entries(config).filter(([key]) => !NON_CONFIG_KEYS.has(key))
       );
+      // Deep-copy to prevent reference sharing between restored config and caller's original.
+      const deepFilteredConfig = JSON.parse(JSON.stringify(filteredConfig));
       return {
         ...envelope.runtimeSnapshot,
         _restoreConfig: {
           ...(envelope.runtimeSnapshot._restoreConfig || {}),
-          ...filteredConfig,
+          ...deepFilteredConfig,
         },
       };
     }

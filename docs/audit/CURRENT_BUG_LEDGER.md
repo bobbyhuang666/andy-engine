@@ -2192,6 +2192,52 @@ This section records the R113 audit findings. 3 Medium and 1 Low finding fixed.
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
 | Status | Fixed and verified. |
 
+## R114 - AffectCompiler/StoryGenerator/Serialization Edge Cases
+
+This section records the R114 audit findings. 2 HIGH and 1 MEDIUM finding fixed.
+
+### R114-001
+
+| Field | Detail |
+|---|---|
+| ID | R114-001 |
+| Severity | HIGH |
+| Audit finding | `AffectCompiler.clamp()` uses `Math.max(0, Math.min(1, value))` without guarding against NaN. `Math.max(0, NaN)` returns NaN, so any NaN input from `emotion.getValence()`, `emotion.getArousal()`, or `behaviorField.B[n]` propagates through all 6 computed AffectFrame fields (warmth, directness, initiative, defensiveness, emotionalExplicitness, stability). NaN values flow into `getNarrative()` → `buildNarrative()` → LLM prompt injection, potentially corrupting narrative output. |
+| Evidence | AffectCompiler.js:173-174 — `clamp()` has no NaN guard; called 6 times in `compile()` at lines 58, 61, 64, 69, 72, 75 |
+| Fix | Added `if (!Number.isFinite(value)) return 0;` at top of `clamp()`. |
+| Files | `src/agent/psychology/AffectCompiler.js:173-175` |
+| Regression test | Existing affect tests use finite values. Guard is defense-in-depth for corrupted emotion/behavior state. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R114-002
+
+| Field | Detail |
+|---|---|
+| ID | R114-002 |
+| Severity | HIGH |
+| Audit finding | `StoryGenerator.generateFromSignal()` sums emotion delta values from `emotionEffect` without NaN guards. `posSum += delta` and `negSum += Math.abs(delta)` produce NaN if any single delta is NaN. NaN comparisons at lines 194/197 are always false, so importance stays at default 0.5 — but the story with corrupted emotion data gets persisted to `SimulationStore`. |
+| Evidence | StoryGenerator.js:189-191 — delta values not validated before accumulation |
+| Fix | Added `if (!Number.isFinite(delta)) continue;` inside the loop, matching the pattern used in `EmotionVector._packEffects()`. |
+| Files | `src/narrative/StoryGenerator.js:189-191` |
+| Regression test | Existing story tests use valid emotion effects. Guard is defensive for NaN leakage from upstream. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R114-003
+
+| Field | Detail |
+|---|---|
+| ID | R114-003 |
+| Severity | Medium |
+| Audit finding | `Serialization.deserialize()` merges caller config into `_restoreConfig` using shallow spread (`...filteredConfig`). Nested config objects (e.g. `actionSelection`, `emotion`) share references between the restored engine and the caller's original config. Modifying nested config fields after restoration could inadvertently mutate the caller's original config object. |
+| Evidence | Serialization.js:85-88 — `...filteredConfig` shallow copy shares nested object references |
+| Fix | Added `JSON.parse(JSON.stringify(filteredConfig))` deep-copy before merging into `_restoreConfig`. |
+| Files | `src/store/Serialization.js:85-88` |
+| Regression test | Existing serialization tests verify round-trip but don't check reference isolation. Deep-copy preserves behavior. |
+| Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
