@@ -1914,6 +1914,47 @@ _restoreConfig key filter (P3).
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. `tsc --noEmit`: clean. `npm run perf:check`: all passed. |
 | Status | Fixed and verified. |
 
+## R106 - Action/Social/Physiology Re-Audit
+
+This section records the R106 manual audit results. All 4 scanned areas were
+verified clean — zero confirmed bugs.
+
+### R106-ACTION-PROVIDERS (CLEAN)
+
+| Field | Detail |
+|---|---|
+| ID | R106-ACTION-PROVIDERS |
+| Severity | N/A — clean |
+| Finding | All 9 action providers in `src/action/providers/*.js` are read-only. `grep` for direct agent state mutations (memory, emotion, needs, position, relationship) returned zero results. Providers only return `ActionCandidate` objects. |
+| Status | Clean. No action. |
+
+### R106-PHYSIOLOGY-NAN (CLEAN)
+
+| Field | Detail |
+|---|---|
+| ID | R106-PHYSIOLOGY-NAN |
+| Severity | N/A — clean |
+| Finding | `PhysiologyRuntime.updateHealth()` and `updateSocialEnergy()` both have `Number.isFinite` NaN recovery guards (lines 141, 162). Health clamped to [0.1, 1.0]; socialEnergy clamped to [0, 1]. No NaN propagation paths found. |
+| Status | Clean. No action. |
+
+### R106-SOCIAL-ENCOUNTER (CLEAN)
+
+| Field | Detail |
+|---|---|
+| ID | R106-SOCIAL-ENCOUNTER |
+| Severity | N/A — clean |
+| Finding | `Relationship.recordInteraction()` guards valence with `if (!Number.isFinite(valence)) return;` at line 97. Encounter emotion propagation routes through EffectCommitter which has finite guards. No unguarded valence/arousal arithmetic found. |
+| Status | Clean. No action. |
+
+### R106-SCHEDULE-CONFIG (CLEAN)
+
+| Field | Detail |
+|---|---|
+| ID | R106-SCHEDULE-CONFIG |
+| Severity | N/A — clean |
+| Finding | `Schedule` constructor accepts `config` parameter with `entries` array. No hardcoded values that should be configurable. Time calculations use seeded RNG, not wall-clock. |
+| Status | Clean. No action. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
