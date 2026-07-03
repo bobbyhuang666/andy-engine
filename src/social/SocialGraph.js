@@ -163,13 +163,15 @@ class SocialGraph {
    * @returns {boolean}
    */
   isTwoHopsAway(agentA, agentB) {
+    // Use configurable acquaintance threshold (consistent with getCommonFriends).
+    const hopThreshold = ANDY_DEFAULTS.relationship.threshold.acquaintance;
     const friendsA = this.getRelationships(agentA)
-      .filter(r => r.strength > 0.2)
+      .filter(r => r.strength > hopThreshold)
       .map(r => r.getOther(agentA));
 
     for (const friend of friendsA) {
       const rel = this.getRelationship(friend, agentB);
-      if (rel && rel.strength > 0.2) return true;
+      if (rel && rel.strength > hopThreshold) return true;
     }
     return false;
   }
@@ -194,7 +196,8 @@ class SocialGraph {
       for (const current of frontier) {
         const rels = this.getRelationships(current);
         for (const rel of rels) {
-          if (rel.strength < 0.15) continue; // 忽略弱关系
+          // Use configurable acquaintance threshold (consistent with getCommonFriends).
+          if (rel.strength < ANDY_DEFAULTS.relationship.threshold.acquaintance) continue;
           const other = rel.getOther(current);
           if (other === agentB) return distance;
           if (!visited.has(other)) {

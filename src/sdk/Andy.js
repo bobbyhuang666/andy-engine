@@ -39,7 +39,7 @@ class Andy {
     }
 
     this._engine = new AndyEngine({
-      startTime: config.startTime || new Date(),
+      startTime: config.startTime || new Date(0), // epoch sentinel: deterministic fallback
       weather: config.weather || 'sunny',
       domain: config.domain,
       seed: config.seed,

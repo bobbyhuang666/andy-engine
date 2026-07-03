@@ -39,8 +39,8 @@ class EventDispatcher {
     this._recentContentByAgent = new Map();
     /** @type {Set<string>} 最近的交互对键（每 tick 清理） */
     this._recentEncounterPairs = new Set();
-    /** @type {Date} 模拟时间（ctor 预置避免首 tick 前空指针；每 tick 由 setSimTime 覆盖） */
-    this._simTime = new Date();
+	    /** @type {Date} 模拟时间（ctor 预置 epoch sentinel 避免首 tick 前空指针；每 tick 由 setSimTime 覆盖） */
+	    this._simTime = new Date(0);
 
     // 从 domain 取事件模板
     this._regionEvents = this.domain.eventTemplates.regionEvents || {};

@@ -716,6 +716,8 @@ class BehaviorField {
    * @private
    */
   _getTimeTarget(hour) {
+    // 输入守卫：防止 NaN 从损坏的环境信号传播（如 signals.environment?.hour 缺失）
+    if (!Number.isFinite(hour)) return TIME_TARGETS.sleep;
     const h = ((hour % 24) + 24) % 24;
     const schedule = this._timeSchedule;
 

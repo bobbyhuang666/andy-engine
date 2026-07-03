@@ -66,7 +66,7 @@ class AndyWorld {
     // ─── 时钟 ───
     this.clock = savedState
       ? WorldClock.fromJSON({ time: savedState.time, tickCount: savedState.tickCount })
-      : new WorldClock(config.startTime || new Date());
+      : new WorldClock(config.startTime || new Date(0)); // epoch sentinel: deterministic fallback when no startTime
 
     // ─── 兼容性属性（直接代理到 clock）───
     // 旧代码用 this.world.time 和 this.world.tickCount

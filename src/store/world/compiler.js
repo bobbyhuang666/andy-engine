@@ -46,7 +46,7 @@ function compile(spec, domainConfig = null, engineConstructor = null) {
   const engineConfig = {
     startTime: spec.parameters && spec.parameters.startTime
       ? new Date(spec.parameters.startTime)
-      : new Date(),
+      : new Date(0), // epoch sentinel: deterministic fallback when spec lacks startTime
     weather: (spec.parameters && spec.parameters.weather) || 'sunny',
   };
   if (domainConfig) {

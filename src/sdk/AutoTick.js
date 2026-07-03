@@ -59,8 +59,8 @@ class AutoTick {
       now = Date.now();
     }
 
-    if (!this._lastMessageTime) {
-      // 第一条消息，不推进
+    if (this._lastMessageTime === null) {
+      // 第一条消息，不推进（null = 无记录, 0 是合法的时间戳）
       this._lastMessageTime = now;
       this._lastSimTime = engine.world.time.getTime();
       return 0;
@@ -135,8 +135,9 @@ class AutoTick {
       chatTickMin: data.chatTickMin,
       chatTickMax: data.chatTickMax,
     });
-    at._lastMessageTime = data.lastMessageTime || null;
-    at._lastSimTime = data.lastSimTime || null;
+    // 使用 ?? 而非 ||：0 是合法的时间戳，不应被 coalesce 为 null
+    at._lastMessageTime = data.lastMessageTime ?? null;
+    at._lastSimTime = data.lastSimTime ?? null;
     return at;
   }
 
