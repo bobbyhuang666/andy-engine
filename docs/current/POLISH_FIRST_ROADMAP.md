@@ -47,6 +47,10 @@ This changes sequencing:
 | Dead type declaration removal | Closed in R86 | `sdk/types.d.ts` was a dead/duplicate file shadowing `src/sdk/types.d.ts`. Deleted; package-boundary test updated to reference canonical `src/sdk/types.d.ts`. |
 | Schedule deterministic fallback | Closed in R86 | `Schedule._maybeRegenerateVariations` used `new Date().toDateString()` when `simDate` was omitted. Replaced with `new Date(0).toDateString()` epoch sentinel (R84 pattern). Companion test updated. |
 | Relationship epoch sentinels | Closed in R86 | `Relationship.js` had 4 `new Date()` wall-clock fallbacks (constructor, recordInteraction). Replaced with `new Date(0)` epoch sentinel. All relationship tests pass. |
+| BehaviorField NaN guard | Closed in R87 | `_getTimeTarget(hour)` had no finite guard on `hour` parameter; NaN propagated through gradient into velocity/B, causing hard reset to [0.5,0.5,0.5,0.5]. Added `Number.isFinite(hour)` input guard returning `TIME_TARGETS.sleep`. |
+| SocialGraph threshold consistency | Closed in R87 | `isTwoHopsAway` used hardcoded 0.2 and `getSocialDistance` used hardcoded 0.15; both replaced with `ANDY_DEFAULTS.relationship.threshold.acquaintance` matching `getCommonFriends` (R41 L2 pattern). |
+| Epoch sentinel expansion | Closed in R87 | Replaced `new Date()` wall-clock fallbacks with `new Date(0)` epoch sentinels in AndyWorld (WorldClock construction), Andy (SDK entry), Character (standalone entry), compiler (world compilation), and EventDispatcher (`_simTime` initialization). Follows R84/R86 pattern. |
+| AutoTick falsy check fix | Closed in R87 | `AutoTick.js` used `!this._lastMessageTime` which treated epoch-0 (0ms) as falsy, breaking tick calculation for sim-time paths. Fixed to `=== null` explicit check; serialization round-trip fixed with `??` nullish coalescing. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

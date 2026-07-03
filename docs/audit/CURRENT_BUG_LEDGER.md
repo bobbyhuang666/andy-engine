@@ -983,9 +983,91 @@ and Relationship timestamp epoch sentinels.
 | Re-verification | Targeted tests: 23 passed. Full `npm test`: 3233 passed / 28 skipped. `check:boundaries`: all passed. |
 | Status | Fixed and verified. |
 
+## R87 - Determinism Fallback Hardenings + NaN Guard + Threshold Consistency
+
+This section records four scoped no-quota fixes from an internal audit plus
+local verification: BehaviorField NaN guard, SocialGraph threshold consistency,
+epoch sentinel expansion to AndyWorld/Andy/Character/compiler/EventDispatcher,
+and two latent regression fixes exposed by epoch-0 timestamps.
+
+### R87-BEHAVIORFIELD-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R87-BEHAVIORFIELD-NAN-1 |
+| Severity | P2 |
+| Audit finding | `BehaviorField._getTimeTarget(hour)` had no NaN guard on the `hour` parameter. When `hour` is NaN (from missing/corrupted `signals.environment?.hour`), all arithmetic produces NaN: `h = NaN`, `t = NaN`, `blend = NaN`, `result[d] = NaN`. The NaN propagates through `_addTimeGradient` into the total gradient, corrupting all components. The NaN guard in `_enforceBoundary()` catches this too late — after velocity and B are corrupted, causing a hard reset of behavior state to `[0.5, 0.5, 0.5, 0.5]`. |
+| Evidence | `BehaviorField.js:719` — `const h = ((hour % 24) + 24) % 24;` with no finite guard; `BehaviorField.js:736` — `t = (NaN - lo.hour) / span` → NaN; `BehaviorField.js:741` — `result[d] = loTarget[d] * (1 - NaN) + hiTarget[d] * NaN` → NaN; `BehaviorField.js:603-606` — `_enforceBoundary` resets B to 0.5 but after corruption. |
+| Verification verdict | Confirmed by independent Verification AI. NaN propagation trace verified: `_getTimeTarget` → `_addTimeGradient` → `_updateDynamics` → B/velocity corruption → `_enforceBoundary` hard reset. The fix is an input guard (prevention) rather than relying on the output guard (recovery). |
+| Fix | Added `if (!Number.isFinite(hour)) return TIME_TARGETS.sleep;` at the top of `_getTimeTarget(hour)`. Returns the safe `TIME_TARGETS.sleep` fallback (already used in the same method for missing schedule targets). |
+| Files | `src/agent/psychology/BehaviorField.js` |
+| Regression test | 66 BehaviorField tests pass; NaN guard prevents contamination without affecting normal finite-hour paths. |
+| Re-verification | Targeted tests: 66 passed. Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R87-SOCIALGRAPH-THRESHOLD-1
+
+| Field | Detail |
+|---|---|
+| ID | R87-SOCIALGRAPH-THRESHOLD-1 |
+| Severity | P2 |
+| Audit finding | `SocialGraph.js` had inconsistent strength thresholds across 3 methods that all answer "is this relationship strong enough to matter?": `getCommonFriends` used configurable `ANDY_DEFAULTS.relationship.threshold.acquaintance` (0.15) — correct; `isTwoHopsAway` used hardcoded `0.2` — inconsistent; `getSocialDistance` used hardcoded `0.15` — matches current default but not configurable. If config threshold changes, the two hardcoded methods silently diverge. |
+| Evidence | `SocialGraph.js:144` — `const acquaintanceThreshold = ANDY_DEFAULTS.relationship.threshold.acquaintance;` (R41 L2 fix); `SocialGraph.js:167` — `.filter(r => r.strength > 0.2)` hardcoded; `SocialGraph.js:197` — `if (rel.strength < 0.15) continue;` hardcoded. |
+| Verification verdict | Confirmed by independent Verification AI. All three methods now reference `ANDY_DEFAULTS.relationship.threshold.acquaintance`. With current config (0.15), `isTwoHopsAway` behavior changes slightly (0.2→0.15, slightly stricter hop detection) — this is the intended consistency fix. |
+| Fix | Replaced hardcoded `0.2` in `isTwoHopsAway` and `0.15` in `getSocialDistance` with `ANDY_DEFAULTS.relationship.threshold.acquaintance`. Added comments matching the R41 L2 fix pattern in `getCommonFriends`. |
+| Files | `src/social/SocialGraph.js` |
+| Regression test | All 13 social graph tests pass. |
+| Re-verification | Targeted tests: 13 passed. Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R87-DATE-EPOCH-1
+
+| Field | Detail |
+|---|---|
+| ID | R87-DATE-EPOCH-1 |
+| Severity | P2 |
+| Audit finding | Four files used `new Date()` (wall-clock) as a fallback when no explicit start time was provided: `AndyWorld.js:69` (WorldClock construction), `Andy.js:42` (SDK entry), `Character.js:70` (standalone Character), `compiler.js:49` (world compilation). Wall-clock fallback means two runs with identical seeds but different wall times produce different initial simulation conditions (timeOfDay, season, weather). |
+| Evidence | `AndyWorld.js:69` — `new WorldClock(config.startTime || new Date())`; `Andy.js:42` — `startTime: config.startTime || new Date()`; `Character.js:70` — same pattern; `compiler.js:49` — `: new Date()`. All four use the same fallback pattern. |
+| Verification verdict | Confirmed by independent Verification AI. All four replacements verified. `new Date(0)` is deterministic and preserves `Date` type. When `startTime` IS provided (explicit config), behavior is unchanged — only the fallback path is affected. |
+| Fix | Replaced all 4 `new Date()` fallbacks with `new Date(0)` epoch sentinel. Added comments referencing R84/R86 pattern. |
+| Files | `src/runtime/AndyWorld.js`; `src/sdk/Andy.js`; `src/sdk/Character.js`; `src/store/world/compiler.js` |
+| Regression test | SDK, runtime, and compiler tests all pass. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. `check:boundaries`: all passed. `typecheck`: clean. |
+| Status | Fixed and verified. |
+
+### R87-AUTOTICK-FALSY-1 (regression fix)
+
+| Field | Detail |
+|---|---|
+| ID | R87-AUTOTICK-FALSY-1 |
+| Severity | P2 |
+| Audit finding | `AutoTick.js:62` used `if (!this._lastMessageTime)` to check for "no previous message." When `_lastMessageTime` is `0` (epoch 0 timestamp from sim-time injection), `!0` is `true`, so the guard always enters the "first message" branch and returns 0 ticks. Lines 138-139 used `data.lastMessageTime || null` which turns `0` into `null`, breaking serialization round-trip. These latent bugs were exposed by the R87 epoch sentinel changes (sim-time starting at 0). |
+| Evidence | `AutoTick.js:62` — `if (!this._lastMessageTime)`; `AutoTick.js:138` — `data.lastMessageTime || null`; `AutoTick.js:139` — `data.lastSimTime || null`. |
+| Verification verdict | Confirmed by independent Verification AI. 4 SDK tests failed before fix (tick calculations returned 0 instead of expected values; serialization round-trip turned 0 into null). Fix uses `=== null` explicit check and `??` nullish coalescing. |
+| Fix | Changed `if (!this._lastMessageTime)` → `if (this._lastMessageTime === null)` on line 62. Changed `|| null` → `?? null` on lines 138-139. Added comments explaining null vs falsy distinction. |
+| Files | `src/sdk/AutoTick.js` |
+| Regression test | 4 previously-failing SDK AutoTick tests now pass (75 total SDK tests pass). Serialization round-trip test confirms `_lastSimTime` preserves `0` value. |
+| Re-verification | Targeted tests: 75 passed. Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R87-EVENTDISPATCHER-EPOCH-1 (regression fix)
+
+| Field | Detail |
+|---|---|
+| ID | R87-EVENTDISPATCHER-EPOCH-1 |
+| Severity | P2 |
+| Audit finding | `EventDispatcher._cleanupOldEvents()` compares event timestamps against `_simTime` to delete "old" events. `_simTime` was initialized to `new Date()` (wall-clock ~2026) in the constructor, but events created with epoch-0 timestamps appear ~56 years old and are immediately deleted. This was exposed by the R87 epoch sentinel changes (simulation clock starting at epoch 0). |
+| Evidence | `EventDispatcher.js:43` — `this._simTime = new Date()`; `EventDispatcher.js:89` — `time: params.time || this._simTime || new Date()`; cleanup logic compares event.time against `_simTime` cutoff. Events with epoch-0 timestamps fall before the wall-clock cutoff. |
+| Verification verdict | Confirmed by independent Verification AI. 1 e2e test failed before fix (help event deleted before narrative could trace it). Fix initializes `_simTime` to `new Date(0)` so epoch-0 events are not prematurely cleaned up before the first `setSimTime()` call from `AndyWorld.step()` Phase 1. |
+| Fix | Changed `this._simTime = new Date()` → `this._simTime = new Date(0)` on line 43. Added comment explaining epoch sentinel initialization. `setSimTime()` from `AndyWorld.step()` Phase 1 updates `_simTime` every tick, so initial value only matters for events before first tick. |
+| Files | `src/runtime/EventDispatcher.js` |
+| Regression test | 1 previously-failing e2e cause-effect test now passes. |
+| Re-verification | Targeted tests: e2e cause-effect suite passes. Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
 ## Current Gate Results
 
-Last verified after R86 determinism fallback hardening + dead type cleanup:
+Last verified after R87 epoch sentinel hardening + NaN guard + threshold consistency (commit `752400a`):
 
 | Gate | Result |
 |---|---|
@@ -1036,6 +1118,10 @@ Last verified after R86 determinism fallback hardening + dead type cleanup:
 | Dead type declaration removal R86 tests | `tests/package-boundary.test.js` -> 74 passed |
 | Schedule epoch sentinel R86 tests | `tests/unit/schedule/schedule-branches.test.js` -> all schedule tests passed |
 | Relationship epoch sentinel R86 tests | `tests/unit/social.test.js`, `tests/unit/relationship-writeback.test.js`, `tests/facts/relationship-social-writeback.test.js` -> 23 passed |
+| BehaviorField NaN guard R87 tests | `tests/unit/behavior-field.test.js` -> 66 passed |
+| SocialGraph threshold consistency R87 tests | `tests/unit/social.test.js` -> 13 passed |
+| E2E cause-effect memory narrative R87 tests | `tests/e2e/cause-effect-memory-narrative.test.js` -> 5 passed |
+| SDK AutoTick determinism R87 tests | `tests/sdk.test.js` -> 75 passed |
 | `npm test` | 193 files passed / 1 skipped; 3233 passed / 28 skipped |
 | `npm run test:domain` | 82 passed |
 | `npm run check:boundaries` | All boundary checks passed |
@@ -1073,6 +1159,8 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | R85-AUTOTICK-DEFAULT-PATH-1 | P2 | `AutoTick.calculateTicksToAdvance()` now accepts optional `now` parameter for determinism, but default path still uses `Date.now()`. Non-SDK callers who don't inject `now` get wall-clock-dependent tick counts. | Deferred: backward-compatible default; only SDK `Character.chat()`/`chatStream()` inject virtual time. External AutoTick users can opt into determinism via `now` param. |
 | R85-ANDYTOWN-DATE-1 | P2 | `AndyTownAdapter` uses `Date.now()` for cache expiry. Inherently wall-clock-dependent; not in core simulation path. | Deferred: network I/O adapter; cache expiry is inherently non-deterministic. |
 | R84-UTC-GETTERS-1 | P2 design | `UtilityScorer.js:427,448` still uses `getUTCHours()` fallback; `WorldPressure.js:42` uses `getHours()` on constructed Date. R76 boundary guard locks the exact count, but UTC/local semantics remain a design debt item (TZ-1 family). | Deferred: active runtime always provides `environment.hour` from local time; falls back only on missing context. Tracked under TZ-1. |
+| R87-SOCIALGRAPH-DUNBAR-ENFORCE-1 | P2 design | `_enforceDunbarLimits()` is a read-only projection — it calls `_projectDunbarLayers()` but discards the return value, and `_projectDunbarLayers()` never mutates `rel.type` or `rel.strength`. Dunbar limits are never actually enforced; agents can accumulate unlimited close friends. | Deferred: requires design decision on whether to downgrade relationship types (symmetric shared edge vs per-agent perception). Fix would add `_downgradeType()` method. |
+| R87-EMOTIONVECTOR-DIMENSION-BIAS-1 | P3 | `_pinkNoiseDrift()` selects 3-6 random dimensions with replacement — same dimension can be picked multiple times in one tick (~26% probability), creating cumulative noise bias. | Deferred: noise amplitude is small and damped; shuffle-and-pick-unique is a cleanup item when emotion drift is next touched. |
 
 ## Rules For Future Entries
 
