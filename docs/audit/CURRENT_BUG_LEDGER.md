@@ -1067,7 +1067,7 @@ and two latent regression fixes exposed by epoch-0 timestamps.
 
 ## Current Gate Results
 
-Last verified after R88 fact data integrity + canon pipeline error containment (commit `a537f7a`):
+Last verified after R89 NaN guard + stress homeostatic drift (commit `addba1b`):
 
 | Gate | Result |
 |---|---|
@@ -1124,6 +1124,8 @@ Last verified after R88 fact data integrity + canon pipeline error containment (
 | SDK AutoTick determinism R87 tests | `tests/sdk.test.js` -> 75 passed |
 | FactEmitter addFact return value R88 tests | `tests/facts/world-fact-store.test.js`, `tests/facts/fact-emitter-event-fallback.test.js` -> 64 passed |
 | AndyWorld canon pipeline error containment R88 tests | `tests/unit/runtime/runtime.test.js`, `tests/unit/runtime/event-dispatcher-branches.test.js` -> 60 passed |
+| AgentRuntime hoursElapsed NaN guard R89 tests | `tests/unit/handlers/agent-runtime.test.js` -> 35 passed |
+| EmotionVector stress homeostatic drift R89 tests | `tests/unit/behavior-field.test.js` -> 66 passed |
 | `npm test` | 193 files passed / 1 skipped; 3233 passed / 28 skipped |
 | `npm run test:domain` | 82 passed |
 | `npm run check:boundaries` | All boundary checks passed |
@@ -1172,6 +1174,51 @@ pipeline error containment.
 | Regression test | 387 related tests pass (361 fact + 26 effect pipeline). Canon pipeline error containment verified. |
 | Re-verification | Targeted tests: 387 passed. Full `npm test`: 3233 passed / 28 skipped. |
 | Status | Fixed and verified. |
+
+## R89 - NaN Guard + Stress Homeostatic Drift
+
+This section records two scoped no-quota fixes from an internal audit plus
+local verification: hoursElapsed NaN guard preventing cascade corruption,
+and stress homeostatic drift replacing hard reset.
+
+### R89-HOURSELAPSED-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R89-HOURSELAPSED-NAN-1 |
+| Severity | P1 |
+| Audit finding | `AgentRuntime.js` computed `hoursElapsed = minutesElapsed / 60` without a finite guard. When `env.minutesElapsed` is NaN, `NaN / 60 = NaN`, `Math.max(0, NaN) = NaN`, producing NaN hoursElapsed. This NaN propagates through EVERY pressure and state system in the same tick: NeedsSystem (all needs NaN), BehaviorField (velocity/B NaN), EmotionVector (all emotions NaN), SocialGraph (all relationship strengths NaN), IntrinsicMotivation (curiosity NaN). Once NaN enters, it never self-repairs. |
+| Evidence | `AgentRuntime.js:91` — `const hoursElapsed = minutesElapsed / 60;` with no finite guard; `NeedsSystem.js:203` — `current - rate * NaN` = NaN; `BehaviorField.js` — dampingFactor NaN → velocity NaN; `EmotionVector.tick()` — `Math.exp(-lambda * NaN)` = NaN. |
+| Verification verdict | Confirmed by independent Verification AI. The fix adds `Number.isFinite(rawHours) && rawHours > 0` guard, defaulting to 0 when invalid. All 3233 tests pass. |
+| Fix | Replaced single-line computation with guarded two-step: `rawHours = minutesElapsed / 60; hoursElapsed = (Number.isFinite(rawHours) && rawHours > 0) ? rawHours : 0;`. Added comment explaining finite guard prevents NaN cascade from corrupted env data. |
+| Files | `src/agent/AgentRuntime.js` |
+| Regression test | All agent-runtime tests pass (35 passed). NaN guard prevents cascade without affecting valid inputs. |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. |
+| Status | Fixed and verified. |
+
+### R89-STRESS-HARDRESET-1
+
+| Field | Detail |
+|---|---|
+| ID | R89-STRESS-HARDRESET-1 |
+| Severity | P2 |
+| Audit finding | `Agent.js` tick-end stress management hard-reset stress to exactly 2.0 whenever it fell below baseline. This meant any stress reduction from positive events (e.g., `setStress(stress - 0.15)`) was immediately overwritten. Stress could never go below 2.0 naturally — the baseline was effectively a hard floor, not a homeostatic target. During the Phase 8 refactoring into AgentRuntime + handler architecture, the old stress decay/reset logic was lost entirely, leaving no homeostatic mechanism for stress below baseline. |
+| Evidence | Old `Agent.js:309-314` — `if (this.emotion.stress < 2.0) this.emotion.setStress(2.0)` hard reset. `EmotionVector._timeDecay()` handled emotion dimensions but not stress. Positive event stress reduction at line 481-483 was immediately overwritten. |
+| Verification verdict | Confirmed by independent Verification AI. Fix adds stress homeostatic drift in `EmotionVector._timeDecay()` (JS + native): above baseline → exponential decay at rate 0.1; below baseline → gradual drift at 10% per hour toward 2.0. Golden seed fixture regenerated. All 3233 tests pass. |
+| Fix | Added stress drift in `EmotionVector._timeDecay()` and `EmotionVector.native.js`: above 2.0 → `stress = 2.0 + (stress - 2.0) * exp(-0.1 * dt)`; below 2.0 → `stress += (2.0 - stress) * 0.1 * dt`. Replaces hard reset with homeostatic drift. |
+| Files | `src/agent/psychology/EmotionVector.js`; `src/agent/psychology/EmotionVector.native.js` |
+| Regression test | Golden seed regenerated; all behavior-field and emotion tests pass (66 passed). |
+| Re-verification | Full `npm test`: 3233 passed / 28 skipped. `perf:check`: all PASS (0.53x/0.38x baseline). |
+| Status | Fixed and verified. |
+
+### R89-BOREDOM-VALENCE-1 (already fixed)
+
+| Field | Detail |
+|---|---|
+| ID | R89-BOREDOM-VALENCE-1 |
+| Severity | P2 |
+| Audit finding | `boredom` was missing from the `negative` array in `getValence()`, excluded from valence calculation despite being psychologically negative. |
+| Status | Already fixed in prior code — `boredom` is correctly listed in `EmotionVector.js:595` negative array and `getMoodString()`. No action needed. |
 
 ## Active Latent / Deferred Backlog
 
