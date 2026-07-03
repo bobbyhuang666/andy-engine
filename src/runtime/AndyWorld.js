@@ -57,6 +57,12 @@ class AndyWorld {
     if (hasOwnConfig('actionSelection')) this._restoreConfig.actionSelection = this.runtimeConfig.actionSelection;
     if (hasOwnConfig('spatial')) this._restoreConfig.spatial = this.runtimeConfig.spatial;
     if (hasOwnConfig('needs')) this._restoreConfig.needs = this.runtimeConfig.needs;
+    if (hasOwnConfig('emotion')) this._restoreConfig.emotion = config.emotion;
+    if (hasOwnConfig('contagion')) this._restoreConfig.contagion = config.contagion;
+    if (hasOwnConfig('memory')) this._restoreConfig.memory = config.memory;
+    if (hasOwnConfig('behavior')) this._restoreConfig.behavior = config.behavior;
+    if (hasOwnConfig('intrinsicMotivation')) this._restoreConfig.intrinsicMotivation = config.intrinsicMotivation;
+    if (hasOwnConfig('mindWander')) this._restoreConfig.mindWander = config.mindWander;
 
     // ─── 时钟 ───
     this.clock = savedState

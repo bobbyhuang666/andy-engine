@@ -223,6 +223,31 @@ describe('validateConfig — intrinsicMotivation block', () => {
 });
 
 // ═══════════════════════════════════════════
+// validateConfig — mindWander 块
+// ═══════════════════════════════════════════
+describe('validateConfig — mindWander block', () => {
+  it('rejects quietProbability out of range', () => {
+    expect(() => validateConfig({ mindWander: { quietProbability: -0.1 } })).toThrow(/mindWander\.quietProbability/);
+    expect(() => validateConfig({ mindWander: { quietProbability: 2 } })).toThrow(/mindWander\.quietProbability/);
+  });
+
+  it('rejects malformed effects', () => {
+    expect(() => validateConfig({ mindWander: { effects: [] } })).toThrow(/mindWander\.effects/);
+    expect(() => validateConfig({ mindWander: { effects: { worry: [] } } })).toThrow(/mindWander\.effects\.worry/);
+    expect(() => validateConfig({ mindWander: { effects: { worry: { nervousness: 2 } } } })).toThrow(/mindWander\.effects\.worry\.nervousness/);
+  });
+
+  it('accepts partial mindWander overrides including zero probability', () => {
+    expect(() => validateConfig({
+      mindWander: {
+        quietProbability: 0,
+        effects: { nostalgia: { joy: 0.02 } },
+      },
+    })).not.toThrow();
+  });
+});
+
+// ═══════════════════════════════════════════
 // validateConfig — 一致性检查 + 聚合错误
 // ═══════════════════════════════════════════
 describe('validateConfig — consistency & aggregation', () => {

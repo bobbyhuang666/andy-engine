@@ -28,7 +28,7 @@ const { buildActionContext: _buildActionContextImpl, validateActionSelectionConf
 const ScheduleHandler = require('../src/agent/handlers/ScheduleHandler');
 const { updateHealth, updateSocialEnergy } = require('../src/agent/runtime/PhysiologyRuntime');
 const { reflect } = require('../src/agent/runtime/ReflectionRuntime');
-const { mindWander } = require('../src/agent/runtime/MindWanderRuntime');
+const { mindWander, mergeMindWanderConfig } = require('../src/agent/runtime/MindWanderRuntime');
 
 class Agent {
   /**
@@ -49,6 +49,7 @@ class Agent {
       ...ANDY_DEFAULTS.actionSelection,
       ...(config.actionSelection || {}),
     };
+    this._mindWanderConfig = mergeMindWanderConfig(config.mindWander || null);
     validateActionSelectionConfig(this._actionSelectionConfig, this._rng, this.id);
 
     // ─── Create or restore subsystems ───

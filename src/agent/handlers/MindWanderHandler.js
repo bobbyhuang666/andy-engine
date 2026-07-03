@@ -5,8 +5,7 @@
  * Retains the gate condition (quiet check + probability).
  */
 const { DIM_ACTIVITY, DIM_FOCUS } = require('../psychology/BehaviorLabeler');
-const { ANDY_DEFAULTS } = require('../../config/defaults');
-const { mindWander } = require('../runtime/MindWanderRuntime');
+const { mindWander, getMindWanderConfig } = require('../runtime/MindWanderRuntime');
 
 class MindWanderHandler {
   constructor(agent) {
@@ -19,7 +18,8 @@ class MindWanderHandler {
     const isQuiet = B[DIM_ACTIVITY] < 0.3 && B[DIM_FOCUS] < 0.3;
 
     if (isQuiet) {
-      if (agent.rand() < (ANDY_DEFAULTS.mindWander?.quietProbability || 0.25)) {
+      const quietProbability = getMindWanderConfig(agent).quietProbability ?? 0.25;
+      if (agent.rand() < quietProbability) {
         const thought = mindWander(agent, context?.env || null);
         if (thought) {
           context.result.newEvents.push(thought);

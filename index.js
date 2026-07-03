@@ -115,12 +115,41 @@ class AndyEngine {
     if (savedState && savedState.agents) {
       for (const [agentId, agentData] of Object.entries(savedState.agents)) {
         const agent = new Agent(
-          { id: agentId, name: agentData.name || agentId, schedule: agentData.schedule || {}, domain: this.domain, rng: this.rng, actionSelection: this.config.actionSelection, factStore: this.world.factStore || null, needs: this.config.needs },
+          {
+            id: agentId,
+            name: agentData.name || agentId,
+            schedule: agentData.schedule || {},
+            domain: this.domain,
+            rng: this.rng,
+            actionSelection: this.config.actionSelection,
+            factStore: this.world.factStore || null,
+            ...this._agentSubsystemConfig(),
+          },
           agentData
         );
         this.world.addAgent(agent);
       }
     }
+  }
+
+  /**
+   * Agent subsystem config follows priority: per-agent override > engine config > defaults.
+   * Subsystem constructors own the default merge, so partial objects are safe here.
+   * @private
+   */
+  _agentSubsystemConfig(agentConfig = {}) {
+    const pick = (key) => Object.prototype.hasOwnProperty.call(agentConfig, key)
+      ? agentConfig[key]
+      : this.config[key];
+    return {
+      emotion: pick('emotion'),
+      contagion: pick('contagion'),
+      memory: pick('memory'),
+      needs: pick('needs'),
+      intrinsicMotivation: pick('intrinsicMotivation'),
+      behavior: pick('behavior'),
+      mindWander: pick('mindWander'),
+    };
   }
 
   // ═══════════════════════════════════════════
@@ -219,7 +248,7 @@ class AndyEngine {
       rng: this.rng,
       actionSelection: this.config.actionSelection,
       factStore: this.world.factStore || null,
-      needs: this.config.needs,
+      ...this._agentSubsystemConfig(config),
     });
 
     this.world.addAgent(agent);
@@ -237,7 +266,14 @@ class AndyEngine {
    */
   addAgent(config) {
     validateAgentConfig(config);
-    const agent = new Agent({ ...config, domain: this.domain, rng: this.rng, actionSelection: this.config.actionSelection, factStore: this.world.factStore || null, needs: config.needs || this.config.needs });
+    const agent = new Agent({
+      ...config,
+      domain: this.domain,
+      rng: this.rng,
+      actionSelection: this.config.actionSelection,
+      factStore: this.world.factStore || null,
+      ...this._agentSubsystemConfig(config),
+    });
     this.world.addAgent(agent);
     return agent;
   }

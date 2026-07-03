@@ -7,6 +7,31 @@
 
 const { ANDY_DEFAULTS } = require('../../config/defaults');
 
+function mergeEffectConfig(defaultEffects = {}, overrides = {}) {
+  const merged = {};
+  const keys = new Set([...Object.keys(defaultEffects), ...Object.keys(overrides || {})]);
+  for (const key of keys) {
+    merged[key] = {
+      ...(defaultEffects[key] || {}),
+      ...((overrides && overrides[key]) || {}),
+    };
+  }
+  return merged;
+}
+
+function mergeMindWanderConfig(mindWanderConfig = null) {
+  const defaults = ANDY_DEFAULTS.mindWander || {};
+  return {
+    ...defaults,
+    ...(mindWanderConfig || {}),
+    effects: mergeEffectConfig(defaults.effects || {}, mindWanderConfig?.effects || {}),
+  };
+}
+
+function getMindWanderConfig(agent) {
+  return agent?._mindWanderConfig || mergeMindWanderConfig();
+}
+
 /**
  * Mind wandering — spontaneous thought generation.
  * @param {Object} agent
@@ -119,7 +144,7 @@ function mindWander(agent, env = null) {
   }
 
   // Emotion effects from thought
-  const mwCfg = ANDY_DEFAULTS.mindWander?.effects || {};
+  const mwCfg = getMindWanderConfig(agent).effects || {};
   const emotionDelta = {};
 
   // Recall → emotion feedback
@@ -182,4 +207,4 @@ function timeAgoLabel(agent, date) {
   return (tl && tl.weeksAgo) ? tl.weeksAgo(Math.floor(days / 7)) : `${Math.floor(days / 7)}周前`;
 }
 
-module.exports = { mindWander, timeAgoLabel };
+module.exports = { mindWander, timeAgoLabel, mergeMindWanderConfig, getMindWanderConfig };

@@ -226,6 +226,29 @@ function validateConfig(config) {
     }
   }
 
+  // ─── 心智游移参数 ───
+  if (config.mindWander) {
+    const mw = config.mindWander;
+    if (mw.quietProbability !== undefined) {
+      checkRange(mw.quietProbability, 0, 1, 'mindWander.quietProbability', errors);
+    }
+    if (mw.effects !== undefined) {
+      if (!mw.effects || typeof mw.effects !== 'object' || Array.isArray(mw.effects)) {
+        errors.push('mindWander.effects 必须是对象');
+      } else {
+        for (const [thoughtType, deltas] of Object.entries(mw.effects)) {
+          if (!deltas || typeof deltas !== 'object' || Array.isArray(deltas)) {
+            errors.push(`mindWander.effects.${thoughtType} 必须是对象`);
+            continue;
+          }
+          for (const [dim, delta] of Object.entries(deltas)) {
+            checkRange(delta, -1, 1, `mindWander.effects.${thoughtType}.${dim}`, errors);
+          }
+        }
+      }
+    }
+  }
+
   // ─── 参数间一致性检查 ───
   if (config.needs && config.needs.threshold && config.needs.recoveryRate) {
     for (const need of Object.keys(config.needs.threshold)) {

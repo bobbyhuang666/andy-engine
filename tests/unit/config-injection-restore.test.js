@@ -78,6 +78,94 @@ describe('P1-1: per-engine needs config injection', () => {
     const drive2 = a2.needs.getDrive();
     expect(drive2 === null || drive2.need !== 'hunger').toBe(true);
   });
+
+  it('forwards all engine-level agent subsystem configs through createCharacter', () => {
+    const e = new AndyEngine({
+      emotion: {
+        decayLambda: 0.321,
+        circadian: { positiveAffectPeak: 9 },
+      },
+      memory: {
+        decayRate: 0.456,
+        spreadingActivation: { W: 2.5 },
+        recallEmotionDelta: { happy: { joy: 0.222 } },
+      },
+      behavior: {
+        gamma: 4.2,
+        weights: { emotion: 3.3 },
+      },
+      intrinsicMotivation: {
+        curiosityThreshold: 0.11,
+        domainRegionMap: { mystery: '图书馆' },
+      },
+      mindWander: {
+        quietProbability: 0,
+        effects: { nostalgia: { joy: 0.123 } },
+      },
+    });
+
+    const a = e.createCharacter({ id: 'all-cfg', name: 'AllCfg', mbti: 'INFP' });
+
+    expect(a.emotion._cfg.decayLambda).toBe(0.321);
+    expect(a.emotion._cfg.circadian.positiveAffectPeak).toBe(9);
+    expect(a.memory._cfg.decayRate).toBe(0.456);
+    expect(a.memory._cfg.spreadingActivation.W).toBe(2.5);
+    expect(a.memory._cfg.recallEmotionDelta.happy.joy).toBe(0.222);
+    expect(a.behaviorField.cfg.gamma).toBe(4.2);
+    expect(a.behaviorField.cfg.weights.emotion).toBe(3.3);
+    expect(a.intrinsicMotivation._cfg.curiosityThreshold).toBe(0.11);
+    expect(a.intrinsicMotivation._cfg.domainRegionMap.mystery).toBe('图书馆');
+    expect(a._mindWanderConfig.quietProbability).toBe(0);
+    expect(a._mindWanderConfig.effects.nostalgia.joy).toBe(0.123);
+    expect(a._mindWanderConfig.effects.nostalgia.calm).toBe(0.008);
+  });
+
+  it('explicit addAgent subsystem config overrides engine subsystem config', () => {
+    const e = new AndyEngine({
+      memory: { decayRate: 0.111 },
+      behavior: { weights: { habit: 1.1 } },
+      mindWander: { quietProbability: 0.9 },
+    });
+
+    const a = e.addAgent({
+      id: 'override-all',
+      name: 'OverrideAll',
+      personality: { mbti: 'ENFJ' },
+      initialState: '闲逛',
+      initialPosition: '图书馆',
+      memory: { decayRate: 0.222 },
+      behavior: { weights: { habit: 2.2 } },
+      mindWander: { quietProbability: 0 },
+    });
+
+    expect(a.memory._cfg.decayRate).toBe(0.222);
+    expect(a.behaviorField.cfg.weights.habit).toBe(2.2);
+    expect(a._mindWanderConfig.quietProbability).toBe(0);
+  });
+
+  it('mindWander quietProbability=0 is respected by runtime', () => {
+    const e = new AndyEngine({ mindWander: { quietProbability: 0 } });
+    const a = e.createCharacter({
+      id: 'mw-off',
+      name: 'MwOff',
+      mbti: 'INFP',
+      background: ['开心的朋友回忆'],
+      initialState: '休息',
+    });
+    a.behaviorField.B = [0, 0, 0, 0];
+    a.rand = () => 0;
+
+    const result = a.runtime.tick({
+      hour: 12,
+      dayOfWeek: 1,
+      weather: 'sunny',
+      minutesElapsed: 5,
+      simTime: new Date('2026-01-01T12:00:00Z'),
+      effectCommitter: e.world.effectCommitter,
+    }, [], null);
+
+    expect(result.newEvents.some(evt => evt.type === 'mind_wander')).toBe(false);
+  });
 });
 
 describe('P1-2: _restoreConfig flows through AndyEngine restore', () => {
@@ -140,6 +228,10 @@ describe('P1-2: _restoreConfig flows through AndyEngine restore', () => {
       tickMinutes: 7,
       enableFacts: true,
       needs: { decayRate: { hunger: 0.123 }, threshold: { hunger: 0.95 } },
+      memory: { decayRate: 0.456 },
+      behavior: { weights: { emotion: 3.3 } },
+      intrinsicMotivation: { curiosityThreshold: 0.11 },
+      mindWander: { quietProbability: 0 },
       weatherConfig: {
         transitionProb: 0.99,
         seasonProbabilities: {
@@ -159,6 +251,10 @@ describe('P1-2: _restoreConfig flows through AndyEngine restore', () => {
     expect(restored.config.tickMinutes).toBe(7);
     expect(restored.config.needs.decayRate.hunger).toBe(0.123);
     expect(restored.config.needs.threshold.hunger).toBe(0.95);
+    expect(restored.config.memory.decayRate).toBe(0.456);
+    expect(restored.config.behavior.weights.emotion).toBe(3.3);
+    expect(restored.config.intrinsicMotivation.curiosityThreshold).toBe(0.11);
+    expect(restored.config.mindWander.quietProbability).toBe(0);
     expect(restored.config.weatherConfig.transitionProb).toBe(0.99);
     expect(restored.config.weatherConfig.seasonProbabilities.winter.sunny).toBe(0.99);
     expect(restored.config.actionSelection.enabled).toBe(true);
@@ -170,6 +266,10 @@ describe('P1-2: _restoreConfig flows through AndyEngine restore', () => {
     expect(restored.world.runtimeConfig.weatherConfig.transitionProb).toBe(0.99);
     expect(restored.world.runtimeConfig.actionSelection.temperature).toBe(0.777);
     expect(restored.getAgent('cfg').needs._cfg.decayRate.hunger).toBe(0.123);
+    expect(restored.getAgent('cfg').memory._cfg.decayRate).toBe(0.456);
+    expect(restored.getAgent('cfg').behaviorField.cfg.weights.emotion).toBe(3.3);
+    expect(restored.getAgent('cfg').intrinsicMotivation._cfg.curiosityThreshold).toBe(0.11);
+    expect(restored.getAgent('cfg')._mindWanderConfig.quietProbability).toBe(0);
   });
 
   it('caller restore config flows into world.runtimeConfig, not only engine.config', () => {
@@ -199,14 +299,23 @@ describe('P1-2: _restoreConfig flows through AndyEngine restore', () => {
   });
 
   it('new agent added after restore uses restored needs config', () => {
-    const e = new AndyEngine({ enableFacts: true, needs: { decayRate: { hunger: 0.123 } } });
+    const e = new AndyEngine({
+      enableFacts: true,
+      needs: { decayRate: { hunger: 0.123 } },
+      memory: { decayRate: 0.456 },
+      behavior: { weights: { habit: 2.2 } },
+      mindWander: { quietProbability: 0 },
+    });
     e.createCharacter({ id: 'a1', name: 'A1', mbti: 'INFP' });
     const env = Serialization.serialize(e.world);
-    const snapshot = Serialization.deserialize(env, { enableFacts: true, needs: { decayRate: { hunger: 0.123 } } });
+    const snapshot = Serialization.deserialize(env);
 
     const restored = new AndyEngine({}, snapshot);
     const a2 = restored.createCharacter({ id: 'a2', name: 'A2', mbti: 'INFP' });
     expect(a2.needs._cfg.decayRate.hunger).toBe(0.123);
+    expect(a2.memory._cfg.decayRate).toBe(0.456);
+    expect(a2.behaviorField.cfg.weights.habit).toBe(2.2);
+    expect(a2._mindWanderConfig.quietProbability).toBe(0);
   });
 
   it('explicit config overrides _restoreConfig (priority: explicit > restore > default)', () => {
