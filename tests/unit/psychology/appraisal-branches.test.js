@@ -97,6 +97,54 @@ describe('Appraisal._evalPleasantness', () => {
     const r = Appraisal.evaluate({ type: 'social' }, makeAgent({ emotion: { getValence: () => 0.4, current: {}, stress: 0 } }));
     expect(r.dimensions.pleasantness).toBeGreaterThan(0);
   });
+  it('NaN event deltas and appraisal bias do not throw or propagate NaN', () => {
+    const r = Appraisal.evaluate(
+      { type: 'social', effects: [{ target: 'a1', type: 'emotion', delta: { joy: NaN } }] },
+      makeAgent({
+        emotion: { getValence: () => NaN, current: {}, stress: 0 },
+        personality: { ocean: { openness: 0.5, conscientiousness: 0.5, extraversion: 0.5, agreeableness: NaN, neuroticism: 0.5 } },
+        memory: { getAppraisalBias: () => NaN },
+      })
+    );
+
+    expect(Number.isFinite(r.dimensions.pleasantness)).toBe(true);
+  });
+  it('corrupted appraisal inputs still produce finite scalar dimensions, modifiers, and importance', () => {
+    const r = Appraisal.evaluate(
+      {
+        type: 'social',
+        content: '打招呼',
+        participants: ['a1', 'other'],
+        effects: [{ target: 'a1', type: 'emotion', delta: { joy: NaN, anger: NaN } }],
+      },
+      makeAgent({
+        personality: {
+          ocean: {
+            openness: NaN,
+            conscientiousness: NaN,
+            extraversion: NaN,
+            agreeableness: NaN,
+            neuroticism: NaN,
+          },
+        },
+        emotion: { getValence: () => NaN, current: {}, stress: NaN },
+        socialEnergy: NaN,
+        needs: { getDrive: () => ({ need: null, urgency: 0 }), needs: { energy: NaN, hunger: NaN } },
+        socialGraph: { getRelationship: () => ({ strength: NaN }) },
+        memory: { getAppraisalBias: () => NaN },
+      })
+    );
+
+    for (const [key, value] of Object.entries(r.dimensions)) {
+      if (key === 'agency') {
+        expect(Number.isFinite(value.score)).toBe(true);
+      } else {
+        expect(Number.isFinite(value)).toBe(true);
+      }
+    }
+    expect(Object.values(r.emotionModifier).every(Number.isFinite)).toBe(true);
+    expect(Number.isFinite(r.importance)).toBe(true);
+  });
 });
 
 // ═══════════════════════════════════════════

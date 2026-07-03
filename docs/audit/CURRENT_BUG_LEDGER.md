@@ -2680,6 +2680,50 @@ This section records the R122 audit findings. 10 MEDIUM findings fixed.
 | Re-verification | Full `npm test`: 3264 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
 | Status | Fixed and verified. |
 
+## R123 - Post-R122 Review: Appraisal/Physiology Guard Completion
+
+This section records the R123 post-review findings. 3 MEDIUM findings fixed.
+
+### R123-001
+
+| Field | Detail |
+|---|---|
+| ID | R123-001 |
+| Severity | Medium |
+| Audit finding | R122 introduced a regression in `Appraisal._evalPleasantness()`: `rawPleasantness` was declared as `const` and then reassigned in the NaN guard. A corrupted event delta could therefore throw `TypeError: Assignment to constant variable` instead of being contained. |
+| Evidence | `src/agent/psychology/Appraisal.js` NaN guard path; reproduced by unit test with `delta: { joy: NaN }`. |
+| Fix | Changed `rawPleasantness` to `let`, cached `getAppraisalBias()` once, and added regression coverage for corrupted event deltas/mood/appraisal bias. |
+| Files | `src/agent/psychology/Appraisal.js`; `tests/unit/psychology/appraisal-branches.test.js` |
+| Regression test | `Appraisal._evalPleasantness` corrupted-input test now asserts finite output and no throw. |
+| Status | Fixed and verified. |
+
+### R123-002
+
+| Field | Detail |
+|---|---|
+| ID | R123-002 |
+| Severity | Medium |
+| Audit finding | R122 guarded selected `personality.ocean` reads in Appraisal but left other appraisal inputs unguarded: NaN event deltas, emotion valence/stress, relationship strength, socialEnergy, and needs could still propagate NaN into dimensions, modifiers, or importance. |
+| Evidence | `Appraisal._evalGoalConduciveness`, `_evalCompatibility`, `_evalAgency`, `_evalCopingPotential`, `_appraisalToEmotion`, `_computeImportance`. |
+| Fix | Added `finiteOr()` helper and finite guards for event deltas, compatibility inputs, relationship strength, coping inputs, emotion modifiers, and importance math. |
+| Files | `src/agent/psychology/Appraisal.js`; `tests/unit/psychology/appraisal-branches.test.js` |
+| Regression test | Corrupted Appraisal fixture with NaN ocean traits, event deltas, valence, stress, socialEnergy, needs, relationship strength, and appraisal bias now produces finite scalar dimensions, finite modifiers, and finite importance. |
+| Status | Fixed and verified. |
+
+### R123-003
+
+| Field | Detail |
+|---|---|
+| ID | R123-003 |
+| Severity | Medium |
+| Audit finding | R120 PhysiologyRuntime code changes were present in the working tree but not committed, while docs already marked them fixed. The existing patch also guarded NaN values but not all missing-object or arithmetic-NaN paths (`hoursElapsed`, missing `behaviorParams`, post-arithmetic `healthDelta`). |
+| Evidence | `git status --short` showed `M src/agent/runtime/PhysiologyRuntime.js`; external `agnes/agnes-2.0-flash` review identified missing `behaviorParams` guard in `updateSocialEnergy()`. |
+| Fix | Completed the PhysiologyRuntime guard set: safe elapsed time, safe needs, safe stress, safe behavior vectors, safe weather env, finite `healthDelta`, optional `behaviorParams`, and post-arithmetic socialEnergy repair. Added direct unit coverage. |
+| Files | `src/agent/runtime/PhysiologyRuntime.js`; `tests/unit/physiology-runtime-nan.test.js` |
+| Regression test | PhysiologyRuntime NaN tests cover NaN needs, finite deficit deltas, NaN health inputs, NaN/missing behaviorParams, and NaN elapsed time. |
+| External review | `opencode run --pure -m agnes/agnes-2.0-flash` reviewed the diff; the valid finding (missing `behaviorParams` guard) was fixed before commit. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

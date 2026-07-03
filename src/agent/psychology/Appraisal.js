@@ -27,6 +27,10 @@
 
 const { ANDY_DEFAULTS } = require('../../config/defaults');
 
+function finiteOr(value, fallback = 0) {
+  return Number.isFinite(value) ? value : fallback;
+}
+
 class Appraisal {
   /**
    * 对事件进行认知评价
@@ -121,6 +125,7 @@ class Appraisal {
     for (const effect of event.effects || []) {
       if (effect.target === agent.id && effect.type === 'emotion' && effect.delta) {
         for (const [dim, value] of Object.entries(effect.delta)) {
+          if (!Number.isFinite(value)) continue;
           // 正面情绪维度
           const isPositive = ['joy', 'contentment', 'satisfaction', 'excitement',
             'calm', 'hope', 'love', 'pride', 'gratitude', 'relief', 'triumph', 'amusement',
@@ -132,7 +137,7 @@ class Appraisal {
     }
 
     // 归一化到 [-1, 1]
-    const rawPleasantness = effectCount > 0 ? totalValence / effectCount : 0;
+    let rawPleasantness = effectCount > 0 ? totalValence / effectCount : 0;
     // R120-004: guard against NaN from corrupted event delta values.
     if (!Number.isFinite(rawPleasantness)) rawPleasantness = 0;
 
@@ -146,10 +151,10 @@ class Appraisal {
 
     // Appraisal Bias：重大事件的持久评价偏移（#7 创伤机制）
     const eventCategory = event.type === 'interaction' ? 'social' : (event.type || 'general');
-    const traumaBias = agent.memory.getAppraisalBias
-      ? Number.isFinite(agent.memory.getAppraisalBias(eventCategory))
-        ? agent.memory.getAppraisalBias(eventCategory) : 0
+    const rawTraumaBias = agent.memory.getAppraisalBias
+      ? agent.memory.getAppraisalBias(eventCategory)
       : 0;
+    const traumaBias = Number.isFinite(rawTraumaBias) ? rawTraumaBias : 0;
 
     return Math.max(-1, Math.min(1, rawPleasantness + moodBias + agreeablenessBias + traumaBias));
   }
@@ -222,6 +227,7 @@ class Appraisal {
     for (const effect of event.effects || []) {
       if (effect.target === agent.id && effect.type === 'emotion' && effect.delta) {
         for (const [dim, value] of Object.entries(effect.delta)) {
+          if (!Number.isFinite(value)) continue;
           const isPositive = ['joy', 'contentment', 'satisfaction', 'excitement',
             'calm', 'hope', 'love', 'pride', 'gratitude', 'relief', 'triumph', 'amusement'].includes(dim);
           conduciveness += isPositive ? value : -value;
@@ -255,24 +261,27 @@ class Appraisal {
 
     // 基于人格特质推断价值观偏好
     const ocean = agent.personality.ocean;
+    const openness = finiteOr(ocean.openness);
+    const agreeableness = finiteOr(ocean.agreeableness);
+    const conscientiousness = finiteOr(ocean.conscientiousness);
 
     // 开放性高的 Agent 对新奇事件兼容度高
     if (event.type === 'random') {
-      compatibility += ocean.openness * 0.2;
+      compatibility += openness * 0.2;
     }
 
     // 宜人性高的 Agent 对社交事件兼容度高
     if (event.type === 'social') {
-      compatibility += ocean.agreeableness * 0.15;
+      compatibility += agreeableness * 0.15;
     }
 
     // 尽责性高的 Agent 对计划外事件兼容度低
     if (event.type === 'random' || event.type === 'causal') {
-      compatibility -= (1 - ocean.conscientiousness) * 0.1;
+      compatibility -= (1 - conscientiousness) * 0.1;
     }
 
     // 情绪一致性偏差
-    const valence = agent.emotion.getValence();
+    const valence = finiteOr(agent.emotion.getValence());
     compatibility += valence * 0.1;
 
     return Math.max(0, Math.min(1, compatibility));
@@ -303,7 +312,7 @@ class Appraisal {
       if (otherId) {
         // 检查关系强度
         const rel = agent.socialGraph?.getRelationship(agent.id, otherId);
-        const strength = rel ? rel.strength : 0;
+        const strength = rel && Number.isFinite(rel.strength) ? rel.strength : 0;
         return {
           agent: otherId,
           score: 0.3 + strength * 0.7, // 关系越近，代理性越高
@@ -330,7 +339,7 @@ class Appraisal {
     let coping = 0.5; // 基线
 
     // 社交能量 → 社交应对能力
-    coping += agent.socialEnergy * 0.2;
+    coping += finiteOr(agent.socialEnergy, 0.5) * 0.2;
 
     // 情绪稳定性 → 情绪应对能力（低神经质 = 高稳定性）
     // R122-005: guard against NaN neuroticism
@@ -351,13 +360,13 @@ class Appraisal {
     coping += copingOpenness * 0.1;
 
     // 当前压力降低应对能力
-    const stressPenalty = (agent.emotion.stress || 0) / 10 * 0.3;
+    const stressPenalty = finiteOr(agent.emotion.stress) / 10 * 0.3;
     coping -= stressPenalty;
 
     // 需求匮乏降低应对能力（饥饿/疲惫时更难应对挑战）
     if (agent.needs) {
-      const energyLevel = agent.needs.needs.energy || 0.5;
-      const hungerLevel = agent.needs.needs.hunger || 0.5;
+      const energyLevel = finiteOr(agent.needs.needs.energy, 0.5);
+      const hungerLevel = finiteOr(agent.needs.needs.hunger, 0.5);
       // 精力不足严重影响应对能力
       coping -= (1 - energyLevel) * 0.15;
       // 饥饿降低应对能力
@@ -426,12 +435,12 @@ class Appraisal {
    */
   static _appraisalToEmotion(dims, agent) {
     const modifiers = {};
-    const p = dims.pleasantness;
-    const s = dims.suddenness;
-    const gr = dims.goalRelevance;
-    const gc = dims.goalConduciveness;
-    const cp = dims.copingPotential;
-    const agencyScore = dims.agency.score;
+    const p = finiteOr(dims.pleasantness);
+    const s = finiteOr(dims.suddenness);
+    const gr = finiteOr(dims.goalRelevance);
+    const gc = finiteOr(dims.goalConduciveness);
+    const cp = finiteOr(dims.copingPotential, 0.5);
+    const agencyScore = finiteOr(dims.agency?.score);
 
     // ─── 核心映射规则 ───
 
@@ -519,7 +528,9 @@ class Appraisal {
 
     // 清理：将所有 modifier 限制在合理范围内
     for (const [key, val] of Object.entries(modifiers)) {
-      modifiers[key] = Math.max(0.1, Math.min(2.5, val));
+      modifiers[key] = Number.isFinite(val)
+        ? Math.max(0.1, Math.min(2.5, val))
+        : 1;
     }
 
     return modifiers;
@@ -531,9 +542,9 @@ class Appraisal {
    */
   static _computeImportance(dims) {
     // 重要性 = 目标相关性 × |目标促进性| × 突然性 × (1 + 应对困难)
-    const goalWeight = dims.goalRelevance * Math.abs(dims.goalConduciveness);
-    const surpriseWeight = dims.suddenness;
-    const copingDifficulty = 1 + (1 - dims.copingPotential) * 0.5;
+    const goalWeight = finiteOr(dims.goalRelevance) * Math.abs(finiteOr(dims.goalConduciveness));
+    const surpriseWeight = finiteOr(dims.suddenness);
+    const copingDifficulty = 1 + (1 - finiteOr(dims.copingPotential, 0.5)) * 0.5;
 
     return Math.max(0, Math.min(1, goalWeight * surpriseWeight * copingDifficulty));
   }
