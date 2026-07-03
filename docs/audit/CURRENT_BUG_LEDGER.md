@@ -20,8 +20,8 @@
 | External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
-| Current gate snapshot | 2026-07-03 R97 nested config repair: targeted emotion/memory/config/serialization suite 110 passed; `npm test` 3248 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` passed; `npm run typecheck` clean; `npm run smoke:pack` 19 passed; first `npm run perf:check` exited 0 with machine-variance WARN, immediate rerun all PASS in 3-run median mode; `git diff --check` clean. Older detailed R48-R96 gate lineage remains below as provenance. |
-| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`. R97 records the latest nested-config repair and is the next verified baseline in this ledger. |
+| Current gate snapshot | 2026-07-03 R98 BehaviorField nested weights repair: targeted behavior/config/serialization suite 147 passed; `npm test` 3253 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` passed; `npm run typecheck` clean; `npm run smoke:pack` 19 passed; `npm run perf:check` all PASS in 3-run median mode; `git diff --check` clean. Older detailed R48-R97 gate lineage remains below as provenance. |
+| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`. R98 records the latest nested-config repair and is the next verified baseline in this ledger. |
 
 ## How To Use This Ledger
 
@@ -1631,6 +1631,26 @@ searched for other shallow nested config merges that could produce the same
 | Files | `src/agent/psychology/EmotionVector.js`; `src/agent/psychology/EmotionVector.native.js`; `src/agent/memory/PersonalMemory.js`; `src/config/validate.js`; `tests/unit/emotion.test.js`; `tests/unit/memory.test.js`; `tests/unit/config/validate-config.test.js`; `tests/unit/serialization-roundtrip.test.js` |
 | Regression test | `npx vitest run tests/unit/emotion.test.js tests/unit/memory.test.js tests/unit/config/validate-config.test.js tests/unit/serialization-roundtrip.test.js --no-color` -> 110 passed. New tests cover partial circadian, partial spreadingActivation, partial recallEmotionDelta, nested validation, and static fromJSON config restore. |
 | Re-verification | `npm test -- --no-color` -> 3248 passed / 28 skipped; `npm run test:domain -- --no-color` -> 82 passed; `npm run check:boundaries -- --no-color` -> passed; `npm run typecheck` -> clean; `npm run smoke:pack -- --no-color` -> 19 passed; first `npm run perf:check -- --no-color` exited 0 with machine-variance WARN, immediate rerun all PASS; `git diff --check` -> clean. |
+| Status | Fixed and verified. |
+
+## R98 - BehaviorField Nested Weights Config Repair
+
+This section continues the no-quota nested config hardening line from R96/R97.
+The round checked restore/fromJSON and remaining partial nested config paths.
+
+### R98-BEHAVIOR-WEIGHTS-1
+
+| Field | Detail |
+|---|---|
+| ID | R98-BEHAVIOR-WEIGHTS-1 |
+| Severity | P1 quality gate / P2 runtime behavior |
+| Audit finding | `BehaviorField` used `{ ...DEFAULTS, ...config }` while `DEFAULTS.weights` is nested. A partial override such as `{ weights: { needs: 4 } }` erased default `emotion`, `schedule`, `intrinsic`, and `habit` weights. `_computeGradient()` then multiplied by undefined weights, producing NaN gradients. `BehaviorField.fromJSON()` also ignored behavior config entirely by always restoring with `{}`. |
+| Evidence | Before fix, `new BehaviorField(personality, null, { weights: { needs: 4 } }, domain).tick(signalsWithEmotionAndIntrinsic)` returned non-finite gradient entries. JSON output showed `cfg.weights` only contained `needs`. |
+| Verification verdict | Confirmed by deterministic local repro. External-free `agnes/agnes-2.0-flash` reviewed the diff and returned "Patch is correct"; it noted direct constructor callers can still pass NaN if they bypass validation, which matches current project pattern and is not a regression. |
+| Fix | Added nested-safe `mergeBehaviorConfig()` preserving default weights; constructor now uses it; `BehaviorField.fromJSON(data, personality, domain, config)` now threads config into the restore constructor; added `behavior.*` and `behavior.weights.*` validation. |
+| Files | `src/agent/psychology/BehaviorField.js`; `src/config/validate.js`; `tests/behavior-field.test.js`; `tests/unit/config/validate-config.test.js`; `tests/unit/serialization-roundtrip.test.js` |
+| Regression test | `npx vitest run tests/behavior-field.test.js tests/unit/config/validate-config.test.js tests/unit/serialization-roundtrip.test.js --no-color` -> 147 passed. New tests cover partial behavior weights, finite gradient/B output, behavior config validation, and fromJSON config restore. |
+| Re-verification | `npm test -- --no-color` -> 3253 passed / 28 skipped; `npm run test:domain -- --no-color` -> 82 passed; `npm run check:boundaries -- --no-color` -> passed; `npm run typecheck` -> clean; `npm run smoke:pack -- --no-color` -> 19 passed; `npm run perf:check -- --no-color` -> all PASS; `git diff --check` -> clean. |
 | Status | Fixed and verified. |
 
 ## Active Latent / Deferred Backlog

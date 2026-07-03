@@ -139,6 +139,25 @@ describe('validateConfig — needs block', () => {
 });
 
 // ═══════════════════════════════════════════
+// validateConfig — behavior 块
+// ═══════════════════════════════════════════
+describe('validateConfig — behavior block', () => {
+  it('rejects behavior scalar values out of range', () => {
+    expect(() => validateConfig({ behavior: { gamma: -1 } })).toThrow(/behavior\.gamma/);
+    expect(() => validateConfig({ behavior: { dt: 2 } })).toThrow(/behavior\.dt/);
+  });
+
+  it('rejects behavior weight values out of range', () => {
+    expect(() => validateConfig({ behavior: { weights: { needs: NaN } } })).toThrow(/behavior\.weights\.needs/);
+    expect(() => validateConfig({ behavior: { weights: { emotion: 30 } } })).toThrow(/behavior\.weights\.emotion/);
+  });
+
+  it('allows partial behavior weight overrides', () => {
+    expect(() => validateConfig({ behavior: { weights: { needs: 4 } } })).not.toThrow();
+  });
+});
+
+// ═══════════════════════════════════════════
 // validateConfig — relationship 块
 // ═══════════════════════════════════════════
 describe('validateConfig — relationship block', () => {

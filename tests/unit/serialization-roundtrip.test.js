@@ -296,5 +296,20 @@ describe('Wave 4 — serialization round-trip', () => {
       const bf = new BehaviorField(personality, null, {}, campusDomain);
       roundTrip(BehaviorField, bf, personality, campusDomain);
     });
+
+    it('fromJSON accepts partial behavior weights without dropping defaults', () => {
+      const personality = new Personality({ mbti: 'ENFP' });
+      const bf = new BehaviorField(personality, null, {}, campusDomain);
+      const restored = BehaviorField.fromJSON(
+        bf.toJSON(),
+        personality,
+        campusDomain,
+        { weights: { needs: 4 } }
+      );
+
+      expect(restored.cfg.weights.needs).toBe(4);
+      expect(restored.cfg.weights.emotion).toBeDefined();
+      expect(restored.cfg.weights.schedule).toBeDefined();
+    });
   });
 });

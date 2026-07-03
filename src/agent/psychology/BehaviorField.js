@@ -67,6 +67,17 @@ const DEFAULTS = {
   },
 };
 
+function mergeBehaviorConfig(config = {}) {
+  return {
+    ...DEFAULTS,
+    ...(config || {}),
+    weights: {
+      ...DEFAULTS.weights,
+      ...(config?.weights || {}),
+    },
+  };
+}
+
 // ═══════════════════════════════════════════
 // 每种驱力在 4D 空间中的"最优位置"
 // 当某种驱力激活时，它把 B 向这些方向拉
@@ -113,9 +124,9 @@ class BehaviorField {
    * @param {Object} [config] - 覆盖默认参数
    * @param {Object} [domain] - DomainRegistry 实例
    * @param {Object} [rng] - RNG 实例（可选）
-   */
+  */
   constructor(personality, savedState = null, config = {}, domain = null, rng = null) {
-    this.cfg = { ...DEFAULTS, ...config };
+    this.cfg = mergeBehaviorConfig(config);
     if (!domain) throw new Error('BehaviorField requires a domain config');
     this.domain = domain;
     this._rng = rng || new RNG(0);
@@ -698,9 +709,9 @@ class BehaviorField {
     };
   }
 
-  static fromJSON(data, personality, domain) {
+  static fromJSON(data, personality, domain, config = {}) {
     if (!domain) throw new Error('BehaviorField.fromJSON requires a domain config');
-    const bf = new BehaviorField(personality, data, {}, domain);
+    const bf = new BehaviorField(personality, data, config, domain);
     // R13 C2 fix: 恢复吸引子状态
     if (data._attractor) {
       bf._attractor = { target: [...data._attractor.target], strength: data._attractor.strength };
@@ -800,6 +811,7 @@ function _normalizeTimeSchedule(schedule) {
 module.exports = {
   BehaviorField,
   DEFAULTS,
+  mergeBehaviorConfig,
   NEED_SATISFACTION_TARGETS,
   EMOTION_TARGETS,
   TIME_TARGETS,

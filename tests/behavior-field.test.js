@@ -221,6 +221,23 @@ describe('BehaviorField', () => {
     field = new BehaviorField(mockPersonality(), null, {}, campusDomain);
   });
 
+  it('partial weights config preserves default weights and keeps gradients finite', () => {
+    const custom = new BehaviorField(mockPersonality(), null, {
+      weights: { needs: 4 },
+    }, campusDomain);
+
+    const result = custom.tick(defaultSignals({
+      emotion: { approachDrive: 0.5, avoidDrive: 0, agenticDrive: 0, arousal: 0.5 },
+      schedule: { inSchedule: true, targetActivity: '学习' },
+      intrinsic: { curiosity: 0.8 },
+    }));
+
+    expect(custom.cfg.weights.emotion).toBe(DEFAULTS.weights.emotion);
+    expect(custom.cfg.weights.schedule).toBe(DEFAULTS.weights.schedule);
+    expect(result.gradient.every(Number.isFinite)).toBe(true);
+    expect(result.B.every(Number.isFinite)).toBe(true);
+  });
+
   describe('初始化', () => {
     it('构造成功', () => {
       expect(field).toBeDefined();

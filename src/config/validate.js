@@ -125,6 +125,31 @@ function validateConfig(config) {
     }
   }
 
+  // ─── 行为场参数 ───
+  if (config.behavior) {
+    const b = config.behavior;
+    if (b.gamma !== undefined) {
+      checkRange(b.gamma, 0, 20, 'behavior.gamma', errors);
+    }
+    if (b.sigma !== undefined) {
+      checkRange(b.sigma, 0, 5, 'behavior.sigma', errors);
+    }
+    if (b.dt !== undefined) {
+      checkRange(b.dt, 0.001, 1, 'behavior.dt', errors);
+    }
+    if (b.boundaryReflection !== undefined) {
+      checkRange(b.boundaryReflection, 0, 1, 'behavior.boundaryReflection', errors);
+    }
+    if (b.boundaryStrength !== undefined) {
+      checkRange(b.boundaryStrength, 0, 20, 'behavior.boundaryStrength', errors);
+    }
+    if (b.weights) {
+      for (const [source, weight] of Object.entries(b.weights)) {
+        checkRange(weight, 0, 20, `behavior.weights.${source}`, errors);
+      }
+    }
+  }
+
   // ─── 社交关系参数 ───
   if (config.relationship) {
     const r = config.relationship;
