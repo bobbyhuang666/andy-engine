@@ -323,6 +323,33 @@ function validateConfig(config) {
     }
   }
 
+  // ─── 连续坐标空间参数 ───
+  if (config.spatial !== undefined) {
+    const sp = config.spatial;
+    if (sp === 'continuous') {
+      // 合法：字符串字面量 'continuous'
+    } else if (sp && typeof sp === 'object' && !Array.isArray(sp)) {
+      // R145-5: 支持对象形状 { mode: 'continuous', worldWidth: 800, ... }
+      if (sp.mode !== 'continuous') {
+        errors.push(`spatial.mode must be 'continuous', got '${sp.mode}'`);
+      }
+      if (sp.worldWidth !== undefined) {
+        checkRange(sp.worldWidth, 100, 10000, 'spatial.worldWidth', errors);
+      }
+      if (sp.worldHeight !== undefined) {
+        checkRange(sp.worldHeight, 100, 10000, 'spatial.worldHeight', errors);
+      }
+      if (sp.cellSize !== undefined) {
+        checkRange(sp.cellSize, 1, 100, 'spatial.cellSize', errors);
+      }
+      if (sp.interactionRadius !== undefined) {
+        checkRange(sp.interactionRadius, 1, 500, 'spatial.interactionRadius', errors);
+      }
+    } else {
+      errors.push(`spatial must be 'continuous' or { mode: 'continuous', ... }, got ${typeof sp}`);
+    }
+  }
+
   // ─── 参数间一致性检查 ───
   if (config.needs && config.needs.threshold && config.needs.recoveryRate) {
     for (const need of Object.keys(config.needs.threshold)) {

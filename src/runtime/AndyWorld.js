@@ -145,7 +145,13 @@ class AndyWorld {
     // （即原引擎处于 continuous 模式）时，创建 SpatialEngine。后者使
     // AndyEngine.fromJSON(json) 无需调用方再传 { spatial: 'continuous' } 即可
     // 重建连续坐标层；旧离散快照无 spatial 键 → 不创建（向后兼容）。
-    if (config.spatial === 'continuous' || (savedState && savedState.spatial)) {
+    // R145-5: support both string shape ('continuous') and object shape
+    // ({ mode: 'continuous', worldWidth: 800, ... }) for consistency with
+    // RuntimeConfig which already accepts object-shaped spatial config.
+    const spatialEnabled = config.spatial === 'continuous'
+      || (config.spatial && typeof config.spatial === 'object' && config.spatial.mode === 'continuous')
+      || (savedState && savedState.spatial);
+    if (spatialEnabled) {
       const spatialConfig = {
         ...ANDY_DEFAULTS.spatial.continuous,
         ...(config.spatial && typeof config.spatial === 'object' ? config.spatial : {}),
