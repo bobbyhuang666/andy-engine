@@ -111,6 +111,7 @@ class AgentRuntime {
       imResult: null,
     };
 
+    try {
     // ─── 1. 感知事件 + futureTendency 衰减 ───
     this.handlers.perception.tick(context);
 
@@ -245,6 +246,11 @@ class AgentRuntime {
 
     // ─── 17. Shadow Action Selection ───
     this.handlers.actionSelection.tick(context);
+    } catch (err) {
+      const diagnostics = agent.diagnostics || agent._diagnostics || null;
+      diagnostics?.warn?.('agent_tick_error', { agentId: agent.id, error: err.message });
+      result.error = err.message;
+    }
 
     // ─── 情绪快照 ───
     result.emotionSnapshot = {

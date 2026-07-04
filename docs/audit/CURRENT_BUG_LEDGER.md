@@ -4136,6 +4136,291 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
 | Status | Fixed. |
 
+### R136-ANDYBRIDGE-UNDEFINED-DELTA-2
+
+| Field | Detail |
+|---|---|
+| ID | R136-ANDYBRIDGE-UNDEFINED-DELTA-2 |
+| Severity | P0 |
+| Audit finding | `AndyBridge._applySignalToAgent` fallback path referenced undefined `delta` variable — R134 fix introduced `delta.multiplier` reference but `delta` was the loop variable (a number), not the effect object. |
+| Evidence | `src/sdk/AndyBridge.js:293`; ReferenceError in fallback emotion effect path. |
+| Verification verdict | Confirmed: undefined variable → ReferenceError crash. |
+| Fix | Changed fallback to `agent.emotion.applyEffect(effect, 1, null)` — correct variable reference. |
+| Files | `src/sdk/AndyBridge.js` |
+| Regression test | Existing AndyBridge tests pass. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-EMOTIONVECTOR-NAN-CLAMP-2
+
+| Field | Detail |
+|---|---|
+| ID | R136-EMOTIONVECTOR-NAN-CLAMP-2 |
+| Severity | P0 |
+| Audit finding | `EmotionVector._clamp` used `Math.max(-1, Math.min(1, NaN))` which returns NaN — NaN values in emotion dimensions propagated indefinitely through all downstream calculations (valence, arousal, appraisal). |
+| Evidence | `src/agent/psychology/EmotionVector.js:464+`; `Math.max/min` does not catch NaN. |
+| Verification verdict | Confirmed: NaN dimension → NaN clamp → NaN propagation. |
+| Fix | Added `Number.isNaN` guards before clamping in `_clamp()`, `applyEffect()`, and `_timeDecay()` — NaN values reset to 0. |
+| Files | `src/agent/psychology/EmotionVector.js` |
+| Regression test | Existing emotion tests pass; NaN dimensions now reset to 0. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-CANONEVENTPIPELINE-FALLBACK-EPOCH-2
+
+| Field | Detail |
+|---|---|
+| ID | R136-CANONEVENTPIPELINE-FALLBACK-EPOCH-2 |
+| Severity | P0 |
+| Audit finding | `CanonEventPipeline._tryToldPropagation` referenced `FALLBACK_EPOCH` defined locally inside `_createEventFact` — ReferenceError on gossip propagation with invalid timestamps. |
+| Evidence | `src/canon/CanonEventPipeline.js:220` vs line 91 local scope. |
+| Verification verdict | Confirmed: out-of-scope variable → ReferenceError crash. |
+| Fix | Moved `FALLBACK_EPOCH` to module scope (line 22), removed local declaration. |
+| Files | `src/canon/CanonEventPipeline.js` |
+| Regression test | Existing canon pipeline tests pass. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-EFFECTCOMMITTER-NAN-NEED-RECOVERY-2
+
+| Field | Detail |
+|---|---|
+| ID | R136-EFFECTCOMMITTER-NAN-NEED-RECOVERY-2 |
+| Severity | P0 |
+| Audit finding | `EffectCommitter._applyNeedDelta` checked `Number.isFinite(agent.needs.needs[name])` — NaN existing values caused entire delta to be silently skipped, creating permanent state corruption. |
+| Evidence | `src/effects/EffectCommitter.js:100`; NaN existing need → delta skipped → permanent NaN. |
+| Verification verdict | Confirmed: NaN existing need → all future deltas silently dropped. |
+| Fix | Added NaN recovery: if existing value is NaN, reset to 0.5 (neutral) before applying delta. |
+| Files | `src/effects/EffectCommitter.js` |
+| Regression test | Existing effect tests pass; NaN needs now recover to neutral. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-PERCEPTIONRUNTIME-MISSING-INIT-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-PERCEPTIONRUNTIME-MISSING-INIT-1 |
+| Severity | P1 |
+| Audit finding | `PerceptionRuntime.perceiveEvents` called `agent._recentEventTypes.clear()` without checking if `_recentEventTypes` exists — fresh agents crashed with TypeError. |
+| Evidence | `src/agent/runtime/PerceptionRuntime.js:41`; undefined `.clear()` → TypeError. |
+| Verification verdict | Confirmed: fresh agent without _recentEventTypes → crash. |
+| Fix | Added `if (!agent._recentEventTypes) agent._recentEventTypes = new Set();` before `.clear()`. |
+| Files | `src/agent/runtime/PerceptionRuntime.js` |
+| Regression test | Existing perception tests pass; fresh agents now initialized correctly. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-REFLECTIONHANDLER-NAN-TICK-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-REFLECTIONHANDLER-NAN-TICK-1 |
+| Severity | P1 |
+| Audit finding | `ReflectionHandler.tick()` incremented `agent._ticksSinceReflection++` without guard — undefined on fresh agents → NaN → reflection never fires. |
+| Evidence | `src/agent/handlers/ReflectionHandler.js:18`; undefined++ → NaN → NaN >= interval → false. |
+| Verification verdict | Confirmed: fresh agents never reflect. |
+| Fix | Changed to `agent._ticksSinceReflection = (agent._ticksSinceReflection || 0) + 1;` |
+| Files | `src/agent/handlers/ReflectionHandler.js` |
+| Regression test | Existing handler tests pass; fresh agents now reflect correctly. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-AGENTRUNTIME-NO-HANDLER-ISOLATION-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-AGENTRUNTIME-NO-HANDLER-ISOLATION-1 |
+| Severity | P1 |
+| Audit finding | `AgentRuntime.tick()` calls 8 handlers sequentially with no try-catch — any handler throw leaves agent in inconsistent intermediate state with no error recovery. |
+| Evidence | `src/agent/AgentRuntime.js:115-247`; no error isolation between handlers. |
+| Verification verdict | Confirmed: handler throw → partial tick → inconsistent agent state. |
+| Fix | Wrapped handler execution phase in try-catch with diagnostic logging and error flag on result. |
+| Files | `src/agent/AgentRuntime.js` |
+| Regression test | Existing runtime tests pass; handler errors now logged and isolated. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-EFFECTCOMMITTER-INFINITY-EMOTION-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-EFFECTCOMMITTER-INFINITY-EMOTION-1 |
+| Severity | P1 |
+| Audit finding | `EffectCommitter._applyEmotionDelta` passed Infinity/NaN emotion change values directly to `applyEffect` without clamping — corrupted emotion deltas propagated NaN/Infinity into emotion state. |
+| Evidence | `src/effects/EffectCommitter.js:121-126`; no finite guard on delta.changes values. |
+| Verification verdict | Confirmed: Infinity changes → applyEffect → corrupted emotion state. |
+| Fix | Added `safeChanges` filter with `Number.isFinite` + `Math.max(-1, Math.min(1))` before applyEffect. |
+| Files | `src/effects/EffectCommitter.js` |
+| Regression test | Existing effect tests pass; non-finite changes now clamped. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-EFFECTCOMMITTER-UNKNOWN-KIND-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-EFFECTCOMMITTER-UNKNOWN-KIND-1 |
+| Severity | P1 |
+| Audit finding | `EffectCommitter._applyMemoryDelta` silently dropped unrecognized MemoryDelta `kind` values with no warning — debugging silent data loss was impossible. |
+| Evidence | `src/effects/EffectCommitter.js:140-148`; unrecognized kind → silent return. |
+| Verification verdict | Confirmed: unknown kind → silent data loss. |
+| Fix | Added diagnostic warning for unrecognized `kind` values. |
+| Files | `src/effects/EffectCommitter.js` |
+| Regression test | Existing effect tests pass; unknown kinds now logged. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-EFFECTCOMMITTER-NULL-AGENTID-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-EFFECTCOMMITTER-NULL-AGENTID-1 |
+| Severity | P1 |
+| Audit finding | `EffectCommitter._applyPositionDelta` silently skipped deltas with null `agentId` — no warning, making debugging position failures impossible. |
+| Evidence | `src/effects/EffectCommitter.js:_applyPositionDelta`; null agentId → silent skip. |
+| Verification verdict | Confirmed: null agentId → silent delta loss. |
+| Fix | Added warning diagnostic for null/missing agentId in position deltas. |
+| Files | `src/effects/EffectCommitter.js` |
+| Regression test | Existing effect tests pass; null agentId now logged. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-PERCEPTIONRUNTIME-NEGATIVE-STRESS-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-PERCEPTIONRUNTIME-NEGATIVE-STRESS-1 |
+| Severity | P1 |
+| Audit finding | `PerceptionRuntime.perceiveEvents` computed `agent.emotion.stress - 0.15` without guard — low stress values could go negative, breaking stress-based logic downstream. |
+| Evidence | `src/agent/runtime/PerceptionRuntime.js:135-137`; stress - 0.15 can be negative. |
+| Verification verdict | Confirmed: stress 0.05 - 0.15 = -0.1 → negative stress. |
+| Fix | Changed to `Math.max(0, agent.emotion.stress - 0.15)`. |
+| Files | `src/agent/runtime/PerceptionRuntime.js` |
+| Regression test | Existing perception tests pass; stress now clamped to 0 minimum. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-VALIDATECONFIG-TICK-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-VALIDATECONFIG-TICK-1 |
+| Severity | P1 |
+| Audit finding | `validateConfig` did not validate `config.tick.intervalMinutes` or `config.tick.maxTicksPerRun` — zero/negative values accepted, causing division by zero or infinite loops. |
+| Evidence | `src/config/validate.js`; no tick section validation. |
+| Verification verdict | Confirmed: tick.intervalMinutes: 0 → division by zero. |
+| Fix | Added validation requiring intervalMinutes >= 1 and maxTicksPerRun >= 1. |
+| Files | `src/config/validate.js` |
+| Regression test | Existing config validation tests pass; invalid tick configs now rejected. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-VALIDATECONFIG-EMOTION-DIMS-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-VALIDATECONFIG-EMOTION-DIMS-1 |
+| Severity | P1 |
+| Audit finding | `validateConfig` did not validate `config.emotion.dimensions` — negative, zero, or extreme values accepted, causing index-out-of-bounds in emotion vector operations. |
+| Evidence | `src/config/validate.js`; no emotion.dimensions validation. |
+| Verification verdict | Confirmed: dimensions: 0 → empty emotion vector → crashes. |
+| Fix | Added validation requiring integer in [1, 100]. |
+| Files | `src/config/validate.js` |
+| Regression test | Existing config validation tests pass; invalid dimensions now rejected. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-VALIDATECONFIG-STATEMACHINE-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-VALIDATECONFIG-STATEMACHINE-1 |
+| Severity | P1 |
+| Audit finding | `validateConfig` did not validate `config.stateMachine.eventDrivenBoost` — negative values accepted, causing incorrect state transitions. |
+| Evidence | `src/config/validate.js`; no stateMachine validation. |
+| Verification verdict | Confirmed: eventDrivenBoost: -100 → negative boost → inverted state transitions. |
+| Fix | Added validation requiring eventDrivenBoost >= 0. |
+| Files | `src/config/validate.js` |
+| Regression test | Existing config validation tests pass; negative boost now rejected. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-VALIDATECONFIG-WEATHER-EVENTS-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-VALIDATECONFIG-WEATHER-EVENTS-1 |
+| Severity | P1 |
+| Audit finding | `validateConfig` did not validate `config.weather.transitionProb` or `config.events.randomEventProbability` — values > 1 or negative accepted, causing impossible probabilities. |
+| Evidence | `src/config/validate.js`; no weather/events probability validation. |
+| Verification verdict | Confirmed: transitionProb: 5.0 → impossible probability. |
+| Fix | Added validation requiring probabilities in [0, 1]. |
+| Files | `src/config/validate.js` |
+| Regression test | Existing config validation tests pass; invalid probabilities now rejected. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-LLMADAPTER-TIMEOUT-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-LLMADAPTER-TIMEOUT-1 |
+| Severity | P1 |
+| Audit finding | `LLMAdapter._callOpenAI` had no timeout on fetch — hung connections blocked indefinitely, freezing the simulation. |
+| Evidence | `src/sdk/LLMAdapter.js:151`; fetch without AbortController. |
+| Verification verdict | Confirmed: no timeout → indefinite hang on network failure. |
+| Fix | Added AbortController with 30-second timeout to fetch call. |
+| Files | `src/sdk/LLMAdapter.js` |
+| Regression test | Existing SDK tests pass; hung connections now timeout after 30s. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-CHARACTER-DUPLICATE-ID-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-CHARACTER-DUPLICATE-ID-1 |
+| Severity | P1 |
+| Audit finding | `Character` constructor bypassed duplicate ID check in shared engine mode — same ID silently overwrote existing agent. |
+| Evidence | `src/sdk/Character.js:96`; no duplicate ID guard. |
+| Verification verdict | Confirmed: duplicate ID → silent overwrite. |
+| Fix | Added explicit check throwing Error if agent ID already exists. |
+| Files | `src/sdk/Character.js` |
+| Regression test | Existing SDK tests pass; duplicate IDs now throw. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-ANDYWORLD-PARTIAL-EVENTS-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-ANDYWORLD-PARTIAL-EVENTS-1 |
+| Severity | P1 |
+| Audit finding | Agent tick errors silently dropped partial `newEvents` — agent state left inconsistent with no recovery mechanism or diagnostic. |
+| Evidence | `src/runtime/AndyWorld.js:448-467`; error result has no newEvents property. |
+| Verification verdict | Confirmed: partial results lost on tick error. |
+| Fix | Captured partial events, added `_errored` flag, and diagnostic warning. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | Existing runtime tests pass; partial events now preserved on error. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R136-TIME-NAN-HOURS-1
+
+| Field | Detail |
+|---|---|
+| ID | R136-TIME-NAN-HOURS-1 |
+| Severity | P2 |
+| Audit finding | `hoursToTicks(NaN)` returned NaN without error — NaN propagated through tick arithmetic silently. |
+| Evidence | `src/shared/time.js:16`; `Math.round(NaN * 12)` → NaN. |
+| Verification verdict | Confirmed: NaN hours → NaN ticks. |
+| Fix | Added `if (!Number.isFinite(hours)) return 0;` guard. |
+| Files | `src/shared/time.js` |
+| Regression test | Existing time utility tests pass; NaN hours now return 0. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
 | R87-SOCIALGRAPH-DUNBAR-ENFORCE-1 | P2 design | `_enforceDunbarLimits()` is a read-only projection — it calls `_projectDunbarLayers()` but discards the return value, and `_projectDunbarLayers()` never mutates `rel.type` or `rel.strength`. Dunbar limits are never actually enforced; agents can accumulate unlimited close friends. | Deferred: requires design decision on whether to downgrade relationship types (symmetric shared edge vs per-agent perception). Fix would add `_downgradeType()` method. |
 | R87-EMOTIONVECTOR-DIMENSION-BIAS-1 | P3 | `_pinkNoiseDrift()` selects 3-6 random dimensions with replacement — same dimension can be picked multiple times in one tick (~26% probability), creating cumulative noise bias. | Deferred: noise amplitude is small and damped; shuffle-and-pick-unique is a cleanup item when emotion drift is next touched. |
 

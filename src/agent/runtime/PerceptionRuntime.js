@@ -37,7 +37,7 @@ function memoryDelta(agent, event, importance) {
  */
 function perceiveEvents(agent, events, env = null) {
   if (!agent._perceivedEventIds) agent._perceivedEventIds = new Set();
-  // P0: rebuild recent event types set at tick start (for Appraisal._evalSuddenness O(1) lookup)
+  if (!agent._recentEventTypes) agent._recentEventTypes = new Set();
   agent._recentEventTypes.clear();
   const newEvents = [];
   for (const event of events) {
@@ -133,7 +133,7 @@ function perceiveEvents(agent, events, env = null) {
       }));
     } else if (appraisal.dimensions.pleasantness > 0.2) {
       deltas.push(new EmotionDelta(agent.id, {}, {
-        stress: agent.emotion.stress - 0.15,
+        stress: Math.max(0, agent.emotion.stress - 0.15),
       }));
     }
 

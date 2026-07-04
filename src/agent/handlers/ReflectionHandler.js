@@ -15,7 +15,7 @@ class ReflectionHandler {
     const agent = this.agent;
 
     // Periodic reflection
-    agent._ticksSinceReflection++;
+    agent._ticksSinceReflection = (agent._ticksSinceReflection || 0) + 1;
     if (agent._ticksSinceReflection >= agent._reflectionInterval) {
       reflect(agent, context?.env || null);
       agent._ticksSinceReflection = 0;

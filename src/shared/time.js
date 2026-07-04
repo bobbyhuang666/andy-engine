@@ -13,6 +13,7 @@ function ticksToHours(ticks) {
 }
 
 function hoursToTicks(hours) {
+  if (!Number.isFinite(hours)) return 0;
   return Math.round(hours * TICKS_PER_HOUR);
 }
 

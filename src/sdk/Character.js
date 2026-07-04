@@ -93,6 +93,11 @@ class Character {
       }
     }
 
+    // Check for duplicate agent ID in shared engine mode
+    if (this._engine.world.getAgent(this.id)) {
+      throw new Error(`Character ID "${this.id}" already exists in engine`);
+    }
+
     this._agent = this._engine.createCharacter({
       id: this.id,
       name: this.name,

@@ -133,7 +133,7 @@ function toNarrative(agent, externalState = null) {
       parts.push((narrativeSp && narrativeSp.cognitivePhrases && narrativeSp.cognitivePhrases.thinking) || '在想一些事');
     }
   }
-  if (agent.health < 0.5) {
+  if (Number.isFinite(agent.health) && agent.health < 0.5) {
     parts.push((narrativeSp && narrativeSp.cognitivePhrases && narrativeSp.cognitivePhrases.unwell) || '身体不太舒服');
   }
 

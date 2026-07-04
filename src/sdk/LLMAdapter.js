@@ -148,33 +148,43 @@ class LLMAdapter {
 
   async _callOpenAI(messages, stream = false) {
     const url = `${this.baseUrl}/chat/completions`;
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages,
-        max_tokens: this.maxTokens,
-        temperature: this.temperature,
-        stream,
-      }),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`,
+        },
+        body: JSON.stringify({
+          model: this.model,
+          messages,
+          max_tokens: this.maxTokens,
+          temperature: this.temperature,
+          stream,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      const err = await response.text().catch(() => '');
-      const providerHint = this.provider === 'ollama'
-        ? '\n提示：确保 Ollama 正在运行（ollama serve）且模型已拉取（ollama pull ' + this.model + '）'
-        : '';
-      throw new Error(`${this.provider} API error ${response.status}: ${err}${providerHint}`);
+      if (!response.ok) {
+        const err = await response.text().catch(() => '');
+        const providerHint = this.provider === 'ollama'
+          ? '\n提示：确保 Ollama 正在运行（ollama serve）且模型已拉取（ollama pull ' + this.model + '）'
+          : '';
+        throw new Error(`${this.provider} API error ${response.status}: ${err}${providerHint}`);
+      }
+
+      if (stream) return response;
+
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || '';
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') throw new Error('LLM request timed out after 30s');
+      throw err;
     }
-
-    if (stream) return response;
-
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content || '';
   }
 
   async *_streamOpenAI(messages) {

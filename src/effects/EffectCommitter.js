@@ -123,7 +123,15 @@ class EffectCommitter {
       const appraisalModifiers = delta.appraisalModifiers && typeof delta.appraisalModifiers === 'object'
         ? delta.appraisalModifiers
         : null;
-      agent.emotion.applyEffect(delta.changes, multiplier, appraisalModifiers);
+
+      // R136-A3-001: clamp changes to [-1, 1] and reject non-finite values
+      const safeChanges = {};
+      for (const [dim, val] of Object.entries(delta.changes)) {
+        if (Number.isFinite(val)) safeChanges[dim] = Math.max(-1, Math.min(1, val));
+      }
+      if (Object.keys(safeChanges).length > 0) {
+        agent.emotion.applyEffect(safeChanges, multiplier, appraisalModifiers);
+      }
     }
 
     if (Number.isFinite(delta.stress) && typeof agent.emotion.setStress === 'function') {
@@ -145,32 +153,34 @@ class EffectCommitter {
     }
 
     if (typeof agent.memory.addExperience !== 'function') return;
-    if (delta.kind !== 'candidate') return;
-
-    const memEvent = delta.event && typeof delta.event === 'object'
-      ? { ...delta.event }
-      : {
-          content: delta.content || 'action_memory',
-          type: delta.memoryType || 'action',
-          participants: [delta.agentId],
-        };
-    if (!Array.isArray(memEvent.participants)) memEvent.participants = [delta.agentId];
-    if (delta.category && !memEvent.category) memEvent.category = delta.category;
-    // R34 P2 fix: Number.isFinite rejects NaN importance before it reaches
-    // PersonalMemory.addExperience (typeof NaN === 'number' is true).
-    if (typeof delta.importance === 'number' && Number.isFinite(delta.importance)) {
-      memEvent.importance = delta.importance;
+    if (delta.kind === 'candidate') {
+      const memEvent = delta.event && typeof delta.event === 'object'
+        ? { ...delta.event }
+        : {
+            content: delta.content || 'action_memory',
+            type: delta.memoryType || 'action',
+            participants: [delta.agentId],
+          };
+      if (!Array.isArray(memEvent.participants)) memEvent.participants = [delta.agentId];
+      if (delta.category && !memEvent.category) memEvent.category = delta.category;
+      // R34 P2 fix: Number.isFinite rejects NaN importance before it reaches
+      // PersonalMemory.addExperience (typeof NaN === 'number' is true).
+      if (typeof delta.importance === 'number' && Number.isFinite(delta.importance)) {
+        memEvent.importance = delta.importance;
+      }
+      if (delta.emotionTag) memEvent.emotionTag = delta.emotionTag;
+      const importance = typeof delta.importance === 'number' && Number.isFinite(delta.importance)
+        ? delta.importance : null;
+      const memory = agent.memory.addExperience(memEvent, agent.emotion, importance);
+      Object.defineProperty(delta, 'committedMemory', {
+        value: memory || null,
+        enumerable: false,
+        configurable: true,
+        writable: true,
+      });
+    } else {
+      this.world?.diagnostics?.warn?.('unknown_memory_kind', { kind: delta.kind, agentId: delta.agentId });
     }
-    if (delta.emotionTag) memEvent.emotionTag = delta.emotionTag;
-    const importance = typeof delta.importance === 'number' && Number.isFinite(delta.importance)
-      ? delta.importance : null;
-    const memory = agent.memory.addExperience(memEvent, agent.emotion, importance);
-    Object.defineProperty(delta, 'committedMemory', {
-      value: memory || null,
-      enumerable: false,
-      configurable: true,
-      writable: true,
-    });
   }
 
   /**
@@ -205,6 +215,10 @@ class EffectCommitter {
    * @private
    */
   _applyPositionDelta(delta) {
+    if (!delta.agentId) {
+      this.world?.diagnostics?.warn?.('position_delta_missing_agent', { delta });
+      return;
+    }
     const agent = this.agents?.get?.(delta.agentId);
     if (!agent) return;
     if (typeof delta.to !== 'string' || !delta.to) return;

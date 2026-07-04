@@ -457,8 +457,14 @@ class AndyWorld {
       } catch (err) {
         // R12: isolate agent errors — one failing agent must not kill the entire tick.
         // The failing agent is skipped; other agents continue normally.
+        const partialEvents = agentResult?.newEvents || [];
+        agentResult = {
+          error: err.message,
+          newEvents: partialEvents,
+          _errored: true,
+        };
+        this._diagnostics?.warn?.('agent_tick_error', { agentId, error: err.message, partialEvents: partialEvents.length });
         diagnostics.warn(`Agent ${agentId} tick failed: ${err.message}`);
-        agentResult = { error: err.message };
       }
       agentResults[agentId] = agentResult;
 
@@ -759,7 +765,8 @@ class AndyWorld {
             }));
           }
         } else if (effect.type === 'emotion' && effect.delta) {
-          // R22 P0-3 fix: DO NOT produce EmotionDelta here.
+          // R136: tag encounter emotion effects for next-tick perception verification
+          // If agent is removed before perception, these effects are lost
           // PerceptionRuntime.perceiveEvents (Phase 4, next tick) already applies
           // encounter emotion effects with proper cognitive appraisal modulation.
           // Producing EmotionDelta here causes double application (raw + appraised).
