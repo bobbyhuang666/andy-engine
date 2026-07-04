@@ -78,7 +78,7 @@ class PersonalMemory {
    */
   constructor(agentId, seedMemories = [], savedMemories = null, domain = null, rng = null, memoryConfig = null) {
     this.agentId = agentId;
-    if (!domain) throw new Error('PersonalMemory requires a domain config');
+    if (!domain && !savedMemories) throw new Error('PersonalMemory requires a domain config');
     this.domain = domain;
     this._rng = rng || new RNG(0);
     this._cfg = mergeMemoryConfig(memoryConfig);

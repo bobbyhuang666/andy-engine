@@ -41,7 +41,7 @@ class ExploreCandidateProvider extends CandidateProvider {
     return [new ActionCandidate({
       type: 'explore',
       source: 'intrinsic',
-      target: target || 'unknown',
+      target: target || null,
       label: target ? `explore ${target}` : 'explore surroundings',
       metadata: { curiosity: context.intrinsic.curiosity },
     })];

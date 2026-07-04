@@ -1308,8 +1308,8 @@ const DIRECT_NEEDS_WRITE_PATTERNS = [
 
 const DIRECT_NEEDS_WRITE_ALLOWLIST = {
   'src/effects/EffectCommitter.js': {
-    count: 1,
-    reason: 'authorized NeedDelta owner',
+    count: 2,
+    reason: 'authorized NeedDelta owner + NaN recovery reset',
   },
   'src/agent/AgentRuntime.js': {
     count: 1,

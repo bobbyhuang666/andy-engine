@@ -89,15 +89,23 @@ class EffectCommitter {
    */
   _applyNeedDelta(delta) {
     const agent = this.agents?.get?.(delta.agentId);
-    if (!agent || !agent.needs || !agent.needs.needs) return;
+    if (!agent || !agent.needs || !agent.needs.needs) {
+      this.world?.diagnostics?.warn?.('applyNeedDelta: agent.needs.needs missing, delta skipped');
+      return;
+    }
     // R113-001: guard against null/undefined delta.changes (e.g. corrupted JSON).
     if (!delta.changes || typeof delta.changes !== 'object') return;
 
     for (const [name, value] of Object.entries(delta.changes)) {
+      // R135-A2-008: recover from NaN-corrupted need values so the delta isn't silently lost.
+      const existing = agent.needs.needs[name];
+      if (!Number.isFinite(existing)) {
+        agent.needs.needs[name] = 0.5; // reset corrupted need to neutral
+      }
       // R33 P0 fix: typeof NaN === 'number' is true, so NaN values passed
       // through, making Math.max(0, Math.min(1, NaN)) = NaN permanently.
       // Use Number.isFinite to reject NaN/Infinity.
-      if (Number.isFinite(agent.needs.needs[name]) && Number.isFinite(value)) {
+      if (Number.isFinite(value)) {
         agent.needs.needs[name] = Math.max(0, Math.min(1, agent.needs.needs[name] + value));
       }
     }

@@ -290,7 +290,7 @@ class AndyBridge {
     // Fallback for isolated tests/non-standard SDK hosts without a world
     // EffectCommitter. Real engine-backed signals should take the path above.
     if (typeof agent.emotion.applyEffect === 'function') {
-      agent.emotion.applyEffect(effect, delta.multiplier ?? 1, delta.appraisalModifiers ?? null);
+      agent.emotion.applyEffect(effect, 1, null);
     } else {
       for (const [dim, delta] of Object.entries(effect)) {
         if (agent.emotion.current[dim] !== undefined && Number.isFinite(delta)) {

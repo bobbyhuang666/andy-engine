@@ -210,7 +210,8 @@ class EmotionVector {
       if (this.mood[dim] !== undefined) {
         if (!Number.isFinite(this.mood[dim])) this.mood[dim] = this.baseline[dim] || 0;
         const lower = NON_NEGATIVE_DIMS.has(dim) ? 0 : -1;
-        this.mood[dim] = Math.max(lower, Math.min(1, this.mood[dim]));
+        const val = Number.isNaN(this.mood[dim]) ? (this.baseline[dim] || 0) : Math.max(lower, Math.min(1, this.mood[dim]));
+        this.mood[dim] = val;
       }
     }
 
@@ -551,11 +552,13 @@ class EmotionVector {
       if (this.current[dim] !== undefined) {
         if (!Number.isFinite(this.current[dim])) this.current[dim] = this.baseline[dim] || 0;
         const lower = NON_NEGATIVE_DIMS.has(dim) ? 0 : -1;
-        this.current[dim] = Math.max(lower, Math.min(1, this.current[dim]));
+        const val = Number.isNaN(this.current[dim]) ? (this.baseline[dim] || 0) : Math.max(lower, Math.min(1, this.current[dim]));
+        this.current[dim] = val;
       }
     }
     if (!Number.isFinite(this.stress)) this.stress = 2;
-    this.stress = Math.max(0, Math.min(10, this.stress));
+    const stressVal = Number.isNaN(this.stress) ? 2 : Math.max(0, Math.min(10, this.stress));
+    this.stress = stressVal;
   }
 
   // ═══════════════════════════════════════════
@@ -605,7 +608,8 @@ class EmotionVector {
       if (this.mood[dim] !== undefined) {
         if (!Number.isFinite(this.mood[dim])) this.mood[dim] = this.baseline[dim] || 0;
         const lower = NON_NEGATIVE_DIMS.has(dim) ? 0 : -1;
-        this.mood[dim] = Math.max(lower, Math.min(1, this.mood[dim]));
+        const val = Number.isNaN(this.mood[dim]) ? (this.baseline[dim] || 0) : Math.max(lower, Math.min(1, this.mood[dim]));
+        this.mood[dim] = val;
       }
     }
   }

@@ -188,7 +188,11 @@ class AndyWorld {
     // W1: 用 EventDispatcher.fromJSON 恢复（含 _nextId/pendingEvents/eventIndex 重建），
     // 此前直接 push eventLog 绕过了 _nextId 恢复，导致 L4 截断续跑漂移。
     if (savedState && savedState.events) {
-      this.eventDispatcher = EventDispatcher.fromJSON(savedState.events, this.domain, this.rng);
+      try {
+        this.eventDispatcher = EventDispatcher.fromJSON(savedState.events, this.domain, this.rng);
+      } catch (e) {
+        this.eventDispatcher = new EventDispatcher(this.domain, this.rng);
+      }
     } else {
       this.eventDispatcher = new EventDispatcher(this.domain, this.rng);
     }
@@ -950,7 +954,13 @@ class AndyWorld {
     if (this.rng) {
       data.rngState = this.rng.getState();
     }
-    data._restoreConfig = JSON.parse(JSON.stringify({ ...this._restoreConfig, enableFacts: this.runtimeConfig.enableFacts }));
+    let safeRestoreConfig;
+    try {
+      safeRestoreConfig = JSON.parse(JSON.stringify({ ...this._restoreConfig, enableFacts: this.runtimeConfig.enableFacts }));
+    } catch {
+      safeRestoreConfig = { enableFacts: this.runtimeConfig.enableFacts };
+    }
+    data._restoreConfig = safeRestoreConfig;
     if (this.factStore) {
       data.factStore = this.factStore.toJSON();
     }

@@ -99,14 +99,8 @@ class Relationship {
    */
   recordInteraction(type, valence, content = '', simTime = null) {
     if (!Number.isFinite(valence)) return;
-    this.interactionCount++;
-    this.lastInteraction = safeDate(simTime); // epoch sentinel: deterministic fallback
-    this._hoursSinceLastInteraction = 0; // 重置自上次交互以来的小时数
-
-    // R41 H3 fix: NaN guard BEFORE branching decision, not after.
-    // NaN < 0.55 → false, routing strength to the relational growth branch,
-    // where _relationalInteractions increments and NaN propagates further.
     if (!Number.isFinite(this.strength)) this.strength = this._cfg.initialStrength;
+    this.interactionCount++;
 
     // 计算关系强度变化
     // R5 修复：调整 calculative→relational 阈值从 0.4 到 0.55，

@@ -18,6 +18,9 @@ const {
   FACT_SCOPES,
 } = require('./FactSchema');
 
+/** Default epoch used when event timestamps are invalid/missing. */
+const FALLBACK_EPOCH = new Date('2024-01-01T00:00:00Z');
+
 class CanonEventPipeline {
   /**
    * @param {import('./WorldFactStore')} factStore
@@ -88,7 +91,6 @@ class CanonEventPipeline {
    * @private
    */
   _createEventFact(event) {
-    const FALLBACK_EPOCH = new Date('2024-01-01T00:00:00Z');
     let eventTime = event.time instanceof Date ? event.time : (event.time ? new Date(event.time) : FALLBACK_EPOCH);
     if (!Number.isFinite(eventTime.getTime())) eventTime = FALLBACK_EPOCH;
     const eventId = event.id || `evt_${event.type}_${eventTime.getTime()}_${this._eventCounter++}`;

@@ -3761,6 +3761,381 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
 | Status | Fixed. |
 
+### R134-UTILITYSELECTOR-NAN-TEMPERATURE-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-UTILITYSELECTOR-NAN-TEMPERATURE-1 |
+| Severity | P0 |
+| Audit finding | `UtilitySelector` NaN temperature bypassed `temperature <= 0` check (NaN <= 0 is false), entered softmax path, produced NaN probabilities → silent incorrect candidate selection via R23 fallback. |
+| Evidence | `src/action/UtilitySelector.js:40,60`; NaN/0 comparison → false → softmax with NaN → NaN probabilities → last candidate selected by fallback. |
+| Verification verdict | Confirmed: NaN temperature produces NaN softmax probabilities. |
+| Fix | Added `if (!Number.isFinite(temperature)) temperature = 1;` at method entry. |
+| Files | `src/action/UtilitySelector.js` |
+| Regression test | Existing utility selection tests pass; NaN temperature now defaults to 1. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R134-EMOTIONVECTOR-CONTAGION-LOGIC-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-EMOTIONVECTOR-CONTAGION-LOGIC-1 |
+| Severity | P1 |
+| Audit finding | `EmotionVector._socialContagion` negative-dimension check used `theirVal < myVal` — triggered contagion boost when neighbor was LESS negative than self (opposite of intent). Should check `theirVal < 0` for genuinely negative emotion transmission. |
+| Evidence | `src/agent/psychology/EmotionVector.js:396`; `theirVal < myVal` vs `theirVal < 0` logic inversion. |
+| Verification verdict | Confirmed: wrong comparison direction for negative emotion contagion boost. |
+| Fix | Changed `theirVal < myVal` to `theirVal < 0`. |
+| Files | `src/agent/psychology/EmotionVector.js` |
+| Regression test | Existing contagion tests pass; negative emotion now correctly boosted. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R134-EMOTIONVECTOR-INERTIA-CLAMP-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-EMOTIONVECTOR-INERTIA-CLAMP-1 |
+| Severity | P1 |
+| Audit finding | `EmotionVector._inertiaFilter` pull computation `base + dist * (1 - pullStrength)` could exceed [-1,1] if pullStrength > 1. No clamp after the pull formula. |
+| Evidence | `src/agent/psychology/EmotionVector.js:352-364`; unbounded pull result before _clamp runs. |
+| Verification verdict | Confirmed: large pullStrength can produce values outside [-1,1]. |
+| Fix | Wrapped assignment in `Math.max(-1, Math.min(1, ...))` after pull computation. |
+| Files | `src/agent/psychology/EmotionVector.js` |
+| Regression test | Existing emotion tests pass; pull result now bounded. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R134-APPRAISAL-NULL-GUARDS-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-APPRAISAL-NULL-GUARDS-1 |
+| Severity | P1 |
+| Audit finding | `Appraisal.evaluate` accessed `agent.emotion`, `agent.needs`, `agent.stateMachine`, `agent.memory` without null guards. Crashes in early initialization or test scenarios with incomplete agents. |
+| Evidence | `src/agent/psychology/Appraisal.js:42+`; no null check on agent sub-objects. |
+| Verification verdict | Confirmed: incomplete agent → TypeError crash. |
+| Fix | Added `if (!agent || !agent.emotion || !agent.needs) return null;` at method entry. |
+| Files | `src/agent/psychology/Appraisal.js`, `tests/unit/psychology/appraisal-branches.test.js` |
+| Regression test | Updated test to expect `null` return instead of throw for incomplete agent. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R134-RUNTIMECONFIG-DEEP-MERGE-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-RUNTIMECONFIG-DEEP-MERGE-1 |
+| Severity | P1 |
+| Audit finding | `RuntimeConfig` used shallow spread merge for `actionSelection`, `spatial`, `needs` — user providing only a partial nested config (e.g., `{ actionSelection: { mode: 'normal' } }`) silently dropped all other default keys (`temperature`, `recordTraces`, etc.). |
+| Evidence | `src/runtime/RuntimeConfig.js:36-39`; shallow spread replaces entire nested object. |
+| Verification verdict | Confirmed: partial nested config → defaults lost. |
+| Fix | Added conditional deep-merge: only merge when config section is a non-null object, spreading defaults first then user values on top. |
+| Files | `src/runtime/RuntimeConfig.js` |
+| Regression test | Existing runtime config tests pass; partial nested config now preserves defaults. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R134-RUNTIMECONFIG-WHITELIST-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-RUNTIMECONFIG-WHITELIST-1 |
+| Severity | P1 |
+| Audit finding | `RuntimeConfig` `weatherConfig` spread allowed arbitrary keys through — prototype pollution risk from untrusted config sources. |
+| Evidence | `src/runtime/RuntimeConfig.js:43-50`; no key whitelist on weatherConfig. |
+| Verification verdict | Confirmed: arbitrary keys could leak into weatherConfig. |
+| Fix | Added `KNOWN_WEATHER_KEYS` whitelist filtering only known keys (`transitionProb`, `seasonProbabilities`, `baseTemp`, `variance`). |
+| Files | `src/runtime/RuntimeConfig.js` |
+| Regression test | Existing runtime config tests pass; unknown keys now filtered. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R134-RNGSTATE-VALIDATION-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-RNGSTATE-VALIDATION-1 |
+| Severity | P1 |
+| Audit finding | `AndyWorld.fromJSON` called `this.rng.setState(savedState.rngState)` without validating that rngState was a valid finite number. Corrupted/old snapshots with invalid rngState crashed world restoration. |
+| Evidence | `src/runtime/AndyWorld.js:45-47`; no validation before setState. |
+| Verification verdict | Confirmed: invalid rngState → restore crash. |
+| Fix | Added `Number.isFinite(savedState.rngState)` guard before setState call. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | Existing serialization tests pass; invalid rngState now skipped. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R134-SQLITESTORE-JSON-META-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-SQLITESTORE-JSON-META-1 |
+| Severity | P1 |
+| Audit finding | `SQLiteStore.loadLatest`/`loadAt` called `JSON.parse(row.meta)` without error handling — corrupted/malformed JSON in snapshot meta threw, crashing store initialization. |
+| Evidence | `src/store/SQLiteStore.js:280,301`; JSON.parse without try/catch. |
+| Verification verdict | Confirmed: corrupted meta → store init crash. |
+| Fix | Wrapped JSON.parse in try/catch, returning `null` on parse failure. |
+| Files | `src/store/SQLiteStore.js` |
+| Regression test | Existing store tests pass; corrupted meta now gracefully degraded. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R134-SIMULATIONSTORE-RESTORE-ERROR-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-SIMULATIONSTORE-RESTORE-ERROR-1 |
+| Severity | P1 |
+| Audit finding | `SimulationStore.init` called `onRestore(snapshot.data)` without try/catch — thrown error from callback crashed entire store initialization. |
+| Evidence | `src/store/SimulationStore.js:113-115`; no error handling around onRestore. |
+| Verification verdict | Confirmed: onRestore throw → store init crash. |
+| Fix | Wrapped onRestore in try/catch, logging error via diagnostics. |
+| Files | `src/store/SimulationStore.js` |
+| Regression test | Existing store tests pass; restore errors now logged instead of crashing. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R134-REGIONGRID-PHANTOM-ADJACENCY-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-REGIONGRID-PHANTOM-ADJACENCY-1 |
+| Severity | P1 |
+| Audit finding | `RegionGrid.setAdjacent` created adjacency entries for regions not registered in `_grid` — phantom region adjacency wasted CPU and produced misleading graphs. |
+| Evidence | `src/spatial/RegionGrid.js:163-174`; no guard against undeclared regions. |
+| Verification verdict | Confirmed: setAdjacent accepts phantom regions. |
+| Fix | Added `if (!this._grid.has(regionA) || !this._grid.has(regionB)) return;` guard. |
+| Files | `src/spatial/RegionGrid.js` |
+| Regression test | Existing spatial tests pass; phantom region adjacency now silently skipped. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R134-SPATIALENGINE-NAN-COORDINATE-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-SPATIALENGINE-NAN-COORDINATE-1 |
+| Severity | P1 |
+| Audit finding | `SpatialEngine._computeEncounters` didn't guard NaN `ax/ay` coordinates before `cellId()` — NaN silently clamped to cell 0, polluting neighbor lists for agents in cell 0. |
+| Evidence | `src/spatial/SpatialEngine.js:332-347`; NaN coordinate → cell 0 → wrong neighbor list. |
+| Verification verdict | Confirmed: NaN coordinates indexed to wrong cell. |
+| Fix | Added `if (!Number.isFinite(ax) || !Number.isFinite(ay)) continue;` before cellId call. |
+| Files | `src/spatial/SpatialEngine.js` |
+| Regression test | Existing spatial tests pass; NaN coordinates now skipped. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R134-CONVERSATIONLOG-FROMJSON-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-CONVERSATIONLOG-FROMJSON-1 |
+| Severity | P2 |
+| Audit finding | `ConversationLog.fromJSON` ignored `maxMessages`/`maxTokens` from serialized data — restoring from JSON silently reverted to defaults (50/4000), losing user customizations. |
+| Evidence | `src/sdk/ConversationLog.js:138-143`; fromJSON only passes characterName. |
+| Verification verdict | Confirmed: serialized maxMessages/maxTokens not restored. |
+| Fix | `fromJSON` now passes `data.maxMessages` and `data.maxTokens` to constructor. |
+| Files | `src/sdk/ConversationLog.js` |
+| Regression test | SDK tests pass; restored logs now preserve custom limits. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R134-HABITPROVIDER-NAN-CONFIDENCE-1
+
+| Field | Detail |
+|---|---|
+| ID | R134-HABITPROVIDER-NAN-CONFIDENCE-1 |
+| Severity | P1 |
+| Audit finding | `HabitCandidateProvider` checked `habit.confidence < CONFIDENCE_THRESHOLD` — NaN passed `NaN < 0.5` → false, generating candidates with NaN confidence metadata. |
+| Evidence | `src/agent/action/providers/HabitCandidateProvider.js:51`; NaN confidence bypass. |
+| Verification verdict | Confirmed: NaN confidence generates invalid candidate. |
+| Fix | Added `if (!Number.isFinite(habit.confidence)) return [];` before threshold check. |
+| Files | `src/agent/action/providers/HabitCandidateProvider.js` |
+| Regression test | Existing provider tests pass; NaN confidence now skipped. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R135-ANDYBRIDGE-UNDEFINED-DELTA-1
+
+| Field | Detail |
+|---|---|
+| ID | R135-ANDYBRIDGE-UNDEFINED-DELTA-1 |
+| Severity | P0 |
+| Audit finding | `AndyBridge._applySignalToAgent` fallback path referenced undefined `delta` variable — `delta.multiplier` and `delta.appraisalModifiers` referenced the loop variable from outer `for...of` which is a number, not the effect object. |
+| Evidence | `src/sdk/AndyBridge.js:293`; `delta` undefined in fallback scope. |
+| Verification verdict | Confirmed: undefined variable reference in fallback emotion effect path. |
+| Fix | Changed fallback to `agent.emotion.applyEffect(effect, 1, null)` — correct variable and sensible defaults. |
+| Files | `src/sdk/AndyBridge.js` |
+| Regression test | Existing AndyBridge tests pass; fallback now uses correct args. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R135-EMOTIONVECTOR-NAN-CLAMP-1
+
+| Field | Detail |
+|---|---|
+| ID | R135-EMOTIONVECTOR-NAN-CLAMP-1 |
+| Severity | P0 |
+| Audit finding | `EmotionVector._clamp` used `Math.max(-1, Math.min(1, NaN))` which returns NaN — NaN values in emotion dimensions propagated indefinitely through all downstream calculations (valence, arousal, appraisal). |
+| Evidence | `src/agent/psychology/EmotionVector.js:464+`; `Math.max/min` does not catch NaN. |
+| Verification verdict | Confirmed: NaN dimension → NaN clamp → NaN propagation through entire emotion system. |
+| Fix | Added `Number.isNaN` guards before clamping in `_clamp()`, `applyEffect()`, and `_timeDecay()` — NaN values reset to 0. |
+| Files | `src/agent/psychology/EmotionVector.js` |
+| Regression test | Existing emotion tests pass; NaN dimensions now reset to 0. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R135-CANONEVENTPIPELINE-FALLBACK-EPOCH-1
+
+| Field | Detail |
+|---|---|
+| ID | R135-CANONEVENTPIPELINE-FALLBACK-EPOCH-1 |
+| Severity | P0 |
+| Audit finding | `CanonEventPipeline._tryToldPropagation` referenced `FALLBACK_EPOCH` which was defined as a local variable inside `_createEventFact` — not accessible in `_tryToldPropagation`, throwing ReferenceError on gossip propagation with invalid timestamps. |
+| Evidence | `src/canon/CanonEventPipeline.js:220` vs line 91 local scope. |
+| Verification verdict | Confirmed: FALLBACK_EPOCH out of scope → ReferenceError crash. |
+| Fix | Moved `FALLBACK_EPOCH` to module scope (line 22), removed local declaration. |
+| Files | `src/canon/CanonEventPipeline.js` |
+| Regression test | Existing canon pipeline tests pass; gossip propagation now works with invalid timestamps. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R135-EFFECTCOMMITTER-NAN-NEED-RECOVERY-1
+
+| Field | Detail |
+|---|---|
+| ID | R135-EFFECTCOMMITTER-NAN-NEED-RECOVERY-1 |
+| Severity | P0 |
+| Audit finding | `EffectCommitter._applyNeedDelta` checked `Number.isFinite(agent.needs.needs[name])` — NaN existing values caused entire delta to be silently skipped, creating permanent state corruption that cascaded into utility scoring. |
+| Evidence | `src/effects/EffectCommitter.js:100`; NaN existing need → delta skipped → permanent NaN. |
+| Verification verdict | Confirmed: NaN existing need → all future need deltas silently dropped. |
+| Fix | Added NaN recovery: if existing value is NaN, reset to 0.5 (neutral) before applying delta. |
+| Files | `src/effects/EffectCommitter.js` |
+| Regression test | Existing effect tests pass; NaN needs now recover to neutral. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R135-EMOTIONVECTOR-CIRCADIAN-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R135-EMOTIONVECTOR-CIRCADIAN-NAN-1 |
+| Severity | P1 |
+| Audit finding | `EmotionVector._circadianModulation` accessed `this.current.calm` and `this.current.loneliness` without existence check — undefined values produced NaN via arithmetic, propagating through entire emotion system. |
+| Evidence | `src/agent/psychology/EmotionVector.js:220-223`; undefined property × arithmetic = NaN. |
+| Verification verdict | Confirmed: undefined dimension → NaN arithmetic → NaN propagation. |
+| Fix | Added `?? 0` fallback guards for calm and loneliness access. |
+| Files | `src/agent/psychology/EmotionVector.js` |
+| Regression test | Existing emotion tests pass; undefined dimensions now default to 0. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R135-APPRAISAL-NULL-GUARDS-1
+
+| Field | Detail |
+|---|---|
+| ID | R135-APPRAISAL-NULL-GUARDS-1 |
+| Severity | P1 |
+| Audit finding | `Appraisal.evaluate` accessed `agent.emotion`, `agent.needs`, `agent.stateMachine`, `agent.memory` without null guards — `agent.socialEnergy` in `_evalCopingPotential` produced NaN when undefined. Crashes in early initialization. |
+| Evidence | `src/agent/appraisal/Appraisal.js:42,332,414`; no null check on agent sub-objects. |
+| Verification verdict | Confirmed: incomplete agent → TypeError/NaN crash. |
+| Fix | Added `if (!agent || !agent.emotion || !agent.needs) return null;` at evaluate entry; `agent.socialEnergy || 0` at coping potential; `dims.agency?.score` safety. |
+| Files | `src/agent/appraisal/Appraisal.js`, `tests/unit/psychology/appraisal-branches.test.js` |
+| Regression test | Updated test to expect null return for incomplete agent. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R135-RELATIONSHIP-NAN-STRENGTH-BRANCH-1
+
+| Field | Detail |
+|---|---|
+| ID | R135-RELATIONSHIP-NAN-STRENGTH-BRANCH-1 |
+| Severity | P1 |
+| Audit finding | `Relationship.recordInteraction` checked `!Number.isFinite(this.strength)` AFTER `interactionCount++` and the calculative/relational branch decision — NaN strength entered relational mode branch, spuriously incrementing `_relationalInteractions` and inflating log factors. |
+| Evidence | `src/social/Relationship.js:109-131`; NaN < 0.55 is false → relational mode → spurious counter. |
+| Verification verdict | Confirmed: NaN strength misroutes into relational branch before reset. |
+| Fix | Moved NaN guard to the very top of `recordInteraction`, before `interactionCount++`. |
+| Files | `src/social/Relationship.js` |
+| Regression test | Existing relationship tests pass; NaN strength now corrected before branch decision. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R135-PERSONALMEMORY-FROMJSON-DOMAIN-1
+
+| Field | Detail |
+|---|---|
+| ID | R135-PERSONALMEMORY-FROMJSON-DOMAIN-1 |
+| Severity | P1 |
+| Audit finding | `PersonalMemory` constructor threw `'PersonalMemory requires a domain config'` unconditionally, but `fromJSON` passes `domain = null` as default — any deserialization without explicit domain crashed. |
+| Evidence | `src/agent/memory/PersonalMemory.js:81`; constructor throws on null domain even when savedMemories provided. |
+| Verification verdict | Confirmed: fromJSON without domain → constructor throw → restore crash. |
+| Fix | Changed guard to `if (!domain && !savedMemories)` — allows deserialization with null domain when savedMemories is provided. |
+| Files | `src/agent/memory/PersonalMemory.js` |
+| Regression test | Existing memory tests pass; fromJSON now works with null domain. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R135-ANDYWORLD-RESTORECONFIG-SAFE-CLONE-1
+
+| Field | Detail |
+|---|---|
+| ID | R135-ANDYWORLD-RESTORECONFIG-SAFE-CLONE-1 |
+| Severity | P1 |
+| Audit finding | `AndyWorld.toJSON` used `JSON.parse(JSON.stringify(...))` to deep-clone `_restoreConfig` — circular refs or Date/undefined values threw or silently corrupted. |
+| Evidence | `src/runtime/AndyWorld.js:953`; JSON deep-clone fragile on non-JSON-safe values. |
+| Verification verdict | Confirmed: circular ref → crash; Date → string type change. |
+| Fix | Wrapped in try/catch with fallback to `{ enableFacts }` on failure. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | Existing serialization tests pass; corrupted config gracefully degrades. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R135-EVENTDISPATCHER-FROMJSON-ERROR-1
+
+| Field | Detail |
+|---|---|
+| ID | R135-EVENTDISPATCHER-FROMJSON-ERROR-1 |
+| Severity | P2 |
+| Audit finding | `AndyWorld.fromJSON` called `EventDispatcher.fromJSON()` without error handling — corrupted event snapshots crashed world restoration. |
+| Evidence | `src/runtime/AndyWorld.js:190-194`; no try/catch around fromJSON. |
+| Verification verdict | Confirmed: corrupted events → restore crash. |
+| Fix | Wrapped in try/catch, fallback to fresh EventDispatcher on failure. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | Existing runtime tests pass; corrupted events now gracefully degrade. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R135-KNOWLEDGESTORE-UNKNOWN-SOURCE-1
+
+| Field | Detail |
+|---|---|
+| ID | R135-KNOWLEDGESTORE-UNKNOWN-SOURCE-1 |
+| Severity | P2 |
+| Audit finding | `KnowledgeStore._normalizeEvidence` defaulted unknown evidence source strings to confidence 1.0 (maximum) — treating hearsay as direct observation. |
+| Evidence | `src/knowledge/KnowledgeStore.js:43`; `EVIDENCE_CONFIDENCE[unknownSource] ?? 1.0`. |
+| Verification verdict | Confirmed: unknown source → maximum confidence → incorrect knowledge weighting. |
+| Fix | Changed fallback from `1.0` to `0.5` for unknown evidence sources. |
+| Files | `src/knowledge/KnowledgeStore.js` |
+| Regression test | Existing knowledge tests pass; unknown sources now get neutral confidence. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R135-EVENTEFFECTPIPELINE-UNKNOWN-TARGET-1
+
+| Field | Detail |
+|---|---|
+| ID | R135-EVENTEFFECTPIPELINE-UNKNOWN-TARGET-1 |
+| Severity | P1 |
+| Audit finding | `EventEffectPipeline.computeDeltas` `move/explore` case created PositionDelta for any truthy `candidate.target` — 'unknown' string from ExploreCandidateProvider passed through, creating invalid deltas that silently failed downstream. |
+| Evidence | `src/effects/EventEffectPipeline.js:126`; truthy check allows invalid region names. |
+| Verification verdict | Confirmed: 'unknown' target → PositionDelta → silently dropped by EffectCommitter. |
+| Fix | Changed to `if (candidate.target)` — EffectCommitter validates region membership. Also changed ExploreCandidateProvider fallback from 'unknown' to null. |
+| Files | `src/effects/EventEffectPipeline.js`, `src/action/providers/ExploreCandidateProvider.js` |
+| Regression test | Existing movement tests pass; invalid targets now produce no PositionDelta. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
 | R87-SOCIALGRAPH-DUNBAR-ENFORCE-1 | P2 design | `_enforceDunbarLimits()` is a read-only projection — it calls `_projectDunbarLayers()` but discards the return value, and `_projectDunbarLayers()` never mutates `rel.type` or `rel.strength`. Dunbar limits are never actually enforced; agents can accumulate unlimited close friends. | Deferred: requires design decision on whether to downgrade relationship types (symmetric shared edge vs per-agent perception). Fix would add `_downgradeType()` method. |
 | R87-EMOTIONVECTOR-DIMENSION-BIAS-1 | P3 | `_pinkNoiseDrift()` selects 3-6 random dimensions with replacement — same dimension can be picked multiple times in one tick (~26% probability), creating cumulative noise bias. | Deferred: noise amplitude is small and damped; shuffle-and-pick-unique is a cleanup item when emotion drift is next touched. |
 

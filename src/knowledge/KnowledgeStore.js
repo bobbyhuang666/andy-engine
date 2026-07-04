@@ -40,7 +40,7 @@ class KnowledgeStore {
     if (typeof sourceOrEvidence === 'string') {
       return {
         source: sourceOrEvidence,
-        confidence: EVIDENCE_CONFIDENCE[sourceOrEvidence] ?? 1.0,
+        confidence: EVIDENCE_CONFIDENCE[sourceOrEvidence] ?? 0.5,
         learnedAt: 0,
         propagatedFrom: null,
         eventId: null,
