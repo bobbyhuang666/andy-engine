@@ -4421,6 +4421,96 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
 | Status | Fixed. |
 
+### R137-EFFECTCOMMITTER-NEED-RESULT-REVALIDATE-1
+
+| Field | Detail |
+|---|---|
+| ID | R137-EFFECTCOMMITTER-NEED-RESULT-REVALIDATE-1 |
+| Severity | P0 |
+| Audit finding | `EffectCommitter._applyNeedDelta` checked `Number.isFinite(value)` on the delta but not on the addition result `agent.needs.needs[name] + value` — if the addition produced NaN/Infinity (from external corruption between check and write), the NaN persisted through `Math.max(0, Math.min(1, NaN))` = NaN. |
+| Evidence | `src/effects/EffectCommitter.js:109`; unchecked addition result. |
+| Verification verdict | Confirmed: addition result not re-validated → NaN can persist in need values. |
+| Fix | Added `const result = agent.needs.needs[name] + value; if (Number.isFinite(result)) { ... } else { agent.needs.needs[name] = 0.5; }` — re-validate addition result, reset to 0.5 if non-finite. |
+| Files | `src/effects/EffectCommitter.js` |
+| Regression test | Existing effect tests pass; non-finite addition results now reset to 0.5. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R137-NEEDDELTA-PER-VALUE-VALIDATION-1
+
+| Field | Detail |
+|---|---|
+| ID | R137-NEEDDELTA-PER-VALUE-VALIDATION-1 |
+| Severity | P1 |
+| Audit finding | `NeedDelta` constructor validated that `changes` is an object but did not validate individual values — corrupted JSON deserialization could produce `{ energy: NaN }` or `{ energy: Infinity }` that passed construction and corrupted downstream arithmetic. |
+| Evidence | `src/effects/NeedDelta.js:17`; no per-value finite guard. |
+| Verification verdict | Confirmed: non-numeric change values pass factory → corrupt EffectCommitter. |
+| Fix | Added per-value `Number.isFinite()` filter in constructor — non-finite values deleted from changes. |
+| Files | `src/effects/NeedDelta.js` |
+| Regression test | Existing delta tests pass; NaN/Infinity changes now filtered. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R137-FUTURETENDENCYDELTA-ARRAY-VALIDATION-1
+
+| Field | Detail |
+|---|---|
+| ID | R137-FUTURETENDENCYDELTA-ARRAY-VALIDATION-1 |
+| Severity | P1 |
+| Audit finding | `FutureTendencyDelta` constructor used `payload.delta || [0,0,0,0]` — corrupted JSON could produce non-array delta objects (e.g., plain object from JSON reviver) that passed through to `updateTendency`, which expects an array. |
+| Evidence | `src/effects/FutureTendencyDelta.js:20`; no Array.isArray guard. |
+| Verification verdict | Confirmed: non-array delta → undefined behavior in updateTendency. |
+| Fix | Added `Array.isArray(payload.delta) && payload.delta.length === 4 && payload.delta.every(v => Number.isFinite(v))` validation — fallback to `[0,0,0,0]` if invalid. |
+| Files | `src/effects/FutureTendencyDelta.js` |
+| Regression test | Existing tendency tests pass; non-array deltas now fallback to zero. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R137-CANONEVENTPIPELINE-LEARNEDAT-1
+
+| Field | Detail |
+|---|---|
+| ID | R137-CANONEVENTPIPELINE-LEARNEDAT-1 |
+| Severity | P1 |
+| Audit finding | `CanonEventPipeline._tryToldPropagation` used `eventTime` (unvalidated, could be NaN from string timestamp) for `learnedAt` instead of `safeEventTime` (the validated fallback). This stored NaN timestamps in KnowledgeStore, corrupting temporal ordering. |
+| Evidence | `src/canon/CanonEventPipeline.js:247`; `learnedAt: eventTime` instead of `learnedAt: safeEventTime`. |
+| Verification verdict | Confirmed: string timestamp → eventTime = 0 (finite, passes guard) → learnedAt = 0 (epoch, wrong time). |
+| Fix | Changed `learnedAt: eventTime` → `learnedAt: safeEventTime`. |
+| Files | `src/canon/CanonEventPipeline.js` |
+| Regression test | Existing canon pipeline tests pass; learnedAt now uses validated timestamp. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R137-BEHAVIORFIELD-NAN-NEEDS-WEIGHT-1
+
+| Field | Detail |
+|---|---|
+| ID | R137-BEHAVIORFIELD-NAN-NEEDS-WEIGHT-1 |
+| Severity | P2 |
+| Audit finding | `BehaviorField._computeGradient` computed `Math.min(...Object.values(signals.needs))` without filtering NaN — if any need value was NaN (from external corruption), `Math.min(NaN, ...)` returned NaN, making `NaN < 0.1` false and silently skipping the emergency weight amplification for critical needs. |
+| Evidence | `src/agent/psychology/BehaviorField.js:333`; unfiltered NaN in Math.min. |
+| Verification verdict | Confirmed: NaN in needs → emergency amplification silently skipped. |
+| Fix | Added `Object.values(signals.needs).filter(v => Number.isFinite(v))` before Math.min — only finite values participate in emergency weight computation. |
+| Files | `src/agent/psychology/BehaviorField.js` |
+| Regression test | Existing behavior field tests pass; NaN needs no longer corrupt weight computation. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R137-WORLDFACTSTORE-NONSTRING-AGENTID-1
+
+| Field | Detail |
+|---|---|
+| ID | R137-WORLDFACTSTORE-NONSTRING-AGENTID-1 |
+| Severity | P2 |
+| Audit finding | `WorldFactStore._indexAgents` used any truthy value from `fact.participants`, `fact.observers`, `fact.agentId`, etc. as Map keys without validating type — non-string values (numbers, objects, arrays from corrupted data) were coerced by JavaScript Map to unexpected keys (`[object Object]`, comma-separated arrays), causing collisions and incorrect fact indexing. |
+| Evidence | `src/canon/WorldFactStore.js:791-796`; no type guard on agentId before `_byAgent.set()`. |
+| Verification verdict | Confirmed: non-string agentId → Map key coercion → fact indexing collisions. |
+| Fix | Added `if (typeof agentId !== 'string') continue;` before indexing. |
+| Files | `src/canon/WorldFactStore.js` |
+| Regression test | Existing fact store tests pass; non-string IDs now skipped. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
 | R87-SOCIALGRAPH-DUNBAR-ENFORCE-1 | P2 design | `_enforceDunbarLimits()` is a read-only projection — it calls `_projectDunbarLayers()` but discards the return value, and `_projectDunbarLayers()` never mutates `rel.type` or `rel.strength`. Dunbar limits are never actually enforced; agents can accumulate unlimited close friends. | Deferred: requires design decision on whether to downgrade relationship types (symmetric shared edge vs per-agent perception). Fix would add `_downgradeType()` method. |
 | R87-EMOTIONVECTOR-DIMENSION-BIAS-1 | P3 | `_pinkNoiseDrift()` selects 3-6 random dimensions with replacement — same dimension can be picked multiple times in one tick (~26% probability), creating cumulative noise bias. | Deferred: noise amplitude is small and damped; shuffle-and-pick-unique is a cleanup item when emotion drift is next touched. |
 

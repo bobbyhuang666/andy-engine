@@ -106,7 +106,12 @@ class EffectCommitter {
       // through, making Math.max(0, Math.min(1, NaN)) = NaN permanently.
       // Use Number.isFinite to reject NaN/Infinity.
       if (Number.isFinite(value)) {
-        agent.needs.needs[name] = Math.max(0, Math.min(1, agent.needs.needs[name] + value));
+        const result = agent.needs.needs[name] + value;
+        if (Number.isFinite(result)) {
+          agent.needs.needs[name] = Math.max(0, Math.min(1, result));
+        } else {
+          agent.needs.needs[name] = 0.5; // R137: re-validate addition result
+        }
       }
     }
   }

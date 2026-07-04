@@ -17,7 +17,15 @@ class FutureTendencyDelta extends StateDelta {
   constructor(agentId, payload) {
     super('futureTendency', 'agent', agentId);
     this.location = payload.location;
-    this.delta = payload.delta || [0, 0, 0, 0];
+    // R137: validate delta is an array of exactly 4 finite numbers —
+    // corrupted JSON could produce non-array delta objects that break
+    // updateTendency downstream.
+    if (Array.isArray(payload.delta) && payload.delta.length === 4
+      && payload.delta.every(v => Number.isFinite(v))) {
+      this.delta = payload.delta;
+    } else {
+      this.delta = [0, 0, 0, 0];
+    }
     // R116-009: typeof 0 === 'number' and 0 is falsy, so `|| 0.3` would
     // coerce legitimate importance:0 to 0.3. Use Number.isFinite check instead.
     this.importance = typeof payload.importance === 'number' && Number.isFinite(payload.importance)

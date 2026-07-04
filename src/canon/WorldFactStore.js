@@ -789,6 +789,9 @@ class WorldFactStore {
     if (fact.targetId) agents.add(fact.targetId);
 
     for (const agentId of agents) {
+      // R137: only index string agent IDs — non-string values (numbers, objects,
+      // arrays from corrupted data) would be coerced to unexpected Map keys.
+      if (typeof agentId !== 'string') continue;
       if (!this._byAgent.has(agentId)) {
         this._byAgent.set(agentId, new Set());
       }

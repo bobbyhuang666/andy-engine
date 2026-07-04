@@ -330,9 +330,15 @@ class BehaviorField {
     // 这确保"快饿死了"能压过日程/时间/习惯等其他梯度源
     if (signals.needs) {
       let needsWeight = w.needs * this._weightModifiers.needs;
-      const minNeed = Math.min(...Object.values(signals.needs));
-      if (minNeed < 0.1) {
-        needsWeight *= 1 + (0.1 - minNeed) * 10; // hunger=0 → 2×, hunger=0.05 → 1.5×
+      // R137: filter NaN values before Math.min — corrupted need signals
+      // could contain NaN, making Math.min(NaN, ...) return NaN and silently
+      // skipping the emergency weight amplification.
+      const needValues = Object.values(signals.needs).filter(v => Number.isFinite(v));
+      if (needValues.length > 0) {
+        const minNeed = Math.min(...needValues);
+        if (minNeed < 0.1) {
+          needsWeight *= 1 + (0.1 - minNeed) * 10;
+        }
       }
       this._addNeedsGradient(grad, signals.needs, needsWeight);
     }

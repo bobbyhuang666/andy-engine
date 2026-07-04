@@ -244,7 +244,7 @@ class CanonEventPipeline {
       this.knowledgeStore.addKnowledge(listenerId, factId, {
         source: 'told',
         confidence: 0.6,
-        learnedAt: eventTime,
+        learnedAt: safeEventTime,
         propagatedFrom: tellerId,
         eventId: event.id || null,
       });
