@@ -157,7 +157,8 @@ class EmotionVector {
    * @private
    */
   _timeDecay(dt) {
-    const lambda = this.personality.behavior.emotionDecayRate || this._cfg.decayLambda;
+    const lambda = Number.isFinite(this.personality.behavior.emotionDecayRate)
+      ? this.personality.behavior.emotionDecayRate : this._cfg.decayLambda;
 
     // 享乐适应因子（Frederick & Loewenstein 1999）：
     // 正面情绪高于 mood 时衰减更快（~20% 加速）
@@ -324,6 +325,7 @@ class EmotionVector {
    */
   _coActivationSpread() {
     const weight = this._cfg.coActivationWeight;
+    if (!Number.isFinite(weight)) return;
     const deltas = {};
 
     // 使用快照防止读-写顺序问题
@@ -403,6 +405,7 @@ class EmotionVector {
    */
   _inertiaFilter() {
     const maxDelta = this._cfg.maxDeltaPerTick;
+    if (!Number.isFinite(maxDelta)) return;
     for (const dim of EMOTION_DIMENSIONS) {
       const val = this.current[dim] || 0;
       const base = this.baseline[dim] || 0;
@@ -507,6 +510,7 @@ class EmotionVector {
    */
   _velocityLimit() {
     const maxVelocity = this._cfg.maxDeltaPerTick; // 0.05
+    if (!Number.isFinite(maxVelocity)) return;
     if (!this._preTickValues) return;
 
     for (const dim of EMOTION_DIMENSIONS) {
@@ -569,7 +573,8 @@ class EmotionVector {
    */
   applyEffect(effects, multiplier = 1, appraisalModifiers = null) {
     if (!effects) return;
-    const inertia = this.personality.behavior.emotionalInertia || this._cfg.inertia;
+    const inertia = Number.isFinite(this.personality.behavior.emotionalInertia)
+      ? this.personality.behavior.emotionalInertia : this._cfg.inertia;
 
     for (const [dim, delta] of Object.entries(effects)) {
       // R32 P0-002 fix: typeof NaN === 'number' is true, so NaN deltas
@@ -584,7 +589,8 @@ class EmotionVector {
         // 惯性调制：高惯性的角色对情绪变化有抵抗力
         const effectiveDelta = delta * multiplier * appraisalMult * (1 - inertia * 0.5);
         // 速度限制：单次效果不超过 maxDeltaPerTick
-        const clampedDelta = Math.max(-this._cfg.maxDeltaPerTick, Math.min(this._cfg.maxDeltaPerTick, effectiveDelta));
+        const maxD = Number.isFinite(this._cfg.maxDeltaPerTick) ? this._cfg.maxDeltaPerTick : 0.05;
+        const clampedDelta = Math.max(-maxD, Math.min(maxD, effectiveDelta));
         this.current[dim] += clampedDelta;
 
         // 事件也缓慢影响 mood（10% 的效果渗透到中期心境）

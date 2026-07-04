@@ -46,6 +46,15 @@ class KnowledgeStore {
         eventId: null,
       };
     }
+    if (!sourceOrEvidence || typeof sourceOrEvidence !== 'object') {
+      return {
+        source: 'direct',
+        confidence: 1.0,
+        learnedAt: 0,
+        propagatedFrom: null,
+        eventId: null,
+      };
+    }
     // 已经是 object，补全默认值
     return {
       source: sourceOrEvidence.source || 'direct',
@@ -282,7 +291,8 @@ class KnowledgeStore {
    */
   static fromJSON(data, factStore) {
     const store = new KnowledgeStore(factStore);
-    const knowledgeData = data.knowledge || data;
+    const payload = data && typeof data === 'object' ? data : {};
+    const knowledgeData = (payload.knowledge && typeof payload.knowledge === 'object') ? payload.knowledge : payload;
     for (const [agentId, factIds] of Object.entries(knowledgeData)) {
       // R41 fix: only restore array-typed values as factId sets.
       // Without this guard, when data.knowledge is missing and we fall
@@ -293,14 +303,16 @@ class KnowledgeStore {
       }
     }
 
-    if (data.evidence) {
-      for (const [key, ev] of Object.entries(data.evidence)) {
+    if (payload.evidence && typeof payload.evidence === 'object') {
+      for (const [key, ev] of Object.entries(payload.evidence)) {
+        if (ev == null) continue;
         // R9 fix: normalize evidence objects to ensure all fields have proper
         // defaults (null instead of undefined for propagatedFrom/eventId)
         store._evidence.set(key, store._normalizeEvidence(ev));
       }
-    } else if (data.sources) {
-      for (const [key, source] of Object.entries(data.sources)) {
+    } else if (payload.sources && typeof payload.sources === 'object') {
+      for (const [key, source] of Object.entries(payload.sources)) {
+        if (source == null) continue;
         if (typeof source === 'string') {
           store._evidence.set(key, store._normalizeEvidence(source));
         } else {

@@ -123,7 +123,7 @@ class SocialGraph {
   getStrongRelationships(agentId) {
     const layers = this.getLayers(agentId);
     return [...layers.closeFriends, ...layers.friends]
-      .sort((a, b) => b.strength - a.strength);
+      .sort((a, b) => (Number.isFinite(b.strength) ? b.strength : 0) - (Number.isFinite(a.strength) ? a.strength : 0));
   }
 
   /**
@@ -150,12 +150,12 @@ class SocialGraph {
     const acquaintanceThreshold = this._cfg.threshold.acquaintance;
     const friendsA = new Set(
       this.getRelationships(agentA)
-        .filter(r => r.strength > acquaintanceThreshold)
+        .filter(r => Number.isFinite(r.strength) && r.strength > acquaintanceThreshold)
         .map(r => r.getOther(agentA))
     );
     const friendsB = new Set(
       this.getRelationships(agentB)
-        .filter(r => r.strength > acquaintanceThreshold)
+        .filter(r => Number.isFinite(r.strength) && r.strength > acquaintanceThreshold)
         .map(r => r.getOther(agentB))
     );
 
@@ -172,7 +172,7 @@ class SocialGraph {
     // Use configurable acquaintance threshold (consistent with getCommonFriends).
     const hopThreshold = this._cfg.threshold.acquaintance;
     const friendsA = this.getRelationships(agentA)
-      .filter(r => r.strength > hopThreshold)
+      .filter(r => Number.isFinite(r.strength) && r.strength > hopThreshold)
       .map(r => r.getOther(agentA));
 
     for (const friend of friendsA) {
@@ -203,6 +203,7 @@ class SocialGraph {
         const rels = this.getRelationships(current);
         for (const rel of rels) {
           // Use configurable acquaintance threshold (consistent with getCommonFriends).
+          if (rel && !Number.isFinite(rel.strength)) continue;
           if (rel.strength < this._cfg.threshold.acquaintance) continue;
           const other = rel.getOther(current);
           if (other === agentB) return distance;
@@ -281,6 +282,7 @@ class SocialGraph {
       // 获取 agentB 的所有够强的关系
       const friendsB = [];
       for (const [otherId, rel] of relMapB) {
+        if (rel && !Number.isFinite(rel.strength)) continue;
         if (rel.strength >= minBridgeStrength) {
           friendsB.push(otherId);
         }
@@ -303,6 +305,8 @@ class SocialGraph {
           // 中介强度：A-B 和 B-C 中较弱的那个
           const relAB = this.getRelationship(agentA, agentB);
           const relBC = this.getRelationship(agentB, agentC);
+          if (!Number.isFinite(relAB.strength) || !Number.isFinite(relBC.strength)) continue;
+          if (!Number.isFinite(relAC.strength)) continue;
           const bridgeStrength = Math.min(relAB.strength, relBC.strength);
 
           // 三元闭合增量：中介越强，增量越大
@@ -370,10 +374,10 @@ class SocialGraph {
   getInfluenceTargets(agentId, minStrength = 0.1) {
     const rels = this.getRelationships(agentId);
     return rels
-      .filter(r => r.strength >= minStrength)
+      .filter(r => Number.isFinite(r.strength) && r.strength >= minStrength)
       .map(r => ({
         agentId: r.getOther(agentId),
-        weight: r.strength,
+        weight: Number.isFinite(r.strength) ? r.strength : 0,
       }))
       .sort((a, b) => b.weight - a.weight);
   }
@@ -402,7 +406,7 @@ class SocialGraph {
    */
   _projectDunbarLayers(agentId) {
     const rels = this.getRelationships(agentId)
-      .sort((a, b) => b.strength - a.strength);
+      .sort((a, b) => (Number.isFinite(b.strength) ? b.strength : 0) - (Number.isFinite(a.strength) ? a.strength : 0));
     const { maxStrongTies, maxMediumTies } = this._cfg;
 
     const layers = {

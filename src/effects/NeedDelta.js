@@ -14,7 +14,7 @@ class NeedDelta extends StateDelta {
    */
   constructor(agentId, changes) {
     super('need', 'agent', agentId);
-    this.changes = changes;
+    this.changes = (changes && typeof changes === 'object' && !Array.isArray(changes)) ? changes : {};
   }
 
   toJSON() {

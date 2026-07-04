@@ -60,14 +60,14 @@ function toNarrative(agent, externalState = null) {
   // 3. Need deficits (only when obviously deficient)
   const needs = agent.needs.needs;
   const needPhrases = narrativeSp && narrativeSp.needPhrases;
-  if (needs.energy < 0.25) {
+  if (Number.isFinite(needs.energy) && needs.energy < 0.25) {
     parts.push((needPhrases && needPhrases.veryTired) || '好困');
-  } else if (needs.energy < 0.4 && agent.emotion.current.boredom > 0.15) {
+  } else if (Number.isFinite(needs.energy) && needs.energy < 0.4 && agent.emotion.current.boredom > 0.15) {
     parts.push((needPhrases && needPhrases.tired) || '有点困');
   }
-  if (needs.hunger < 0.25) {
+  if (Number.isFinite(needs.hunger) && needs.hunger < 0.25) {
     parts.push((needPhrases && needPhrases.veryHungry) || '好饿');
-  } else if (needs.hunger < 0.4) {
+  } else if (Number.isFinite(needs.hunger) && needs.hunger < 0.4) {
     parts.push((needPhrases && needPhrases.hungry) || '有点饿');
   }
 
@@ -76,7 +76,7 @@ function toNarrative(agent, externalState = null) {
   if (affectFrame.valenceBand === 'negative') {
     const topNegSrc = affectFrame.sourceSignals.emotion.find(e => {
       const val = parseFloat(e.split(':')[1]);
-      return val < 0;
+      return Number.isFinite(val) && val < 0;
     });
     if (topNegSrc) {
       const dim = topNegSrc.split(':')[0];
@@ -103,7 +103,7 @@ function toNarrative(agent, externalState = null) {
       if (label) parts.push(label);
     }
   }
-  if (agent.emotion.stress > 6) {
+  if (Number.isFinite(agent.emotion.stress) && agent.emotion.stress > 6) {
     parts.push((narrativeSp && narrativeSp.cognitivePhrases && narrativeSp.cognitivePhrases.highStress) || '压力好大');
   }
 

@@ -281,7 +281,7 @@ class FactEmitter {
           agentA: agentId,
           agentB: otherId,
           relationType: rel.type || 'stranger',
-          strength: rel.strength || 0,
+          strength: Number.isFinite(rel.strength) ? rel.strength : 0,
           previousType: null,
           timestamp: now,
           source: FactSource.ENGINE,
@@ -296,7 +296,7 @@ class FactEmitter {
         if (existing) {
           const updated = this.store.updateFact(existing.id, {
             relationType: rel.type || 'stranger',
-            strength: rel.strength || 0,
+            strength: Number.isFinite(rel.strength) ? rel.strength : 0,
             timestamp: now,
           });
           facts.push(updated || fact);
@@ -341,7 +341,7 @@ class FactEmitter {
         const fact = createMemoryFact({
           agentId,
           content: mem.content || '',
-          importance: mem.importance || 0.5,
+          importance: mem.importance ?? 0.5,
           emotionTag: mem.emotionTag || 'neutral',
           category: mem.category || 'general',
           timestamp: mem.timestamp || now,
@@ -356,7 +356,7 @@ class FactEmitter {
 
         if (existing) {
           const updated = this.store.updateFact(existing.id, {
-            importance: mem.importance,
+            importance: Number.isFinite(mem.importance) ? mem.importance : 0.5,
             timestamp: now,
           });
           const result = updated || fact;

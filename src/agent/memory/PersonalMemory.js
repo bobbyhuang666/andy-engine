@@ -52,10 +52,21 @@ function nextDynamicMemoryId(agentId, memories = []) {
   const pattern = new RegExp(`^mem_${escapedAgentId}_(\\d+)$`);
   let max = -1;
   for (const memory of memories) {
+    if (!memory || typeof memory !== 'object') continue;
     const match = typeof memory.id === 'string' ? memory.id.match(pattern) : null;
     if (match) max = Math.max(max, Number(match[1]));
   }
   return max + 1;
+}
+
+function safeDate(value, fallbackMs = 0) {
+  const fallback = Number.isFinite(fallbackMs) ? fallbackMs : 0;
+  const d = new Date(value);
+  return Number.isFinite(d.getTime()) ? d : new Date(fallback);
+}
+
+function safeDateISO(value, fallbackMs = 0) {
+  return safeDate(value, fallbackMs).toISOString();
 }
 
 class PersonalMemory {
@@ -84,7 +95,7 @@ class PersonalMemory {
     const restoredMemories = savedMemories ? (Array.isArray(savedMemories) ? savedMemories : (savedMemories.memories || [])) : [];
     // R8 fix: use serialized _nextMemId if available, preventing ID collision
     // after prune+restore. Fallback to recomputation for backward compat.
-    this._nextMemId = (savedMemories && !Array.isArray(savedMemories) && typeof savedMemories._nextMemId === 'number')
+    this._nextMemId = (savedMemories && !Array.isArray(savedMemories) && Number.isInteger(savedMemories._nextMemId) && savedMemories._nextMemId >= 0)
       ? savedMemories._nextMemId
       : nextDynamicMemoryId(agentId, restoredMemories);
     this.appraisalBiases = [];
@@ -92,23 +103,20 @@ class PersonalMemory {
     if (savedMemories) {
       const memArray = Array.isArray(savedMemories) ? savedMemories : (savedMemories.memories || []);
       this.memories = memArray.map(m => {
+        if (!m || typeof m !== 'object') return null;
         // R34 P1 fix: validate timestamps from saved data. Invalid Date
         // propagates into ACT-R base-level activation, tick decay, and
         // prompt generation, producing NaN throughout the memory system.
-        const safeDate = (v) => {
-          const d = new Date(v);
-          return Number.isFinite(d.getTime()) ? d : new Date(this._simTime || 0);
-        };
         return {
           ...m,
-          timestamp: safeDate(m.timestamp),
-          lastAccessed: safeDate(m.lastAccessed),
-          presentations: (m.presentations || []).map(t => safeDate(t)),
+          timestamp: safeDate(m.timestamp, this._simTime || 0),
+          lastAccessed: safeDate(m.lastAccessed, this._simTime || 0),
+          presentations: (Array.isArray(m.presentations) ? m.presentations : []).map(t => safeDate(t, this._simTime || 0)),
           semanticCategory: m.semanticCategory || null,
           // R34 P2 fix: validate importance from saved data.
           importance: typeof m.importance === 'number' && Number.isFinite(m.importance) ? m.importance : 0.5,
           // R12: deep-copy nested objects to prevent shared reference mutation
-          associations: [...(m.associations || [])],
+          associations: [...(Array.isArray(m.associations) ? m.associations : [])],
           // R34 P2 fix: validate emotionSnapshot numeric values.
           emotionSnapshot: m.emotionSnapshot
             ? Object.fromEntries(Object.entries(m.emotionSnapshot).map(([k, v]) =>
@@ -116,7 +124,7 @@ class PersonalMemory {
             : {},
           appraisal: m.appraisal ? { ...m.appraisal } : null,
         };
-      });
+      }).filter(Boolean);
       if (!Array.isArray(savedMemories) && savedMemories.appraisalBiases) {
         // R12: deep-copy appraisalBiases to prevent shared reference
         this.appraisalBiases = savedMemories.appraisalBiases.map(b => ({ ...b }));
@@ -125,17 +133,13 @@ class PersonalMemory {
       // R36 P2 fix: validate seed memory timestamps, matching savedMemories safeDate.
       // A truthy but non-parseable timestamp string (e.g., "yesterday") produces
       // Invalid Date, corrupting ACT-R base-level activation.
-      const safeDate = (v) => {
-        const d = new Date(v);
-        return Number.isFinite(d.getTime()) ? d : new Date(this._simTime || 0);
-      };
       this.memories = seedMemories.map((m, i) => ({
         id: `seed_${i}`,
         content: m.content || m,
         category: m.category || 'background',
         emotionTag: m.emotionTag || 'neutral',
         importance: m.importance ?? 0.8,
-        timestamp: safeDate(m.timestamp || this._simTime || 0),
+        timestamp: safeDate(m.timestamp || this._simTime || 0, this._simTime || 0),
         lastAccessed: new Date(this._simTime || 0),
         presentations: [new Date(this._simTime || 0)],
         accessCount: 1,
@@ -1134,23 +1138,23 @@ class PersonalMemory {
   // ═══════════════════════════════════════════
 
   toJSON() {
-    const memories = this.memories.map(m => ({
+    const memories = this.memories.filter(m => m && typeof m === 'object').map(m => ({
       id: m.id,
       content: m.content,
       category: m.category,
       emotionTag: m.emotionTag,
-      importance: m.importance,
-      timestamp: m.timestamp.toISOString(),
-      lastAccessed: m.lastAccessed.toISOString(),
+      importance: Number.isFinite(m.importance) ? m.importance : 0.5,
+      timestamp: safeDateISO(m.timestamp, this._simTime || 0),
+      lastAccessed: safeDateISO(m.lastAccessed, this._simTime || 0),
       // W1: 完整持久化 presentations（此前 slice(-20) 截断破坏 restore fidelity，
       // _baseLevelActivation 遍历 presentations 计算，截断后 baseLevel 改变导致 L4 漂移）。
       // 未来若担心 payload 膨胀，另开压缩/摘要设计，当前不得用截断破坏 L4。
-      presentations: m.presentations.map(t => t.toISOString()),
-      accessCount: m.accessCount,
-      associations: [...m.associations],
+      presentations: (Array.isArray(m.presentations) ? m.presentations : []).map(t => safeDateISO(t, this._simTime || 0)),
+      accessCount: Number.isInteger(m.accessCount) && m.accessCount >= 0 ? m.accessCount : 0,
+      associations: [...(Array.isArray(m.associations) ? m.associations : [])],
       eventId: m.eventId,
       // R12: spread-copy to prevent shared reference mutation
-      emotionSnapshot: { ...m.emotionSnapshot },
+      emotionSnapshot: { ...(m.emotionSnapshot || {}) },
       semanticCategory: m.semanticCategory || null,
       appraisal: m.appraisal ? { ...m.appraisal } : null,
     }));
@@ -1158,7 +1162,12 @@ class PersonalMemory {
     // Previously only the memories array was serialized, so _nextMemId was
     // recomputed from surviving memories — which could be lower than the
     // pre-prune value, causing duplicate IDs on new memory creation.
-    return { memories, _nextMemId: this._nextMemId };
+    return {
+      memories,
+      _nextMemId: Number.isInteger(this._nextMemId) && this._nextMemId >= 0
+        ? this._nextMemId
+        : nextDynamicMemoryId(this.agentId, memories),
+    };
   }
 
   /**

@@ -119,13 +119,13 @@ class RegionDef {
     this._rng = rng || new RNG(0);
 
     if (this.shape === 'rect') {
-      this.x = def.x || 0;
-      this.y = def.y || 0;
+      this.x = def.x ?? 0;
+      this.y = def.y ?? 0;
       this.w = def.w || 100;
       this.h = def.h || 100;
     } else if (this.shape === 'circle') {
-      this.cx = def.cx || 0;
-      this.cy = def.cy || 0;
+      this.cx = def.cx ?? 0;
+      this.cy = def.cy ?? 0;
       this.radius = def.radius || 50;
     }
   }

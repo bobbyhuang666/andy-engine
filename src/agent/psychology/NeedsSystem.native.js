@@ -242,6 +242,7 @@ class NeedsSystemNative {
       const threshold = this._cfg.threshold[need] || 0.3;
       if (value >= threshold) continue;
       const urgency = threshold - value;
+      if (!Number.isFinite(urgency)) continue;
       const target = NEED_DEPRIVATION_GRADIENT_TARGETS[need];
       if (!target) continue;
       drives.push({ need, urgency, gradient: [...target] });
@@ -264,6 +265,7 @@ class NeedsSystemNative {
       }
       const distance = Math.sqrt(distSq);
       const factor = Math.max(0, 1 - distance / maxDist);
+      if (!Number.isFinite(factor)) factor = 0;
       const baseRate = this._cfg.recoveryRate[need] || 0.3;
       const multiplier = (this._recoveryMultipliers && this._recoveryMultipliers[need]) || 1.0;
       rates[need] = baseRate * factor * multiplier;

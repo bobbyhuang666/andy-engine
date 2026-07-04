@@ -57,9 +57,9 @@ class Relationship {
       // new Date(undefined) → Invalid Date → toISOString() crashes;
       // new Date(null) → epoch (1970) which silently corrupts recency.
       this.lastInteraction = safeDate(savedState.lastInteraction); // epoch sentinel fallback, matches R84 pattern
-      this._hoursSinceLastInteraction = savedState._hoursSinceLastInteraction || 0;
-      this.interactionCount = savedState.interactionCount || 0;
-      this._relationalInteractions = savedState._relationalInteractions || 0;
+      this._hoursSinceLastInteraction = savedState._hoursSinceLastInteraction ?? 0;
+      this.interactionCount = savedState.interactionCount ?? 0;
+      this._relationalInteractions = savedState._relationalInteractions ?? 0;
       this.impression = {
         positive: Number.isFinite(savedState.impression?.positive) ? savedState.impression.positive : 0,
         negative: Number.isFinite(savedState.impression?.negative) ? savedState.impression.negative : 0,
@@ -269,7 +269,7 @@ class Relationship {
     let willingness = this.strength;
 
     // 时间因素：太久没见会增加见面意愿（想念效应）
-    const hoursSince = this._hoursSinceLastInteraction || 0;
+    const hoursSince = this._hoursSinceLastInteraction ?? 0;
     if (hoursSince > 24) {
       willingness += Math.min(0.2, hoursSince / 1000);
     }

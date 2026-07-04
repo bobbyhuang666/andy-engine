@@ -140,6 +140,11 @@ class AgentRuntime {
     context.imResult = imResult;
 
     if (imResult.emotionEffects) {
+      const safeEmotionEffects = {};
+      for (const [dim, val] of Object.entries(imResult.emotionEffects)) {
+        if (Number.isFinite(val)) safeEmotionEffects[dim] = val;
+      }
+
       const committer = env?.effectCommitter || null;
       if (committer && typeof committer.commit === 'function') {
         committer.commit({
@@ -147,14 +152,14 @@ class AgentRuntime {
             type: 'emotion',
             target: 'agent',
             agentId: agent.id,
-            changes: imResult.emotionEffects,
+            changes: safeEmotionEffects,
             multiplier: 1,
             appraisalModifiers: null,
             stress: null,
           }],
         });
       } else {
-        agent.emotion.applyEffect(imResult.emotionEffects);
+        agent.emotion.applyEffect(safeEmotionEffects);
       }
     }
 

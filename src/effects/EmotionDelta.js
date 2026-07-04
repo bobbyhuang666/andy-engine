@@ -21,7 +21,7 @@ class EmotionDelta extends StateDelta {
    */
   constructor(agentId, changes, options = {}) {
     super('emotion', 'agent', agentId);
-    this.changes = changes || {};
+    this.changes = (changes && typeof changes === 'object' && !Array.isArray(changes)) ? changes : {};
     this.multiplier = Number.isFinite(options.multiplier) ? options.multiplier : 1;
     this.appraisalModifiers = options.appraisalModifiers && typeof options.appraisalModifiers === 'object'
       ? { ...options.appraisalModifiers }

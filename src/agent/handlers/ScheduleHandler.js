@@ -217,7 +217,7 @@ class ScheduleHandler {
       const valence = agent.emotion.getValence();
 
       // 1. Sick → take leave
-      if (agent.health < 0.4) {
+      if (Number.isFinite(agent.health) && agent.health < 0.4) {
         // R122-010: guard against NaN conscientiousness
         const schConscientiousness = Number.isFinite(agent.personality.ocean.conscientiousness)
           ? agent.personality.ocean.conscientiousness : 0;
@@ -233,7 +233,8 @@ class ScheduleHandler {
       const frustration = agent.emotion.current.frustration || 0;
       const nervousness = agent.emotion.current.nervousness || 0;
       const negativeIntensity = (sadness + frustration + nervousness) / 3;
-      const stressFactor = Math.min(1, (agent.emotion.stress || 0) / 8);
+      const stress = Number.isFinite(agent.emotion.stress) ? agent.emotion.stress : 0;
+      const stressFactor = Math.min(1, stress / 8);
       const emotionalDistress = negativeIntensity * 0.6 + stressFactor * 0.4;
 
       if (emotionalDistress > 0.15) {
@@ -253,7 +254,7 @@ class ScheduleHandler {
       }
 
       // 3. Social energy depleted → avoid social activities
-      if (agent.socialEnergy < 0.2 && agent.behaviorParams.socialEnergyDrain > 0.5) {
+      if (Number.isFinite(agent.socialEnergy) && agent.socialEnergy < 0.2 && agent.behaviorParams.socialEnergyDrain > 0.5) {
         if (agent.rand() > 0.3) {
           return { moved: false };
         }
@@ -262,7 +263,7 @@ class ScheduleHandler {
       // 4. Social event special handling
       const socialRegions = agent.domain ? (agent.domain.placeTypes.social || []) : [];
       if (socialRegions.includes(activity.region)) {
-        if (agent.socialEnergy < 0.3 && valence < 0) {
+        if (Number.isFinite(agent.socialEnergy) && agent.socialEnergy < 0.3 && valence < 0) {
           if (agent.rand() > 0.4) {
             return { moved: false };
           }

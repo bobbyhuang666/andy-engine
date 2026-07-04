@@ -28,6 +28,8 @@ import ProceduralMemory from '../../src/agent/memory/ProceduralMemory.js';
 import Schedule from '../../src/agent/schedule/Schedule.js';
 import EventDispatcher from '../../src/runtime/EventDispatcher.js';
 import { BehaviorField } from '../../src/agent/psychology/BehaviorField.js';
+import WorldFactStore from '../../src/canon/WorldFactStore.js';
+import KnowledgeStore from '../../src/knowledge/KnowledgeStore.js';
 import { getDefaultDomain } from '../../src/domain/DomainRegistry.js';
 
 const campusDomain = getDefaultDomain();
@@ -271,6 +273,57 @@ describe('Wave 4 — serialization round-trip', () => {
       expect(restored._cfg.spreadingActivation.S).toBeDefined();
       expect(restored._cfg.recallEmotionDelta.importanceScale).toBeDefined();
       expect(restored._cfg.recallEmotionDelta.ruminationMultiplier).toBeDefined();
+    });
+
+    it('skips invalid restored memory entries and repairs invalid dates on save', () => {
+      const restored = PersonalMemory.fromJSON({
+        memories: [
+          null,
+          {
+            id: 'mem_agent1_3',
+            content: 'corrupt date memory',
+            timestamp: 'not-a-date',
+            lastAccessed: 'also-not-a-date',
+            presentations: ['bad-date'],
+            associations: null,
+            importance: Infinity,
+          },
+        ],
+        _nextMemId: Infinity,
+      }, 'agent1', campusDomain);
+
+      restored.memories[0].timestamp = new Date('still-bad');
+      const json = restored.toJSON();
+
+      expect(json.memories).toHaveLength(1);
+      expect(json.memories[0].timestamp).toBe(new Date(0).toISOString());
+      expect(json.memories[0].presentations[0]).toBe(new Date(0).toISOString());
+      expect(json.memories[0].importance).toBe(0.5);
+      expect(json._nextMemId).toBe(4);
+    });
+  });
+
+  // ── Fact/Knowledge stores ───────────────────────────────────────
+  describe('WorldFactStore / KnowledgeStore', () => {
+    it('WorldFactStore.fromJSON tolerates missing or corrupt payload fields', () => {
+      expect(WorldFactStore.fromJSON(null).toJSON()).toEqual({ version: 1, nextId: 0, facts: [] });
+      expect(WorldFactStore.fromJSON({ nextId: Infinity, facts: [null] }).toJSON()).toEqual({ version: 1, nextId: 0, facts: [] });
+      expect(WorldFactStore.fromJSON({ nextId: 5 }).toJSON()).toEqual({ version: 1, nextId: 5, facts: [] });
+    });
+
+    it('KnowledgeStore.fromJSON tolerates null payload and evidence entries', () => {
+      const factStore = new WorldFactStore();
+
+      expect(KnowledgeStore.fromJSON(null, factStore).toJSON()).toEqual({
+        knowledge: {},
+        evidence: {},
+        sources: {},
+      });
+      expect(KnowledgeStore.fromJSON({ knowledge: {}, evidence: { bad: null } }, factStore).toJSON()).toEqual({
+        knowledge: {},
+        evidence: {},
+        sources: {},
+      });
     });
   });
 

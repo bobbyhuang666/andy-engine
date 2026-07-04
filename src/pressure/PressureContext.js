@@ -73,11 +73,11 @@ class PressureContext {
     // R110-NAN-1: guard against NaN/Infinity in sum (Infinity from pressure source
     // overflow would propagate through `|| 0` since Infinity is truthy).
     const raw = (
-      (this.world?.total || 0) +
-      (this.needs?.total || 0) +
-      (this.memory?.total || 0) +
-      (this.relationship?.total || 0) +
-      (this.location?.total || 0)
+      (this.world?.total && Number.isFinite(this.world.total) ? this.world.total : 0) +
+      (this.needs?.total && Number.isFinite(this.needs.total) ? this.needs.total : 0) +
+      (this.memory?.total && Number.isFinite(this.memory.total) ? this.memory.total : 0) +
+      (this.relationship?.total && Number.isFinite(this.relationship.total) ? this.relationship.total : 0) +
+      (this.location?.total && Number.isFinite(this.location.total) ? this.location.total : 0)
     ) / 5;
     return Number.isFinite(raw) ? raw : 0;
   }

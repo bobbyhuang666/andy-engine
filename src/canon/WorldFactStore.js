@@ -506,9 +506,11 @@ class WorldFactStore {
    */
   static fromJSON(data) {
     const store = new WorldFactStore();
-    store._nextId = data.nextId || 0;
+    const payload = data && typeof data === 'object' ? data : {};
+    store._nextId = Number.isInteger(payload.nextId) && payload.nextId >= 0 ? payload.nextId : 0;
 
-    for (const f of data.facts) {
+    for (const f of (Array.isArray(payload.facts) ? payload.facts : [])) {
+      if (!f || typeof f !== 'object') continue;
       // R12: deep-copy each fact to prevent mutating input + shared reference
       // R24 P1 fix: use _deepCopyFact instead of shallow spread to properly
       // clone array fields (participants, observers, tags) and Date timestamps.
@@ -649,11 +651,12 @@ class WorldFactStore {
   updateLocationMeaning(location, meaning) {
     const FALLBACK_EPOCH = new Date('2024-01-01T00:00:00Z');
     const existing = this.getLocationMeaning(location);
+    const safeWeight = Number.isFinite(meaning.weight) ? meaning.weight : 0;
 
     if (existing) {
       this.updateFact(existing.id, {
         meaningType: meaning.type,
-        weight: meaning.weight,
+        weight: safeWeight,
         reason: meaning.reason,
         timestamp: this._simTime || FALLBACK_EPOCH,
       });
@@ -661,7 +664,7 @@ class WorldFactStore {
       const fact = createLocationMeaningFact({
         location,
         meaningType: meaning.type,
-        weight: meaning.weight,
+        weight: safeWeight,
         reason: meaning.reason,
         timestamp: this._simTime || FALLBACK_EPOCH,
         source: 'engine',

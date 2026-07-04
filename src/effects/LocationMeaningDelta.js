@@ -22,7 +22,7 @@ class LocationMeaningDelta extends StateDelta {
     super('locationMeaning', 'world', agentId);
     this.location = payload.location;
     this.meaningType = payload.meaningType;
-    this.weight = payload.weight || 0;
+    this.weight = Number.isFinite(payload.weight) ? payload.weight : 0;
     this.reason = payload.reason || '';
     this.from = payload.from || null;
     this.to = payload.to || null;

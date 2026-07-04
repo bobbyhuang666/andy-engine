@@ -3053,6 +3053,270 @@ This section records the R131 no-quota workflow pass. 4 counter-boundary finding
 | Regression test | Added invalid `tickNumber` fallback test. |
 | Status | Fixed and targeted-test verified. |
 
+## R132 - Fleet-Mode Deep Edge-Case Scan (5 parallel agents)
+
+This section records the R132 audit findings. 5 parallel Audit agents (A1-A5) scanned all 50+ source files. 20+ findings verified; fixes applied by 5 parallel Fix agents (F1-F5).
+
+### R132-001
+
+| Field | Detail |
+|---|---|
+| ID | R132-001 |
+| Severity | HIGH |
+| Audit finding | `EmotionVector._timeDecay()` reads `this.personality.behavior.emotionDecayRate` with `||` fallback. NaN is truthy, so `||` doesn't catch it. NaN lambda → `Math.exp(-NaN * dt)` = NaN → NaN emotion dimensions before `_clamp()` runs. |
+| Evidence | EmotionVector.js:160 — `emotionDecayRate || this._cfg.decayLambda` |
+| Fix | Changed to `Number.isFinite()` ternary: `const lambda = Number.isFinite(this.personality.behavior.emotionDecayRate) ? this.personality.behavior.emotionDecayRate : this._cfg.decayLambda;` |
+| Files | `src/agent/psychology/EmotionVector.js:160` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-002
+
+| Field | Detail |
+|---|---|
+| ID | R132-002 |
+| Severity | HIGH |
+| Audit finding | `EmotionVector._coActivationSpread()` reads `this._cfg.coActivationWeight` without guard. NaN weight → NaN deltas → `Math.max(-0.02, Math.min(0.02, NaN))` = NaN → permanently poisons emotion dimensions. |
+| Evidence | EmotionVector.js:326 — `const weight = this._cfg.coActivationWeight;` |
+| Fix | Added `if (!Number.isFinite(weight)) return;` at start of `_coActivationSpread()`. |
+| Files | `src/agent/psychology/EmotionVector.js:327` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-003
+
+| Field | Detail |
+|---|---|
+| ID | R132-003 |
+| Severity | MEDIUM |
+| Audit finding | `EmotionVector._inertiaFilter()` reads `this._cfg.maxDeltaPerTick` without guard. NaN maxDelta → NaN pullStrength → NaN `(1 - pullStrength)` → NaN `base + dist * NaN` → corrupted emotion dimensions. |
+| Evidence | EmotionVector.js:405 — `const maxDelta = this._cfg.maxDeltaPerTick;` |
+| Fix | Added `if (!Number.isFinite(maxDelta)) return;` at start of `_inertiaFilter()`. |
+| Files | `src/agent/psychology/EmotionVector.js:407` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-004
+
+| Field | Detail |
+|---|---|
+| ID | R132-004 |
+| Severity | MEDIUM |
+| Audit finding | `EmotionVector._velocityLimit()` reads `this._cfg.maxDeltaPerTick` without guard. NaN maxVelocity → `Math.abs(delta) > NaN` (always false) → silently skips velocity limit → unbounded emotion drift. |
+| Evidence | EmotionVector.js:509 — `const maxVelocity = this._cfg.maxDeltaPerTick;` |
+| Fix | Added `if (!Number.isFinite(maxVelocity)) return;` at start of `_velocityLimit()`. |
+| Files | `src/agent/psychology/EmotionVector.js:512` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-005
+
+| Field | Detail |
+|---|---|
+| ID | R132-005 |
+| Severity | MEDIUM |
+| Audit finding | `EmotionVector.applyEffect()` reads `this.personality.behavior.emotionalInertia` with `||` fallback. NaN is truthy → bypasses fallback → NaN inertia → NaN effectiveDelta → NaN clampedDelta. |
+| Evidence | EmotionVector.js:572 — `emotionalInertia || this._cfg.inertia` |
+| Fix | Changed to `Number.isFinite()` ternary: `const inertia = Number.isFinite(this.personality.behavior.emotionalInertia) ? this.personality.behavior.emotionalInertia : this._cfg.inertia;` |
+| Files | `src/agent/psychology/EmotionVector.js:576` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-006
+
+| Field | Detail |
+|---|---|
+| ID | R132-006 |
+| Severity | MEDIUM |
+| Audit finding | `EmotionVector.applyEffect()` clamp uses `this._cfg.maxDeltaPerTick` directly. NaN maxDeltaPerTick → `Math.max(-NaN, Math.min(NaN, effectiveDelta))` = NaN, wiping out finite effectiveDelta. |
+| Evidence | EmotionVector.js:587 — `Math.max(-this._cfg.maxDeltaPerTick, ...)` |
+| Fix | Added local `maxD` guard: `const maxD = Number.isFinite(this._cfg.maxDeltaPerTick) ? this._cfg.maxDeltaPerTick : 0.05;` then `Math.max(-maxD, Math.min(maxD, effectiveDelta))`. |
+| Files | `src/agent/psychology/EmotionVector.js:592` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-007
+
+| Field | Detail |
+|---|---|
+| ID | R132-007 |
+| Severity | LOW |
+| Audit finding | `NeedsSystem.native.getDriveGradient()` lacks `Number.isFinite(urgency)` guard (JS version has it at line 370). NaN urgency → NaN drive → NaN gradient → NaN behavior signals. |
+| Evidence | NeedsSystem.native.js:244 — missing guard vs JS parity |
+| Fix | Added `if (!Number.isFinite(urgency)) continue;` before `drives.push()`, matching JS version. |
+| Files | `src/agent/psychology/NeedsSystem.native.js:245` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-008
+
+| Field | Detail |
+|---|---|
+| ID | R132-008 |
+| Severity | LOW |
+| Audit finding | `NeedsSystem.native.getRecoveryRatesForBehavior()` computes `factor = Math.max(0, 1 - distance / maxDist)` without finite guard. NaN distance → NaN factor → NaN rate → `current + NaN * hoursElapsed` = NaN need value. |
+| Evidence | NeedsSystem.native.js:266 — missing factor guard vs JS parity |
+| Fix | Added `if (!Number.isFinite(factor)) factor = 0;` after factor computation, matching JS version. |
+| Files | `src/agent/psychology/NeedsSystem.native.js:268` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-009
+
+| Field | Detail |
+|---|---|
+| ID | R132-009 |
+| Severity | HIGH |
+| Audit finding | `SocialGraph.getStrongRelationships()` sort: `.sort((a, b) => b.strength - a.strength)` — NaN strength → NaN comparator → unpredictable ordering → silently breaks social dynamics. |
+| Evidence | SocialGraph.js:126 — unguarded sort comparator |
+| Fix | Changed to `Number.isFinite()`-guarded comparator: `(Number.isFinite(b.strength) ? b.strength : 0) - (Number.isFinite(a.strength) ? a.strength : 0)`. |
+| Files | `src/social/SocialGraph.js:126` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-010
+
+| Field | Detail |
+|---|---|
+| ID | R132-010 |
+| Severity | HIGH |
+| Audit finding | `SocialGraph._projectDunbarLayers()` sort: `.sort((a, b) => b.strength - a.strength)` — same NaN comparator issue, corrupting Dunbar layer assignment. |
+| Evidence | SocialGraph.js:405 — unguarded sort comparator |
+| Fix | Changed to `Number.isFinite()`-guarded comparator, matching R132-009 fix. |
+| Files | `src/social/SocialGraph.js:409` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-011
+
+| Field | Detail |
+|---|---|
+| ID | R132-011 |
+| Severity | HIGH |
+| Audit finding | `SocialGraph` has 6 filter predicates reading `r.strength` without finite guard (lines 153,158,175,206,284,373). NaN comparisons always return false → corrupted edges silently dropped → wrong social topology. `_triadicClosure()` (lines 306-314) writes NaN delta into `relAC.strength` without guard → permanent corruption. |
+| Evidence | SocialGraph.js:153,158,175,206,284,306,373 — unguarded strength reads |
+| Fix | Added `Number.isFinite(r.strength) &&` guard to all 6 filter predicates. Added 3 `Number.isFinite()` guards before bridge strength computation in `_triadicClosure()`. Added `weight: Number.isFinite(r.strength) ? r.strength : 0` guard in `getInfluenceTargets()`. |
+| Files | `src/social/SocialGraph.js:153,158,175,206,284,308,377,380` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-012
+
+| Field | Detail |
+|---|---|
+| ID | R132-012 |
+| Severity | MEDIUM |
+| Audit finding | `AgentNarrative._parseEmotionTag()` uses `parseFloat()` without finite guard. `parseFloat("abc:")` = NaN → `NaN < 0` = false → silently drops entry. `_filterNegativeEmotions()` uses `agent.emotion.stress > 6` without guard — NaN stress → false → suppresses narrative symptom. Need checks (`energy < 0.25`, `hunger < 0.25`) also unguarded. |
+| Evidence | AgentNarrative.js:78,106,63-71 — unguarded parseFloat/stress/needs |
+| Fix | Added `Number.isFinite(val) && val < 0` guard. Added `Number.isFinite(agent.emotion.stress) && agent.emotion.stress > 6` guard. Added `Number.isFinite(needs.energy) &&` and `Number.isFinite(needs.hunger) &&` guards. |
+| Files | `src/agent/facade/AgentNarrative.js:63,66,79,106` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-013
+
+| Field | Detail |
+|---|---|
+| ID | R132-013 |
+| Severity | MEDIUM |
+| Audit finding | `AgentRuntime.tick()` passes `imResult.emotionEffects` to `EffectCommitter` and `agent.emotion.applyEffect()` without finite guard. If intrinsic motivation produces NaN deltas (corrupted curiosity state), they propagate into emotion dimensions. |
+| Evidence | AgentRuntime.js:142-157 — `imResult.emotionEffects` unvalidated before commit/apply |
+| Fix | Added `safeEmotionEffects` filter: only includes entries where `Number.isFinite(val)`. Used in both `committer.commit` and `applyEffect` calls. |
+| Files | `src/agent/AgentRuntime.js:142-163` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-014
+
+| Field | Detail |
+|---|---|
+| ID | R132-014 |
+| Severity | MEDIUM |
+| Audit finding | `ScheduleHandler.checkSchedule()` uses `(agent.emotion.stress || 0) / 8` — NaN stress → `NaN || 0` = 0 (masks corruption), but `(NaN / 8)` = NaN, `Math.min(1, NaN)` = NaN → NaN emotionalDistress → `NaN > 0.15` = false → skip behavior silently suppressed. `agent.health < 0.4` and `agent.socialEnergy < 0.2` also unguarded. |
+| Evidence | ScheduleHandler.js:220,236,256 — unguarded numeric comparisons |
+| Fix | Added `Number.isFinite()` guards on `agent.emotion.stress`, `agent.health`, and `agent.socialEnergy` before comparisons. Extracted `stress` variable with finite guard. |
+| Files | `src/agent/handlers/ScheduleHandler.js:220,236,256,265` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-015
+
+| Field | Detail |
+|---|---|
+| ID | R132-015 |
+| Severity | MEDIUM |
+| Audit finding | `FactEmitter` uses `rel.strength || 0` (lines 284,299) — `||` masks Infinity strength. `mem.importance || 0.5` (line 344) — masks legitimate 0 importance. Line 359 passes raw `mem.importance` to `updateFact` bypassing factory guard. |
+| Evidence | FactEmitter.js:284,299,344,359 — `||` masking + bypass |
+| Fix | Changed `rel.strength || 0` → `Number.isFinite(rel.strength) ? rel.strength : 0`. Changed `mem.importance || 0.5` → `mem.importance ?? 0.5`. Added `Number.isFinite(mem.importance) ? mem.importance : 0.5` guard on update path. |
+| Files | `src/canon/FactEmitter.js:284,299,344,359` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-016
+
+| Field | Detail |
+|---|---|
+| ID | R132-016 |
+| Severity | MEDIUM |
+| Audit finding | `WorldFactStore.updateLocationMeaning()` passes `meaning.weight` directly to `updateFact` without finite guard. NaN weight → `validateTypeFields` throws → pipeline crash. |
+| Evidence | WorldFactStore.js:658 — unguarded weight |
+| Fix | Added `safeWeight` variable with `Number.isFinite()` guard before `updateFact` call. |
+| Files | `src/canon/WorldFactStore.js:651` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-017
+
+| Field | Detail |
+|---|---|
+| ID | R132-017 |
+| Severity | MEDIUM |
+| Audit finding | `LocationMeaningDelta`, `EmotionDelta`, `NeedDelta` constructors accept arbitrary payloads without structural validation. Array payloads pass `typeof === 'object'` checks, causing downstream `Object.entries()` to yield numeric keys. |
+| Evidence | LocationMeaningDelta.js:25, EmotionDelta.js:24, NeedDelta.js:17 — no Array.isArray guard |
+| Fix | Added `!Array.isArray()` guard in all 3 delta constructors: `(changes && typeof changes === 'object' && !Array.isArray(changes)) ? changes : {}`. LocationMeaningDelta weight also got `Number.isFinite()` guard. |
+| Files | `src/effects/LocationMeaningDelta.js:25`, `src/effects/EmotionDelta.js:24`, `src/effects/NeedDelta.js:17` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-018
+
+| Field | Detail |
+|---|---|
+| ID | R132-018 |
+| Severity | MEDIUM |
+| Audit finding | `Relationship.js` uses `|| 0` on `_hoursSinceLastInteraction`, `interactionCount`, `_relationalInteractions` (lines 60-62,272). Masks legitimate zero values and hides null corruption. |
+| Evidence | Relationship.js:60,61,62,272 — `|| 0` on numeric counters |
+| Fix | Changed all 4 occurrences from `|| 0` to `?? 0`. |
+| Files | `src/social/Relationship.js:60,61,62,272` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-019
+
+| Field | Detail |
+|---|---|
+| ID | R132-019 |
+| Severity | LOW |
+| Audit finding | `WorldMap.js` uses `|| 0` on region geometry coordinates (x, y, cx, cy). Masks legitimate 0 coordinates and hides null corruption. |
+| Evidence | WorldMap.js:122,123,127,128 — `|| 0` on geometry |
+| Fix | Changed all 4 occurrences from `|| 0` to `?? 0`. |
+| Files | `src/spatial/WorldMap.js:122,123,127,128` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
+### R132-020
+
+| Field | Detail |
+|---|---|
+| ID | R132-020 |
+| Severity | MEDIUM |
+| Audit finding | `PressureContext.js` uses `|| 0` on pressure component totals (lines 76-80). Infinity pressure values pass through (truthy), corrupting total pressure computation. |
+| Evidence | PressureContext.js:76-80 — `|| 0` on pressure totals |
+| Fix | Changed to `Number.isFinite() ? value : 0` pattern for all 5 pressure component reads. |
+| Files | `src/pressure/PressureContext.js:76-80` |
+| Re-verification | Full `npm test`: 3291 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
