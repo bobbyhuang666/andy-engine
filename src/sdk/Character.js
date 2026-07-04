@@ -150,6 +150,7 @@ class Character {
    * @returns {Promise<string>} 角色回复
    */
   async chat(message, options = {}) {
+    options = options ?? {};
     if (typeof message !== 'string' || message.trim().length === 0) {
       return `[${this.name}沉默了一会儿]`;
     }
@@ -247,6 +248,7 @@ class Character {
    *   }
    */
   async *chatStream(message, options = {}) {
+    options = options ?? {};
     if (typeof message !== 'string' || message.trim().length === 0) {
       yield `[${this.name}沉默了一会儿]`;
       return;
@@ -323,6 +325,7 @@ class Character {
     yield outputReply;
   }
   getContext(options = {}) {
+    options = options ?? {};
     const worldContext = this._engine.getWorldContext(this.id);
     const narrative = this._engine.getNarrative(this.id, options);
     const groundingPackage = this._engine.getGroundingPackage
@@ -387,6 +390,7 @@ class Character {
    * @returns {Character}
    */
   static load(state, options = {}) {
+    options = options ?? {};
     if (!state || typeof state !== 'object') {
       throw new Error('Character.load(): state 必须是 save() 返回的对象');
     }

@@ -204,6 +204,29 @@ describe('P1-2: _restoreConfig flows through AndyEngine restore', () => {
     expect(snapshot._restoreConfig).toEqual(cfg);
   });
 
+  it('Serialization.deserialize preserves Date config and tolerates function hooks', () => {
+    const env = {
+      version: Serialization.getVersion(),
+      schemaVersion: Serialization.getVersion(),
+      runtimeSnapshot: { _restoreConfig: {} },
+    };
+    const startedAt = new Date('2026-01-01T00:00:00Z');
+    const hook = () => 'ok';
+    const cfg = {
+      customDate: startedAt,
+      extension: { hook, nested: { value: 1 } },
+    };
+
+    const snapshot = Serialization.deserialize(env, cfg);
+
+    expect(snapshot._restoreConfig.customDate).toBeInstanceOf(Date);
+    expect(snapshot._restoreConfig.customDate.getTime()).toBe(startedAt.getTime());
+    expect(snapshot._restoreConfig.customDate).not.toBe(startedAt);
+    expect(snapshot._restoreConfig.extension.hook).toBe(hook);
+    expect(snapshot._restoreConfig.extension.nested).toEqual({ value: 1 });
+    expect(snapshot._restoreConfig.extension.nested).not.toBe(cfg.extension.nested);
+  });
+
   it('Serialization.deserialize preserves snapshot _restoreConfig when caller passes partial config', () => {
     const e = new AndyEngine({
       seed: 'restore-config-partial',

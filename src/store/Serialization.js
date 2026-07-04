@@ -19,6 +19,34 @@ const { CURRENT_SCHEMA_VERSION } = require('./world/validator');
 // Keep ENVELOPE_VERSION as alias for backward compatibility
 const ENVELOPE_VERSION = CURRENT_SCHEMA_VERSION;
 
+function cloneConfigValue(value, seen = new WeakMap()) {
+  if (value === null || typeof value !== 'object') return value;
+  if (value instanceof Date) return new Date(value.getTime());
+
+  if (seen.has(value)) return seen.get(value);
+
+  if (Array.isArray(value)) {
+    const out = [];
+    seen.set(value, out);
+    for (const item of value) {
+      out.push(cloneConfigValue(item, seen));
+    }
+    return out;
+  }
+
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) {
+    return value;
+  }
+
+  const out = {};
+  seen.set(value, out);
+  for (const [key, child] of Object.entries(value)) {
+    out[key] = cloneConfigValue(child, seen);
+  }
+  return out;
+}
+
 class Serialization {
   /**
    * 将世界状态序列化为稳定信封
@@ -80,12 +108,9 @@ class Serialization {
       const filteredConfig = Object.fromEntries(
         Object.entries(config).filter(([key]) => !NON_CONFIG_KEYS.has(key))
       );
-      // Deep-copy to prevent reference sharing between restored config and caller's original.
-      // R146-1 fix: use structuredClone instead of JSON.parse(JSON.stringify()) to
-      // preserve Date objects and avoid stripping non-JSON types.
-      const deepFilteredConfig = typeof structuredClone === 'function'
-        ? structuredClone(filteredConfig)
-        : JSON.parse(JSON.stringify(filteredConfig));
+      // Deep-copy plain config containers without JSON stripping Date values or
+      // structuredClone throwing on function-valued extension hooks.
+      const deepFilteredConfig = cloneConfigValue(filteredConfig);
       return {
         ...envelope.runtimeSnapshot,
         _restoreConfig: {

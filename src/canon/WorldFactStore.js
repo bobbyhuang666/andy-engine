@@ -370,6 +370,7 @@ class WorldFactStore {
    * @returns {Object[]}
    */
   getFactsForAgent(agentId, options = {}) {
+    options = options ?? {};
     const knownIds = this._byAgent.get(agentId);
     const result = [];
     const seen = new Set();

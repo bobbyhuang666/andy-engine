@@ -46,6 +46,19 @@ describe('UtilitySelector', () => {
       expect(selected).toBeNull();
     });
 
+    it('filters corrupted -Infinity candidates instead of letting them beat valid negative scores', () => {
+      const damaged = createCandidate({ type: 'explore', source: 'intrinsic' });
+      const penalized = createCandidate({ type: 'work', source: 'schedule' });
+      const { selected, trace } = selectAction([
+        { candidate: damaged, score: { total: Number.NEGATIVE_INFINITY } },
+        { candidate: penalized, score: { total: -0.5, constraint: -0.5 } },
+      ], { temperature: 0 });
+
+      expect(selected).toBe(penalized);
+      expect(trace.candidateAlternatives).toHaveLength(1);
+      expect(trace.candidateAlternatives[0].candidate).toBe(penalized);
+    });
+
     it('相同 seed 产生相同选择', () => {
       const rng1 = new RNG(42);
       const rng2 = new RNG(42);

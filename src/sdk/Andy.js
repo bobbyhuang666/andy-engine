@@ -99,6 +99,7 @@ class Andy {
    * @returns {Promise<string>}
    */
   async chat(characterId, message, options = {}) {
+    options = options ?? {};
     if (!characterId) throw new Error('Andy.chat(): characterId 是必需的');
     const character = this._characters.get(characterId);
     if (!character) {
@@ -178,6 +179,7 @@ class Andy {
    * @returns {Andy}
    */
   static load(state, options = {}) {
+    options = options ?? {};
     if (!state || typeof state !== 'object') {
       throw new Error('Andy.load(): state 必须是 save() 返回的对象');
     }

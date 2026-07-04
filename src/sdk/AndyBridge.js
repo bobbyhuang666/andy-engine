@@ -16,6 +16,7 @@
 const { EmotionSignalBuffer } = require('./EmotionSignalBuffer');
 const { StoryGenerator } = require('../narrative/StoryGenerator');
 const { SimulationStore, MemoryStore } = require('../store');
+const { diagnostics } = require('../shared/Diagnostics');
 
 class AndyBridge {
   /**
@@ -313,17 +314,34 @@ class AndyBridge {
     const snapshots = [];
     for (const [id, agent] of agents) {
       if (agent.toJSON) {
-        snapshots.push({ id, ...agent.toJSON() });
+        try {
+          const snapshot = { id, ...agent.toJSON() };
+          const serialized = JSON.stringify(snapshot, AndyBridge._jsonSafeReplacer());
+          snapshots.push(JSON.parse(serialized));
+        } catch (err) {
+          diagnostics.warn(`AndyBridge agent "${id}" serialization skipped: ${err.message}`);
+          diagnostics.collect({ type: 'andy_bridge_agent_serialize_failed', agentId: id, error: err.message });
+        }
       }
     }
-    // R146-1 fix: guard against circular references in agent.toJSON() output
-    // which would cause JSON.stringify to throw TypeError.
     try {
-      return Buffer.from(JSON.stringify(snapshots));
+      return Buffer.from(JSON.stringify(snapshots, AndyBridge._jsonSafeReplacer()));
     } catch (err) {
-      diagnostics.warn?.('andy_bridge_serialize_failed', { error: err.message });
-      return Buffer.alloc(0);
+      diagnostics.warn(`AndyBridge agent snapshot serialization failed: ${err.message}`);
+      diagnostics.collect({ type: 'andy_bridge_serialize_failed', error: err.message });
+      return Buffer.from('[]');
     }
+  }
+
+  static _jsonSafeReplacer() {
+    const seen = new WeakSet();
+    return (_key, value) => {
+      if (typeof value === 'bigint') return value.toString();
+      if (!value || typeof value !== 'object') return value;
+      if (seen.has(value)) return undefined;
+      seen.add(value);
+      return value;
+    };
   }
 
   /**

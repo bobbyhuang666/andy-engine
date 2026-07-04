@@ -120,6 +120,17 @@ describe('KnowledgeStore', () => {
       expect(facts.length).toBe(2);
     });
 
+    it('getKnownFacts explicit null options behaves like omitted options for non-empty knowledge', () => {
+      const e1 = makeEvent({ eventId: 'evt_null_options' });
+      factStore.addFact(e1);
+      knowledgeStore.addKnowledge('alice', e1.id, 'direct');
+
+      expect(() => knowledgeStore.getKnownFacts('alice', null)).not.toThrow();
+      expect(knowledgeStore.getKnownFacts('alice', null).map(f => f.id)).toEqual(
+        knowledgeStore.getKnownFacts('alice').map(f => f.id)
+      );
+    });
+
     it('getKnownFacts 跳过已失效的事实', () => {
       const e1 = makeEvent({ eventId: 'evt1' });
       factStore.addFact(e1);

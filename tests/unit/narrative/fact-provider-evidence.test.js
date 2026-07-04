@@ -26,6 +26,27 @@ describe('FactProvider _evidence attachment', () => {
   });
 
   describe('knowledgeStore fact carries _evidence from KnowledgeStore', () => {
+    it('getGroundingPackage explicit null options behaves like omitted options', () => {
+      const fact = store.addFact({
+        id: 'fact_null_options_1',
+        type: 'event',
+        eventId: 'evt_null_options_1',
+        description: 'Alice found a note',
+        timestamp: new Date('2024-01-01T10:00:00Z'),
+        source: 'engine',
+        confidence: 1.0,
+        scope: 'local',
+        participants: ['alice'],
+        observers: [],
+      });
+      knowledgeStore.addKnowledge('alice', fact.id, 'direct');
+
+      expect(() => provider.getGroundingPackage('alice', null)).not.toThrow();
+      expect(provider.getGroundingPackage('alice', null).metadata.factCount).toEqual(
+        provider.getGroundingPackage('alice').metadata.factCount
+      );
+    });
+
     it('direct knowledge carries _evidence with source=direct', () => {
       const fact = store.addFact({
         id: 'fact_direct_1',

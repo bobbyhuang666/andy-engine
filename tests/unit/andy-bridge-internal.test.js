@@ -181,6 +181,36 @@ describe('AndyBridge._serializeAgents', () => {
     expect(parsed).toHaveLength(2);
     expect(parsed[0].memory.content).toBe('line\n---\ninside');
   });
+
+  it('drops recursive edges without losing the whole agent snapshot', () => {
+    const bridge = makeBridge();
+    const circular = { emotion: { v: 1 }, position: 'library' };
+    circular.self = circular;
+    bridge.andy = fakeAndy({
+      a: { toJSON: () => circular },
+      b: { toJSON: () => ({ y: 2 }) },
+    });
+
+    const buf = bridge._serializeAgents();
+    const parsed = JSON.parse(buf.toString());
+    expect(parsed).toHaveLength(2);
+    expect(parsed[0].id).toBe('a');
+    expect(parsed[0].emotion.v).toBe(1);
+    expect(parsed[0].self.position).toBe('library');
+    expect(parsed[0].self.self).toBeUndefined();
+    expect(parsed[1].id).toBe('b');
+  });
+
+  it('skips only the agent whose toJSON throws', () => {
+    const bridge = makeBridge();
+    bridge.andy = fakeAndy({
+      bad: { toJSON: () => { throw new Error('boom'); } },
+      good: { toJSON: () => ({ position: 'library' }) },
+    });
+
+    const parsed = JSON.parse(bridge._serializeAgents().toString());
+    expect(parsed).toEqual([{ id: 'good', position: 'library' }]);
+  });
 });
 
 describe('AndyBridge._restoreAgents', () => {

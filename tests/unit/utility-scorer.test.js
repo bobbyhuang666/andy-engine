@@ -249,5 +249,17 @@ describe('UtilityScorer', () => {
       expectAllFinite(score, 'behavior-all-NaN');
       expect(Number.isFinite(score.total)).toBe(true);
     });
+
+    it('non-finite total marks a corrupted candidate invalid instead of neutral', () => {
+      const cand = createCandidate({ type: 'explore', source: 'intrinsic', target: 'library' });
+      const ctx = {
+        ...baseContext,
+        emotion: { valence: Infinity, arousal: 0 },
+      };
+
+      const score = scoreCandidate(cand, ctx);
+      expect(score.emotion).toBe(Infinity);
+      expect(score.total).toBe(Number.NEGATIVE_INFINITY);
+    });
   });
 });

@@ -159,6 +159,7 @@ class KnowledgeStore {
    * 获取角色知道的所有事实
    */
   getKnownFacts(agentId, options = {}) {
+    options = options ?? {};
     const factIds = this.getKnownFactIds(agentId);
     const facts = [];
 

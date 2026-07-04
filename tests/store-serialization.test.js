@@ -163,6 +163,24 @@ describe('Serialization.deserialize', () => {
     expect(snapshot).toBe(envelope.runtimeSnapshot);
   });
 
+  it('config deep-copy preserves Date and function hooks without structuredClone DataCloneError', () => {
+    const envelope = {
+      version: ENVELOPE_VERSION,
+      schemaVersion: ENVELOPE_VERSION,
+      runtimeSnapshot: { time: new Date(0).toISOString(), tickCount: 0 },
+    };
+    const hook = () => 'ok';
+    const config = {
+      weatherConfig: { changedAt: new Date('2026-09-01T00:00:00Z') },
+      behavior: { hook },
+    };
+
+    const snapshot = Serialization.deserialize(envelope, config);
+    expect(snapshot._restoreConfig.weatherConfig.changedAt).toBeInstanceOf(Date);
+    expect(snapshot._restoreConfig.weatherConfig.changedAt).not.toBe(config.weatherConfig.changedAt);
+    expect(snapshot._restoreConfig.behavior.hook).toBe(hook);
+  });
+
   it('拒绝缺少 version 的 envelope', () => {
     expect(() => {
       Serialization.deserialize({ runtimeSnapshot: {} });

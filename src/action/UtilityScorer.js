@@ -90,8 +90,10 @@ function scoreCandidate(candidate, context) {
     breakdown.memory + breakdown.relationship + breakdown.habit +
     breakdown.goal + breakdown.location + breakdown.world +
     breakdown.time + breakdown.constraint + breakdown.tendency;
-  // R146-1 fix: guard against NaN/Infinity total from corrupted scorer inputs
-  if (!Number.isFinite(breakdown.total)) breakdown.total = 0;
+  // Corrupted scorer inputs should not make a damaged candidate more attractive
+  // than valid negative-score candidates. UtilitySelector filters non-finite
+  // totals, so mark the candidate invalid instead of awarding a neutral score.
+  if (!Number.isFinite(breakdown.total)) breakdown.total = Number.NEGATIVE_INFINITY;
 
   return breakdown;
 }

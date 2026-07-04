@@ -20,6 +20,14 @@ const IntrinsicMotivation = require('../psychology/IntrinsicMotivation');
 const { BehaviorField } = require('../psychology/BehaviorField');
 const { AGENT_DEFAULTS } = require('./AgentDefaults');
 
+function buildPersonalityConfig(config = {}) {
+  const personalityConfig = { ...(config.personality || {}) };
+  if (config.mbti && !personalityConfig.mbti) {
+    personalityConfig.mbti = config.mbti;
+  }
+  return personalityConfig;
+}
+
 /**
  * Build all subsystems from config (fresh creation).
  *
@@ -30,12 +38,7 @@ const { AGENT_DEFAULTS } = require('./AgentDefaults');
  * @returns {Object} { personality, emotion, stateMachine, memory, proceduralMemory, needs, emotionRegulation, intrinsicMotivation, schedule, behaviorField, position, socialEnergy, health, isOnline }
  */
 function createSubsystems(config, agentId, domain, rng) {
-  const personalityConfig = { ...(config.personality || {}) };
-  if (config.mbti && !personalityConfig.mbti) {
-    personalityConfig.mbti = config.mbti;
-  }
-
-  const personality = new Personality(personalityConfig);
+  const personality = new Personality(buildPersonalityConfig(config));
   const emotion = new EmotionVector(personality, null, rng, config.emotion || null, config.contagion || null);
   const stateMachine = new StateMachine(config.initialState || null, null, domain);
   const memory = new PersonalMemory(agentId, config.seedMemories || [], null, domain, rng, config.memory || null);
@@ -79,7 +82,11 @@ function createSubsystems(config, agentId, domain, rng) {
  * @returns {Object} Same shape as createSubsystems
  */
 function restoreSubsystems(savedState, config, agentId, domain, rng) {
-  const personality = savedState.personality ? Personality.fromJSON(savedState.personality) : new Personality({ id: agentId });
+  savedState = savedState || {};
+  config = config || {};
+  const personality = savedState.personality
+    ? Personality.fromJSON(savedState.personality)
+    : new Personality(buildPersonalityConfig(config));
   const emotion = new EmotionVector(personality, savedState.emotion, rng, config.emotion || null, config.contagion || null);
   const stateMachine = savedState.stateMachine ? new StateMachine(null, savedState.stateMachine, domain) : new StateMachine(null, null, domain);
   const memory = new PersonalMemory(agentId, [], savedState.memory, domain, rng, config.memory || null);

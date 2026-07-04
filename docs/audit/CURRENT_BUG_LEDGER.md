@@ -15,13 +15,13 @@
 
 | Field | Value |
 |---|---|
-| Updated | 2026-07-04 |
+| Updated | 2026-07-05 |
 | Repository | `/Users/huangweijie/Desktop/andy-engine` |
 | External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
-| Current gate snapshot | 2026-07-04 R146 runtime hardening: `npm test` 3293 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100 ticks matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
-| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`; R99 committed at `3b3f639`; R144 committed as `9e03ce1`; R145 committed as `95fbaa8` with event config truth path + weather probability semantics fixes + 2 false-positive rejections (SDK/facts null-options). |
+| Current gate snapshot | 2026-07-05 R147 public boundary + R146 defensive-guard follow-up: `npm test` 3309 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run typecheck` clean; `npm run smoke:pack` 19/19; `npm run replay:diff` 100 ticks matched; `npm run perf:check` all PASS; `npm run fresh:consumer` passed; `npm run sqlite:smoke` passed; `npm run release:clean` passed; `git diff --check` clean. |
+| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`; R99 committed at `3b3f639`; R144 committed as `9e03ce1`; R145 committed as `95fbaa8`. R145's SDK/facts null-options false-positive rejections were incorrect because ES default parameters do not protect explicit `null`; R147 fixes and documents that correction in the current worktree. |
 
 ## How To Use This Ledger
 
@@ -5059,30 +5059,30 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | Field | Detail |
 |---|---|
 | ID | R145-SDK-NULL-OPTIONS-BOUNDARY-1 |
-| Severity | False positive |
+| Severity | Superseded by R147 P1 |
 | Audit finding | Chief Planner documented 5 potential null-options crashes in SDK: `Character.getContext(null)`, `Character.chat('hi', null)`, `Character.chatStream('hi', null)`, `Andy.chat(id, 'hi', null)`, `Andy.load(state, null)`. All claimed to crash on `options.userText`, `options.llm`, or `options.domain` property access. |
 | Evidence | `src/sdk/Character.js`, `src/sdk/Andy.js` — all public methods use `options = {}` default parameter. `null` resolves to `{}`, making all property accesses safe (`undefined`, not crash). |
-| Verification verdict | Rejected: all 5 claims are false positives. ES6 default parameters (`options = {}`) already protect against null. No crash possible. |
-| Fix | None needed — code is correct. |
-| Files | N/A |
-| Regression test | N/A — no bug exists. |
-| Re-verification | Independent audit confirmed all 5 methods are properly guarded. |
-| Status | Rejected (false positive). |
+| Verification verdict | Superseded by R147: this rejection was incorrect. ES6 default parameters (`options = {}`) protect `undefined`, not explicit `null`. R147 confirmed and fixed the null-options boundary. |
+| Fix | See R147-P1-SDK-NULL-OPTIONS-BOUNDARY-1. |
+| Files | See R147 entry. |
+| Regression test | See R147 entry. |
+| Re-verification | See R147 entry. |
+| Status | Superseded by R147-P1-SDK-NULL-OPTIONS-BOUNDARY-1. |
 
 ### R145-FACTS-NULL-OPTIONS-BOUNDARY-1
 
 | Field | Detail |
 |---|---|
 | ID | R145-FACTS-NULL-OPTIONS-BOUNDARY-1 |
-| Severity | False positive |
+| Severity | Superseded by R147 P1/P2 |
 | Audit finding | Chief Planner documented 3 potential null-options crashes: `WorldFactStore.getFactsForAgent('a', null)` on `options.types`, `KnowledgeStore.getKnownFacts('a', null)` on `options.types`, `FactProvider.getGroundingPackage('a', null)` on `options.maxFacts`. |
 | Evidence | `src/canon/WorldFactStore.js:372` — `getFactsForAgent(agentId, options = {})` has default parameter. `src/knowledge/KnowledgeStore.js:161` — `getKnownFacts(agentId, options = {})` has default parameter. `src/narrative/FactProvider.js:99` — `getGroundingPackage(agentId, options = {})` has default parameter. |
-| Verification verdict | Rejected: all 3 claims are false positives. ES6 default parameters (`options = {}`) already protect against null. No crash possible. |
-| Fix | None needed — code is correct. |
-| Files | N/A |
-| Regression test | N/A — no bug exists. |
-| Re-verification | Independent audit confirmed all 3 methods are properly guarded. |
-| Status | Rejected (false positive). |
+| Verification verdict | Superseded by R147: this rejection was incorrect. ES6 default parameters (`options = {}`) protect `undefined`, not explicit `null`. R147 confirmed and fixed the null-options boundary. |
+| Fix | See R147-P1-FACTS-NULL-OPTIONS-BOUNDARY-1. |
+| Files | See R147 entry. |
+| Regression test | See R147 entry. |
+| Re-verification | See R147 entry. |
+| Status | Superseded by R147-P1-FACTS-NULL-OPTIONS-BOUNDARY-1. |
 
 ### R145-SPATIAL-CONFIG-SHAPE-CONSISTENCY-1
 
@@ -5217,6 +5217,127 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | Files | `src/store/Serialization.js` |
 | Regression test | Config injection restore test: function-valued properties survive deep-copy via structuredClone. |
 | Re-verification | `npm test` 3293 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+## R147 - Public Null-Options Boundary + Defensive Guard Follow-Up
+
+This round combines Chief Planner direct repro, an external no-quota read-only
+review using `agnes/agnes-2.0-flash`, and local deterministic regression tests.
+It corrects the R145 null-options false-positive mistake and hardens the R146
+defensive-guard fixes that were only partial.
+
+| Field | Detail |
+|---|---|
+| Date | 2026-07-05 |
+| Scope | Public SDK/facts null-options boundary; selected action serialization; restore config clone; bridge snapshot safety; utility scoring invalid totals; partial agent restore fidelity; weather probability validation. |
+| External model audit | `zsh -lic 'opencode run --pure -m agnes/agnes-2.0-flash ...'` no-edit review over `SelectedAction`, `Serialization`, `AndyBridge`, `UtilityScorer`, `AgentSubsystemFactory`, tests, and this ledger. Agnes confirmed issues 1-4 and independently found the missing `diagnostics` import in `AndyBridge`; it rejected the personality fallback issue as design preference. Chief Planner overrode that last point as a low-risk partial-restore fidelity improvement. |
+| Targeted verification | Deterministic repro confirmed `SelectedAction(...candidate:null).toJSON()` threw pre-fix, `Serialization.deserialize(...function config...)` threw `DataCloneError` pre-fix, and `AndyBridge._serializeAgents()` threw `ReferenceError: diagnostics is not defined` on circular snapshot pre-fix. |
+| Targeted tests | `npx vitest run tests/action-layer.test.js tests/unit/config-injection-restore.test.js tests/unit/andy-bridge-internal.test.js tests/unit/utility-scorer.test.js tests/unit/utility-selector.test.js tests/unit/config/validate-config.test.js tests/agent-runtime-containment.test.js --no-color` -> 7 files / 210 passed. SDK/facts/store targeted suite -> 5 files / 219 passed. |
+| Full gates | `npm test -- --run --no-color` -> 194 files passed / 1 skipped, 3309 passed / 28 skipped; `npm run test:domain -- --no-color` -> 82 passed; `npm run check:boundaries -- --no-color` clean; `npm run typecheck` clean; `npm run smoke:pack` -> 19/19; `npm run replay:diff` -> 100/100 matched; `npm run perf:check` all PASS; `npm run fresh:consumer` passed; `npm run sqlite:smoke` passed; `npm run release:clean` passed; `git diff --check` clean. |
+| Status | Fixed and verified in current worktree. |
+
+### R147-P1-SDK-NULL-OPTIONS-BOUNDARY-1
+
+| Field | Detail |
+|---|---|
+| ID | R147-P1-SDK-NULL-OPTIONS-BOUNDARY-1 |
+| Severity | P1 |
+| Audit finding | R145 rejected SDK null-options crashes as false positives, claiming `options = {}` protects explicit `null`. That is incorrect JavaScript semantics: default parameters only apply to `undefined`. `Character.getContext(null)`, `Character.chat(..., null)`, `Character.chatStream(..., null)`, `Andy.chat(..., null)`, `Andy.load(state, null)`, and `Character.load(state, null)` could dereference `options.*`. |
+| Verification verdict | Confirmed by Chief Planner repro and code read. After the fix, explicit `null` behaves like omitted options; `Character.chat('hi', null)` reaches the normal missing-API-key LLM error instead of an `options.llm` TypeError. |
+| Fix | Normalize public options with `options = options ?? {};` at method entry. |
+| Files | `src/sdk/Character.js`; `src/sdk/Andy.js` |
+| Regression test | `tests/sdk.test.js` covers Character getContext/chat/chatStream and Andy chat/load explicit null options. |
+| Status | Fixed. |
+
+### R147-P1-FACTS-NULL-OPTIONS-BOUNDARY-1
+
+| Field | Detail |
+|---|---|
+| ID | R147-P1-FACTS-NULL-OPTIONS-BOUNDARY-1 |
+| Severity | P1 when facts facade is treated as public-supported; otherwise P2 internal semantic-layer hardening. |
+| Audit finding | R145 rejected facts null-options crashes as false positives for the same incorrect default-parameter reason. `WorldFactStore.getFactsForAgent(agentId, null)`, `KnowledgeStore.getKnownFacts(agentId, null)`, and `FactProvider.getGroundingPackage(agentId, null)` could dereference `options.*`. |
+| Verification verdict | Confirmed. KnowledgeStore only looked safe for empty knowledge sets; non-empty known facts hit the options path. |
+| Fix | Normalize options with `options = options ?? {};` in the three public/query methods. |
+| Files | `src/canon/WorldFactStore.js`; `src/knowledge/KnowledgeStore.js`; `src/narrative/FactProvider.js` |
+| Regression test | `tests/facts/world-fact-store.test.js`; `tests/facts/knowledge-store.test.js`; `tests/unit/narrative/fact-provider-evidence.test.js`. |
+| Status | Fixed. |
+
+### R147-P2-SELECTEDACTION-NULL-TOJSON-1
+
+| Field | Detail |
+|---|---|
+| ID | R147-P2-SELECTEDACTION-NULL-TOJSON-1 |
+| Severity | P2 |
+| Audit finding | R146 guarded `SelectedAction` accessors for null candidate but left `toJSON()` dereferencing `this.candidate.toJSON`. Null selected actions could still crash during serialization/explainability output. |
+| Verification verdict | Confirmed by deterministic repro: `new SelectedAction({ candidate: null, ... }).toJSON()` threw pre-fix. |
+| Fix | Serialize `candidate` as `null` when no candidate exists. |
+| Files | `src/action/SelectedAction.js` |
+| Regression test | `tests/action-layer.test.js` explicit null candidate toJSON test. |
+| Status | Fixed. |
+
+### R147-P2-SERIALIZATION-FUNCTION-CONFIG-1
+
+| Field | Detail |
+|---|---|
+| ID | R147-P2-SERIALIZATION-FUNCTION-CONFIG-1 |
+| Severity | P2 |
+| Audit finding | R146 replaced JSON clone with raw `structuredClone()` to preserve Date values. That preserved Date but introduced `DataCloneError` when caller restore config contained function-valued extension hooks. |
+| Verification verdict | Confirmed by deterministic repro: `Serialization.deserialize(envelope, { customFn: () => 1 })` threw `DataCloneError` pre-fix; Date config survived. |
+| Fix | Added a custom runtime-config clone helper that preserves `Date`, deep-clones arrays/plain objects, handles cycles, and leaves non-plain extension references such as functions intact instead of invoking `structuredClone`. |
+| Files | `src/store/Serialization.js` |
+| Regression test | `tests/unit/config-injection-restore.test.js`; `tests/store/store-serialization.test.js`. |
+| Status | Fixed. |
+
+### R147-P1-ANDYBRIDGE-SAFE-SERIALIZE-1
+
+| Field | Detail |
+|---|---|
+| ID | R147-P1-ANDYBRIDGE-SAFE-SERIALIZE-1 |
+| Severity | P1 |
+| Audit finding | R146 wrapped `_serializeAgents()` in catch but called `diagnostics` without importing it, so the catch path itself threw `ReferenceError`. Even if imported, returning `Buffer.alloc(0)` for a circular reference would conflate "no Andy instance" with "snapshot failed" and could silently discard every agent snapshot. |
+| Verification verdict | Confirmed by Chief Planner repro and agnes review. |
+| Fix | Import diagnostics, isolate serialization per agent, use a safe JSON replacer that removes recursive edges and stringifies BigInt, skip only the agent whose `toJSON`/serialization fails, and return JSON `[]` only for the final impossible fallback rather than an empty buffer. |
+| Files | `src/sdk/AndyBridge.js` |
+| Regression test | `tests/unit/andy-bridge-internal.test.js` covers legacy delimiter, circular snapshot, and one bad agent not deleting good agents. |
+| Status | Fixed. |
+
+### R147-P2-UTILITYSCORER-INVALID-TOTAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R147-P2-UTILITYSCORER-INVALID-TOTAL-1 |
+| Severity | P2 |
+| Audit finding | R146 changed non-finite `breakdown.total` to `0`. That avoids NaN propagation but accidentally lets corrupted candidates compete above legitimate negative-score candidates. |
+| Verification verdict | Confirmed as ranking-risk, not a crash. `UtilitySelector` already filters non-finite totals, so `0` was the unsafe part. |
+| Fix | Set non-finite totals to `Number.NEGATIVE_INFINITY` so the existing selector finite-score filter removes the corrupted candidate. |
+| Files | `src/action/UtilityScorer.js` |
+| Regression test | `tests/unit/utility-scorer.test.js`; existing `tests/unit/utility-selector.test.js` confirms all-invalid candidates return null. |
+| Status | Fixed. |
+
+### R147-P2-AGENT-RESTORE-PERSONALITY-FALLBACK-1
+
+| Field | Detail |
+|---|---|
+| ID | R147-P2-AGENT-RESTORE-PERSONALITY-FALLBACK-1 |
+| Severity | P2 |
+| Audit finding | R146 fixed missing `savedState.personality` crashes by constructing a default personality, but that silently changed partial restored agents to default INFP instead of honoring their original `config.mbti` / `config.personality`. |
+| Verification verdict | Confirmed as partial/corrupt snapshot fidelity issue. Agnes rejected this as a design decision; Chief Planner accepted the conservative config fallback because full snapshots still use `savedState.personality`, while partial restore should prefer the caller's known agent template over a hardcoded default. |
+| Fix | Reuse the same `buildPersonalityConfig(config)` logic for fresh and partial restore paths. |
+| Files | `src/agent/lifecycle/AgentSubsystemFactory.js` |
+| Regression test | `tests/agent-runtime-containment.test.js` verifies partial restore without personality rebuilds ENFP from config. |
+| Status | Fixed. |
+
+### R147-P2-WEATHER-PROBABILITY-VALIDATION-1
+
+| Field | Detail |
+|---|---|
+| ID | R147-P2-WEATHER-PROBABILITY-VALIDATION-1 |
+| Severity | P2 |
+| Audit finding | R145 fixed weather transition probability semantics but validation still accepted negative per-weather probabilities as long as the seasonal sum was positive, e.g. `{ sunny: -1, rain: 2 }`. Runtime cumulative sampling then had undefined distribution semantics. |
+| Verification verdict | Confirmed by config validator read. |
+| Fix | Validate each `weatherConfig.seasonProbabilities[season][weather]` as a finite number in `[0, 1]`, and reject non-object season tables. |
+| Files | `src/config/validate.js` |
+| Regression test | `tests/unit/config/validate-config.test.js` covers negative, NaN, non-object, and transition probability validation. |
 | Status | Fixed. |
 
 ## Rules For Future Entries

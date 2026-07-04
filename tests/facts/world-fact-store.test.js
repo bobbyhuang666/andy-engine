@@ -457,6 +457,11 @@ describe('WorldFactStore - getFactsForAgent', () => {
     expect(facts.length).toBeLessThanOrEqual(2);
   });
 
+  it('explicit null options behaves like omitted options', () => {
+    expect(() => store.getFactsForAgent('alice', null)).not.toThrow();
+    expect(store.getFactsForAgent('alice', null)).toEqual(store.getFactsForAgent('alice'));
+  });
+
   it('结果应该按时间降序排列', () => {
     const facts = store.getFactsForAgent('alice');
     for (let i = 1; i < facts.length; i++) {

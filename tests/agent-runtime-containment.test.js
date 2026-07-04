@@ -195,6 +195,26 @@ describe('Agent Containment: constructor behavior preserved', () => {
 });
 
 describe('Agent Containment: serialize → restore → tick smoke', () => {
+  it('partial restore without personality rebuilds personality from agent config', () => {
+    const Agent = require('../agent/Agent.js');
+    const agent = new Agent({
+      id: 'partial-personality',
+      name: 'Partial',
+      personality: { mbti: 'ENFP' },
+      schedule: {},
+      domain: campusDomain,
+    }, {
+      id: 'partial-personality',
+      name: 'Partial',
+      position: '图书馆',
+      health: 0.8,
+      socialEnergy: 0.6,
+    });
+
+    expect(agent.personality.mbti).toBe('ENFP');
+    expect(agent.personality.ocean.extraversion).toBeGreaterThan(0.7);
+  });
+
   it('roundtrip: create → tick → toJSON → new Agent(savedState) → tick', () => {
     const Agent = require('../agent/Agent.js');
 

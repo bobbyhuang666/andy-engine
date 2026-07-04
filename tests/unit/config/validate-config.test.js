@@ -251,6 +251,45 @@ describe('validateConfig — mindWander block', () => {
 });
 
 // ═══════════════════════════════════════════
+// validateConfig — weather block
+// ═══════════════════════════════════════════
+describe('validateConfig — weather block', () => {
+  it('rejects transitionProb out of range', () => {
+    expect(() => validateConfig({ weatherConfig: { transitionProb: 2 } })).toThrow(/weatherConfig\.transitionProb/);
+  });
+
+  it('rejects negative season probabilities', () => {
+    expect(() => validateConfig({
+      weatherConfig: {
+        seasonProbabilities: {
+          spring: { sunny: -1, rain: 2 },
+        },
+      },
+    })).toThrow(/weatherConfig\.seasonProbabilities\.spring\.sunny/);
+  });
+
+  it('rejects non-finite season probabilities', () => {
+    expect(() => validateConfig({
+      weatherConfig: {
+        seasonProbabilities: {
+          spring: { sunny: NaN, rain: 1 },
+        },
+      },
+    })).toThrow(/weatherConfig\.seasonProbabilities\.spring\.sunny/);
+  });
+
+  it('rejects non-object season probability tables', () => {
+    expect(() => validateConfig({
+      weatherConfig: {
+        seasonProbabilities: {
+          spring: null,
+        },
+      },
+    })).toThrow(/weatherConfig\.seasonProbabilities\.spring/);
+  });
+});
+
+// ═══════════════════════════════════════════
 // validateConfig — 一致性检查 + 聚合错误
 // ═══════════════════════════════════════════
 describe('validateConfig — consistency & aggregation', () => {

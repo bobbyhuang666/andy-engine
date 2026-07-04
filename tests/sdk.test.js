@@ -68,6 +68,17 @@ describe('Character 基础功能', () => {
     expect(ctx.groundingPackage).toBeNull();
   });
 
+  it('public method options treat explicit null like omitted options', async () => {
+    expect(() => character.getContext(null)).not.toThrow();
+    await expect(character.chat('你好', null)).resolves.toEqual(expect.any(String));
+
+    const chunks = [];
+    for await (const chunk of character.chatStream('你好', null)) {
+      chunks.push(chunk);
+    }
+    expect(chunks.join('')).toEqual(expect.any(String));
+  });
+
   it('getContext 在显式启用 facts 时包含 grounding 约束', () => {
     const grounded = new Character({
       name: 'GroundedMaya',
@@ -410,6 +421,17 @@ describe('Andy 多角色引擎', () => {
 
     const reply = await world.chat('maya', '你好');
     expect(typeof reply).toBe('string');
+  });
+
+  it('chat/load options treat explicit null like omitted options', async () => {
+    const world = new Andy({ llm: mockLLM });
+    world.addCharacter({ name: 'Maya', personality: 'INFP', id: 'maya' });
+
+    await expect(world.chat('maya', '你好', null)).resolves.toEqual(expect.any(String));
+
+    const state = world.save();
+    const restored = Andy.load(state, null);
+    expect(restored.getCharacter('maya')).toBeDefined();
   });
 
   it('tick 推进模拟', () => {

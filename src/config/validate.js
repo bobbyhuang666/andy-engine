@@ -315,6 +315,13 @@ function validateConfig(config) {
     }
     if (wc.seasonProbabilities) {
       for (const [season, probs] of Object.entries(wc.seasonProbabilities)) {
+        if (!probs || typeof probs !== 'object' || Array.isArray(probs)) {
+          errors.push(`weatherConfig.seasonProbabilities.${season} 必须是对象`);
+          continue;
+        }
+        for (const [weather, probability] of Object.entries(probs)) {
+          checkRange(probability, 0, 1, `weatherConfig.seasonProbabilities.${season}.${weather}`, errors);
+        }
         const sum = Object.values(probs).reduce((a, b) => a + b, 0);
         if (!Number.isFinite(sum) || sum <= 0) {
           errors.push(`weatherConfig.seasonProbabilities.${season}: probabilities must sum to a positive number, got ${sum}`);

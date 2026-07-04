@@ -147,6 +147,20 @@ describe('SelectedAction', () => {
     expect(json.candidate.type).toBe('rest');
     expect(json.score.total).toBe(0.5);
   });
+
+  it('toJSON tolerates null candidate', () => {
+    const selected = new SelectedAction({
+      candidate: null,
+      score: { total: Number.NEGATIVE_INFINITY },
+      temperature: 0.5,
+      alternatives: [],
+      reasonTrace: null,
+    });
+
+    const json = selected.toJSON();
+    expect(json.candidate).toBeNull();
+    expect(json.score.total).toBe(Number.NEGATIVE_INFINITY);
+  });
 });
 
 // ═══════════════════════════════════════════

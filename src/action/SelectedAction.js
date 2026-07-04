@@ -38,7 +38,9 @@ class SelectedAction {
 
   toJSON() {
     return {
-      candidate: this.candidate.toJSON ? this.candidate.toJSON() : this.candidate,
+      candidate: this.candidate
+        ? (this.candidate.toJSON ? this.candidate.toJSON() : this.candidate)
+        : null,
       score: this.score,
       temperature: this.temperature,
       alternatives: this.alternatives,

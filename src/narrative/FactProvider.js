@@ -97,6 +97,7 @@ class FactProvider {
    * @returns {Object} groundingPackage
    */
   getGroundingPackage(agentId, options = {}) {
+    options = options ?? {};
     const maxFacts = options.maxFacts || 50;
     const allowedFacts = this._getAllowedFacts(agentId, options).slice(0, maxFacts);
     const inferredFacts = this._getInferredFacts(agentId, options).slice(0, maxFacts);
