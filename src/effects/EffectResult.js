@@ -74,10 +74,18 @@ class EffectResult {
     for (const delta of this.deltas) {
       switch (delta.type) {
         case 'need':
-          Object.assign(stateDeltas.need, delta.changes);
+          // R139: additive merge — multiple NeedDeltas targeting the same need
+          // must sum their changes, not overwrite. Object.assign replaces.
+          for (const [key, val] of Object.entries(delta.changes)) {
+            stateDeltas.need[key] = (stateDeltas.need[key] || 0) + val;
+          }
           break;
         case 'emotion':
-          Object.assign(stateDeltas.emotion, delta.changes);
+          // R139: additive merge — multiple EmotionDeltas targeting the same
+          // dimension must sum their changes, not overwrite.
+          for (const [key, val] of Object.entries(delta.changes)) {
+            stateDeltas.emotion[key] = (stateDeltas.emotion[key] || 0) + val;
+          }
           break;
         case 'memory':
           stateDeltas.memory = {

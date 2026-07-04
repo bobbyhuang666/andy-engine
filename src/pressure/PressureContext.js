@@ -42,11 +42,28 @@ class PressureContext {
     const { world, agent, events, simTime } = context;
     const memOptions = simTime ? { simTime } : {};
 
+    // R139: extract relationships array from socialGraph for RelationshipPressure.
+    // The agent snapshot may have socialGraph but not relationships — RelationshipPressure
+    // expects agentSnapshot.relationships. Extract from socialGraph adjacency.
+    let relationships = [];
+    if (agent?.socialGraph) {
+      try {
+        // Collect all relationships from the social graph adjacency map
+        for (const [, relMap] of agent.socialGraph._adjacency || new Map()) {
+          for (const [, rel] of relMap) {
+            relationships.push(rel);
+          }
+        }
+      } catch (_) {
+        // socialGraph may not expose _adjacency in all configurations
+      }
+    }
+
     return new PressureContext({
       worldPressure: WorldPressure.compute({ world, agent, events }),
       needPressure: NeedPressure.compute(agent),
       memoryPressure: MemoryPressure.compute(agent, memOptions),
-      relationshipPressure: RelationshipPressure.compute(agent),
+      relationshipPressure: RelationshipPressure.compute({ ...agent, relationships }),
       locationPressure: LocationPressure.compute(agent),
     });
   }

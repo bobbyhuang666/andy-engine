@@ -4586,6 +4586,66 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
 | Status | Fixed. |
 
+### R139-EFFECTRESULT-ADDITIVE-MERGE-1
+
+| Field | Detail |
+|---|---|
+| ID | R139-EFFECTRESULT-ADDITIVE-MERGE-1 |
+| Severity | P1 |
+| Audit finding | `EffectResult.toLegacyFormat()` used `Object.assign(stateDeltas.need, delta.changes)` and `Object.assign(stateDeltas.emotion, delta.changes)` — when multiple NeedDeltas or EmotionDeltas targeted the same property, the later delta silently overwrote the earlier one instead of summing. This caused incorrect need/emotion computation in the legacy path. |
+| Evidence | `src/effects/EffectResult.js:77,80`; `Object.assign` replaces, not adds. |
+| Verification verdict | Confirmed: two NeedDeltas for same need → second overwrites first → lost contribution. |
+| Fix | Changed to additive merge loop: `stateDeltas.need[key] = (stateDeltas.need[key] || 0) + val`. |
+| Files | `src/effects/EffectResult.js` |
+| Regression test | Existing effect tests pass; multiple deltas for same need now sum correctly. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R139-SCHEDULEHANDLER-FALSE-STATE-CHANGED-1
+
+| Field | Detail |
+|---|---|
+| ID | R139-SCHEDULEHANDLER-FALSE-STATE-CHANGED-1 |
+| Severity | P1 |
+| Audit finding | `ScheduleHandler` unconditionally set `result.stateChanged = true` when `prevLabel !== scheduleResult.altState` — but this comparison only checks the *intended* alt state, not whether `behaviorField.tick()` actually produced a label change. The flag could be a false positive if the attractor hadn't had time to shift B yet. |
+| Evidence | `src/agent/handlers/ScheduleHandler.js:151-152`; unconditional stateChanged assignment. |
+| Verification verdict | Confirmed: attractor set but B not yet shifted → stateChanged false positive. |
+| Fix | Removed unconditional `result.stateChanged = true` from ScheduleHandler. AgentRuntime.tick() steps 6-7 remain the sole authority on state change detection. |
+| Files | `src/agent/handlers/ScheduleHandler.js` |
+| Regression test | Existing handler tests pass; stateChanged now only set by actual label change. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R139-RELATIONSHIPPRESSURE-ZERO-1
+
+| Field | Detail |
+|---|---|
+| ID | R139-RELATIONSHIPPRESSURE-ZERO-1 |
+| Severity | P1 |
+| Audit finding | `PressureContext.fromSnapshot()` passed `agent` object directly to `RelationshipPressure.compute(agent)` — but `RelationshipPressure.compute()` expects `agentSnapshot.relationships` (an array), while the agent object has `socialGraph` (a Map-based graph). This caused `RelationshipPressure` to always return `{ isolation: 0, conflict: 0, decay: 0, total: 0 }`, making relationship pressure a dead signal in the action scoring pipeline. |
+| Evidence | `src/pressure/PressureContext.js:49`; `RelationshipPressure.compute(agent)` passes wrong shape. `src/pressure/RelationshipPressure.js:34`; expects `agentSnapshot.relationships`. |
+| Verification verdict | Confirmed: agent has socialGraph but not relationships → RelationshipPressure always returns zero. |
+| Fix | Extracted relationships array from `agent.socialGraph._adjacency` and passed as `relationships` property to `RelationshipPressure.compute()`. |
+| Files | `src/pressure/PressureContext.js` |
+| Regression test | Existing pressure tests pass; RelationshipPressure now receives correct data shape. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R139-WORLDFACTSTORE-EVICTION-BOUNDS-1
+
+| Field | Detail |
+|---|---|
+| ID | R139-WORLDFACTSTORE-EVICTION-BOUNDS-1 |
+| Severity | P2 |
+| Audit finding | `WorldFactStore.addFact()` only evicted EVENT, OBSERVATION, MEMORY, and INVALIDATED fact types. STATIC_ENV, AGENT_STATE, RELATIONSHIP, RULE, and LOCATION_MEANING facts had no eviction bounds — they accumulated indefinitely, potentially causing unbounded memory growth in long-running simulations. |
+| Evidence | `src/canon/WorldFactStore.js:122-132`; only 4 of 9 fact types had eviction. |
+| Verification verdict | Confirmed: 5 fact types with no eviction limit → unbounded growth. |
+| Fix | Added eviction constants and eviction calls for all 9 fact types: STATIC_ENV (500), AGENT_STATE (1000), RELATIONSHIP (2000), RULE (200), LOCATION_MEANING (500). |
+| Files | `src/canon/WorldFactStore.js` |
+| Regression test | Existing fact store tests pass; all fact types now have eviction bounds. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
 | R87-SOCIALGRAPH-DUNBAR-ENFORCE-1 | P2 design | `_enforceDunbarLimits()` is a read-only projection — it calls `_projectDunbarLayers()` but discards the return value, and `_projectDunbarLayers()` never mutates `rel.type` or `rel.strength`. Dunbar limits are never actually enforced; agents can accumulate unlimited close friends. | Deferred: requires design decision on whether to downgrade relationship types (symmetric shared edge vs per-agent perception). Fix would add `_downgradeType()` method. |
 | R87-EMOTIONVECTOR-DIMENSION-BIAS-1 | P3 | `_pinkNoiseDrift()` selects 3-6 random dimensions with replacement — same dimension can be picked multiple times in one tick (~26% probability), creating cumulative noise bias. | Deferred: noise amplitude is small and damped; shuffle-and-pick-unique is a cleanup item when emotion drift is next touched. |
 

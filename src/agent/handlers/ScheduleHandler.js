@@ -148,9 +148,11 @@ class ScheduleHandler {
             // and stateMachine history when the label actually changes after
             // behaviorField.tick(). This avoids duplicate state_change events
             // and inconsistent history entries on the same tick.
-            if (prevLabel !== scheduleResult.altState) {
-              result.stateChanged = true;
-            }
+            // R139: removed false-positive stateChanged assignment.
+            // AgentRuntime.tick() steps 6-7 are the sole authority on
+            // state change detection (compares behaviorResult.label vs
+            // prevLabel). ScheduleHandler's attractor-only job should not
+            // claim stateChanged — the label may not actually change.
           }
         }
 

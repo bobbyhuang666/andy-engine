@@ -163,6 +163,7 @@ This changes sequencing:
 | CanonEventPipeline learnedAt + BehaviorField NaN needs weight + WorldFactStore non-string agentId | Closed in R137 | _tryToldPropagation used unsafe eventTime for learnedAt; _computeGradient Math.min with NaN needs; _indexAgents coerced non-string agentIds. All fixed. |
 | ANDY_DEFAULTS shallow copy + SocialGraph Dunbar no-op + EmotionVector contagion NaN weight | Closed in R138 | ANDY_DEFAULTS nested refs shared across instances; _enforceDunbarLimits never enforced capacity; _socialContagion NaN weight bypassed || fallback. All fixed. |
 | SimulationStore silent snapshot + WorldFactStore validator NaN strength | Closed in R138 | _saveSnapshot silent failure with no diagnostic; validateWorldState NaN strength bypass. All fixed. |
+| EffectResult additive merge + ScheduleHandler false stateChanged + RelationshipPressure zero + WorldFactStore eviction bounds | Closed in R139 | toLegacyFormat Object.assign overwrote same-property deltas; ScheduleHandler false-positive stateChanged; RelationshipPressure always zero due to wrong agent shape; 5 fact types lacked eviction bounds. All fixed. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

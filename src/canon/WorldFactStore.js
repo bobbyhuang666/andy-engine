@@ -27,6 +27,12 @@ const MAX_EVENT_FACTS = 2000;
 const MAX_OBSERVATION_FACTS = 2000;
 const MAX_MEMORY_FACTS = 5000;
 const MAX_INVALIDATED_FACTS = 2000;
+// R139: eviction bounds for fact types previously lacking limits
+const MAX_STATIC_ENV_FACTS = 500;
+const MAX_AGENT_STATE_FACTS = 1000;
+const MAX_RELATIONSHIP_FACTS = 2000;
+const MAX_RULE_FACTS = 200;
+const MAX_LOCATION_MEANING_FACTS = 500;
 
 class WorldFactStore {
   constructor() {
@@ -129,6 +135,16 @@ class WorldFactStore {
       this._evictFactsByType(FactType.MEMORY, MAX_MEMORY_FACTS);
     } else if (fact.type === FactType.INVALIDATED) {
       this._evictFactsByType(FactType.INVALIDATED, MAX_INVALIDATED_FACTS);
+    } else if (fact.type === FactType.STATIC_ENV) {
+      this._evictFactsByType(FactType.STATIC_ENV, MAX_STATIC_ENV_FACTS);
+    } else if (fact.type === FactType.AGENT_STATE) {
+      this._evictFactsByType(FactType.AGENT_STATE, MAX_AGENT_STATE_FACTS);
+    } else if (fact.type === FactType.RELATIONSHIP) {
+      this._evictFactsByType(FactType.RELATIONSHIP, MAX_RELATIONSHIP_FACTS);
+    } else if (fact.type === FactType.RULE) {
+      this._evictFactsByType(FactType.RULE, MAX_RULE_FACTS);
+    } else if (fact.type === FactType.LOCATION_MEANING) {
+      this._evictFactsByType(FactType.LOCATION_MEANING, MAX_LOCATION_MEANING_FACTS);
     }
 
     return this._deepCopyFact(stored);
