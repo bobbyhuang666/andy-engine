@@ -10,6 +10,12 @@
 
 const { getDefaultDomain } = require('../../domain/DomainRegistry');
 
+function safeDate(value, fallback = new Date(0)) {
+  if (value == null) return new Date(fallback.getTime());
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(date.getTime()) ? date : new Date(fallback.getTime());
+}
+
 // 向后兼容：默认 STATES（从 campus domain 取）
 // 不在模块顶层调用 getDefaultDomain()——改为惰性求值，消除模块级硬绑定（Wave 3b-0）。
 
@@ -29,7 +35,7 @@ class StateMachine {
 
     if (savedState) {
       this.currentState = savedState.currentState;
-      this.stateEnteredAt = new Date(savedState.stateEnteredAt);
+      this.stateEnteredAt = safeDate(savedState.stateEnteredAt);
       this.history = [...(savedState.history || [])];
     } else {
       this.currentState = initialState || this.domain.fallback.defaultState;
@@ -45,9 +51,12 @@ class StateMachine {
    */
   getInfo(simTime) {
     const def = this._states[this.currentState];
-    const elapsed = simTime
-      ? Math.max(0, (simTime - this.stateEnteredAt) / (1000 * 60))
+    const simMs = simTime instanceof Date ? simTime.getTime() : new Date(simTime).getTime();
+    const enteredMs = this.stateEnteredAt.getTime();
+    const rawElapsed = Number.isFinite(simMs) && Number.isFinite(enteredMs)
+      ? (simMs - enteredMs) / (1000 * 60)
       : 0;
+    const elapsed = Math.max(0, rawElapsed);
     return {
       state: this.currentState,
       category: def ? def.category : 'unknown',

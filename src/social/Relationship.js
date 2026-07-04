@@ -30,6 +30,12 @@ function mergeRelationshipConfig(config = null) {
   };
 }
 
+function safeDate(value, fallback = new Date(0)) {
+  if (value == null) return new Date(fallback.getTime());
+  const date = value instanceof Date ? value : new Date(value);
+  return Number.isFinite(date.getTime()) ? date : new Date(fallback.getTime());
+}
+
 class Relationship {
   /**
    * @param {string} agentA - Agent A 的 ID
@@ -50,9 +56,7 @@ class Relationship {
       // R23 P0 fix: guard against undefined/null lastInteraction.
       // new Date(undefined) → Invalid Date → toISOString() crashes;
       // new Date(null) → epoch (1970) which silently corrupts recency.
-      this.lastInteraction = (savedState.lastInteraction != null)
-        ? new Date(savedState.lastInteraction)
-        : new Date(0); // epoch sentinel: deterministic fallback, matches R84 pattern
+      this.lastInteraction = safeDate(savedState.lastInteraction); // epoch sentinel fallback, matches R84 pattern
       this._hoursSinceLastInteraction = savedState._hoursSinceLastInteraction || 0;
       this.interactionCount = savedState.interactionCount || 0;
       this._relationalInteractions = savedState._relationalInteractions || 0;
@@ -63,7 +67,7 @@ class Relationship {
       // R8 fix: restore history entries, converting time strings back to Date objects
       this.history = (savedState.history || []).slice(-20).map(entry => ({
         ...entry,
-        time: entry.time instanceof Date ? entry.time : new Date(entry.time),
+        time: safeDate(entry.time),
       }));
     } else {
       this.type = 'stranger';
@@ -96,7 +100,7 @@ class Relationship {
   recordInteraction(type, valence, content = '', simTime = null) {
     if (!Number.isFinite(valence)) return;
     this.interactionCount++;
-    this.lastInteraction = simTime || new Date(0); // epoch sentinel: deterministic fallback
+    this.lastInteraction = safeDate(simTime); // epoch sentinel: deterministic fallback
     this._hoursSinceLastInteraction = 0; // 重置自上次交互以来的小时数
 
     // R41 H3 fix: NaN guard BEFORE branching decision, not after.
@@ -166,7 +170,7 @@ class Relationship {
       type,
       valence,
       content,
-      time: (simTime || new Date(0)).toISOString(), // epoch sentinel: deterministic fallback
+      time: safeDate(simTime).toISOString(), // epoch sentinel: deterministic fallback
       strengthAfter: this.strength,
     });
     if (this.history.length > 20) {
@@ -282,14 +286,14 @@ class Relationship {
       agentB: this.agentB,
       type: this.type,
       strength: this.strength,
-      lastInteraction: this.lastInteraction.toISOString(),
+      lastInteraction: safeDate(this.lastInteraction).toISOString(),
       _hoursSinceLastInteraction: this._hoursSinceLastInteraction,
       interactionCount: this.interactionCount,
       _relationalInteractions: this._relationalInteractions,
       impression: { ...this.impression },
       history: this.history.slice(-20).map(entry => ({
         ...entry,
-        time: entry.time instanceof Date ? entry.time.toISOString() : entry.time,
+        time: safeDate(entry.time).toISOString(),
       })),
     };
   }

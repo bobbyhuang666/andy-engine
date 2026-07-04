@@ -131,6 +131,7 @@ This changes sequencing:
 | IntrinsicMotivation need-gate curve test hardening | Closed in R127 | Post-R126 review verified the guard did not amplify satisfied-needs curiosity because `minSatisfaction` is capped at 1. Added tests for satisfied-needs cap and invalid-threshold finite fallback. |
 | IntrinsicMotivation needs-threshold zero guard | Closed in R128 | `_applyNeedGate()` still divided need values by `needs.threshold.*`; public validation allowed zero thresholds, so `0 / 0` could produce NaN effective curiosity. Runtime now skips non-positive denominators and validation rejects thresholds below 0.001. |
 | Pressure/Goal boundary hardening | Closed in R129 | `MemoryPressure` invalid Date parsing produced NaN totals, `GoalSystem` accepted non-finite priority/weight/nowMs into goal state, and `RelationshipPressure` invalid thresholds silently disabled pressure branches. Added finite guards and targeted regression tests. |
+| Serialization restore boundary hardening | Closed in R130 | Invalid restored dates in Relationship/StateMachine caused save-after-restore crashes; bad EventDispatcher eventLog/_nextId and SocialGraph edge entries crashed or produced `evt_NaN`. Added restore sanitization and serialization regression tests. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

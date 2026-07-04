@@ -2931,6 +2931,72 @@ This section records the R129 no-quota workflow pass. 2 MEDIUM and 1 LOW/P2 hard
 | Re-verification | Targeted suite: `npx vitest run tests/unit/memory-pressure-simtime.test.js tests/unit/goalsystem.test.js tests/unit/pressure-layer.test.js --no-color` -> 104 passed. |
 | Status | Fixed and verified. |
 
+## R130 - Serialization Restore Boundary Hardening
+
+This section records the R130 no-quota workflow pass. 4 restore-boundary findings fixed; 1 external-audit candidate rejected.
+
+### R130-001
+
+| Field | Detail |
+|---|---|
+| ID | R130-001 |
+| Severity | Medium |
+| Audit finding | `Relationship.fromJSON()` accepted invalid `lastInteraction` and `history[*].time` strings, storing Invalid Date objects. A later `toJSON()` called `toISOString()` and threw `RangeError: Invalid time value`, breaking save-after-restore. |
+| Evidence | Local repro on R129: `Relationship.fromJSON({ agentA:'a', agentB:'b', lastInteraction:'bad-date' }).toJSON()` threw `RangeError`; same for `history:[{ time:'bad-date' }]`. |
+| Fix | Added `safeDate()` normalization in restore, interaction recording, and serialization paths; invalid/missing dates fall back to deterministic epoch sentinel. |
+| Files | `src/social/Relationship.js`; `tests/unit/serialization-roundtrip.test.js` |
+| Regression test | Added invalid restored relationship date re-serialization test. |
+| Status | Fixed and targeted-test verified. |
+
+### R130-002
+
+| Field | Detail |
+|---|---|
+| ID | R130-002 |
+| Severity | Medium |
+| Audit finding | `StateMachine.fromJSON()` accepted invalid `stateEnteredAt`, storing Invalid Date and later throwing on `toJSON().stateEnteredAt`. `getInfo()` could also return NaN elapsed if given invalid simTime. |
+| Evidence | Local repro on R129: `StateMachine.fromJSON({ currentState:'idle', stateEnteredAt:'bad-date', history:[] }, domain).toJSON()` threw `RangeError`. |
+| Fix | Added `safeDate()` normalization for restored `stateEnteredAt` and finite elapsed calculation in `getInfo()`. |
+| Files | `src/agent/psychology/StateMachine.js`; `tests/unit/serialization-roundtrip.test.js` |
+| Regression test | Added invalid restored `stateEnteredAt` re-serialization and invalid simTime elapsed test. |
+| Status | Fixed and targeted-test verified. |
+
+### R130-003
+
+| Field | Detail |
+|---|---|
+| ID | R130-003 |
+| Severity | Medium |
+| Audit finding | `EventDispatcher.fromJSON()` assumed every `eventLog` entry was an object. A null entry crashed restore with `TypeError`. It also accepted `_nextId: NaN`, causing subsequent event ids like `evt_NaN`. |
+| Evidence | Local repro on R129: `EventDispatcher.fromJSON({ eventLog:[null] }, domain)` crashed; `EventDispatcher.fromJSON({ eventLog:[{id:'evt_5'}], _nextId: NaN }, domain).createEvent(...).id` returned `evt_NaN`. |
+| Fix | Skip non-object event entries and only accept non-negative integer `_nextId`; otherwise infer from restored event ids. |
+| Files | `src/runtime/EventDispatcher.js`; `tests/unit/serialization-roundtrip.test.js` |
+| Regression test | Added invalid eventLog/null and invalid `_nextId` repair test. |
+| Status | Fixed and targeted-test verified. |
+
+### R130-004
+
+| Field | Detail |
+|---|---|
+| ID | R130-004 |
+| Severity | Medium |
+| Audit finding | `SocialGraph.fromJSON()`/constructor assumed every restored edge was an object with both endpoints. Null or partial edge entries crashed restore before `Relationship` sanitization could run. |
+| Evidence | Local repro on R129: `SocialGraph.fromJSON({ edges:[null] }).toJSON()` threw `TypeError: Cannot read properties of null (reading 'agentA')`. |
+| Fix | Skip non-object or endpoint-incomplete restored edges. Existing valid edges still restore through `Relationship`, including R130-001 date sanitization. |
+| Files | `src/social/SocialGraph.js`; `tests/unit/serialization-roundtrip.test.js` |
+| Regression test | Added invalid restored edges test. |
+| Status | Fixed and targeted-test verified. |
+
+### R130-EXT-REJECTED-001
+
+| Field | Detail |
+|---|---|
+| ID | R130-EXT-REJECTED-001 |
+| Severity | Rejected |
+| Audit finding | External no-quota audit suggested `EventDispatcher.createEvent({ time: string })` overwrites string times with `_simTime`, causing event timestamp loss. |
+| Verification verdict | Rejected. Local check showed `params.time || this._simTime` preserves truthy string times, and `_cleanupOldEvents()` already handles Date-or-string event times via `new Date(evtTime).getTime()`. No failing repro. |
+| Status | Rejected. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

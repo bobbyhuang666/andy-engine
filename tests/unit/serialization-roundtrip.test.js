@@ -59,6 +59,20 @@ describe('Wave 4 — serialization round-trip', () => {
     it('round-trips a fresh relationship', () => {
       roundTrip(Relationship, new Relationship('x', 'y'));
     });
+
+    it('sanitizes invalid restored dates before re-serialization', () => {
+      const rel = Relationship.fromJSON({
+        agentA: 'alice',
+        agentB: 'bob',
+        strength: 0.5,
+        lastInteraction: 'not-a-date',
+        history: [{ type: 'talk', valence: 0.2, time: 'also-not-a-date' }],
+      });
+
+      const json = rel.toJSON();
+      expect(json.lastInteraction).toBe(new Date(0).toISOString());
+      expect(json.history[0].time).toBe(new Date(0).toISOString());
+    });
   });
 
   // ── SocialGraph ───────────────────────────────────────────────
@@ -74,6 +88,16 @@ describe('Wave 4 — serialization round-trip', () => {
 
     it('round-trips an empty graph', () => {
       roundTrip(SocialGraph, new SocialGraph());
+    });
+
+    it('skips invalid restored edges', () => {
+      const g = SocialGraph.fromJSON({
+        edges: [null, { agentA: 'alice' }, { agentA: 'alice', agentB: 'bob', lastInteraction: 'bad-date' }],
+      });
+
+      const json = g.toJSON();
+      expect(json.edges).toHaveLength(1);
+      expect(json.edges[0].lastInteraction).toBe(new Date(0).toISOString());
     });
   });
 
@@ -188,6 +212,17 @@ describe('Wave 4 — serialization round-trip', () => {
       ];
       roundTrip(StateMachine, sm, campusDomain);
     });
+
+    it('sanitizes invalid restored stateEnteredAt before re-serialization', () => {
+      const sm = StateMachine.fromJSON({
+        currentState: campusDomain.fallback.defaultState,
+        stateEnteredAt: 'not-a-date',
+        history: [],
+      }, campusDomain);
+
+      expect(sm.toJSON().stateEnteredAt).toBe(new Date(0).toISOString());
+      expect(sm.getInfo(new Date('not-a-date')).elapsed).toBe(0);
+    });
   });
 
   // ── PersonalMemory ─────────────────────────────────────────────
@@ -280,6 +315,16 @@ describe('Wave 4 — serialization round-trip', () => {
 
     it('round-trips an empty event log', () => {
       roundTrip(EventDispatcher, new EventDispatcher(campusDomain), campusDomain);
+    });
+
+    it('skips non-object restored events and repairs invalid next id', () => {
+      const ed = EventDispatcher.fromJSON({
+        eventLog: [null, { id: 'evt_5', participants: null, effects: null }],
+        _nextId: NaN,
+      }, campusDomain);
+
+      expect(ed.toJSON().eventLog).toHaveLength(1);
+      expect(ed.createEvent('random', 'next').id).toBe('evt_6');
     });
   });
 

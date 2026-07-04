@@ -31,6 +31,7 @@ class SocialGraph {
 
     if (edges) {
       for (const edge of edges) {
+        if (!edge || typeof edge !== 'object' || edge.agentA == null || edge.agentB == null) continue;
         const rel = new Relationship(edge.agentA, edge.agentB, edge, this._cfg);
         this._ensureNode(edge.agentA);
         this._ensureNode(edge.agentB);

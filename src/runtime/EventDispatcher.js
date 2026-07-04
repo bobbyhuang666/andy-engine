@@ -641,6 +641,7 @@ class EventDispatcher {
     const ed = new EventDispatcher(domain, rng);
     if (json && Array.isArray(json.eventLog)) {
       for (const evt of json.eventLog) {
+        if (!evt || typeof evt !== 'object') continue;
         // R12: deep-copy each event to prevent shared reference from input
         const event = { ...evt, participants: [...(evt.participants || [])], effects: (evt.effects || []).map(e => ({ ...e })) };
         ed.eventLog.push(event);
@@ -649,7 +650,7 @@ class EventDispatcher {
       }
     }
     // W1: 恢复 _nextId。优先用持久化值；缺字段（旧存档 0.1.0）时 best-effort 推算。
-    if (json && typeof json._nextId === 'number') {
+    if (json && Number.isInteger(json._nextId) && json._nextId >= 0) {
       ed._nextId = json._nextId;
     } else if (ed.eventLog.length > 0) {
       // best-effort: 从 eventLog 最大数字 id 推算（id 格式 evt_<n>）
