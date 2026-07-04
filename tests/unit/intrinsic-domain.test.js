@@ -34,4 +34,53 @@ describe('IntrinsicMotivation domain boundaries', () => {
     expect(intrinsic._domainToRegion('森林探索', '小屋')).toBe('森林');
     expect(intrinsic._domainToRegion('customCraft', '小屋')).toBe('铁匠铺');
   });
+
+  it('need gate caps satisfied needs at raw curiosity', () => {
+    const personality = new Personality({ mbti: 'INFP' });
+    const domain = new DomainRegistry(tavernDomain);
+    const intrinsic = new IntrinsicMotivation(personality, null, domain, null, {
+      needGateThreshold: 0.5,
+    });
+
+    const effective = intrinsic._applyNeedGate(0.4, {
+      hunger: 2,
+      energy: 2,
+      social: 2,
+      comfort: 2,
+      stimulation: 2,
+    }, {
+      hunger: 1,
+      energy: 1,
+      social: 1,
+      comfort: 1,
+      stimulation: 1,
+    });
+
+    expect(effective).toBeCloseTo(0.4, 8);
+  });
+
+  it('need gate tolerates invalid needGateThreshold without NaN', () => {
+    const personality = new Personality({ mbti: 'INFP' });
+    const domain = new DomainRegistry(tavernDomain);
+    const intrinsic = new IntrinsicMotivation(personality, null, domain, null, {
+      needGateThreshold: 0,
+    });
+
+    const effective = intrinsic._applyNeedGate(0.4, {
+      hunger: 0.5,
+      energy: 0.5,
+      social: 0.5,
+      comfort: 0.5,
+      stimulation: 0.5,
+    }, {
+      hunger: 1,
+      energy: 1,
+      social: 1,
+      comfort: 1,
+      stimulation: 1,
+    });
+
+    expect(Number.isFinite(effective)).toBe(true);
+    expect(effective).toBeCloseTo(0.2, 8);
+  });
 });

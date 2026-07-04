@@ -2850,6 +2850,23 @@ This section records the R126 audit findings. 1 HIGH and 1 MEDIUM finding fixed.
 | Re-verification | Full `npm test`: 3271 passed / 28 skipped. `npm run check:boundaries`: all passed. `npm run smoke:pack`: 19 passed. |
 | Status | Fixed and verified. |
 
+## R127 - IntrinsicMotivation Need-Gate Curve Verification
+
+This section records the R127 follow-up review. No new vulnerability found; 1 test-hardening item closed.
+
+### R127-001
+
+| Field | Detail |
+|---|---|
+| ID | R127-001 |
+| Severity | Test hardening |
+| Audit finding | Post-R126 review checked whether the `needGateThreshold` guard changed the curiosity gate curve. The apparent risk of large boost at high satisfaction was rejected because `minSatisfaction` is initialized to `1`, so satisfied needs are capped at raw curiosity. |
+| Evidence | `IntrinsicMotivation._applyNeedGate()` initializes `minSatisfaction = 1`; all need satisfaction ratios are combined through `Math.min()`. |
+| Fix | Restored explicit three-branch structure for readability and added regression tests locking current behavior: satisfied needs do not inflate beyond raw curiosity, and invalid `needGateThreshold=0` returns finite output. |
+| Files | `src/agent/psychology/IntrinsicMotivation.js`; `tests/unit/intrinsic-domain.test.js` |
+| Regression test | `tests/unit/intrinsic-domain.test.js` now covers satisfied-needs cap and invalid-threshold fallback. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

@@ -715,9 +715,12 @@ class IntrinsicMotivation {
     if (minSatisfaction < threshold) {
       // 严重匮乏：指数抑制
       gate = Math.pow(minSatisfaction / threshold, 2);
-    } else {
-      // 轻度匮乏/满足：线性恢复
+    } else if (minSatisfaction < 1) {
+      // 轻度匮乏：线性恢复
       gate = (minSatisfaction - threshold) / (1 - threshold);
+    } else {
+      // 需求满足：略微增强（"饱暖思淫欲"效应）
+      gate = 1 + Math.min(0.2, (minSatisfaction - 1) * 0.2);
     }
 
     return rawCuriosity * Math.max(0, gate);

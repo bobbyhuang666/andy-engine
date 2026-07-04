@@ -128,6 +128,7 @@ This changes sequencing:
 | R125 full codebase re-scan | Clean | Comprehensive re-scan of all 50+ source files confirmed all R110-R124 fixes cover all critical paths. Two LOW-severity config-injection-only gaps identified (_coActivationSpread weight, _enforceBoundary reflect) — no code changes required. |
 | IntrinsicMotivation needGateThreshold division guard | Closed in R126 | `_computeCuriosityGate()` divided by `needGateThreshold` without finite guard; threshold=0 or 1 produced Infinity/NaN, corrupting curiosity. Added range guard falling back to `rawCuriosity * Math.max(0, minSatisfaction)`. |
 | PersonalMemory seed importance || masking | Closed in R126 | `_seedMemories()` used `m.importance || 0.8` which inflated legitimate `importance: 0` to `0.8`. Changed to `m.importance ?? 0.8` to preserve explicit zero importance. |
+| IntrinsicMotivation need-gate curve test hardening | Closed in R127 | Post-R126 review verified the guard did not amplify satisfied-needs curiosity because `minSatisfaction` is capped at 1. Added tests for satisfied-needs cap and invalid-threshold finite fallback. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 
