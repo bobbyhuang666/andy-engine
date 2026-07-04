@@ -2885,6 +2885,52 @@ This section records the R128 follow-up finding. 1 MEDIUM finding fixed.
 | Verification | Targeted suite: `npx vitest run tests/unit/intrinsic-domain.test.js tests/unit/config/validate-config.test.js tests/unit/config-injection-restore.test.js --no-color` -> 83 passed. |
 | Status | Fixed and verified. |
 
+## R129 - Pressure/Goal Boundary Hardening
+
+This section records the R129 no-quota workflow pass. 2 MEDIUM and 1 LOW/P2 hardening findings fixed.
+
+### R129-001
+
+| Field | Detail |
+|---|---|
+| ID | R129-001 |
+| Severity | Medium |
+| Audit finding | `MemoryPressure.compute()` parsed `options.simTime` and `mem.timestamp` with `new Date(...).getTime()` but did not guard invalid Date results. Invalid strings produced `NaN` age, `NaN` recencyWeight, `NaN` recency, and `NaN` total pressure. |
+| Evidence | Local repro: `MemoryPressure.compute({ memories: [{ importance: 1, activation: 1, valence: -1, timestamp: '2026-01-01' }] }, { simTime: 'bad-date' })` returned `total: NaN` on R128. |
+| Fix | Added finite guards for parsed simulation time and memory timestamps; invalid simTime falls back to deterministic `0`, invalid memory timestamps skip recency contribution. Added final finite guards before output clamps. |
+| Files | `src/pressure/MemoryPressure.js`; `tests/unit/memory-pressure-simtime.test.js` |
+| Regression test | Added invalid simTime and invalid memory timestamp tests. |
+| Re-verification | Targeted suite: `npx vitest run tests/unit/memory-pressure-simtime.test.js tests/unit/goalsystem.test.js tests/unit/pressure-layer.test.js --no-color` -> 104 passed. |
+| Status | Fixed and verified. |
+
+### R129-002
+
+| Field | Detail |
+|---|---|
+| ID | R129-002 |
+| Severity | Medium |
+| Audit finding | `GoalSystem.createGoal()` used `Math.max/min` directly on `priority` and `Math.max(0, weight)` on `weight`. `NaN` priority/weight persisted into goal state, and `Infinity` weight remained unbounded. `tickGoals()` also wrote `progress: NaN` when `nowMs` was `NaN`. |
+| Evidence | Local repro: `createGoal({ source: 'self', priority: NaN, weight: NaN })` produced `priority: NaN, weight: NaN`; `tickGoals([goal], {}, NaN)` produced `progress: NaN` on R128. |
+| Fix | Added finite helper guards for priority, weight, and progress calculation; non-finite `nowMs` now leaves progress unchanged instead of writing NaN. |
+| Files | `src/action/GoalSystem.js`; `tests/unit/goalsystem.test.js` |
+| Regression test | Added tests for non-finite priority/weight and non-finite `nowMs`. |
+| Re-verification | Targeted suite: `npx vitest run tests/unit/memory-pressure-simtime.test.js tests/unit/goalsystem.test.js tests/unit/pressure-layer.test.js --no-color` -> 104 passed. |
+| Status | Fixed and verified. |
+
+### R129-003
+
+| Field | Detail |
+|---|---|
+| ID | R129-003 |
+| Severity | P2 hardening |
+| Audit finding | `RelationshipPressure.compute()` accepted caller-provided thresholds without finite/range guards. Non-finite or invalid `isolationCount`, `conflictRatio`, or `decayHours` could silently disable isolation/conflict/decay pressure branches. |
+| Evidence | Local repro: passing `{ isolationCount: NaN, conflictRatio: NaN, decayHours: 0 }` caused relationship pressure branches to drop to safe-looking zero values instead of using defaults. |
+| Fix | Added threshold sanitizers: positive finite values for counts/hours, finite `[0,1]` clamp for ratio, default fallback otherwise. |
+| Files | `src/pressure/RelationshipPressure.js`; `tests/unit/pressure-layer.test.js` |
+| Regression test | Added invalid-threshold fallback test that verifies conflict/decay remain active and all outputs finite. |
+| Re-verification | Targeted suite: `npx vitest run tests/unit/memory-pressure-simtime.test.js tests/unit/goalsystem.test.js tests/unit/pressure-layer.test.js --no-color` -> 104 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

@@ -16,6 +16,14 @@ function deepClone(v) {
   return JSON.parse(JSON.stringify(v));
 }
 
+function finiteOr(value, fallback) {
+  return Number.isFinite(value) ? value : fallback;
+}
+
+function clamp01(value, fallback = 0) {
+  return Math.max(0, Math.min(1, finiteOr(value, fallback)));
+}
+
 /**
  * 创建目标
  *
@@ -68,8 +76,8 @@ function createGoal({
     source,
     actionType,
     target,
-    priority: Math.max(0, Math.min(1, priority)),
-    weight: Math.max(0, weight),
+    priority: clamp01(priority, 0.5),
+    weight: Math.max(0, finiteOr(weight, 1.0)),
     status: 'active',
     progress: 0,
     createdAt: createdAt ?? null,
@@ -113,6 +121,7 @@ function hashString(value) {
  */
 function tickGoals(goals, context, nowMs) {
   if (!goals || goals.length === 0) return goals || [];
+  const hasFiniteNow = Number.isFinite(nowMs);
 
   return goals.map(goal => {
     if (goal.status !== 'active') return goal;
@@ -120,7 +129,8 @@ function tickGoals(goals, context, nowMs) {
     let newGoal = { ...goal };
 
     // 检查过期
-    if (newGoal.expiresAt != null && nowMs >= newGoal.expiresAt) {
+    const expiresAt = Number.isFinite(newGoal.expiresAt) ? newGoal.expiresAt : null;
+    if (hasFiniteNow && expiresAt != null && nowMs >= expiresAt) {
       return { ...newGoal, status: 'expired' };
     }
 
@@ -133,11 +143,12 @@ function tickGoals(goals, context, nowMs) {
     }
 
     // 更新 progress（基于时间进度）
-    if (newGoal.dueAt != null && newGoal.createdAt != null) {
+    if (hasFiniteNow && Number.isFinite(newGoal.dueAt) && Number.isFinite(newGoal.createdAt)) {
       const total = newGoal.dueAt - newGoal.createdAt;
       const elapsed = nowMs - newGoal.createdAt;
-      if (total > 0) {
-        newGoal.progress = Math.max(0, Math.min(1, elapsed / total));
+      const progress = total > 0 ? elapsed / total : null;
+      if (Number.isFinite(progress)) {
+        newGoal.progress = clamp01(progress, 0);
       }
     }
 

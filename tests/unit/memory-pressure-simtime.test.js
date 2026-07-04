@@ -74,6 +74,30 @@ describe('MemoryPressure simTime', () => {
       expect(p.negative).toBeGreaterThan(0);
       expect(p.positive).toBe(0);
     });
+
+    it('invalid simTime does not produce NaN pressure', () => {
+      const memories = [
+        { valence: -1, importance: 1, activation: 1, timestamp: '2026-06-20T10:00:00Z' },
+      ];
+      const p = MemoryPressure.compute({ memories }, { simTime: 'not-a-date' });
+
+      expect(Number.isFinite(p.recency)).toBe(true);
+      expect(Number.isFinite(p.total)).toBe(true);
+      expect(p.total).toBeGreaterThanOrEqual(0);
+      expect(p.total).toBeLessThanOrEqual(1);
+    });
+
+    it('invalid memory timestamp does not produce NaN pressure', () => {
+      const memories = [
+        { valence: -1, importance: 1, activation: 1, timestamp: 'not-a-date' },
+      ];
+      const p = MemoryPressure.compute({ memories }, { simTime: '2026-06-20T11:00:00Z' });
+
+      expect(Number.isFinite(p.recency)).toBe(true);
+      expect(Number.isFinite(p.total)).toBe(true);
+      expect(p.total).toBeGreaterThanOrEqual(0);
+      expect(p.total).toBeLessThanOrEqual(1);
+    });
   });
 
   describe('hasSignificantNegativeMemory', () => {

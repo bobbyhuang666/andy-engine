@@ -33,7 +33,10 @@ class MemoryPressure {
       const { diagnostics } = require('../shared/Diagnostics');
       diagnostics.warnOnce('memory-pressure-simtime', '[andy-engine] MemoryPressure.compute() called without simTime — using 0 as fallback. This produces incorrect recency during fast-forward simulation.');
     }
-    const now = options.simTime ? new Date(options.simTime).getTime() : 0;
+    const parsedNow = options.simTime ? new Date(options.simTime).getTime() : 0;
+    // R129-001: invalid Date strings produce NaN; recency math must not poison
+    // pressure totals when callers pass corrupted or user-provided timestamps.
+    const now = Number.isFinite(parsedNow) ? parsedNow : 0;
 
     for (const mem of memories) {
       if (!mem) continue;
@@ -54,7 +57,9 @@ class MemoryPressure {
 
       // 最近记忆的时间衰减贡献
       if (mem.timestamp) {
-        const age = now - new Date(mem.timestamp).getTime();
+        const timestampMs = new Date(mem.timestamp).getTime();
+        if (!Number.isFinite(timestampMs)) continue;
+        const age = now - timestampMs;
         // R22 P1 fix: clamp hoursAge to >= 0 to prevent recencyWeight explosion
         // when simTime is absent/earlier than mem.timestamp (causes negative age).
         const hoursAge = Math.max(0, age / (1000 * 60 * 60));
@@ -67,10 +72,11 @@ class MemoryPressure {
 
     if (count === 0) return { negative: 0, positive: 0, recency: 0, total: 0 };
 
-    const negative = Math.min(1, negativeSum / count);
-    const positive = Math.min(1, positiveSum / count);
-    const recency = Math.min(1, recencySum / count);
-    const total = Math.max(0, Math.min(1, negative - positive * 0.5 + recency * 0.3));
+    const negative = Number.isFinite(negativeSum) ? Math.min(1, negativeSum / count) : 0;
+    const positive = Number.isFinite(positiveSum) ? Math.min(1, positiveSum / count) : 0;
+    const recency = Number.isFinite(recencySum) ? Math.min(1, recencySum / count) : 0;
+    const rawTotal = negative - positive * 0.5 + recency * 0.3;
+    const total = Number.isFinite(rawTotal) ? Math.max(0, Math.min(1, rawTotal)) : 0;
 
     return { negative, positive, recency, total };
   }

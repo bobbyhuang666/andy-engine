@@ -15,6 +15,14 @@ const DEFAULT_THRESHOLDS = {
   decayHours: 72,
 };
 
+function finitePositive(value, fallback) {
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function finiteRatio(value, fallback) {
+  return Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
+}
+
 class RelationshipPressure {
   /**
    * @param {Object} agentSnapshot - agent 状态快照（只读）
@@ -31,7 +39,10 @@ class RelationshipPressure {
     }
 
     const relationships = agentSnapshot.relationships;
-    const { isolationCount, conflictRatio, decayHours } = { ...DEFAULT_THRESHOLDS, ...thresholds };
+    const rawThresholds = { ...DEFAULT_THRESHOLDS, ...(thresholds || {}) };
+    const isolationCount = finitePositive(rawThresholds.isolationCount, DEFAULT_THRESHOLDS.isolationCount);
+    const conflictRatio = finiteRatio(rawThresholds.conflictRatio, DEFAULT_THRESHOLDS.conflictRatio);
+    const decayHours = finitePositive(rawThresholds.decayHours, DEFAULT_THRESHOLDS.decayHours);
 
     // 孤立压力
     // R22 P1 fix: treat NaN strength as active (don't silently drop)

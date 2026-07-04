@@ -287,6 +287,25 @@ describe('RelationshipPressure', () => {
       });
       expect(pressure.decay).toBeGreaterThan(0);
     });
+
+    it('非法阈值回退默认值而不是静默关闭压力', () => {
+      const pressure = RelationshipPressure.compute({
+        relationships: [
+          { strength: 0.5, _hoursSinceLastInteraction: 200, impression: { positive: 1, negative: 5 } },
+        ],
+      }, {
+        isolationCount: NaN,
+        conflictRatio: NaN,
+        decayHours: 0,
+      });
+
+      expect(Number.isFinite(pressure.isolation)).toBe(true);
+      expect(Number.isFinite(pressure.conflict)).toBe(true);
+      expect(Number.isFinite(pressure.decay)).toBe(true);
+      expect(Number.isFinite(pressure.total)).toBe(true);
+      expect(pressure.conflict).toBeGreaterThan(0);
+      expect(pressure.decay).toBeGreaterThan(0);
+    });
   });
 });
 

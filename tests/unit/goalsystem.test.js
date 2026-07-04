@@ -71,6 +71,13 @@ describe('GoalSystem', () => {
       expect(g1.priority).toBe(0);
       expect(g2.priority).toBe(1);
     });
+
+    it('non-finite priority and weight fall back to safe defaults', () => {
+      const goal = createGoal({ source: 'self', priority: NaN, weight: Infinity });
+
+      expect(goal.priority).toBe(0.5);
+      expect(goal.weight).toBe(1);
+    });
   });
 
   describe('tickGoals', () => {
@@ -141,6 +148,14 @@ describe('GoalSystem', () => {
     it('empty goals returns empty', () => {
       expect(tickGoals([], {}, 1000)).toEqual([]);
       expect(tickGoals(null, {}, 1000)).toEqual([]);
+    });
+
+    it('non-finite nowMs does not write NaN progress', () => {
+      const goals = [createGoal({ source: 'self', createdAt: 0, dueAt: 1000 })];
+      const result = tickGoals(goals, {}, NaN);
+
+      expect(Number.isFinite(result[0].progress)).toBe(true);
+      expect(result[0].progress).toBe(0);
     });
   });
 
