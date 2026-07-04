@@ -212,6 +212,12 @@ describe('AndyEngine 集成测试', () => {
   });
 
   describe('公共 API 形状验证（Slim Pass 回归）', () => {
+    it('constructor 应拒绝 null 或非对象 config', () => {
+      expect(() => new AndyEngine(null)).toThrow(/config must be an object/);
+      expect(() => new AndyEngine('bad')).toThrow(/config must be an object/);
+      expect(() => new AndyEngine([])).toThrow(/config must be an object/);
+    });
+
     it('getNarrative 应返回字符串', () => {
       const result = engine.getNarrative('bobby');
       expect(typeof result).toBe('string');

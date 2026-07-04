@@ -44,4 +44,19 @@ describe('No raw emotion leak', () => {
 
     expect(grounding.emotionState).toBeUndefined();
   });
+
+  it('grounding package should tolerate explicit null options', () => {
+    const engine = new AndyEngine({ seed: 'grounding-null-options', enableFacts: true });
+    engine.createCharacter({
+      id: 'alice',
+      name: 'Alice',
+      mbti: 'INFP',
+      schedule: 'student',
+    });
+
+    const grounding = engine.getGroundingPackage('alice', null);
+
+    expect(grounding).toBeDefined();
+    expect(grounding.affectFrame).toBeDefined();
+  });
 });

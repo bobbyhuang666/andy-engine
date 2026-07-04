@@ -4844,6 +4844,96 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | Re-verification | N/A |
 | Status | Tracked — P0 architectural debt for future round. |
 
+### R143-ANDYENGINE-CONFIG-NULL-CRASH-1
+
+| Field | Detail |
+|---|---|
+| ID | R143-ANDYENGINE-CONFIG-NULL-CRASH-1 |
+| Severity | P0 |
+| Audit finding | `new AndyEngine(null)` threw `TypeError: Cannot read properties of null (reading 'rng')` at index.js:57. `validateConfig(null)` returned early without error, then the constructor accessed `config.rng` without a null guard. |
+| Evidence | `index.js:57`; `config.rng` access on null. `validateConfig(null)` → early return, no error. |
+| Verification verdict | Confirmed: null config → TypeError instead of meaningful error. |
+| Fix | Added `if (config === null) throw new Error('AndyEngine: config must be an object, got null. Use {} for defaults.')` at constructor entry. |
+| Files | `index.js` |
+| Regression test | Existing engine tests pass; null config now produces clear error message. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R143-AGENT-PERCEIVE-NULL-EVENTS-1
+
+| Field | Detail |
+|---|---|
+| ID | R143-AGENT-PERCEIVE-NULL-EVENTS-1 |
+| Severity | P1 |
+| Audit finding | `PerceptionRuntime.perceiveEvents()` iterated events array and accessed `event.type` / `event.id` without checking if individual entries were null/undefined. A null entry caused `Appraisal.evaluate(nullEvent, this)` to crash on `event.type` access. |
+| Evidence | `src/agent/runtime/PerceptionRuntime.js:46`; `if (event && event.id)` — crashes if event is null. |
+| Verification verdict | Confirmed: null event entry → TypeError on event.type in Appraisal._evalSuddenness. |
+| Fix | Added `if (!event || typeof event !== 'object') continue;` guard before event.id check. Skips null/undefined/non-object entries. |
+| Files | `src/agent/runtime/PerceptionRuntime.js` |
+| Regression test | Existing perception tests pass; null events silently skipped. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R143-GETNARRATIVE-NULL-OPTIONS-1
+
+| Field | Detail |
+|---|---|
+| ID | R143-GETNARRATIVE-NULL-OPTIONS-1 |
+| Severity | P1 |
+| Audit finding | `getNarrative(agentId, options = {})` crashed with `TypeError: Cannot destructure property 'userText' of 'options' as it is null` when caller passed null explicitly. JavaScript default parameters don't apply when null is explicitly passed. |
+| Evidence | `index.js:339`; `getNarrative(agentId, options = {})` — null options → destructuring crash. |
+| Verification verdict | Confirmed: getNarrative(id, null) → TypeError on destructuring. |
+| Fix | Changed signature to `getNarrative(agentId, options)` with `options = options ?? {}` body guard. |
+| Files | `index.js` |
+| Regression test | Existing narrative tests pass; null options now safely default to {}. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R143-MINDWANDER-ZERO-WEIGHTS-1
+
+| Field | Detail |
+|---|---|
+| ID | R143-MINDWANDER-ZERO-WEIGHTS-1 |
+| Severity | P2 |
+| Audit finding | `MindWanderRuntime` weighted random selection deterministically picked the first candidate when all weights were zero (from heavy negative modulation). `totalWeight = 0` → `r = 0` → first iteration `r <= 0` → always index 0. Lost stochastic diversity. |
+| Evidence | `src/agent/runtime/MindWanderRuntime.js:137-150`; `totalWeight = 0` → `r = 0` → deterministic first candidate. |
+| Verification verdict | Confirmed: all-zero weights → mind wander always picks first thought candidate. |
+| Fix | Added zero-weight guard: if `totalWeight === 0`, fall back to uniform random selection `thoughtCandidates[Math.floor(agent.rand() * thoughtCandidates.length)]`. |
+| Files | `src/agent/runtime/MindWanderRuntime.js` |
+| Regression test | Existing mind wander tests pass; zero-weight case now uses uniform random. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R144-GROUNDINGPACKAGE-NULL-OPTIONS-1
+
+| Field | Detail |
+|---|---|
+| ID | R144-GROUNDINGPACKAGE-NULL-OPTIONS-1 |
+| Severity | P1 |
+| Audit finding | `getGroundingPackage(agentId, options = {})` still crashed when callers passed `null` explicitly. JavaScript default parameters do not apply to explicit null, and the method accessed `options.currentRegion`. |
+| Evidence | `index.js:390-412`; repro: `new AndyEngine({ enableFacts: true }).getGroundingPackage('alice', null)` → `TypeError: Cannot read properties of null (reading 'currentRegion')`. |
+| Verification verdict | Confirmed: same public API null-options class as R143 `getNarrative(id, null)`. |
+| Fix | Changed signature to `getGroundingPackage(agentId, options)` and normalized with `options = options ?? {}` before any property access/spread. |
+| Files | `index.js`, `tests/affect/no-raw-emotion-leak.test.js` |
+| Regression test | Added explicit `getGroundingPackage('alice', null)` regression test under enableFacts=true. |
+| Re-verification | Targeted: `npx vitest run tests/integration/engine.test.js tests/affect/no-raw-emotion-leak.test.js` → 38 passed. Full gates: `npm test` 3293 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` passed; `git diff --check` clean. |
+| Status | Fixed. |
+
+### R144-ANDYENGINE-CONFIG-NONOBJECT-1
+
+| Field | Detail |
+|---|---|
+| ID | R144-ANDYENGINE-CONFIG-NONOBJECT-1 |
+| Severity | P2 |
+| Audit finding | R143 added a null-specific config guard, but `new AndyEngine('bad')` and `new AndyEngine([])` still constructed successfully. This contradicted the new public error contract and allowed malformed config to be silently spread into runtime config. |
+| Evidence | `index.js:53-57`; repro before fix: `new AndyEngine('bad')` → constructed. |
+| Verification verdict | Confirmed: invalid non-object config accepted at public facade boundary. |
+| Fix | Added constructor guard rejecting non-object and array config values with the same clear `config must be an object` message family. |
+| Files | `index.js`, `tests/integration/engine.test.js` |
+| Regression test | Added tests for `new AndyEngine(null)`, `new AndyEngine('bad')`, and `new AndyEngine([])` throwing clear config errors. |
+| Re-verification | Targeted: `npx vitest run tests/integration/engine.test.js tests/affect/no-raw-emotion-leak.test.js` → 38 passed. Full gates: `npm test` 3293 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` passed; `git diff --check` clean. |
+| Status | Fixed. |
+
 ## Rules For Future Entries
 
 Use this template:

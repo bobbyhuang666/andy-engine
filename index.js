@@ -54,6 +54,9 @@ class AndyEngine {
     if (config === null) {
       throw new Error('AndyEngine: config must be an object, got null. Use {} for defaults.');
     }
+    if (typeof config !== 'object' || Array.isArray(config)) {
+      throw new Error(`AndyEngine: config must be an object, got ${Array.isArray(config) ? 'array' : typeof config}. Use {} for defaults.`);
+    }
     validateConfig(config);
 
     // 初始化 RNG
@@ -387,7 +390,8 @@ class AndyEngine {
    * @param {number} [options.maxFacts] - 最大事实数
    * @returns {Object|null} groundingPackage，如果未启用事实系统则返回 null
    */
-  getGroundingPackage(agentId, options = {}) {
+  getGroundingPackage(agentId, options) {
+    options = options ?? {};
     if (!this.world.factStore) return null;
 
     const agent = this.world.getAgent(agentId);
