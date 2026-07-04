@@ -694,10 +694,12 @@ class IntrinsicMotivation {
     let minSatisfaction = 1;
     for (const [need, threshold] of Object.entries(thresholds)) {
       const value = needsState[need];
-      if (value !== undefined) {
+      if (value !== undefined && Number.isFinite(value) && Number.isFinite(threshold) && threshold > 0) {
         // 饱和度 = 当前值 / 阈值（> 1 表示满足，< 1 表示匮乏）
         const satisfaction = value / threshold;
-        minSatisfaction = Math.min(minSatisfaction, satisfaction);
+        if (Number.isFinite(satisfaction)) {
+          minSatisfaction = Math.min(minSatisfaction, satisfaction);
+        }
       }
     }
 

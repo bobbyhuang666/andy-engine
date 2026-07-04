@@ -129,6 +129,7 @@ This changes sequencing:
 | IntrinsicMotivation needGateThreshold division guard | Closed in R126 | `_computeCuriosityGate()` divided by `needGateThreshold` without finite guard; threshold=0 or 1 produced Infinity/NaN, corrupting curiosity. Added range guard falling back to `rawCuriosity * Math.max(0, minSatisfaction)`. |
 | PersonalMemory seed importance || masking | Closed in R126 | `_seedMemories()` used `m.importance || 0.8` which inflated legitimate `importance: 0` to `0.8`. Changed to `m.importance ?? 0.8` to preserve explicit zero importance. |
 | IntrinsicMotivation need-gate curve test hardening | Closed in R127 | Post-R126 review verified the guard did not amplify satisfied-needs curiosity because `minSatisfaction` is capped at 1. Added tests for satisfied-needs cap and invalid-threshold finite fallback. |
+| IntrinsicMotivation needs-threshold zero guard | Closed in R128 | `_applyNeedGate()` still divided need values by `needs.threshold.*`; public validation allowed zero thresholds, so `0 / 0` could produce NaN effective curiosity. Runtime now skips non-positive denominators and validation rejects thresholds below 0.001. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

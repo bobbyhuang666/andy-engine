@@ -2867,6 +2867,24 @@ This section records the R127 follow-up review. No new vulnerability found; 1 te
 | Regression test | `tests/unit/intrinsic-domain.test.js` now covers satisfied-needs cap and invalid-threshold fallback. |
 | Status | Fixed and verified. |
 
+## R128 - IntrinsicMotivation Needs-Threshold Zero Guard
+
+This section records the R128 follow-up finding. 1 MEDIUM finding fixed.
+
+### R128-001
+
+| Field | Detail |
+|---|---|
+| ID | R128-001 |
+| Severity | Medium |
+| Audit finding | R126 guarded `intrinsicMotivation.needGateThreshold`, but `_applyNeedGate()` still divided each need value by `thresholdConfig[need]`. `validateConfig()` allowed `needs.threshold.* = 0`, so supported config or restored legacy config could produce `0 / 0 = NaN`, then NaN `minSatisfaction`, NaN gate, and NaN effective curiosity. |
+| Evidence | Local repro: `_applyNeedGate(0.4, { hunger: 0, ... }, { hunger: 0, ... })` returned `NaN` on R127. |
+| Fix | Runtime now ignores non-finite or non-positive need thresholds and non-finite need values before division. Config validation now rejects `needs.threshold.* < 0.001`, preserving positive denominators at the public boundary. |
+| Files | `src/agent/psychology/IntrinsicMotivation.js`; `src/config/validate.js`; `tests/unit/intrinsic-domain.test.js`; `tests/unit/config/validate-config.test.js` |
+| Regression test | Added direct `_applyNeedGate()` zero-threshold test and config validator zero-threshold rejection test. |
+| Verification | Targeted suite: `npx vitest run tests/unit/intrinsic-domain.test.js tests/unit/config/validate-config.test.js tests/unit/config-injection-restore.test.js --no-color` -> 83 passed. |
+| Status | Fixed and verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.

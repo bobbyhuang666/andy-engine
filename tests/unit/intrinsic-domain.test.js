@@ -83,4 +83,29 @@ describe('IntrinsicMotivation domain boundaries', () => {
     expect(Number.isFinite(effective)).toBe(true);
     expect(effective).toBeCloseTo(0.2, 8);
   });
+
+  it('need gate ignores zero need thresholds without NaN', () => {
+    const personality = new Personality({ mbti: 'INFP' });
+    const domain = new DomainRegistry(tavernDomain);
+    const intrinsic = new IntrinsicMotivation(personality, null, domain, null, {
+      needGateThreshold: 0.5,
+    });
+
+    const effective = intrinsic._applyNeedGate(0.4, {
+      hunger: 0,
+      energy: 1,
+      social: 1,
+      comfort: 1,
+      stimulation: 1,
+    }, {
+      hunger: 0,
+      energy: 1,
+      social: 1,
+      comfort: 1,
+      stimulation: 1,
+    });
+
+    expect(Number.isFinite(effective)).toBe(true);
+    expect(effective).toBeCloseTo(0.4, 8);
+  });
 });

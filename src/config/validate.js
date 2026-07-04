@@ -153,7 +153,7 @@ function validateConfig(config) {
     }
     if (n.threshold) {
       for (const [need, threshold] of Object.entries(n.threshold)) {
-        checkRange(threshold, 0, 1, `needs.threshold.${need}`, errors);
+        checkRange(threshold, 0.001, 1, `needs.threshold.${need}`, errors);
       }
     }
     if (n.recoveryRate) {

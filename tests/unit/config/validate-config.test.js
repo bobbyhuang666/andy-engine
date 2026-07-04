@@ -105,6 +105,9 @@ describe('validateConfig — needs block', () => {
   it('rejects per-need threshold out of range', () => {
     expect(() => validateConfig({ needs: { threshold: { social: -0.1 } } })).toThrow(/needs\.threshold\.social/);
   });
+  it('rejects zero need thresholds because gate math divides by threshold', () => {
+    expect(() => validateConfig({ needs: { threshold: { hunger: 0 } } })).toThrow(/needs\.threshold\.hunger/);
+  });
   it('accepts valid per-need rates', () => {
     expect(() => validateConfig({ needs: { decayRate: { hunger: 0.5 }, threshold: { social: 0.3 } } })).not.toThrow();
   });
