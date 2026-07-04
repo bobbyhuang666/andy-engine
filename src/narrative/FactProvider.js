@@ -6,6 +6,7 @@
  */
 
 const { FactType, FactScope } = require('../canon/FactSchema');
+const { diagnostics } = require('../shared/Diagnostics');
 
 class FactProvider {
   /**
@@ -192,7 +193,12 @@ class FactProvider {
 
     // 1. Use WorldFactStore.getFactsForAgent() — index-accelerated (R4 optimization).
     //    This replaces the previous O(N) full scan of allFacts.
-    const agentFacts = this.store.getFactsForAgent(agentId, options);
+    let agentFacts = [];
+    try {
+      agentFacts = this.store.getFactsForAgent(agentId, options);
+    } catch (e) {
+      diagnostics?.collect?.({ type: 'facts-fetch-failed', agentId, error: e.message });
+    }
     for (const fact of agentFacts) {
       if (!this._isActiveFact(fact)) continue;
       if (this.knowledgeStore) {

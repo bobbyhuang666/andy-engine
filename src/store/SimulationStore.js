@@ -136,6 +136,8 @@ class SimulationStore {
    * @param {Story[]} newStories - 本 tick 产生的故事
    */
   onTick(tickResult, newStories = []) {
+    if (!tickResult) return;
+
     // R24 P1 fix: use ?? instead of || to correctly handle tickNumber=0.
     // 0 || expr evaluates to expr; 0 ?? expr evaluates to 0.
     this.tickCount = SimulationStore._tickCount(tickResult.tickNumber, this.tickCount + 1);
@@ -360,8 +362,13 @@ class SimulationStore {
 
   /** 衰减老故事 */
   _decayStories() {
+    if (!this.db) return;
     const now = this.virtualTime?.getTime() || Date.now();
-    this.db.decay(0.95, 0.05, 30, now);
+    try {
+      this.db.decay(0.95, 0.05, 30, now);
+    } catch (e) {
+      diagnostics?.collect?.({ type: 'story_decay_failed', error: e.message });
+    }
   }
 }
 

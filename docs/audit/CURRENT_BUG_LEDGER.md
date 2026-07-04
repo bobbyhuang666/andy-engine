@@ -4784,6 +4784,66 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
 | Status | Fixed. |
 
+### R142-SIMULATIONSTORE-ONTICK-NULL-RESULT-1
+
+| Field | Detail |
+|---|---|
+| ID | R142-SIMULATIONSTORE-ONTICK-NULL-RESULT-1 |
+| Severity | P0 |
+| Audit finding | `SimulationStore.onTick(tickResult)` accesses `tickResult.tickNumber` without null guard at line 139. If the simulator returns null/undefined, this throws `TypeError: Cannot read property 'tickNumber' of null`, crashing the persistence layer and potentially the entire tick loop. |
+| Evidence | `src/store/SimulationStore.js:139`; `this.tickCount = SimulationStore._tickCount(tickResult.tickNumber, ...)` — crashes on null. |
+| Verification verdict | Confirmed: null tickResult → TypeError on property access. |
+| Fix | Added `if (!tickResult) return;` guard at top of `onTick()`. |
+| Files | `src/store/SimulationStore.js` |
+| Regression test | Existing store tests pass; null tickResult now gracefully skipped. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R142-SIMULATIONSTORE-DECAY-UNGUARDED-1
+
+| Field | Detail |
+|---|---|
+| ID | R142-SIMULATIONSTORE-DECAY-UNGUARDED-1 |
+| Severity | P1 |
+| Audit finding | `SimulationStore._decayStories()` calls `this.db.decay()` without checking if `this.db` exists or if `decay()` throws. If `this.db` is null (before init), or if `decay()` throws (SQL error), the exception propagates up and crashes the tick loop. |
+| Evidence | `src/store/SimulationStore.js:362-365`; no null guard on `this.db`, no try/catch around `decay()`. |
+| Verification verdict | Confirmed: null db or SQL error → unhandled exception → tick loop crash. |
+| Fix | Added `if (!this.db) return;` guard + try/catch around `decay()` with `diagnostics.collect` for error reporting. |
+| Files | `src/store/SimulationStore.js` |
+| Regression test | Existing store tests pass; decay failures now logged instead of crashing. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R142-FACTPROVIDER-GETFACTS-UNGUARDED-1
+
+| Field | Detail |
+|---|---|
+| ID | R142-FACTPROVIDER-GETFACTS-UNGUARDED-1 |
+| Severity | P1 |
+| Audit finding | `FactProvider._getAllowedFacts()` calls `this.store.getFactsForAgent(agentId, options)` without try/catch at line 196. If WorldFactStore throws (corrupted internal state, null `_byAgent`), the exception propagates through `getGroundingPackage()` and crashes any narrative consumer. |
+| Evidence | `src/narrative/FactProvider.js:196`; no try/catch around `getFactsForAgent`. |
+| Verification verdict | Confirmed: WorldFactStore error → unhandled exception → narrative consumer crash. |
+| Fix | Wrapped `getFactsForAgent` in try/catch with diagnostics.collect error reporting. On failure, `agentFacts` defaults to `[]` and downstream loop gracefully processes empty array. |
+| Files | `src/narrative/FactProvider.js` |
+| Regression test | Existing fact provider tests pass; store errors now produce empty facts instead of crash. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R142-ANDYDEFAULTS-CONFIG-BYPASS-ARCHITECTURAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R142-ANDYDEFAULTS-CONFIG-BYPASS-ARCHITECTURAL-1 |
+| Severity | P0 (architectural) |
+| Audit finding | 17+ modules import ANDY_DEFAULTS and capture it at module scope (`const cfg = ANDY_DEFAULTS.xxx`), completely bypassing the engine's cloned user config. Affected modules include: NeedsSystem (decay/recovery/threshold), EmotionVector (all emotion params), PersonalMemory (decay/retrieval/consolidation), Relationship (strength/decay/threshold), StateMachine (duration), EventDispatcher (event config), Simulator (tick config), IntrinsicMotivation (spatial regions runtime reads). AndyEngine.constructor correctly merges user config into `this.config`, but never passes it downstream. |
+| Evidence | grep across src/ finds 20 files referencing ANDY_DEFAULTS; 12 perform module-scope captures. R138 deep clone + R140 IntrinsicMotivation/SpatialEngine fixes address only 2 of 17+ bypasses. |
+| Verification verdict | Confirmed: `this.config` is never forwarded to AndyWorld, Simulator, Agent, or any sub-module constructor. User config for core behavioral parameters is silently ignored. |
+| Fix | Deferred — requires config injection pattern across 17+ modules. Tracked as architectural debt. Individual module fixes: pass config through constructor chain `AndyEngine → AndyWorld → Agent → [NeedsSystem, EmotionVector, PersonalMemory, Relationship]`. |
+| Files | All modules with module-scope ANDY_DEFAULTS captures (12 files) |
+| Regression test | N/A — architectural refactor, not single-round fixable |
+| Re-verification | N/A |
+| Status | Tracked — P0 architectural debt for future round. |
+
 ## Rules For Future Entries
 
 Use this template:
