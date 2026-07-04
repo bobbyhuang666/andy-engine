@@ -442,7 +442,11 @@ class EmotionVector {
       const { emotion, weight, expressiveness } = input;
       if (!emotion) continue;
 
-      const effectiveWeight = susceptibility * (expressiveness || 0.5) * (weight || 0.3);
+      // R138: Number.isFinite guards — NaN weight/expressiveness would bypass
+      // the || fallback (NaN is truthy) and propagate NaN through effectiveWeight.
+      const w = Number.isFinite(weight) ? weight : 0.3;
+      const e = Number.isFinite(expressiveness) ? expressiveness : 0.5;
+      const effectiveWeight = susceptibility * e * w;
 
       for (const dim of EMOTION_DIMENSIONS) {
         const theirVal = emotion[dim] || 0;

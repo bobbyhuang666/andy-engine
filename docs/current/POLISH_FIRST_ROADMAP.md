@@ -161,6 +161,8 @@ This changes sequencing:
 | Config validation gaps + LLMAdapter timeout + Character duplicate ID | Closed in R136 | validateConfig missing tick/emotion dimensions/stateMachine/weather/events validation; LLMAdapter fetch hung indefinitely; Character constructor bypassed duplicate ID check. All fixed. |
 | EffectCommitter need result re-validation + NeedDelta per-value validation + FutureTendencyDelta array validation | Closed in R137 | EffectCommitter unchecked addition result could produce NaN needs; NeedDelta accepted NaN/Infinity change values; FutureTendencyDelta accepted non-array delta. All fixed. |
 | CanonEventPipeline learnedAt + BehaviorField NaN needs weight + WorldFactStore non-string agentId | Closed in R137 | _tryToldPropagation used unsafe eventTime for learnedAt; _computeGradient Math.min with NaN needs; _indexAgents coerced non-string agentIds. All fixed. |
+| ANDY_DEFAULTS shallow copy + SocialGraph Dunbar no-op + EmotionVector contagion NaN weight | Closed in R138 | ANDY_DEFAULTS nested refs shared across instances; _enforceDunbarLimits never enforced capacity; _socialContagion NaN weight bypassed || fallback. All fixed. |
+| SimulationStore silent snapshot + WorldFactStore validator NaN strength | Closed in R138 | _saveSnapshot silent failure with no diagnostic; validateWorldState NaN strength bypass. All fixed. |
 | Testing red lines | Adopt now | Full gates, replay, perf, package smoke, and boundary checks remain mandatory after hardening work. |
 | Small pure runtime extraction | Adopt selectively | `ContagionGatherer` and similar pure helpers can be extracted after P0/P1 debt drops, but only as behavior-preserving moves. |
 

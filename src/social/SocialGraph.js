@@ -336,7 +336,36 @@ class SocialGraph {
    */
   _enforceDunbarLimits() {
     for (const agentId of this._adjacency.keys()) {
-      this._projectDunbarLayers(agentId);
+      const layers = this._projectDunbarLayers(agentId);
+      const { maxStrongTies, maxMediumTies } = this._cfg;
+
+      // Downgrade excess close friends → friend
+      const excessClose = layers.closeFriends.length - maxStrongTies;
+      if (excessClose > 0) {
+        // weakest close friends first (already sorted by strength descending)
+        for (let i = maxStrongTies; i < layers.closeFriends.length; i++) {
+          layers.closeFriends[i].type = 'friend';
+          layers.closeFriends[i]._updateType();
+        }
+      }
+
+      // Downgrade excess friends → acquaintance (within medium tie budget)
+      const totalMedium = layers.closeFriends.length + layers.friends.length;
+      const excessMedium = totalMedium - maxMediumTies;
+      if (excessMedium > 0) {
+        const fromFriends = Math.min(excessMedium, layers.friends.length);
+        for (let i = 0; i < fromFriends; i++) {
+          layers.friends[i].type = 'acquaintance';
+          layers.friends[i]._updateType();
+        }
+        const remaining = excessMedium - fromFriends;
+        if (remaining > 0) {
+          for (let i = maxStrongTies; i < Math.min(layers.closeFriends.length, maxStrongTies + remaining); i++) {
+            layers.closeFriends[i].type = 'acquaintance';
+            layers.closeFriends[i]._updateType();
+          }
+        }
+      }
     }
   }
 

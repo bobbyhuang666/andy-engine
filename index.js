@@ -80,8 +80,11 @@ class AndyEngine {
       this.domain = new DomainRegistry(campusDomain, { validate: false });
     }
 
+    // R138 P0 fix: deep-clone ANDY_DEFAULTS to prevent nested object mutation
+    // from leaking across engine instances. Shallow spread shares nested refs.
+    const clonedDefaults = JSON.parse(JSON.stringify(ANDY_DEFAULTS));
     this.config = {
-      ...ANDY_DEFAULTS,
+      ...clonedDefaults,
       // R41 fix: merge _restoreConfig BEFORE building this.config so that
       // restored values (enableFacts, needs, etc.) flow into both engine.config
       // and the subsystem constructor chain.  Do NOT mutate savedState.

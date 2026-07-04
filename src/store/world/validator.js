@@ -202,7 +202,9 @@ function validateWorldState(state) {
 
       // strength
       if (rel.strength !== undefined) {
-        if (typeof rel.strength !== 'number' || rel.strength < 0 || rel.strength > 1) {
+        // R138: typeof NaN === 'number' is true, and NaN < 0 / NaN > 1 are both false,
+        // so NaN would bypass the original range check. Number.isFinite catches NaN/Infinity.
+        if (typeof rel.strength !== 'number' || !Number.isFinite(rel.strength) || rel.strength < 0 || rel.strength > 1) {
           errors.push({ path: `${prefix}.strength`, message: '必须是 0-1 之间的数字' });
         }
       }

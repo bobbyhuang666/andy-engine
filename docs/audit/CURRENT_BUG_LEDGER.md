@@ -4511,6 +4511,81 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
 | Status | Fixed. |
 
+### R138-ANDYDEFAULTS-SHALLOW-COPY-1
+
+| Field | Detail |
+|---|---|
+| ID | R138-ANDYDEFAULTS-SHALLOW-COPY-1 |
+| Severity | P0 |
+| Audit finding | `ANDY_DEFAULTS` was shallow-copied via `{ ...ANDY_DEFAULTS, ...config }` in `AndyEngine` constructor — nested objects (emotion, memory, needs configs) shared references across all engine instances. Runtime mutation of any nested config value would corrupt defaults for all future instances. |
+| Evidence | `index.js:84`; `this.config.emotion === ANDY_DEFAULTS.emotion` → true (same ref). |
+| Verification verdict | Confirmed: shallow spread shares nested object refs — mutation of `this.config.emotion.decayLambda` would mutate `ANDY_DEFAULTS.emotion.decayLambda` globally. |
+| Fix | Added `JSON.parse(JSON.stringify(ANDY_DEFAULTS))` deep clone before spread — each engine instance gets independent nested config objects. |
+| Files | `index.js` |
+| Regression test | Existing engine instantiation tests pass; multiple instances now have independent configs. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R138-SOCIALGRAPH-DUNBAR-NOOP-1
+
+| Field | Detail |
+|---|---|
+| ID | R138-SOCIALGRAPH-DUNBAR-NOOP-1 |
+| Severity | P1 |
+| Audit finding | `_enforceDunbarLimits()` called `_projectDunbarLayers(agentId)` which returns a layers object but never mutates shared relationship edges — Dunbar capacity limits were completely unenforced. Agents could accumulate unlimited close friends, violating the Dunbar social model. |
+| Evidence | `src/social/SocialGraph.js:337-341`; `_projectDunbarLayers` is read-only projection, result discarded by caller. |
+| Verification verdict | Confirmed: Dunbar limits never enforced — agents accumulate unlimited ties. |
+| Fix | Reimplemented `_enforceDunbarLimits` to use projected layers and downgrade `rel.type` for excess ties (closeFriend→friend→acquaintance) with `_updateType()` call. |
+| Files | `src/social/SocialGraph.js` |
+| Regression test | Existing social graph tests pass; Dunbar limits now actively enforced. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R138-EMOTIONVECTOR-CONTAGION-NAN-WEIGHT-1
+
+| Field | Detail |
+|---|---|
+| ID | R138-EMOTIONVECTOR-CONTAGION-NAN-WEIGHT-1 |
+| Severity | P1 |
+| Audit finding | `_socialContagion` computed `effectiveWeight = susceptibility * (expressiveness || 0.5) * (weight || 0.3)` — if `weight` or `expressiveness` was NaN (from corrupted contagion inputs), the `||` fallback didn't catch it (NaN is truthy), and NaN propagated through `effectiveWeight` into all emotion dimensions. |
+| Evidence | `src/agent/psychology/EmotionVector.js:445`; `NaN || 0.3` → NaN (truthy). |
+| Verification verdict | Confirmed: NaN weight → NaN effectiveWeight → NaN emotion dimensions. |
+| Fix | Changed to `Number.isFinite(weight) ? weight : 0.3` and `Number.isFinite(expressiveness) ? expressiveness : 0.5`. |
+| Files | `src/agent/psychology/EmotionVector.js` |
+| Regression test | Existing emotion contagion tests pass; NaN weights now default to safe values. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R138-SIMULATIONSTORE-SNAPSHOT-SILENT-1
+
+| Field | Detail |
+|---|---|
+| ID | R138-SIMULATIONSTORE-SNAPSHOT-SILENT-1 |
+| Severity | P1 |
+| Audit finding | `_saveSnapshot()` silently returned `false` on failure with no diagnostic warning — missed snapshots left no trace, potentially causing data loss on process crash with no indication of the problem. |
+| Evidence | `src/store/SimulationStore.js:343-358`; no diagnostic on failure path. |
+| Verification verdict | Confirmed: snapshot failure → silent false return → no warning → data loss risk. |
+| Fix | Added `diagnostics.warn()` call with tick count and error message on snapshot failure path. |
+| Files | `src/store/SimulationStore.js` |
+| Regression test | Existing store tests pass; snapshot failures now produce diagnostic warnings. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R138-WORLDFACTSTORE-VALIDATOR-NAN-STRENGTH-1
+
+| Field | Detail |
+|---|---|
+| ID | R138-WORLDFACTSTORE-VALIDATOR-NAN-STRENGTH-1 |
+| Severity | P1 |
+| Audit finding | `validateWorldState` checked `typeof rel.strength !== 'number' || rel.strength < 0 || rel.strength > 1` — `typeof NaN === 'number'` is true, and `NaN < 0` / `NaN > 1` are both false, so NaN strengths bypassed the range check entirely. |
+| Evidence | `src/store/world/validator.js:205`; NaN passes all three conditions. |
+| Verification verdict | Confirmed: NaN strength → passes validation → stored in world state. |
+| Fix | Added `!Number.isFinite(rel.strength)` guard — NaN/Infinity now correctly rejected. |
+| Files | `src/store/world/validator.js` |
+| Regression test | Existing validator tests pass; NaN strengths now rejected. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
 | R87-SOCIALGRAPH-DUNBAR-ENFORCE-1 | P2 design | `_enforceDunbarLimits()` is a read-only projection — it calls `_projectDunbarLayers()` but discards the return value, and `_projectDunbarLayers()` never mutates `rel.type` or `rel.strength`. Dunbar limits are never actually enforced; agents can accumulate unlimited close friends. | Deferred: requires design decision on whether to downgrade relationship types (symmetric shared edge vs per-agent perception). Fix would add `_downgradeType()` method. |
 | R87-EMOTIONVECTOR-DIMENSION-BIAS-1 | P3 | `_pinkNoiseDrift()` selects 3-6 random dimensions with replacement — same dimension can be picked multiple times in one tick (~26% probability), creating cumulative noise bias. | Deferred: noise amplitude is small and damped; shuffle-and-pick-unique is a cleanup item when emotion drift is next touched. |
 

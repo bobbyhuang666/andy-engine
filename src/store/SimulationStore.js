@@ -350,6 +350,7 @@ class SimulationStore {
       return true;
     } catch (e) {
       diagnostics.collect({ type: 'snapshot-save-failed', error: e.message });
+      diagnostics.warn(`SimulationStore snapshot save failed at tick ${this.tickCount}: ${e.message}`);
       if (opts.throwOnFailure) {
         throw new Error(`SimulationStore snapshot save failed: ${e.message}`);
       }
