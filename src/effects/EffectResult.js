@@ -83,8 +83,10 @@ class EffectResult {
         case 'emotion':
           // R139: additive merge — multiple EmotionDeltas targeting the same
           // dimension must sum their changes, not overwrite.
+          // R146-1 fix: clamp summed emotion values to [-1, 1] to prevent
+          // unbounded accumulation in legacy format output.
           for (const [key, val] of Object.entries(delta.changes)) {
-            stateDeltas.emotion[key] = (stateDeltas.emotion[key] || 0) + val;
+            stateDeltas.emotion[key] = Math.max(-1, Math.min(1, (stateDeltas.emotion[key] || 0) + val));
           }
           break;
         case 'memory':

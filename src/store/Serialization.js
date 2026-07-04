@@ -81,7 +81,11 @@ class Serialization {
         Object.entries(config).filter(([key]) => !NON_CONFIG_KEYS.has(key))
       );
       // Deep-copy to prevent reference sharing between restored config and caller's original.
-      const deepFilteredConfig = JSON.parse(JSON.stringify(filteredConfig));
+      // R146-1 fix: use structuredClone instead of JSON.parse(JSON.stringify()) to
+      // preserve Date objects and avoid stripping non-JSON types.
+      const deepFilteredConfig = typeof structuredClone === 'function'
+        ? structuredClone(filteredConfig)
+        : JSON.parse(JSON.stringify(filteredConfig));
       return {
         ...envelope.runtimeSnapshot,
         _restoreConfig: {

@@ -316,7 +316,14 @@ class AndyBridge {
         snapshots.push({ id, ...agent.toJSON() });
       }
     }
-    return Buffer.from(JSON.stringify(snapshots));
+    // R146-1 fix: guard against circular references in agent.toJSON() output
+    // which would cause JSON.stringify to throw TypeError.
+    try {
+      return Buffer.from(JSON.stringify(snapshots));
+    } catch (err) {
+      diagnostics.warn?.('andy_bridge_serialize_failed', { error: err.message });
+      return Buffer.alloc(0);
+    }
   }
 
   /**

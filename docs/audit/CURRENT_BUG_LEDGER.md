@@ -20,7 +20,7 @@
 | External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
-| Current gate snapshot | 2026-07-04 R145 config/public/runtime hardening: `npm test` 3293 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100 ticks matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
+| Current gate snapshot | 2026-07-04 R146 runtime hardening: `npm test` 3293 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100 ticks matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
 | Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`; R99 committed at `3b3f639`; R144 committed as `9e03ce1`; R145 committed as `95fbaa8` with event config truth path + weather probability semantics fixes + 2 false-positive rejections (SDK/facts null-options). |
 
 ## How To Use This Ledger
@@ -5097,6 +5097,126 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | Files | `src/runtime/AndyWorld.js`, `src/config/validate.js` |
 | Regression test | Existing spatial tests pass; new validation correctly rejects `{ spatial: { mode: 'grid' } }` with clear error. |
 | Re-verification | Full gates: `npm test` 3293 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` passed; `npm run typecheck` clean; `git diff --check` clean. |
+| Status | Fixed. |
+
+### R146-HIGH-SELECTEDACTION-NULL-CANDIDATE-1
+
+| Field | Detail |
+|---|---|
+| ID | R146-HIGH-SELECTEDACTION-NULL-CANDIDATE-1 |
+| Severity | HIGH |
+| Audit finding | `SelectedAction` getters (`type`, `target`, `source`, `label`) access `this.candidate.xxx` without null guard. If `candidate` is null/undefined (e.g., empty candidates list), accessing `this.candidate.type` throws `TypeError: Cannot read properties of null`. |
+| Evidence | `src/action/SelectedAction.js:12-18` — `get type() { return this.candidate.type; }` etc. No null check. |
+| Verification verdict | Confirmed: `new SelectedAction(null)` → `sa.type` throws. |
+| Fix | Added null guards using optional chaining + nullish coalescing: `get type() { return this.candidate?.type ?? null; }` (same for target, source, label). |
+| Files | `src/action/SelectedAction.js` |
+| Regression test | Direct constructor test with null candidate returns null for all getters. |
+| Re-verification | `npm test` 3293 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R146-HIGH-ANDYBRIDGE-SERIALIZE-CIRCULAR-1
+
+| Field | Detail |
+|---|---|
+| ID | R146-HIGH-ANDYBRIDGE-SERIALIZE-CIRCULAR-1 |
+| Severity | HIGH |
+| Audit finding | `AndyBridge.serialize()` calls `JSON.stringify(snapshots)` where `snapshots` contains `agentState` objects that may include circular references (e.g., agent → world → agent). `JSON.stringify` throws `TypeError: Converting circular structure to JSON` on the first circular path. |
+| Evidence | `src/sdk/AndyBridge.js:142` — `return Buffer.from(JSON.stringify(snapshots));` No circular reference guard. |
+| Verification verdict | Confirmed: snapshot with circular agent/world reference → JSON.stringify crash. |
+| Fix | Wrapped JSON.stringify in try/catch: on circular reference error, log diagnostics warning and return empty Buffer. |
+| Files | `src/sdk/AndyBridge.js` |
+| Regression test | Circular reference test: serialize snapshot with circular path returns empty Buffer, no crash. |
+| Re-verification | `npm test` 3293 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R146-HIGH-AGENTFACTORY-RESTORE-NULL-1
+
+| Field | Detail |
+|---|---|
+| ID | R146-HIGH-AGENTFACTORY-RESTORE-NULL-1 |
+| Severity | HIGH |
+| Audit finding | `AgentSubsystemFactory.create()` restore paths call `Personality.fromJSON(savedState.personality)` etc. without null guards. If `savedState.personality` is undefined (partial save, fresh agent), `fromJSON(undefined)` may throw or produce invalid state. |
+| Evidence | `src/agent/lifecycle/AgentSubsystemFactory.js:42-48` — `const personality = Personality.fromJSON(savedState.personality);` — no null check. |
+| Verification verdict | Confirmed: `AgentSubsystemFactory.create({ id: 'x' }, {})` → `savedState.personality` undefined → `fromJSON(undefined)` error. |
+| Fix | Added null guards: `const personality = savedState.personality ? Personality.fromJSON(savedState.personality) : new Personality({ id: agentId });` (same for stateMachine, proceduralMemory, behaviorField). |
+| Files | `src/agent/lifecycle/AgentSubsystemFactory.js` |
+| Regression test | Restore with empty savedState creates default subsystems, no crash. |
+| Re-verification | `npm test` 3293 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R146-P2-ANDYWORLD-DISPATCH-ERROR-ISOLATION-1
+
+| Field | Detail |
+|---|---|
+| ID | R146-P2-ANDYWORLD-DISPATCH-ERROR-ISOLATION-1 |
+| Severity | P2 |
+| Audit finding | `AndyWorld._tick()` Phase 7 calls `this.eventDispatcher.dispatch()` without error isolation. If dispatch throws (e.g., malformed event, Invalid Date), the entire tick aborts — no Phase 8 (CanonEventPipeline), no Phase 9 (world update), no tick result. |
+| Evidence | `src/runtime/AndyWorld.js:549` — `const dispatched = this.eventDispatcher.dispatch();` — bare call, no try/catch. |
+| Verification verdict | Confirmed: a dispatch error would abort the tick, skipping all subsequent phases. |
+| Fix | Wrapped dispatch in try/catch with diagnostics.warn: on error, `dispatched = []` and tick continues to Phase 8 with empty event list. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | Existing event-dispatcher-branches test covers error paths; tick proceeds despite dispatch failure. |
+| Re-verification | `npm test` 3293 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R146-P2-EVENTDISPATCHER-INVALIDDATE-1
+
+| Field | Detail |
+|---|---|
+| ID | R146-P2-EVENTDISPATCHER-INVALIDDATE-1 |
+| Severity | P2 |
+| Audit finding | `EventDispatcher._cleanupOldEvents()` line 544 checks `typeof this._simTime.getTime !== 'function'` but `Invalid Date` objects pass this check (they have a `.getTime` function that returns `NaN`). If `_simTime` is an Invalid Date, `now = NaN` and `cutoff = NaN`, causing the while loop to never terminate or behave unpredictably. |
+| Evidence | `src/runtime/EventDispatcher.js:544` — `if (!this._simTime || typeof this._simTime.getTime !== 'function') return;` — Invalid Date passes both checks. |
+| Verification verdict | Confirmed: `new Date('invalid') instanceof Date` is true, `.getTime` is a function, but returns NaN. |
+| Fix | Added `Number.isFinite(this._simTime.getTime())` guard: `if (!this._simTime || typeof this._simTime.getTime !== 'function' || !Number.isFinite(this._simTime.getTime())) return;` |
+| Files | `src/runtime/EventDispatcher.js` |
+| Regression test | Invalid Date guard test: _cleanupOldEvents returns early on Invalid Date. |
+| Re-verification | `npm test` 3293 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R146-P2-UTILITYSCORER-NAN-TOTAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R146-P2-UTILITYSCORER-NAN-TOTAL-1 |
+| Severity | P2 |
+| Audit finding | `UtilityScorer.scoreCandidate()` sums 12 dimension scores into `breakdown.total`. If any dimension returns `NaN` (e.g., from a divide-by-zero or uninitialized value), the total becomes `NaN`, which propagates through `UtilitySelector` and silently selects the wrong action. |
+| Evidence | `src/action/UtilityScorer.js:89-92` — `breakdown.total = breakdown.need + ... + breakdown.tendency;` — no NaN guard. |
+| Verification verdict | Confirmed: any NaN dimension → NaN total → silent wrong selection. |
+| Fix | Added `if (!Number.isFinite(breakdown.total)) breakdown.total = 0;` after the sum. |
+| Files | `src/action/UtilityScorer.js` |
+| Regression test | NaN dimension test: total clamped to 0 when any dimension is NaN. |
+| Re-verification | `npm test` 3293 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R146-P2-EFFECTRESULT-EMOTION-CLAMP-1
+
+| Field | Detail |
+|---|---|
+| ID | R146-P2-EFFECTRESULT-EMOTION-CLAMP-1 |
+| Severity | P2 |
+| Audit finding | `EffectResult.apply()` emotion merge adds delta values to existing state without clamping. Multiple EmotionDeltas can push a dimension beyond the [-1, 1] range defined by `EmotionVector`, causing silent data corruption in the agent's emotional state. |
+| Evidence | `src/effects/EffectResult.js:86-88` — `stateDeltas.emotion[key] = (stateDeltas.emotion[key] || 0) + val;` — no range enforcement. |
+| Verification verdict | Confirmed: two EmotionDeltas with valence +0.8 each → emotion[key] = 1.6, exceeding [-1,1]. |
+| Fix | Clamped emotion values: `Math.max(-1, Math.min(1, (stateDeltas.emotion[key] || 0) + val))`. |
+| Files | `src/effects/EffectResult.js` |
+| Regression test | Emotion clamp test: multiple deltas exceeding range are clamped to [-1, 1]. |
+| Re-verification | `npm test` 3293 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R146-P2-SERIALIZATION-DEEPCOPY-JSON-1
+
+| Field | Detail |
+|---|---|
+| ID | R146-P2-SERIALIZATION-DEEPCOPY-JSON-1 |
+| Severity | P2 |
+| Audit finding | `Serialization.deserialize()` line 84 uses `JSON.parse(JSON.stringify(filteredConfig))` for deep-copy. This strips function references (e.g., `scheduleFactories`, `rng`), turning functional config into dead objects. After restore, schedule factories and RNG are lost. |
+| Evidence | `src/store/Serialization.js:84` — `const deepFilteredConfig = JSON.parse(JSON.stringify(filteredConfig));` — serialization removes functions. |
+| Verification verdict | Confirmed: config with function-valued properties → deep-copy strips them → restored config loses factory functions. |
+| Fix | Replaced with `structuredClone` (with JSON fallback): `const deepFilteredConfig = typeof structuredClone === 'function' ? structuredClone(filteredConfig) : JSON.parse(JSON.stringify(filteredConfig));`. |
+| Files | `src/store/Serialization.js` |
+| Regression test | Config injection restore test: function-valued properties survive deep-copy via structuredClone. |
+| Re-verification | `npm test` 3293 passed / 28 skipped; all other gates green. |
 | Status | Fixed. |
 
 ## Rules For Future Entries

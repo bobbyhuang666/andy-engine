@@ -31,10 +31,10 @@ class SelectedAction {
     this.reasonTrace = reasonTrace;
   }
 
-  get type() { return this.candidate.type; }
-  get target() { return this.candidate.target; }
-  get source() { return this.candidate.source; }
-  get label() { return this.candidate.label; }
+  get type() { return this.candidate?.type ?? null; }
+  get target() { return this.candidate?.target ?? null; }
+  get source() { return this.candidate?.source ?? null; }
+  get label() { return this.candidate?.label ?? null; }
 
   toJSON() {
     return {

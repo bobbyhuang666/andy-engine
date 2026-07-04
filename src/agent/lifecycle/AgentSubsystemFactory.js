@@ -79,21 +79,21 @@ function createSubsystems(config, agentId, domain, rng) {
  * @returns {Object} Same shape as createSubsystems
  */
 function restoreSubsystems(savedState, config, agentId, domain, rng) {
-  const personality = Personality.fromJSON(savedState.personality);
+  const personality = savedState.personality ? Personality.fromJSON(savedState.personality) : new Personality({ id: agentId });
   const emotion = new EmotionVector(personality, savedState.emotion, rng, config.emotion || null, config.contagion || null);
-  const stateMachine = new StateMachine(null, savedState.stateMachine, domain);
+  const stateMachine = savedState.stateMachine ? new StateMachine(null, savedState.stateMachine, domain) : new StateMachine(null, null, domain);
   const memory = new PersonalMemory(agentId, [], savedState.memory, domain, rng, config.memory || null);
   if (savedState.appraisalBiases) {
     // R12: deep-copy to prevent shared reference mutation
     memory.appraisalBiases = savedState.appraisalBiases.map(b => ({ ...b }));
   }
-  const proceduralMemory = new ProceduralMemory(savedState.proceduralMemory);
+  const proceduralMemory = savedState.proceduralMemory ? new ProceduralMemory(savedState.proceduralMemory) : new ProceduralMemory();
   const needs = new NeedsSystem(personality, savedState.needs, domain, config.needs || null);
   const emotionRegulation = new EmotionRegulation(personality, savedState.emotionRegulation, rng);
   const intrinsicMotivation = new IntrinsicMotivation(personality, savedState.intrinsicMotivation, domain, rng, config.intrinsicMotivation || null);
   const scheduleConfig = config.schedule || savedState.schedule || {};
   const schedule = new Schedule(scheduleConfig, savedState.schedule, rng);
-  const behaviorField = new BehaviorField(personality, savedState.behaviorField || null, config.behavior || {}, domain, rng);
+  const behaviorField = savedState.behaviorField ? new BehaviorField(personality, savedState.behaviorField, config.behavior || {}, domain, rng) : new BehaviorField(personality, null, config.behavior || {}, domain, rng);
 
   const position = savedState.position;
   const socialEnergy = Number.isFinite(savedState.socialEnergy) ? savedState.socialEnergy : AGENT_DEFAULTS.socialEnergy;

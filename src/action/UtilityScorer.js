@@ -90,6 +90,8 @@ function scoreCandidate(candidate, context) {
     breakdown.memory + breakdown.relationship + breakdown.habit +
     breakdown.goal + breakdown.location + breakdown.world +
     breakdown.time + breakdown.constraint + breakdown.tendency;
+  // R146-1 fix: guard against NaN/Infinity total from corrupted scorer inputs
+  if (!Number.isFinite(breakdown.total)) breakdown.total = 0;
 
   return breakdown;
 }

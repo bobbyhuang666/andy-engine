@@ -546,7 +546,12 @@ class AndyWorld {
         });
       }
     }
-    const dispatched = this.eventDispatcher.dispatch();
+    let dispatched = [];
+    try {
+      dispatched = this.eventDispatcher.dispatch();
+    } catch (err) {
+      diagnostics.warn(`EventDispatcher.dispatch failed: ${err.message}`);
+    }
     result.phase.eventDispatch = { eventCount: dispatched.length };
 
     // ─── Phase 8: CANON_PIPELINE ───

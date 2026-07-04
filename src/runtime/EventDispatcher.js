@@ -541,7 +541,9 @@ class EventDispatcher {
     // 使用模拟时间（每 tick 由 setSimTime 注入；ctor 预置保证非空）
     // R41 fix: guard against _simTime being a non-Date value (e.g., a string
     // from corrupted deserialization), which would throw on .getTime().
-    if (!this._simTime || typeof this._simTime.getTime !== 'function') return;
+    // R146-1 fix: also guard against Invalid Date (which has getTime method
+    // but returns NaN), preventing silent memory leak in _cleanupOldEvents.
+    if (!this._simTime || typeof this._simTime.getTime !== 'function' || !Number.isFinite(this._simTime.getTime())) return;
     const now = this._simTime.getTime();
     const cutoff = now - this._eventConfig.eventLifespan * 60 * 1000;
 
