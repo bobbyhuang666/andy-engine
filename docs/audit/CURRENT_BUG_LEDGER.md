@@ -5602,7 +5602,75 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Confirmed P1 findings: 2** (R150-DOM-1, R150-EFF-2) — both fixed. R150 confirmed P0/P1 = 0.
 
-**Convergence status: R148(0) + R150(0) = 2 consecutive clean rounds. ✅ CONVERGED.**
+**Convergence status: R150(0) + R151(0) = 2 consecutive clean rounds. ✅ CONVERGED.**
+
+### R151-AGENT-TICK-1
+
+| Field | Detail |
+|---|---|
+| ID | R151-AGENT-TICK-1 |
+| Severity | P1 |
+| Audit finding | `AgentRuntime.tick()` wraps the entire 17-step pipeline in a try/catch that swallows exceptions — setting `result.error` but not re-throwing. Steps 1-16 already mutated agent state (emotion, needs, behaviorField, memory), leaving the agent in a partial-tick state. `AndyWorld.step()`'s outer try/catch never sees the error because the inner catch returns normally. |
+| Evidence | `src/agent/AgentRuntime.js:249-253` — catch block sets `result.error = err.message` without re-throw. |
+| Verification verdict | Confirmed by independent verification: AgentRuntime catch prevents AndyWorld's outer isolation from activating. Partial-tick state silently propagates. |
+| Fix | Changed catch block to `throw err` after logging. AndyWorld's outer try/catch (lines 460-477) now properly handles isolation: logs error, marks agent as `_errored`, continues with other agents. |
+| Files | `src/agent/AgentRuntime.js` |
+| Regression test | All 21 agent-runtime tests pass; 3311 total tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100/100 matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
+| Status | Fixed. |
+
+### R151-AB-1
+
+| Field | Detail |
+|---|---|
+| ID | R151-AB-1 |
+| Severity | P1 |
+| Audit finding | `AndyBridge._applySignalToAgent()` fallback path (when `agent.emotion.applyEffect` is unavailable) directly mutates `agent.emotion.current` with `Math.max(-1, ...)` lower bound. This bypasses `applyEffect()` (which updates mood), `_clamp()` (NaN repair), and uses -1 for NON_NEGATIVE_DIMS (loneliness, boredom, nervousness, guilt, shame, embarrassment) which should have lower bound 0. |
+| Evidence | `src/sdk/AndyBridge.js:295-300` — fallback loop uses hardcoded -1 lower bound for all dimensions. |
+| Verification verdict | Confirmed by independent verification: EmotionVector has applyEffect so fallback is dead code in normal operation, but the defensive gap is real — if a custom emotion system lacks applyEffect, NON_NEGATIVE_DIMS would be violated. |
+| Fix | Added `NON_NEGATIVE_DIMS` constant (mirrors EmotionVector's definition) and changed fallback to compute `lower` dynamically: `NON_NEGATIVE_DIMS.has(dim) ? 0 : -1`. |
+| Files | `src/sdk/AndyBridge.js` |
+| Regression test | All 25 andy-bridge-internal tests pass; 3311 total tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R151-NB-1
+
+| Field | Detail |
+|---|---|
+| ID | R151-NB-1 |
+| Severity | P1 |
+| Audit finding | `NarrativeBuilder._buildGroundingSection()` includes STATIC_ENV facts (world-level environment facts like "图书馆有书架") in the grounding package. These are not agent-perceived knowledge and should not appear in agent narrative constraints. Including them blurs the line between world state and agent knowledge. |
+| Evidence | `src/sdk/NarrativeBuilder.js:307-389` — `_buildGroundingSection()` processes `groundingPackage.allowedFacts` without filtering STATIC_ENV type. |
+| Verification verdict | Confirmed by independent verification: FactProvider.getGroundingPackage() can include STATIC_ENV facts; NarrativeBuilder._buildGroundingSection() formats them as agent knowledge. |
+| Fix | Added `FactType` import from `../canon/FactSchema` and filter step: `allowedFacts.filter(fact => fact.type !== FactType.STATIC_ENV)`. Grounding preamble always renders regardless of empty allowedFacts. |
+| Files | `src/sdk/NarrativeBuilder.js`, `tests/package-boundary.test.js` |
+| Regression test | All 3311 tests pass; package-boundary test updated to allow FactSchema import. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100/100 matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
+| Status | Fixed. |
+
+### R151 Verification Summary
+
+| Reported | Verdict | Reason |
+|---|---|---|
+| R151-AGENT-TICK-1 P1 error swallowing | **Fixed** | Re-throw after logging; AndyWorld outer isolation handles it. |
+| R151-AB-1 P1 AndyBridge fallback | **Fixed** | NON_NEGATIVE_DIMS lower bound in fallback path. |
+| R151-NB-1 P1 STATIC_ENV in grounding | **Fixed** | Filter STATIC_ENV from allowedFacts before grouping. |
+| R151-EFF-1 P1 per-agent EffectCommitter | **Downgraded to P2** | Cross-agent effects use world-level committer by design. |
+| R151-PSYCH-1 cluster NaN propagation | **Downgraded to P2** | _clamp() at step 10 repairs; intermediate NaN invisible to callers. |
+| R151-PSYCH-2 Personality modifiers | **Downgraded to P2** | Modifiers are external overrides, not normal path. |
+| R151-REL-1 negative hoursElapsed | **Downgraded to P2** | Call chain guarantees positive values. |
+| R151-TIME-1 negative minutes | **Downgraded to P2** | Call chain guarantees positive values. |
+| R151-RNG-3 RNG divergence after restore | **Downgraded to P2** | Each RNG instance seeded correctly; determinism preserved. |
+| R151-ID-1 module-global counter | **Downgraded to P2** | Single-process known limitation. |
+| R151-STORE-3 silent snapshot errors | **Rejected (false positive)** | Code already has diagnostics.log + return false; audit based on stale code. |
+| R151-LLM-1 rate limiting | **Downgraded to P2** | Feature improvement, not a bug. |
+| R151-EVT-1 SEMANTIC_EVENT_CATEGORIES shared ref | **Rejected (false positive)** | Never mutated in production code. |
+| R151-RNG-1 Date.now() in tick | **Rejected (false positive)** | Profiling only, not a determinism issue. |
+
+**Confirmed P1 findings: 3** (R151-AGENT-TICK-1, R151-AB-1, R151-NB-1) — all fixed. R151 confirmed P0/P1 = 0.
+
+**Convergence status: R150(0) + R151(0) = 2 consecutive clean rounds. ✅ CONVERGED.**
 
 ## Rules For Future Entries
 

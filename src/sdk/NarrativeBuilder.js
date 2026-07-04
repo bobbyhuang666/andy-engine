@@ -13,6 +13,7 @@
 const { applyForbiddenTerms } = require('../domain/ForbiddenTerms');
 const FactFormatter = require('../narrative/FactFormatter');
 const { DEFAULT_DOMAIN_ID } = require('../config/defaults');
+const { FactType } = require('../canon/FactSchema');
 
 class NarrativeBuilder {
   static buildSystemPrompt(worldContext, options = {}) {
@@ -319,9 +320,15 @@ class NarrativeBuilder {
   - 推断的事实（标注"推测"）：须用"我推测"或"大概"等表述
 - 你的表达方式（语气、措辞、情绪强度）可以自由发挥`);
 
-    if (groundingPackage.allowedFacts && groundingPackage.allowedFacts.length > 0) {
+    // Filter out STATIC_ENV facts — world-level environment facts (e.g., "图书馆有书架")
+    // are not agent-perceived knowledge and must not appear in grounding.
+    const allowedFacts = (groundingPackage.allowedFacts || []).filter(
+      fact => fact.type !== FactType.STATIC_ENV,
+    );
+
+    if (allowedFacts.length > 0) {
       // v2.5: group by evidence source for clarity
-      const grouped = NarrativeBuilder._groupFactsBySource(groundingPackage.allowedFacts);
+      const grouped = NarrativeBuilder._groupFactsBySource(allowedFacts);
       const factLines = [];
 
       // direct/observed: no annotation needed
@@ -366,7 +373,7 @@ class NarrativeBuilder {
 
       // If nothing was rendered (shouldn't happen but defensive), render all
       if (factLines.length === 0) {
-        for (const f of groundingPackage.allowedFacts.slice(0, 20)) {
+        for (const f of allowedFacts.slice(0, 20)) {
           factLines.push(`- ${FactFormatter.toNaturalLanguage(f)}`);
         }
       }

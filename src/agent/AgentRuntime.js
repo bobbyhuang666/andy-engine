@@ -249,7 +249,7 @@ class AgentRuntime {
     } catch (err) {
       const diagnostics = agent.diagnostics || agent._diagnostics || null;
       diagnostics?.warn?.('agent_tick_error', { agentId: agent.id, error: err.message });
-      result.error = err.message;
+      throw err; // R151: re-throw so AndyWorld's outer catch handles isolation
     }
 
     // ─── 情绪快照 ───

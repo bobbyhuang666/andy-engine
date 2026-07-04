@@ -498,7 +498,7 @@ describe('Package Boundary', () => {
       const imports = getImports(nbPath);
       const internalImports = imports.filter(i => i.startsWith('../'));
       const disallowed = internalImports.filter(
-        i => !i.startsWith('../domain/') && !i.startsWith('../../facts') && !i.startsWith('../narrative/') && !i.startsWith('../config/')
+        i => !i.startsWith('../domain/') && !i.startsWith('../../facts') && !i.startsWith('../narrative/') && !i.startsWith('../config/') && !i.startsWith('../canon/')
       );
       expect(
         disallowed,

@@ -18,6 +18,11 @@ const { StoryGenerator } = require('../narrative/StoryGenerator');
 const { SimulationStore, MemoryStore } = require('../store');
 const { diagnostics } = require('../shared/Diagnostics');
 
+// Dimensions that must not go below 0 (mirror EmotionVector NON_NEGATIVE_DIMS).
+const NON_NEGATIVE_DIMS = new Set([
+  'loneliness', 'boredom', 'nervousness', 'guilt', 'shame', 'embarrassment',
+]);
+
 class AndyBridge {
   /**
    * @param {Object} options
@@ -293,9 +298,12 @@ class AndyBridge {
     if (typeof agent.emotion.applyEffect === 'function') {
       agent.emotion.applyEffect(effect, 1, null);
     } else {
+      // Fallback for emotion systems without applyEffect: clamp to valid range
+      // and respect NON_NEGATIVE_DIMS lower bound of 0.
       for (const [dim, delta] of Object.entries(effect)) {
         if (agent.emotion.current[dim] !== undefined && Number.isFinite(delta)) {
-          agent.emotion.current[dim] = Math.max(-1, Math.min(1, agent.emotion.current[dim] + delta));
+          const lower = NON_NEGATIVE_DIMS.has(dim) ? 0 : -1;
+          agent.emotion.current[dim] = Math.max(lower, Math.min(1, agent.emotion.current[dim] + delta));
         }
       }
     }
