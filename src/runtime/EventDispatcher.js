@@ -18,13 +18,15 @@ const cfg = ANDY_DEFAULTS.events;
 
 const { RNG } = require('../shared/rng');
 class EventDispatcher {
-  constructor(domain = null, rng = null) {
+  constructor(domain = null, rng = null, eventsConfig = null) {
     if (!domain) throw new Error('EventDispatcher requires a domain config');
     this.domain = domain;
     this._rng = rng || new RNG(0);
+    // R145-1 fix: event config precedence — explicit engine config > domain eventConfig > defaults
     this._eventConfig = {
       ...cfg,
       ...(domain.eventConfig || {}),
+      ...(eventsConfig || {}),
     };
 
     /** @type {Object[]} 有序事件日志 */
@@ -640,8 +642,8 @@ class EventDispatcher {
    * @param {Object} [rng] - RNG 实例
    * @returns {EventDispatcher}
    */
-  static fromJSON(json, domain = null, rng = null) {
-    const ed = new EventDispatcher(domain, rng);
+  static fromJSON(json, domain = null, rng = null, eventsConfig = null) {
+    const ed = new EventDispatcher(domain, rng, eventsConfig);
     if (json && Array.isArray(json.eventLog)) {
       for (const evt of json.eventLog) {
         if (!evt || typeof evt !== 'object') continue;

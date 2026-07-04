@@ -290,6 +290,39 @@ function validateConfig(config) {
     }
   }
 
+  // ─── 事件系统参数 ───
+  if (config.events) {
+    const ev = config.events;
+    if (ev.maxEventLogSize !== undefined) {
+      checkRange(ev.maxEventLogSize, 1, 100000, 'events.maxEventLogSize', errors);
+    }
+    if (ev.randomEventProbability !== undefined) {
+      checkRange(ev.randomEventProbability, 0, 1, 'events.randomEventProbability', errors);
+    }
+    if (ev.causalChainMaxLength !== undefined) {
+      checkRange(ev.causalChainMaxLength, 1, 50, 'events.causalChainMaxLength', errors);
+    }
+    if (ev.eventLifespan !== undefined) {
+      checkRange(ev.eventLifespan, 1, 525600, 'events.eventLifespan', errors);
+    }
+  }
+
+  // ─── 天气系统参数 ───
+  if (config.weatherConfig) {
+    const wc = config.weatherConfig;
+    if (wc.transitionProb !== undefined) {
+      checkRange(wc.transitionProb, 0, 1, 'weatherConfig.transitionProb', errors);
+    }
+    if (wc.seasonProbabilities) {
+      for (const [season, probs] of Object.entries(wc.seasonProbabilities)) {
+        const sum = Object.values(probs).reduce((a, b) => a + b, 0);
+        if (!Number.isFinite(sum) || sum <= 0) {
+          errors.push(`weatherConfig.seasonProbabilities.${season}: probabilities must sum to a positive number, got ${sum}`);
+        }
+      }
+    }
+  }
+
   // ─── 参数间一致性检查 ───
   if (config.needs && config.needs.threshold && config.needs.recoveryRate) {
     for (const need of Object.keys(config.needs.threshold)) {

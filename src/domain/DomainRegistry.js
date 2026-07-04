@@ -163,6 +163,16 @@ class DomainRegistry {
 
   get eventTemplates() { return this.domain.eventTemplates || {}; }
 
+  // R145-1 fix: expose eventConfig from the raw domain object so that
+  // EventDispatcher can read domain-level event config overrides.
+  // Instance-level getter/setter stores override in this._eventConfig
+  // to avoid mutating the shared domain config object (test isolation).
+  get eventConfig() {
+    if (this._eventConfig !== undefined) return this._eventConfig;
+    return this.domain.eventConfig || {};
+  }
+  set eventConfig(val) { this._eventConfig = val; }
+
   /**
    * 获取事件模板
    * @param {string} type - 'genericEvents' | 'timeEvents' | 'weatherEvents' | 'regionEvents'

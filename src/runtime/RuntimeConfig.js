@@ -72,6 +72,11 @@ class RuntimeConfig {
         ? { ...ANDY_DEFAULTS.spatial, ...config.spatial }
         : null;
 
+    this.events =
+      typeof config.events === 'object' && config.events !== null
+        ? { ...ANDY_DEFAULTS.events, ...config.events }
+        : null;
+
     this.needs =
       typeof config.needs === 'object' && config.needs !== null
         ? { ...ANDY_DEFAULTS.needs, ...config.needs }

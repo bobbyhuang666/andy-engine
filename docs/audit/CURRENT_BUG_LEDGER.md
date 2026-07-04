@@ -5024,6 +5024,36 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | Re-verification | `npm test` 3293 passed / 28 skipped; all gates green. |
 | Status | Fixed. |
 
+### R145-EVENT-CONFIG-TRUTH-PATH-1
+
+| Field | Detail |
+|---|---|
+| ID | R145-EVENT-CONFIG-TRUTH-PATH-1 |
+| Severity | P1 |
+| Audit finding | User-provided `config.events` (e.g. `randomEventProbability: 0`, `maxEventLogSize: 3`) is silently ignored. The config path breaks at two points: (1) `RuntimeConfig` never extracts `config.events`, and (2) `AndyWorld` never passes event config to `EventDispatcher`. Additionally, `DomainRegistry` lacks an `eventConfig` getter, so domain-level `eventConfig` overrides are also invisible to `EventDispatcher`. |
+| Evidence | `src/runtime/RuntimeConfig.js` — no `config.events` handling. `src/runtime/AndyWorld.js:200` — `new EventDispatcher(this.domain, this.rng)` with no config arg. `src/runtime/EventDispatcher.js:25-28` — only reads `ANDY_DEFAULTS.events` + `domain.eventConfig`. `src/domain/DomainRegistry.js` — no `eventConfig` getter. |
+| Verification verdict | Confirmed: `new AndyEngine({ events: { randomEventProbability: 0 } })` still uses 0.08 from ANDY_DEFAULTS. |
+| Fix | 1. Added `this.events` extraction in `RuntimeConfig` (spread-merge from ANDY_DEFAULTS.events). 2. Added `eventsConfig` param to `EventDispatcher` constructor and `fromJSON()`, with precedence: explicit engine config > domain eventConfig > defaults. 3. Added `eventConfig` getter+setter to `DomainRegistry`. 4. Updated `AndyWorld` to pass `this.runtimeConfig.events` to `EventDispatcher`. 5. Added `events` and `weatherConfig` validation in `validateConfig`. |
+| Files | `src/runtime/RuntimeConfig.js`, `src/runtime/EventDispatcher.js`, `src/runtime/AndyWorld.js`, `src/domain/DomainRegistry.js`, `src/config/validate.js` |
+| Regression test | Existing event dispatcher tests pass; `eventConfig` override test passes; config injection restore tests pass. |
+| Re-verification | Full gates: `npm test` 3293 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` passed; `npm run typecheck` clean; `npm run replay:diff` 100 ticks matched; `git diff --check` clean. |
+| Status | Fixed. |
+
+### R145-WEATHER-PROBABILITY-SEMANTICS-1
+
+| Field | Detail |
+|---|---|
+| ID | R145-WEATHER-PROBABILITY-SEMANTICS-1 |
+| Severity | P1 |
+| Audit finding | `AndyWorld._maybeChangeWeather()` line 311 uses `if (rand0 < wxCfg.transitionProb) return;`, which inverts the documented semantics. `transitionProb: 1` never changes weather; `transitionProb: 0` always attempts change. The comment on `ANDY_DEFAULTS.weather.transitionProb` says "probability a weather change is attempted" — meaning higher values should mean more changes. |
+| Evidence | `src/runtime/AndyWorld.js:311` — `rand0 < transitionProb` early return. `src/config/defaults.js:210` — comment says "probability a weather change is attempted". |
+| Verification verdict | Confirmed: comparison operator is inverted relative to documented contract. |
+| Fix | Changed `if (rand0 < wxCfg.transitionProb) return;` to `if (rand0 >= wxCfg.transitionProb) return;` so that `transitionProb: 1` attempts change every tick and `transitionProb: 0` never does. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | Golden fixture regenerated; `npm run replay:diff` 100/100 ticks matched (deterministic with new weather behavior). |
+| Re-verification | Full gates: `npm test` 3293 passed / 28 skipped; `npm run replay:diff` 100 ticks matched; all other gates green. |
+| Status | Fixed. |
+
 ## Rules For Future Entries
 
 Use this template:

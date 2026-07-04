@@ -192,12 +192,13 @@ class AndyWorld {
     // 此前直接 push eventLog 绕过了 _nextId 恢复，导致 L4 截断续跑漂移。
     if (savedState && savedState.events) {
       try {
-        this.eventDispatcher = EventDispatcher.fromJSON(savedState.events, this.domain, this.rng);
+        const eventsCfg = this.runtimeConfig.events || undefined;
+        this.eventDispatcher = EventDispatcher.fromJSON(savedState.events, this.domain, this.rng, eventsCfg);
       } catch (e) {
-        this.eventDispatcher = new EventDispatcher(this.domain, this.rng);
+        this.eventDispatcher = new EventDispatcher(this.domain, this.rng, this.runtimeConfig.events);
       }
     } else {
-      this.eventDispatcher = new EventDispatcher(this.domain, this.rng);
+      this.eventDispatcher = new EventDispatcher(this.domain, this.rng, this.runtimeConfig.events);
     }
 
     // ─── EffectCommitter（复用，减少 GC 压力）───
@@ -308,7 +309,7 @@ class AndyWorld {
     const wxCfg = this.runtimeConfig.weatherConfig || ANDY_DEFAULTS.weather;
     const probs = wxCfg.seasonProbabilities[season] || wxCfg.seasonProbabilities.spring;
     const rand0 = this.rng.next();
-    if (rand0 < wxCfg.transitionProb) return;
+    if (rand0 >= wxCfg.transitionProb) return;
     const rand = this.rng.next();
     let cumulative = 0;
     let newWeather = current;
