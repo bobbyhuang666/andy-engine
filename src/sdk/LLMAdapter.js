@@ -232,25 +232,35 @@ class LLMAdapter {
     };
     if (systemMsg) body.system = systemMsg.content;
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': this.apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify(body),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      const err = await response.text().catch(() => '');
-      throw new Error(`Anthropic API error ${response.status}: ${err}`);
+      if (!response.ok) {
+        const err = await response.text().catch(() => '');
+        throw new Error(`Anthropic API error ${response.status}: ${err}`);
+      }
+
+      if (stream) return response;
+
+      const data = await response.json();
+      return data.content?.[0]?.text || '';
+    } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') throw new Error('LLM request timed out after 30s');
+      throw err;
     }
-
-    if (stream) return response;
-
-    const data = await response.json();
-    return data.content?.[0]?.text || '';
   }
 
   async *_streamAnthropic(messages) {

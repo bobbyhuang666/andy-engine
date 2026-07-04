@@ -82,7 +82,7 @@ class SpatialEngine {
     this._agentIds = [];           // agent ID 列表（与坐标数组对齐）
     this._agentIdToIdx = new Map(); // ID → 索引映射
     this._coords = null;           // Float32Array [x0, y0, x1, y1, ...]
-    this._targets = null;          // Uint16Array - 目标区域索引
+    this._targets = null;          // Int32Array - 目标区域索引
     this._speeds = null;           // Float32Array - 移动速度 (m/tick)
     this._moving = null;           // Uint8Array - 是否在移动
     this._regionNames = [];        // 区域名列表
@@ -107,7 +107,7 @@ class SpatialEngine {
     this._agentIds = new Array(n);
     this._agentIdToIdx.clear();
     this._coords = new Float32Array(n * 2);
-    this._targets = new Int16Array(n).fill(-1);
+    this._targets = new Int32Array(n).fill(-1);
     this._speeds = new Float32Array(n).fill(1.4); // 默认步行 1.4m/5min tick
     this._moving = new Uint8Array(n);
 
@@ -549,7 +549,7 @@ class SpatialEngine {
     this._agentIds.forEach((id, idx) => this._agentIdToIdx.set(id, idx));
 
     this._coords = new Float32Array(data.coords);
-    this._targets = new Int16Array(data.targets);
+    this._targets = new Int32Array(data.targets);
     this._speeds = new Float32Array(data.speeds);
     this._moving = new Uint8Array(data.moving);
 
@@ -599,7 +599,7 @@ class SpatialEngine {
       this._coords = new Float32Array(2);
       this._coords[0] = cx;
       this._coords[1] = cy;
-      this._targets = new Int16Array(1);
+      this._targets = new Int32Array(1);
       this._speeds = new Float32Array(1);
       this._speeds[0] = 1.4;
       this._moving = new Uint8Array(1);
@@ -611,7 +611,7 @@ class SpatialEngine {
       newCoords[idx * 2 + 1] = cy;
       this._coords = newCoords;
 
-      const newTargets = new Int16Array(idx + 1);
+      const newTargets = new Int32Array(idx + 1);
       newTargets.set(this._targets);
       this._targets = newTargets;
 
@@ -703,7 +703,7 @@ class SpatialEngine {
       this._coords = newCoords;
     }
     if (this._targets) {
-      const newTargets = new Int16Array(newN);
+      const newTargets = new Int32Array(newN);
       newTargets.set(this._targets.subarray(0, newN));
       this._targets = newTargets;
     }

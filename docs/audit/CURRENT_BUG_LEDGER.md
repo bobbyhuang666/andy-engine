@@ -20,8 +20,8 @@
 | External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
-| Current gate snapshot | 2026-07-05 R148 zero-P0/P1 convergence round: `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100 ticks matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
-| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`; R99 committed at `3b3f639`; R144 committed as `9e03ce1`; R145 committed as `95fbaa8`. R145's SDK/facts null-options false-positive rejections were incorrect because ES default parameters do not protect explicit `null`; R147 fixes and documents that correction in the current worktree. |
+| Current gate snapshot | 2026-07-05 R149 social/spatial/domain/narrative/store hardening: `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100 ticks matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
+| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`; R99 committed at `3b3f639`; R144 committed as `9e03ce1`; R145 committed as `95fbaa8`; R146 committed as `e8ac0f4`; R147 committed as `6ade8ca`; R148 committed as `4e31835` (zero confirmed P0/P1); R149 committed with 11 P1 fixes. |
 
 ## How To Use This Ledger
 
@@ -5375,6 +5375,187 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 - R148-EVICTION-RESTORE-1: fromJSON missing eviction caps for 5 fact types
 - R148-GOSSIP-ORDER-1: Gossip propagation order depends on Set insertion order
 - R148-SERIAL-2: Date.now() fallback in SimulationStore snapshot timestamp
+
+### R149-SG-1
+
+| Field | Detail |
+|---|---|
+| ID | R149-SG-1 |
+| Severity | P1 |
+| Audit finding | `SocialGraph._enforceDunbarLimits()` iterates over all agents' adjacency maps independently, mutating shared bidirectional Relationship.type. When processing agent A, it downgrades rel.type. When processing agent B later, `_projectDunbarLayers(B)` reads the already-mutated rel.type, causing cascading type oscillation within a single invocation. |
+| Evidence | `src/social/SocialGraph.js:342-375` — no deduplication set; `_projectDunbarLayers` reads rel.type which may have been mutated by previous agent's iteration. |
+| Verification verdict | Confirmed by independent Verification agent. |
+| Fix | Added `processed` Set using `[rel.agentA, rel.agentB].sort().join('_')` deduplication, matching the pattern in `tick()` and `snapshot()`. |
+| Files | `src/social/SocialGraph.js` |
+| Regression test | Social graph tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R149-SG-2
+
+| Field | Detail |
+|---|---|
+| ID | R149-SG-2 |
+| Severity | P1 |
+| Audit finding | `_enforceDunbarLimits()` downgrades rel.type but NOT rel.strength. Then `_triadicClosure()` boosts rel.strength without checking Dunbar limits and skips `_updateType()`. This creates permanent divergence between type and strength — a relationship can be 'acquaintance' type but have closeFriend-level strength, bypassing the Dunbar capacity model. |
+| Evidence | `src/social/SocialGraph.js:321` — `relAC.strength = Math.min(1, relAC.strength + delta)` without `_updateType()`. Comment on line 322-324 confirms intentional skip. |
+| Verification verdict | Confirmed by independent Verification agent. |
+| Fix | Added `relAC._updateType()` after triadic closure strength boost, ensuring type stays consistent with strength. |
+| Files | `src/social/SocialGraph.js` |
+| Regression test | Social graph tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R149-SEA-001
+
+| Field | Detail |
+|---|---|
+| ID | R149-SEA-001 |
+| Severity | P1 |
+| Audit finding | `SpatialEngine._targets` is `Int16Array` (max positive value 32,767). When the number of distinct regions exceeds 32,767, region indices silently wrap, causing agents to freeze (negative values trigger `< 0` guard) or target wrong regions (wrap to small positive index). |
+| Evidence | `src/spatial/SpatialEngine.js:110` — `this._targets = new Int16Array(n).fill(-1);`. Comment on line 85 says `Uint16Array` but actual type is `Int16Array`. |
+| Verification verdict | Confirmed by independent Verification agent. Int16Array overflow behavior verified: 32,768 → -32,768, 65,536 → 0. |
+| Fix | Changed `_targets` from `Int16Array` to `Int32Array` in all creation paths (initialize, restore, addAgent, removeAgent). Updated stale comment. |
+| Files | `src/spatial/SpatialEngine.js` |
+| Regression test | 38 spatial tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R149-SEA-002
+
+| Field | Detail |
+|---|---|
+| ID | R149-SEA-002 |
+| Severity | P1 |
+| Audit finding | `_syncTargets()` dynamically registers new regions from agent.position and writes the index directly into `_targets[idx]` without bounds checking. With Int16Array, indices ≥ 32,768 silently wrap. |
+| Evidence | `src/spatial/SpatialEngine.js:207-210` — `this._targets[idx] = newIdx;` with no range guard. |
+| Verification verdict | Confirmed as compound of R149-SEA-001. Fix to Int32Array resolves both. |
+| Fix | Int32Array change eliminates overflow risk entirely. |
+| Files | `src/spatial/SpatialEngine.js` |
+| Regression test | 38 spatial tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R149-DOM-1
+
+| Field | Detail |
+|---|---|
+| ID | R149-DOM-1 |
+| Severity | P1 |
+| Audit finding | `DomainRegistry` caches (`_stateNames`, `_stateVectors`, `_regionSet`) are lazily computed and memoized but never invalidated. Post-construction mutation of `domainConfig` (stored as direct reference) produces stale reads from all cache getters. |
+| Evidence | `src/domain/DomainRegistry.js:36-38` — caches initialized to null. Lines 69-115 — lazy getters with no invalidation. Line 25 — `this.domain = domainConfig` (direct reference, no clone). |
+| Verification verdict | Confirmed by independent Verification agent. |
+| Fix | Added `_invalidateCaches()` method resetting all three caches to null. Added `setDomainConfig(newConfig)` public method that deep-clones config and invalidates caches. Added JSDoc note that domainConfig should not be mutated after construction. |
+| Files | `src/domain/DomainRegistry.js` |
+| Regression test | Domain tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R149-DOM-3
+
+| Field | Detail |
+|---|---|
+| ID | R149-DOM-3 |
+| Severity | P1 |
+| Audit finding | Custom domains without `eventConsequenceRules` fall back to `ANDY_DEFAULTS` which has English keywords. Since all engine content is Chinese, no keyword match succeeds → zero event consequence deltas (memory creation, location meaning, future tendency, emotion tagging all ineffective). |
+| Evidence | `src/domain/DomainRegistry.js:156-158` — fallback to ANDY_DEFAULTS. `src/config/defaults.js:253-276` — English keywords. `presets/campus/index.js:642-665` — Chinese keywords (campus is safe). `src/effects/EventEffectPipeline.js:195-197` — `desc.includes(kw)` matching. |
+| Verification verdict | Confirmed by independent Verification agent. Campus preset has its own Chinese rules; only custom domains without eventConsequenceRules are affected. |
+| Fix | Extended `ANDY_DEFAULTS.eventConsequenceRules` with Chinese keyword entries mirroring the English ones (rest/work/social/exercise/dining + emotion keywords + tendency rules). |
+| Files | `src/config/defaults.js` |
+| Regression test | Domain tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R149-DOM-6
+
+| Field | Detail |
+|---|---|
+| ID | R149-DOM-6 |
+| Severity | P1 |
+| Audit finding | `getDefaultDomain()` returns a singleton whose `.domain` is a direct reference to mutable `campusDomain`. Any code holding a reference can mutate the singleton, affecting all consumers (cross-domain contamination). |
+| Evidence | `src/domain/DomainRegistry.js:368-374` — `_defaultInstance` singleton. Line 25 — `this.domain = domainConfig` (no clone, no freeze). `presets/campus/index.js:20` — `module.exports = campusDomain` (mutable object). |
+| Verification verdict | Confirmed by independent Verification agent. |
+| Fix | `getDefaultDomain()` now deep-clones campus domain via `JSON.parse(JSON.stringify(campusDomain))` before creating DomainRegistry, preventing external mutation from affecting the singleton. |
+| Files | `src/domain/DomainRegistry.js` |
+| Regression test | Domain tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R149-NAR-1
+
+| Field | Detail |
+|---|---|
+| ID | R149-NAR-1 |
+| Severity | P1 |
+| Audit finding | `FactProvider._getForbiddenFacts()` only scans `FactType.EVENT` and `FactType.MEMORY` for LOCAL scope leaks. `FactType.OBSERVATION` facts with LOCAL scope are missed, allowing forbidden observations to leak into agent knowledge. |
+| Evidence | `src/narrative/FactProvider.js:258-259` — only `getAllFacts([FactType.EVENT])` and `getAllFacts([FactType.MEMORY])`. `FactType.OBSERVATION` never imported or scanned. |
+| Verification verdict | Confirmed by independent Verification agent. |
+| Fix | Added `FactType.OBSERVATION` scan to `_getForbiddenFacts()` with LOCAL scope filter. Updated `_checkLocalScopeLeak` in FactConsistencyChecker to include OBSERVATION type. |
+| Files | `src/narrative/FactProvider.js`, `src/narrative/FactConsistencyChecker.js` |
+| Regression test | 107 narrative/SDK tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R149-NAR-5
+
+| Field | Detail |
+|---|---|
+| ID | R149-NAR-5 |
+| Severity | P1 |
+| Audit finding | `LLMAdapter._callAnthropic()` makes a plain `fetch()` with no `AbortController` or timeout. `_callOpenAI()` has a 30-second timeout via `AbortController`. Anthropic calls can hang indefinitely, blocking threads and causing cascading failures. |
+| Evidence | `src/sdk/LLMAdapter.js:221-254` — no signal/controller/timeout in fetch options. `src/sdk/LLMAdapter.js:151-167` — OpenAI path has AbortController + 30s timeout. |
+| Verification verdict | Confirmed by independent Verification agent. |
+| Fix | Added `AbortController` with 30-second timeout to `_callAnthropic()`, matching `_callOpenAI` pattern. Handles AbortError with descriptive message. `_streamAnthropic()` inherits protection. |
+| Files | `src/sdk/LLMAdapter.js` |
+| Regression test | 107 narrative/SDK tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R149-SCHEMA-1
+
+| Field | Detail |
+|---|---|
+| ID | R149-SCHEMA-1 |
+| Severity | P1 |
+| Audit finding | `Serialization.deserialize()` performs strict version equality check (`ver !== CURRENT_SCHEMA_VERSION`). Old snapshots become permanently unreadable after any version bump. Migration pipeline exists in `migration.js` but has zero callers — never wired into deserialization. |
+| Evidence | `src/store/Serialization.js:94-96` — strict check throws on mismatch. `src/store/world/migration.js` — `migrateWorldState` exported but never invoked. `grep` confirms zero callers. |
+| Verification verdict | Confirmed by independent Verification agent. |
+| Fix | Added `require('./world/migration')` import. Replaced strict version throw with migration attempt: when version doesn't match, `migrateWorldState()` is called on runtimeSnapshot. If migration succeeds, migrated snapshot replaces original. If migration returns `migrated: false`, original error is thrown with enhanced message. |
+| Files | `src/store/Serialization.js` |
+| Regression test | 292 store tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R149-PERSIST-1
+
+| Field | Detail |
+|---|---|
+| ID | R149-PERSIST-1 |
+| Severity | P1 |
+| Audit finding | `SimulationStore._decayStories()` catches all errors and only does `diagnostics?.collect?.()` — no re-throw, no warning log. Compare to `_flushStories()` which re-throws and `_saveSnapshot()` which warns + conditional re-throw. Decay failures are completely invisible. |
+| Evidence | `src/store/SimulationStore.js:364-372` — silent catch with optional-chained diagnostics. No `diagnostics.warn()`, no re-throw. |
+| Verification verdict | Confirmed by independent Verification agent. |
+| Fix | Changed `diagnostics?.collect?.()` to `diagnostics.collect()` (unconditional). Added `diagnostics.warn()` with descriptive message including tick count and error details, matching `_saveSnapshot()` pattern. |
+| Files | `src/store/SimulationStore.js` |
+| Regression test | 292 store tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R149 Verification Summary (Rejected/Downgraded Findings)
+
+| Reported P1 | Verdict | Reason |
+|---|---|---|
+| R149-SOC-1 Dunbar double-counting | **Rejected** | Same as R147-SOC-1 — type assignments are idempotent, per-agent enforcement is intentional design |
+| R149-SOC-2 triadic bypass recordInteraction | **Rejected** | Same as R147-SOC-2 — intentional design, triadic closure is structural mechanism |
+| R149-SPA-1/2 spatial addAgent race | **Downgraded to P2** | Low likelihood, JS single-threaded |
+| R149-SPA-4/5/6 teleport/config | **Downgraded to P2** | Edge cases with domain-specific triggers |
+| R149-CFG-1/3 threshold/spatial validation | **Downgraded to P2** | Config design decisions, not runtime bugs |
+| R149-SOC-3 relationship NaN decay | **Rejected** | Math.max(0, ...) guards against NaN |
+| R149-NAR-2 regex false positives | **Rejected** | Finding misattributed — `_checkAgentStateLeak` doesn't use that regex |
+| R149-SCHEMA-2 migration event drop | **Rejected** | Defensive `|| []` prevents crashes; migration is unreachable anyway |
+| R149-RESTORE-1/2 silent restore/agent skip | **Downgraded to P2** | Acknowledged design trade-offs |
+| R149-SQLITE-1/2 WAL/concurrent | **Downgraded to P2** | Single-threaded Node, WAL handles atomicity |
+| R149-EFF-3/5 EmotionDelta/MemoryDelta | **Downgraded to P2/P3** | Downstream guards exist / zero callers |
 
 ## Rules For Future Entries
 

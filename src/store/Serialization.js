@@ -10,11 +10,14 @@
  *   - runtimeSnapshot 是不透明载荷（Opaque Payload），本模块不解析其内部结构
  *   - 不泄漏私有 agent 状态到稳定信封
  *   - 迁移必须是显式的外部管线，不在序列化中隐式执行
+ *   - R149-SCHEMA-1: deserialize() 自动尝试迁移旧版本 snapshot
  */
 
 // R22 P0-4 fix: import CURRENT_SCHEMA_VERSION from validator to avoid
 // independent declaration that can drift out of sync.
 const { CURRENT_SCHEMA_VERSION } = require('./world/validator');
+
+const { migrateWorldState } = require('./world/migration');
 
 // Keep ENVELOPE_VERSION as alias for backward compatibility
 const ENVELOPE_VERSION = CURRENT_SCHEMA_VERSION;
@@ -92,7 +95,15 @@ class Serialization {
       throw new Error('Serialization.deserialize: envelope 缺少 version/schemaVersion 字段');
     }
     if (ver !== CURRENT_SCHEMA_VERSION) {
-      throw new Error(`Serialization.deserialize: envelope 版本 ${ver} 不匹配当前版本 ${CURRENT_SCHEMA_VERSION}`);
+      // R149-SCHEMA-1: attempt migration instead of throwing on version mismatch.
+      // migrateWorldState() handles known old versions (e.g. v0.0.0 → v0.1.0)
+      // and returns the original state unchanged for unknown versions.
+      const migrated = migrateWorldState(envelope.runtimeSnapshot);
+      if (migrated.migrated) {
+        envelope = { ...envelope, runtimeSnapshot: migrated.state };
+      } else {
+        throw new Error(`Serialization.deserialize: envelope 版本 ${ver} 不匹配当前版本 ${CURRENT_SCHEMA_VERSION}，且无法迁移`);
+      }
     }
     if (!envelope.runtimeSnapshot) {
       throw new Error('Serialization.deserialize: envelope 缺少 runtimeSnapshot 字段');

@@ -114,6 +114,7 @@ export declare class DomainRegistry {
   getSemanticProfile(): Record<string, any>;
   mergeSemanticProfile(defaults?: Record<string, any>): Record<string, any>;
   getForbiddenTerms(): string[];
+  setDomainConfig(config: DomainConfig): void;
 }
 
 export declare function getDefaultDomain(): DomainRegistry;

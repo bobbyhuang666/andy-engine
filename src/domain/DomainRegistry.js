@@ -12,6 +12,9 @@ const { validateDomain } = require('./validateDomain');
 class DomainRegistry {
   /**
    * @param {Object} [domainConfig] - 自定义 domain 配置
+   *                         ⚠️  注意: domainConfig 会被直接引用保存,
+   *                         构造后不应再被外部修改. 如需替换配置,
+   *                         请使用 setDomainConfig(newConfig).
    * @param {Object} [options] - 选项
    * @param {boolean} [options.validate=true] - 是否校验
    * @param {boolean} [options.strict=false] - 严格模式
@@ -36,6 +39,27 @@ class DomainRegistry {
     this._stateNames = null;
     this._stateVectors = null;
     this._regionSet = null;
+  }
+
+  /**
+   * 重置所有懒计算的缓存字段.
+   * 当 domain 配置可能发生变化时调用.
+   * @private
+   */
+  _invalidateCaches() {
+    this._stateNames = null;
+    this._stateVectors = null;
+    this._regionSet = null;
+  }
+
+  /**
+   * 安全地替换 domain 配置.
+   * 内部深拷贝以避免外部突变影响缓存一致性, 并自动失效旧缓存.
+   * @param {Object} newConfig - 新的 domain 配置
+   */
+  setDomainConfig(newConfig) {
+    this.domain = JSON.parse(JSON.stringify(newConfig));
+    this._invalidateCaches();
   }
 
   // ═══════════════════════════════════════════
@@ -368,7 +392,10 @@ let _defaultInstance = null;
 function getDefaultDomain() {
   if (!_defaultInstance) {
     const campusDomain = require('../../presets/campus');
-    _defaultInstance = new DomainRegistry(campusDomain, { validate: false });
+    // Deep-clone to prevent external mutation of the singleton via the shared
+    // campusDomain reference (R149-DOM-6: mutable singleton cross-contamination).
+    const clonedDomain = JSON.parse(JSON.stringify(campusDomain));
+    _defaultInstance = new DomainRegistry(clonedDomain, { validate: false });
   }
   return _defaultInstance;
 }

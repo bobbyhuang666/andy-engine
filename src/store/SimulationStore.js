@@ -367,7 +367,8 @@ class SimulationStore {
     try {
       this.db.decay(0.95, 0.05, 30, now);
     } catch (e) {
-      diagnostics?.collect?.({ type: 'story_decay_failed', error: e.message });
+      diagnostics.collect({ type: 'story_decay_failed', error: e.message });
+      diagnostics.warn(`SimulationStore story decay failed at tick ${this.tickCount}: ${e.message}`);
     }
   }
 }

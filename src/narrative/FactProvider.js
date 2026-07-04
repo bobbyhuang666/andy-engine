@@ -253,12 +253,13 @@ class FactProvider {
     const result = [];
 
     // Forbidden facts are LOCAL-scope facts that the agent does NOT know about.
-    // Instead of scanning all facts, only scan LOCAL EVENT and MEMORY types
+    // Instead of scanning all facts, only scan LOCAL EVENT, MEMORY, and OBSERVATION types
     // which are the only categories that can be forbidden.
     const localEventFacts = this.store.getAllFacts([FactType.EVENT]);
     const memoryFacts = this.store.getAllFacts([FactType.MEMORY]);
+    const observationFacts = this.store.getAllFacts([FactType.OBSERVATION]);
 
-    for (const fact of [...localEventFacts, ...memoryFacts]) {
+    for (const fact of [...localEventFacts, ...memoryFacts, ...observationFacts]) {
       // Skip invalid facts
       if (!this._isActiveFact(fact)) continue;
       // Skip PUBLIC facts (always visible)
@@ -280,6 +281,13 @@ class FactProvider {
       if (fact.scope === FactScope.LOCAL &&
           fact.type === FactType.EVENT &&
           !fact.participants?.includes(agentId)) {
+        result.push(fact);
+      }
+
+      // Local-scope observations the agent didn't witness
+      if (fact.scope === FactScope.LOCAL &&
+          fact.type === FactType.OBSERVATION &&
+          fact.observerId !== agentId) {
         result.push(fact);
       }
     }

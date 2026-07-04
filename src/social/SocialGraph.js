@@ -319,9 +319,7 @@ class SocialGraph {
 
           if (delta > 0.0001) {
             relAC.strength = Math.min(1, relAC.strength + delta);
-            // R140 P1 fix: 不在这里调用 _updateType()。
-            // 类型重评估统一由 decay (rel.tick) 和 Dunbar 完成，
-            // 避免 triadic 增强后立即被 Dunbar 降级导致的类型抖动。
+            relAC._updateType();
           }
         }
       }
@@ -340,6 +338,8 @@ class SocialGraph {
    * @private
    */
   _enforceDunbarLimits() {
+    const processed = new Set(); // Relationships are bidirectional/shared; avoid cascading type oscillation
+
     for (const agentId of this._adjacency.keys()) {
       const layers = this._projectDunbarLayers(agentId);
       const { maxStrongTies, maxMediumTies } = this._cfg;
@@ -349,8 +349,12 @@ class SocialGraph {
       if (excessClose > 0) {
         // weakest close friends first (already sorted by strength descending)
         for (let i = maxStrongTies; i < layers.closeFriends.length; i++) {
-          layers.closeFriends[i].type = 'friend';
-          layers.closeFriends[i]._updateType();
+          const rel = layers.closeFriends[i];
+          const key = [rel.agentA, rel.agentB].sort().join('_');
+          if (processed.has(key)) continue;
+          processed.add(key);
+          rel.type = 'friend';
+          rel._updateType();
         }
       }
 
@@ -360,14 +364,22 @@ class SocialGraph {
       if (excessMedium > 0) {
         const fromFriends = Math.min(excessMedium, layers.friends.length);
         for (let i = 0; i < fromFriends; i++) {
-          layers.friends[i].type = 'acquaintance';
-          layers.friends[i]._updateType();
+          const rel = layers.friends[i];
+          const key = [rel.agentA, rel.agentB].sort().join('_');
+          if (processed.has(key)) continue;
+          processed.add(key);
+          rel.type = 'acquaintance';
+          rel._updateType();
         }
         const remaining = excessMedium - fromFriends;
         if (remaining > 0) {
           for (let i = maxStrongTies; i < Math.min(layers.closeFriends.length, maxStrongTies + remaining); i++) {
-            layers.closeFriends[i].type = 'acquaintance';
-            layers.closeFriends[i]._updateType();
+            const rel = layers.closeFriends[i];
+            const key = [rel.agentA, rel.agentB].sort().join('_');
+            if (processed.has(key)) continue;
+            processed.add(key);
+            rel.type = 'acquaintance';
+            rel._updateType();
           }
         }
       }

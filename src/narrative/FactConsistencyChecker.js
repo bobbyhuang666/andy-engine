@@ -670,10 +670,10 @@ class FactConsistencyChecker {
   }
 
   /**
-   * LOCAL 事件知识泄漏校验 (v2.5-W2)
+   * LOCAL 事件/观测知识泄漏校验 (v2.5-W2)
    *
-   * 检测 narrative 是否提到了 forbiddenFacts 中 scope=LOCAL 的事件。
-   * 这些是其他区域发生的本地事件，agent 不应该知道。
+   * 检测 narrative 是否提到了 forbiddenFacts 中 scope=LOCAL 的事件或观测。
+   * 这些是其他区域发生的本地事件/观测，agent 不应该知道。
    *
    * 需要 grounding.forbiddenFacts 提供（FactProvider 已填充）。
    * 如果 forbiddenFacts 不可用则跳过（向后兼容）。
@@ -686,7 +686,7 @@ class FactConsistencyChecker {
 
     for (const fact of grounding.forbiddenFacts) {
       if (!fact || fact._invalidated) continue;
-      if (fact.type !== FactType.EVENT) continue;
+      if (fact.type !== FactType.EVENT && fact.type !== FactType.OBSERVATION) continue;
       if (fact.scope !== FactScope.LOCAL) continue;
 
       const desc = fact.description || '';
