@@ -4754,6 +4754,36 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
 | Status | Fixed. |
 
+### R141-STORYGENERATOR-LOCATION-KEY-MISMATCH-1
+
+| Field | Detail |
+|---|---|
+| ID | R141-STORYGENERATOR-LOCATION-KEY-MISMATCH-1 |
+| Severity | P2 |
+| Audit finding | `StoryGenerator.LOCATION_NAMES` uses English keys (`home`, `office`, `cafe`, etc.) but `interaction.location` contains Chinese region names from domain config (`食堂`, `宿舍`, `咖啡店`, etc.). The lookup `LOCATION_NAMES[interaction.location]` always returns `undefined`, so location-aware social story templates are never used. All social stories fall back to the simpler template without location context. |
+| Evidence | `src/narrative/StoryGenerator.js:87-97`; `LOCATION_NAMES` keys don't match campus preset region names. `src/narrative/StoryGenerator.js:239`; lookup always returns empty string. |
+| Verification verdict | Confirmed: campus preset regions are Chinese (`食堂`, `宿舍`, `咖啡店`, `公园`, `便利店`, `教室`, `图书馆`, `健身房`, `家里`, `街上`, `校园广场`, `网吧`, `操场`) but LOCATION_NAMES only has English keys → all lookups miss → location never appears in social stories. |
+| Fix | Added 13 Chinese region name keys to `LOCATION_NAMES` mapping to themselves (displayed as-is). English fallback keys preserved for other domains. |
+| Files | `src/narrative/StoryGenerator.js` |
+| Regression test | Existing story generator tests pass; social stories now include location context for campus regions. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R141-SPATIALENGINE-RELATIONDELTA-DEAD-DATA-1
+
+| Field | Detail |
+|---|---|
+| ID | R141-SPATIALENGINE-RELATIONDELTA-DEAD-DATA-1 |
+| Severity | P2 |
+| Audit finding | `SpatialEngine._computeEncounters()` sets `relationDelta: tierRelationDeltas[tier]` on each encounter object, but this field is never consumed anywhere in the codebase. The actual relationship strength changes happen through `generateEncounterEvent()` → `rel.recordInteraction()`, not through the encounter's `relationDelta`. Dead data wastes memory and creates confusion about where relationship deltas originate. |
+| Evidence | `src/spatial/SpatialEngine.js:402`; `relationDelta` set on encounter. `grep -rn "relationDelta" src/` — only one reference, at the assignment site. |
+| Verification verdict | Confirmed: `relationDelta` is written but never read — dead data. |
+| Fix | Removed `relationDelta` field from encounter object construction. Relationship deltas are correctly applied by the interaction pipeline. |
+| Files | `src/spatial/SpatialEngine.js` |
+| Regression test | Existing spatial tests pass; encounter objects no longer carry unused `relationDelta` field. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
 ## Rules For Future Entries
 
 Use this template:

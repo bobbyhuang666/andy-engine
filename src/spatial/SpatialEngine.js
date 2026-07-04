@@ -399,7 +399,6 @@ class SpatialEngine {
           probability: Math.round(prob * 1000) / 1000,
           tier,
           tierName,
-          relationDelta: tierRelationDeltas[tier] || 0,
           regionA: this.worldMap.pointToRegion(this._coords[i * 2], this._coords[i * 2 + 1]) || this._regionNames[this._targets[i]] || null,
           regionB: this.worldMap.pointToRegion(this._coords[j * 2], this._coords[j * 2 + 1]) || this._regionNames[this._targets[j]] || null,
         });

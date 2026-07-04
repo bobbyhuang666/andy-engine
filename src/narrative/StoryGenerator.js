@@ -85,6 +85,21 @@ const STATE_NAMES = {
 
 // 地点中文映射（中性，不依赖 campus）
 const LOCATION_NAMES = {
+  // Campus/Tavern domain — Chinese region names
+  '宿舍': '宿舍',
+  '食堂': '食堂',
+  '便利店': '便利店',
+  '教室': '教室',
+  '图书馆': '图书馆',
+  '咖啡店': '咖啡店',
+  '公园': '公园',
+  '健身房': '健身房',
+  '家里': '家里',
+  '街上': '街上',
+  '校园广场': '校园广场',
+  '网吧': '网吧',
+  '操场': '操场',
+  // English fallbacks for other domains
   home: '家',
   office: '工作地',
   library: '阅览处',
