@@ -20,7 +20,7 @@
 | External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
-| Current gate snapshot | 2026-07-05 R147 public boundary + R146 defensive-guard follow-up: `npm test` 3309 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run typecheck` clean; `npm run smoke:pack` 19/19; `npm run replay:diff` 100 ticks matched; `npm run perf:check` all PASS; `npm run fresh:consumer` passed; `npm run sqlite:smoke` passed; `npm run release:clean` passed; `git diff --check` clean. |
+| Current gate snapshot | 2026-07-05 R148 zero-P0/P1 convergence round: `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100 ticks matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
 | Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`; R99 committed at `3b3f639`; R144 committed as `9e03ce1`; R145 committed as `95fbaa8`. R145's SDK/facts null-options false-positive rejections were incorrect because ES default parameters do not protect explicit `null`; R147 fixes and documents that correction in the current worktree. |
 
 ## How To Use This Ledger
@@ -5354,6 +5354,27 @@ defensive-guard fixes that were only partial.
 | Regression test | Existing memory tests pass; per-tick dedup prevents double reconsolidation within same tick. |
 | Re-verification | Full gates: `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100 ticks matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
 | Status | Fixed. |
+
+### R148 Verification Summary
+
+R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification agents confirmed:
+
+**Zero confirmed P0/P1.** All 9 reported P1 findings were rejected or downgraded:
+
+| Reported P1 | Verdict | Reason |
+|---|---|---|
+| R148-BF-001~004 BehaviorField NaN propagation | **Rejected (false positive)** | NeedsSystem/EmotionVector/IntrinsicMotivation/Personality upstream constructors already guard NaN. Defense-in-depth prevents NaN from reaching gradient computation. |
+| R148-EFF-3 EmotionDelta missing NaN filter | **Downgraded to P2** | Downstream `_applyEmotionDelta` already filters non-finite values at commit time. Delta object retains dirty data but no state corruption. |
+| R148-EFF-5 MemoryDelta 'consolidated' kind | **Downgraded to P3** | Zero callers produce `kind='consolidated'`. Pure documentation/code mismatch. |
+| R148-SCHED-1 sick-skip dead code | **Rejected (false positive)** | `_commitMove` return value is discarded. altState attractor + skip memory execute correctly. Agent staying in place is intentional. |
+| R148-TICK-1 error isolation partial tick | **Downgraded to P2** | Catch block does not return early; emotionSnapshot still computed. Partial tick inconsistency is design concern, not freeze bug. |
+
+**Valid P2 findings (deferred):**
+- R148-EFF-3: EmotionDelta constructor should match NeedDelta's per-value NaN filter pattern
+- R148-TICK-1: Consider per-handler try/catch isolation for better fault containment
+- R148-EVICTION-RESTORE-1: fromJSON missing eviction caps for 5 fact types
+- R148-GOSSIP-ORDER-1: Gossip propagation order depends on Set insertion order
+- R148-SERIAL-2: Date.now() fallback in SimulationStore snapshot timestamp
 
 ## Rules For Future Entries
 
