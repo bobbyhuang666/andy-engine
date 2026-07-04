@@ -34,6 +34,11 @@ const {
 } = require('./BehaviorLabeler');
 
 const { RNG } = require('../../shared/rng');
+
+function safeCounter(value) {
+  return Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
 // ═══════════════════════════════════════════
 // 默认动力学参数
 // ═══════════════════════════════════════════
@@ -166,7 +171,7 @@ class BehaviorField {
       this._lastLabel = (savedState._lastLabel && this.domain.states[savedState._lastLabel])
         ? savedState._lastLabel
         : fallbackLabel;
-      this._tickCount = savedState._tickCount || 0;
+      this._tickCount = safeCounter(savedState._tickCount);
       this._lastLabelConfidence = savedState._lastLabelConfidence ?? 0;
 
       // R18 AUDIT-001 fix: restore attractor state from savedState.
@@ -175,7 +180,7 @@ class BehaviorField {
       this._attractor = (savedState._attractor && savedState._attractor.target)
         ? { target: [...savedState._attractor.target], strength: savedState._attractor.strength }
         : null;
-      this._attractorTicksLeft = savedState._attractorTicksLeft || 0;
+      this._attractorTicksLeft = safeCounter(savedState._attractorTicksLeft);
     } else {
       // 初始位置：休息状态附近
       this.B = [0.15, 0.08, 0.15, 0.08];
@@ -715,7 +720,7 @@ class BehaviorField {
     // R13 C2 fix: 恢复吸引子状态
     if (data._attractor) {
       bf._attractor = { target: [...data._attractor.target], strength: data._attractor.strength };
-      bf._attractorTicksLeft = data._attractorTicksLeft || 0;
+      bf._attractorTicksLeft = safeCounter(data._attractorTicksLeft);
     }
     return bf;
   }

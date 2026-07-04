@@ -12,6 +12,10 @@
 
 const Relationship = require('./Relationship');
 
+function safeCounter(value) {
+  return Number.isInteger(value) && value >= 0 ? value : 0;
+}
+
 class SocialGraph {
   /**
    * @param {Object[]} [savedEdges] - 恢复的关系数据
@@ -26,7 +30,7 @@ class SocialGraph {
     let edges = savedEdges;
     if (savedEdges && !Array.isArray(savedEdges) && Array.isArray(savedEdges.edges)) {
       edges = savedEdges.edges;
-      this._tickCount = savedEdges._tickCount || 0;
+      this._tickCount = safeCounter(savedEdges._tickCount);
     }
 
     if (edges) {
@@ -440,7 +444,7 @@ class SocialGraph {
    */
   toJSON() {
     // R9 fix: include _tickCount to preserve triadic closure and Dunbar timing
-    return { edges: this.snapshot().edges, _tickCount: this._tickCount || 0 };
+    return { edges: this.snapshot().edges, _tickCount: safeCounter(this._tickCount) };
   }
 
   /**
@@ -452,8 +456,8 @@ class SocialGraph {
     // R9 fix: handle both new format {edges, _tickCount} and legacy format (plain array)
     const edges = Array.isArray(json) ? json : json.edges;
     const graph = new SocialGraph(edges, config);
-    if (!Array.isArray(json) && typeof json._tickCount === 'number') {
-      graph._tickCount = json._tickCount;
+    if (!Array.isArray(json)) {
+      graph._tickCount = safeCounter(json._tickCount);
     }
     return graph;
   }

@@ -61,7 +61,7 @@ class WorldClock {
    */
   static fromJSON(data) {
     const clock = new WorldClock(new Date(data.time));
-    clock.tickCount = data.tickCount || 0;
+    clock.tickCount = Number.isInteger(data.tickCount) && data.tickCount >= 0 ? data.tickCount : 0;
     return clock;
   }
 }

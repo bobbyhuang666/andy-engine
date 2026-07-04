@@ -99,6 +99,13 @@ describe('Wave 4 — serialization round-trip', () => {
       expect(json.edges).toHaveLength(1);
       expect(json.edges[0].lastInteraction).toBe(new Date(0).toISOString());
     });
+
+    it('repairs invalid restored tick count', () => {
+      for (const _tickCount of [Infinity, -1, 1.5]) {
+        const g = SocialGraph.fromJSON({ edges: [], _tickCount });
+        expect(g.toJSON()._tickCount).toBe(0);
+      }
+    });
   });
 
   // ── EmotionVector ─────────────────────────────────────────────
@@ -369,6 +376,22 @@ describe('Wave 4 — serialization round-trip', () => {
       expect(restored.cfg.weights.needs).toBe(4);
       expect(restored.cfg.weights.emotion).toBeDefined();
       expect(restored.cfg.weights.schedule).toBeDefined();
+    });
+
+    it('repairs invalid restored counters', () => {
+      const personality = new Personality({ mbti: 'ENFP' });
+      const bf = BehaviorField.fromJSON({
+        B: [0.1, 0.2, 0.3, 0.4],
+        velocity: [0, 0, 0, 0],
+        _prevB: [0.1, 0.2, 0.3, 0.4],
+        _lastLabel: campusDomain.fallback.defaultState,
+        _tickCount: Infinity,
+        _attractor: { target: [0.5, 0.5, 0.5, 0.5], strength: 1 },
+        _attractorTicksLeft: -1,
+      }, personality, campusDomain);
+
+      expect(bf.toJSON()._tickCount).toBe(0);
+      expect(bf.toJSON()._attractorTicksLeft).toBe(0);
     });
   });
 });

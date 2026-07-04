@@ -58,6 +58,10 @@ class SimulationStore {
     return Number.isFinite(interval) && interval > 0 ? Math.max(1, Math.floor(interval)) : fallback;
   }
 
+  static _tickCount(value, fallback = 0) {
+    return Number.isInteger(value) && value >= 0 ? value : fallback;
+  }
+
   // ═══════════════════════════════════════════
   // 初始化
   // ═══════════════════════════════════════════
@@ -97,7 +101,7 @@ class SimulationStore {
     // Guard corrupt meta: parseInt non-numeric strings → NaN, fall back to safe defaults
     if (savedTick != null) {
       const parsed = parseInt(savedTick, 10);
-      this.tickCount = Number.isFinite(parsed) ? parsed : 0;
+      this.tickCount = SimulationStore._tickCount(parsed);
     }
     if (savedTime != null) {
       const parsed = parseInt(savedTime, 10);
@@ -133,7 +137,7 @@ class SimulationStore {
   onTick(tickResult, newStories = []) {
     // R24 P1 fix: use ?? instead of || to correctly handle tickNumber=0.
     // 0 || expr evaluates to expr; 0 ?? expr evaluates to 0.
-    this.tickCount = tickResult.tickNumber ?? this.tickCount + 1;
+    this.tickCount = SimulationStore._tickCount(tickResult.tickNumber, this.tickCount + 1);
     this.virtualTime = tickResult.time ? new Date(tickResult.time) : this.virtualTime;
 
     // 追加故事到缓冲

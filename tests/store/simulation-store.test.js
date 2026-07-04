@@ -76,6 +76,19 @@ describe('SimulationStore — onTick branches', () => {
     expect(store.virtualTime).toBeNull();
   });
 
+  it('onTick falls back when tickNumber is non-finite or invalid', async () => {
+    const store = makeStore();
+    await store.init();
+    store.tickCount = 3;
+
+    for (const tickNumber of [NaN, Infinity, -1, 1.5, '7']) {
+      const before = store.tickCount;
+      store.onTick({ tickNumber });
+      expect(store.tickCount).toBe(before + 1);
+      expect(Number.isInteger(store.tickCount)).toBe(true);
+    }
+  });
+
   it('onTick sets virtualTime from tickResult.time', async () => {
     const store = makeStore();
     await store.init();

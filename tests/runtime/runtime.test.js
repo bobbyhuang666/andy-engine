@@ -76,6 +76,13 @@ describe('WorldClock', () => {
     expect(restored.time.toISOString()).toBe(clock.time.toISOString());
     expect(restored.tickCount).toBe(2);
   });
+
+  it('fromJSON repairs invalid tickCount values', () => {
+    for (const tickCount of [Infinity, -1, 1.5, '7']) {
+      const restored = WorldClock.fromJSON({ time: '2024-06-15T10:00:00Z', tickCount });
+      expect(restored.tickCount).toBe(0);
+    }
+  });
 });
 
 // ─── RuntimeConfig ───

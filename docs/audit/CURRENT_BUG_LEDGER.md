@@ -2997,6 +2997,62 @@ This section records the R130 no-quota workflow pass. 4 restore-boundary finding
 | Verification verdict | Rejected. Local check showed `params.time || this._simTime` preserves truthy string times, and `_cleanupOldEvents()` already handles Date-or-string event times via `new Date(evtTime).getTime()`. No failing repro. |
 | Status | Rejected. |
 
+## R131 - Counter Restore Boundary Hardening
+
+This section records the R131 no-quota workflow pass. 4 counter-boundary findings fixed, with local repros and external no-quota audit confirmation.
+
+### R131-001
+
+| Field | Detail |
+|---|---|
+| ID | R131-001 |
+| Severity | Medium |
+| Audit finding | `WorldClock.fromJSON()` restored `tickCount` with `data.tickCount || 0`, allowing truthy invalid values such as `Infinity`, `-1`, `1.5`, and `'7'` to persist into the clock. |
+| Evidence | Local repro on R130: `WorldClock.fromJSON({ time:'2026-01-01T00:00:00Z', tickCount: Infinity }).toJSON()` returned `tickCount: Infinity`; negative/fractional/string values also persisted. |
+| Fix | Restore now accepts only non-negative integer `tickCount`, otherwise falls back to 0. |
+| Files | `src/runtime/WorldClock.js`; `tests/runtime/runtime.test.js` |
+| Regression test | Added invalid `tickCount` restore test. |
+| Status | Fixed and targeted-test verified. |
+
+### R131-002
+
+| Field | Detail |
+|---|---|
+| ID | R131-002 |
+| Severity | High |
+| Audit finding | `SocialGraph` restored `_tickCount` without finite/integer/range validation. Invalid values can corrupt modulo-based triadic closure / Dunbar scheduling and sampling offsets. |
+| Evidence | Local repro on R130: `SocialGraph.fromJSON({ edges: [], _tickCount: Infinity }).toJSON()` returned `_tickCount: Infinity`; negative/fractional values also persisted. External no-quota audit independently flagged `%` scheduling corruption. |
+| Fix | Added `safeCounter()` and applied it in constructor restore, `fromJSON()`, and `toJSON()`. |
+| Files | `src/social/SocialGraph.js`; `tests/unit/serialization-roundtrip.test.js` |
+| Regression test | Added invalid restored `_tickCount` tests. |
+| Status | Fixed and targeted-test verified. |
+
+### R131-003
+
+| Field | Detail |
+|---|---|
+| ID | R131-003 |
+| Severity | Low/Medium |
+| Audit finding | `BehaviorField` restored `_tickCount` and `_attractorTicksLeft` with `|| 0`, allowing truthy invalid values such as `Infinity`, negative numbers, fractional numbers, and strings to persist into serialized behavior state. |
+| Evidence | Local repro on R130: `BehaviorField.fromJSON(... _tickCount: Infinity, _attractorTicksLeft: -1 ...).toJSON()` returned invalid counters. |
+| Fix | Added `safeCounter()` for `_tickCount` and `_attractorTicksLeft` in constructor and `fromJSON()` restore paths. |
+| Files | `src/agent/psychology/BehaviorField.js`; `tests/unit/serialization-roundtrip.test.js` |
+| Regression test | Added invalid restored BehaviorField counter test. |
+| Status | Fixed and targeted-test verified. |
+
+### R131-004
+
+| Field | Detail |
+|---|---|
+| ID | R131-004 |
+| Severity | High |
+| Audit finding | `SimulationStore.onTick()` used `tickResult.tickNumber ?? this.tickCount + 1`, allowing non-null invalid values such as strings, `NaN`, `Infinity`, negatives, and fractions to become store `tickCount`. String values can cascade into concatenation (`'5' + 1 -> '51'`) and break modulo-based flush/snapshot/decay scheduling. |
+| Evidence | Local repro on R130: `store.onTick({ tickNumber: Infinity })` set `tickCount` to `Infinity`; `tickNumber: NaN` set `NaN`; external no-quota audit independently flagged the string cascade. |
+| Fix | Added `_tickCount()` validator and used it for init metadata restore and `onTick()`; invalid `tickNumber` now falls back to existing `tickCount + 1` lifecycle behavior. |
+| Files | `src/store/SimulationStore.js`; `tests/store/simulation-store.test.js` |
+| Regression test | Added invalid `tickNumber` fallback test. |
+| Status | Fixed and targeted-test verified. |
+
 ## Active Latent / Deferred Backlog
 
 These are not current merge blockers unless the new Chief Planner promotes them.
