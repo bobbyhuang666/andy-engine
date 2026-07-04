@@ -19,6 +19,23 @@ import { describe, it, expect } from 'vitest';
 import AndyEngine from '../../index.js';
 import { Serialization } from '../../src/store/Serialization.js';
 
+/**
+ * Strip function-valued properties from an object graph so that
+ * JSON-based deep-copy baselines (JSON.parse(JSON.stringify(...)))
+ * can be compared with the original for mutation checks.
+ */
+function stripFunctions(obj) {
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (typeof obj.toJSON === 'function') return stripFunctions(obj.toJSON());
+  if (Array.isArray(obj)) return obj.map(stripFunctions);
+  const result = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (typeof val === 'function') continue;
+    result[key] = stripFunctions(val);
+  }
+  return result;
+}
+
 describe('P1-1: per-engine needs config injection', () => {
   it('forwards engine.config.needs to agents created via createCharacter', () => {
     const e1 = new AndyEngine({ needs: { decayRate: { hunger: 0.123 } } });
@@ -173,13 +190,16 @@ describe('P1-2: _restoreConfig flows through AndyEngine restore', () => {
     const e = new AndyEngine({ enableFacts: true, needs: { decayRate: { hunger: 0.123 } } });
     e.createCharacter({ id: 'a1', name: 'A1', mbti: 'INFP' });
     const env = Serialization.serialize(e.world);
-    const envCopy = JSON.parse(JSON.stringify(env));
+    // Use stripFunctions because env contains function references (scheduleFactories,
+    // socialInteractions templates) that JSON.parse(JSON.stringify(...)) would strip,
+    // causing a false mutation detection.
+    const envCopy = stripFunctions(env);
 
     const cfg = { enableFacts: true, needs: { decayRate: { hunger: 0.123 } } };
     const snapshot = Serialization.deserialize(env, cfg);
 
     // envelope not mutated
-    expect(env).toEqual(envCopy);
+    expect(stripFunctions(env)).toEqual(envCopy);
     // _restoreConfig attached
     expect(snapshot._restoreConfig).toEqual(cfg);
   });
@@ -334,10 +354,12 @@ describe('P1-2: _restoreConfig flows through AndyEngine restore', () => {
     e.createCharacter({ id: 'a1', name: 'A1', mbti: 'INFP' });
     const env = Serialization.serialize(e.world);
     const snapshot = Serialization.deserialize(env, { enableFacts: true, needs: { decayRate: { hunger: 0.123 } } });
-    const snapshotCopy = JSON.parse(JSON.stringify(snapshot));
+    // Use stripFunctions because snapshot contains function references that
+    // JSON.parse(JSON.stringify(...)) would strip, causing false mutation detection.
+    const snapshotCopy = stripFunctions(snapshot);
 
     // eslint-disable-next-line no-new
     new AndyEngine({}, snapshot);
-    expect(snapshot).toEqual(snapshotCopy);
+    expect(stripFunctions(snapshot)).toEqual(snapshotCopy);
   });
 });

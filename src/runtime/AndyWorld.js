@@ -943,6 +943,7 @@ class AndyWorld {
           ? this.environment.weatherChangedAt.toISOString()
           : this.environment.weatherChangedAt,
       },
+      domain: this.domain ? this.domain.domain : null,
       agents: Object.fromEntries(
         [...this.agents.entries()].map(([id, agent]) => [id, agent.toJSON()])
       ),

@@ -11,7 +11,7 @@ The Chief Planner does not optimize for a single green test run. The Chief Plann
 optimizes for a trustworthy engine whose world state, replay, facts, knowledge,
 behavior, memory, social emergence, and public API remain coherent over long-lived use.
 
-Current operating decision as of 2026-07-03: the project is not rushing to publish
+Current operating decision as of 2026-07-04: the project is not rushing to publish
 a v2.x package. The active target is polish-first hardening: keep the engine
 unpublished and use the no-quota fleet to remove confirmed P0/P1 bugs, close
 architecture boundary leaks, and perform low-risk internal refactors before any
@@ -33,11 +33,12 @@ governance decisions to a single sub-agent report.
 
 ## Current Completion Assessment
 
-Status as of 2026-07-03: Andy Engine is a Foundation Alpha candidate under
-polish-first hardening, not a release-candidate push. The engine is usable for
-local development and evaluation only after the current dirty worktree is frozen
-into a verified baseline. Publication is intentionally deferred until the user
-explicitly reopens a release decision.
+Status as of 2026-07-04 / R144: Andy Engine is a Foundation Alpha candidate under
+polish-first hardening, not a release-candidate push. The R144 baseline has broad
+green gates, but the latest Chief Planner deep audit found confirmed public/config
+boundary issues that must be addressed before claiming "no known supported-scope
+P0/P1." Publication is intentionally deferred until the user explicitly reopens
+a release decision.
 
 High-level completion estimate:
 
@@ -49,13 +50,465 @@ High-level completion estimate:
 | Domain portability | 80-85% | Campus/default/custom domain paths are mature; residual default-domain coupling is P2 unless it reaches core runtime behavior. |
 | Facts, knowledge, and epistemic boundaries | 70-75% | Opt-in semantic layer is valuable and heavily tested, but propagation contracts and evidence semantics are still evolving. |
 | Grounded narrative / D5 | 55-60% | Current checker is regex-based and remains Warning; it can support Alpha with clear caveats, but blocks any Stable claim. |
-| Release engineering and documentation truth | 65-70% | Test gates are broad, but current docs contain drift and the worktree has large uncommitted changes that must be reconciled. |
+| Release engineering and documentation truth | 70-75% | Test gates are broad and R144 was committed cleanly, but living docs must be updated after each audit round or they drift quickly. |
 
 Interpretation:
 
-- Internal alpha / preview: plausible after baseline freeze and zero confirmed P0/P1 in the active supported scope.
+- Internal alpha / preview: plausible after confirmed R144 audit findings are repaired and zero confirmed P0/P1 remain in the active supported scope.
 - npm alpha tag: not an active goal; possible only if the user explicitly reopens release planning after hardening gates pass.
 - Stable / latest tag: not ready while D5 remains Warning and the active polish scope still contains unresolved architecture debt.
+
+## Next Direction After R144 Deep Audit
+
+The external "core pain points / fatal soft ribs" audit is directionally useful,
+but the Chief Planner must split it into verified release blockers, Stable blockers,
+and product/ecosystem backlog. Do not treat rhetorical severity as engineering
+classification; require source evidence, repros, and scope mapping.
+
+### Immediate Hardening Queue
+
+These are the next supported-scope items to drive before another convergence
+claim. The recommended next implementation round is **R145: public/config
+contract truth pass**. It should be narrow, regression-test driven, and should
+not start the D5 rewrite or large architecture extraction yet.
+
+#### R145-1 Event Configuration Truth Path
+
+**Why this matters:** Event behavior is part of the default world loop. If event
+probability, retention, or lifespan config appears accepted but is ignored, users
+cannot trust simulation dynamics or persistence size controls.
+
+**Current evidence from R144 deep audit:**
+
+- `new AndyEngine({ events: { randomEventProbability: 0 } })` still produces
+  random events at the default rate.
+- `new AndyEngine({ events: { maxEventLogSize: 3 } })` does not cap
+  `eventDispatcher.eventLog` at 3.
+- `new AndyEngine({ domain: { ...campus, eventConfig: {...} } })` loses
+  `eventConfig` because `AndyWorld` passes a `DomainRegistry` instance to
+  `EventDispatcher`, and `DomainRegistry` does not expose an `eventConfig`
+  getter.
+- Direct `new EventDispatcher(rawDomainWithEventConfig)` works, so the bug is in
+  the engine integration path, not only the dispatcher.
+
+**Primary files to inspect/edit:**
+
+- `index.js` — config merge and `worldConfig` construction.
+- `src/runtime/RuntimeConfig.js` — should own normalized runtime event config if
+  public `config.events` remains supported.
+- `src/runtime/AndyWorld.js` — creates `EventDispatcher`.
+- `src/runtime/EventDispatcher.js` — currently merges defaults with
+  `domain.eventConfig`.
+- `src/domain/DomainRegistry.js` — missing `eventConfig` getter.
+- `src/config/validate.js` — missing events validation.
+- `tests/unit/runtime/event-dispatcher-branches.test.js` — low-level dispatcher
+  coverage exists but is insufficient.
+- Add or extend an engine-level test, likely under `tests/runtime/runtime.test.js`
+  or a focused `tests/unit/config-event-injection.test.js`.
+
+**Expected fix shape:**
+
+- Prefer one canonical runtime event config object, for example
+  `runtimeConfig.events`, deep/flat-merged from `ANDY_DEFAULTS.events`,
+  `domain.eventConfig`, and public `config.events` with clear precedence:
+  explicit public engine config > domain event config > defaults.
+- Make `EventDispatcher` receive the resolved event config explicitly, or make
+  `DomainRegistry.eventConfig` available and still pass explicit overrides.
+  Avoid relying on raw domain object shape after wrapping.
+- Preserve backward compatibility for domains that already define `eventConfig`.
+- Do not put campus/tavern event terms in core.
+
+**Regression tests that must fail before the fix:**
+
+```js
+const engine = new AndyEngine({
+  seed: 'event-config',
+  startTime: new Date('2026-09-01T12:00:00'),
+  events: { randomEventProbability: 0 },
+});
+engine.createCharacter({ id: 'a', name: 'A', initialPosition: '校园广场' });
+for (let i = 0; i < 200; i++) engine.tick();
+expect(engine.world.eventDispatcher.eventLog.filter(e => e.type === 'random')).toHaveLength(0);
+```
+
+```js
+const engine = new AndyEngine({
+  seed: 'event-cap',
+  events: { maxEventLogSize: 3 },
+});
+for (let i = 0; i < 20; i++) {
+  engine.world.eventDispatcher.createEvent({ type: 'manual', content: `m${i}` });
+  engine.world.eventDispatcher.dispatch();
+}
+expect(engine.world.eventDispatcher.eventLog).toHaveLength(3);
+```
+
+Also add a custom domain integration test where `domain.eventConfig.maxEventLogSize`
+or `randomEventProbability` is honored after `new AndyEngine({ domain })`.
+
+**Severity guidance:** P1 for supported/default runtime config truth. Do not
+downgrade because low-level EventDispatcher tests pass; that is exactly the blind
+spot.
+
+#### R145-2 Weather Probability Semantics And Validation
+
+**Why this matters:** Weather is default runtime behavior. A reversed probability
+turns user-facing config into a trap and changes simulation dynamics silently.
+
+**Current evidence from R144 deep audit:**
+
+- `ANDY_DEFAULTS.weather.transitionProb` comment says it is the probability a
+  weather change is attempted.
+- `AndyWorld._maybeChangeWeather()` currently does:
+
+  ```js
+  const rand0 = this.rng.next();
+  if (rand0 < wxCfg.transitionProb) return;
+  ```
+
+  This means `transitionProb: 1` never changes weather, and `transitionProb: 0`
+  always attempts a change.
+
+**Primary files to inspect/edit:**
+
+- `src/runtime/AndyWorld.js` — `_maybeChangeWeather()`.
+- `src/config/defaults.js` — comment and default.
+- `src/runtime/RuntimeConfig.js` — weatherConfig filtering.
+- `src/config/validate.js` — missing `weatherConfig.transitionProb` validation.
+- `tests/runtime/runtime.test.js` or a focused runtime config test.
+
+**Expected fix shape:**
+
+- Either change code to match the documented contract:
+
+  ```js
+  if (rand0 >= wxCfg.transitionProb) return;
+  ```
+
+  or rename/document the field as "no-transition probability." The first option
+  is preferred because existing comments and user intuition already define
+  transition probability.
+- Validate `weatherConfig.transitionProb` as finite `[0, 1]`.
+- Validate nested `weatherConfig.seasonProbabilities` values as finite
+  probabilities. Do not over-normalize without a design decision; at minimum
+  reject NaN/Infinity and impossible negatives.
+
+**Regression tests that must fail before the fix:**
+
+```js
+const engine = new AndyEngine({
+  seed: 'weather-probe',
+  startTime: new Date('2026-09-01T00:00:00'),
+  weather: 'sunny',
+  weatherConfig: {
+    transitionProb: 1,
+    seasonProbabilities: { autumn: { rain: 1, sunny: 0, cold: 0, hot: 0 } },
+  },
+});
+engine.createCharacter({ id: 'a', name: 'A' });
+for (let i = 0; i < 60; i++) engine.tick();
+expect(engine.world.environment.weather).toBe('rain');
+```
+
+Also assert that `transitionProb: 0` keeps weather unchanged under the same
+forced-probability setup.
+
+**Severity guidance:** P1 if public weather config is considered supported.
+Otherwise P2 only if weatherConfig is explicitly declared internal. Current docs
+and RuntimeConfig behavior make it look supported, so bias toward P1.
+
+#### R145-3 Public SDK Null-Options Boundary
+
+**Why this matters:** R143/R144 fixed root `AndyEngine` null options, but high-level
+SDK users are more likely to call `Character` / `Andy`. A public SDK method should
+not produce cryptic `Cannot read properties of null` errors for explicit null
+options when the equivalent omitted options path works.
+
+**Current evidence from R144 deep audit:**
+
+- `Character.getContext(null)` crashes on `options.userText`.
+- `Character.chat('hi', null)` crashes on `options.llm`.
+- `Character.chatStream('hi', null)` crashes on `options.llm`.
+- `Andy.chat(id, 'hi', null)` crashes through `Character.chat`.
+- `Andy.load(state, null)` crashes on `options.domain`.
+
+**Primary files to inspect/edit:**
+
+- `src/sdk/Character.js`
+- `src/sdk/Andy.js`
+- `src/sdk/AutoTick.js`, `src/sdk/ConversationLog.js`, `src/sdk/LLMAdapter.js`
+  if the patch expands to constructor boundary consistency.
+- `tests/sdk.test.js`, `tests/sdk-smoke.test.js`, or a new focused SDK boundary
+  test.
+
+**Expected fix shape:**
+
+- At public method entry, normalize object options:
+
+  ```js
+  options = options ?? {};
+  ```
+
+- For constructors, decide whether null should mean `{}` or should throw a clear
+  message. Match existing public semantics:
+  - `Character` and `Andy` constructors already throw for null config.
+  - method options should usually coalesce to `{}`.
+  - `load(state, null)` should coalesce to `{}` because the second argument is
+    optional.
+- Keep error messages clear when non-object types are rejected.
+
+**Regression tests that must fail before the fix:**
+
+Use a custom no-network LLM function:
+
+```js
+const llm = async () => 'hello';
+const c = new Character({ id: 'c1', name: 'C', llm, enableFacts: true });
+expect(() => c.getContext(null)).not.toThrow();
+await expect(c.chat('hi', null)).resolves.toBe('hello');
+```
+
+For `chatStream`, collect the async iterator and expect `"hello"`. For
+`Andy.load`, create a saved state and call `Andy.load(state, null)`.
+
+**Severity guidance:** P1 for public SDK usability; it affects documented public
+API paths even though the default engine loop still works.
+
+#### R145-4 Facts Facade Null-Options Boundary
+
+**Why this matters:** Facts are opt-in, but `andy-engine/facts` is exported and
+typed. Low-level facts consumers should get the same optional-options behavior as
+root `AndyEngine.getGroundingPackage()`.
+
+**Current evidence from R144 deep audit:**
+
+- `WorldFactStore.getFactsForAgent('a', null)` crashes on `options.types`.
+- `KnowledgeStore.getKnownFacts('a', null)` crashes on `options.types`.
+- `FactProvider.getGroundingPackage('a', null)` crashes on `options.maxFacts`.
+
+**Primary files to inspect/edit:**
+
+- `src/canon/WorldFactStore.js`
+- `src/knowledge/KnowledgeStore.js`
+- `src/narrative/FactProvider.js`
+- `tests/facts/world-fact-store.test.js`
+- `tests/facts/knowledge-store.test.js`
+- `tests/facts/grounded-narrative.test.js` or focused facts boundary tests.
+
+**Expected fix shape:**
+
+- Normalize `options = options ?? {}` at method entry.
+- Be careful not to change fact visibility semantics. This is a boundary guard,
+  not a grounding policy change.
+- Keep `AGENT_STATE` epistemic privacy behavior intact.
+
+**Regression tests that must fail before the fix:**
+
+Create a valid event fact through `createEventFact({ eventId, description, ... })`,
+add it to `WorldFactStore`, then call each method with null options and assert it
+returns the same result as omitted options.
+
+**Severity guidance:** P2 while facts remain opt-in, but batch with R145 SDK
+boundary work because the patch is small and risk is low.
+
+#### R145-5 Spatial Config Shape Consistency
+
+**Why this matters:** Continuous spatial mode is not default, but it is an
+important supported internal/experimental capability with previous P0/P1 bugs.
+Silent config acceptance without behavior is worse than a clear validation error.
+
+**Current evidence from R144 deep audit:**
+
+- `new AndyEngine({ spatial: 'continuous' })` creates `world.spatial`.
+- `new AndyEngine({ spatial: { mode: 'continuous' } })` leaves
+  `world.spatial === null`.
+- `RuntimeConfig` accepts object-shaped spatial config, so this looks supported
+  even though `AndyWorld` only checks `config.spatial === 'continuous'`.
+
+**Primary files to inspect/edit:**
+
+- `src/runtime/RuntimeConfig.js`
+- `src/runtime/AndyWorld.js`
+- `src/config/validate.js`
+- `tests/spatial.test.js`
+- `tests/unit/spatial-continuous-serialization.test.js`
+- `tests/unit/spatial-continuous-schedule-rollback.test.js`
+
+**Decision required before patching:**
+
+Choose one canonical public shape:
+
+1. Keep only legacy string shape:
+
+   ```js
+   { spatial: 'continuous' }
+   ```
+
+   Then `validateConfig` must reject object-shaped spatial config so it does not
+   silently run discrete mode.
+
+2. Support object shape:
+
+   ```js
+   { spatial: { mode: 'continuous', continuous: { worldWidth: 800 } } }
+   ```
+
+   Then `AndyWorld` must create `SpatialEngine` for this shape and merge nested
+   `continuous` overrides correctly. This is probably the better long-term shape.
+
+**Regression tests that must fail before the fix:**
+
+If supporting object shape:
+
+```js
+const engine = new AndyEngine({
+  spatial: { mode: 'continuous', continuous: { worldWidth: 123, worldHeight: 456 } },
+});
+expect(engine.world.spatial).toBeTruthy();
+expect(engine.world.spatial.config.worldWidth).toBe(123);
+```
+
+If rejecting object shape, assert `new AndyEngine({ spatial: { mode:
+'continuous' } })` throws a clear config error.
+
+**Severity guidance:** P2 unless current release scope promises continuous spatial
+object config. Promote to P1 only if a public contract or docs explicitly promise
+object-shaped spatial config.
+
+### Stable-Blocking Architecture Directions
+
+These are not all Alpha P0/P1 by default, but they block any honest Stable/latest
+claim. Do not start these before R145 unless the user explicitly redirects.
+
+#### D5 Narrative Faithfulness
+
+`FactConsistencyChecker` is explicitly regex-based and experimental. The external
+audit is correct that regex cannot robustly handle negation, paraphrase,
+coreference, passive voice, synonymy, or LLM style variation. Current README
+already admits D5 is Warning; therefore do not relabel this as a newly discovered
+P0. It is a **Stable blocker** and a product-trust blocker.
+
+Future direction:
+
+- Build a measured violation corpus from real LLM outputs, not only hand-written
+  regex cases.
+- Split checks into:
+  - deterministic structural checks that regex can do safely;
+  - semantic claim checks requiring NLI/entailment or LLM-judge verification;
+  - high-risk claims that fail closed when uncertain.
+- Track false positive and false negative rates. Do not claim hallucination
+  prevention without measured recall.
+- Keep narrative/LLM unable to create world facts. A better checker validates
+  expression against grounding; it still must not write Canon.
+
+#### Lifecycle Ownership
+
+`SQLiteStore`, `MemoryStore`, `SimulationStore`, and `AndyBridge` already have
+some close/shutdown paths. The missing piece is unified top-level ownership:
+root `AndyEngine` / `AndyWorld` do not expose `dispose()` / `shutdown()` for
+callers that construct and tear down engines repeatedly.
+
+Future direction:
+
+- Add idempotent `dispose()` or `shutdown()` to `AndyEngine`.
+- Add corresponding world cleanup to `AndyWorld`: clear callbacks, scheduled
+  events, pending event queues, and owned persistence handles if any are attached.
+- Do not invent timers unless needed; if timers appear later, lifecycle must own
+  them.
+- Add tests proving repeated `dispose()` is safe and no callback fires after
+  disposal.
+
+#### Persistence Strict Mode
+
+The current memory fallback is useful for package smoke tests and optional SQLite
+development. The external audit is right that silent fallback is dangerous in
+production. Treat this as a Stable/production-mode blocker, not a default Alpha
+P0 by itself.
+
+Future direction:
+
+- Keep explicit `storeType: 'memory'` for tests/demos.
+- Add strict persistence mode, for example `storeType: 'sqlite'` or
+  `persistence: { required: true }`, where missing/broken `better-sqlite3` throws
+  and never falls back.
+- Make auto fallback visibly diagnostic. A warning is not enough for strict mode.
+- Add docs that `MemoryStore` is non-durable.
+
+#### Bobby Compatibility Debt
+
+`getStoriesForBobby` remains as a deprecated compatibility alias in `AndyBridge`
+and `SimulationStore`. It is not in core runtime semantics, but it is public
+naming debt and weakens the domain-agnostic story.
+
+Future direction:
+
+- Add no new Bobby-specific APIs.
+- Keep existing aliases marked deprecated.
+- Prefer neutral `getStoriesForAgent`.
+- Plan removal or relocation to a preset/product adapter in a future major
+  version.
+- Boundary checks may keep allowlist entries temporarily, but allowlists should
+  have removal intent.
+
+#### AndyWorld And BehaviorField Performance Architecture
+
+`AndyWorld.js` remains a large orchestrator, and `BehaviorField` uses arrays and
+snapshots in hot paths. Current `perf:check` passes, so do not perform speculative
+large rewrites during R145. The next architecture pass should be profiling-led.
+
+Future direction:
+
+- First measure allocation pressure with a repeatable benchmark: agent count,
+  tick count, memory delta, GC pause if available, and current baseline.
+- Extract pure world phases from `AndyWorld` only behind behavior-preserving tests.
+- Consider `Float32Array` / in-place mutation for BehaviorField only after
+  profiling identifies it as a real bottleneck.
+- Avoid rewriting all snapshots to mutable typed arrays without serialization
+  and replay tests; that could create worse restore bugs.
+
+### Product / Ecosystem Backlog
+
+The engine is hard for third-party developers because custom domains require
+manual 4D state centers, adjacency maps, need mappings, and semantic templates.
+Do not let this distract the P0/P1 hardening loop, but record it as the next
+adoption layer after engine trust improves:
+
+- domain config scaffolder and validator diagnostics;
+- visual domain/region/state-center editor;
+- example project outside the repo consuming the package tarball;
+- documented safe presets and migration recipes;
+- measured onboarding smoke tests for first-time users.
+
+### R145 Suggested Execution Order For The Next AI
+
+Use this exact order unless new evidence changes severity:
+
+1. Fix event config truth path and weather probability semantics together if the
+   patch stays small, because both live in runtime config/weather/event behavior.
+2. Run targeted runtime/config tests plus `npm run test:domain` and
+   `npm run check:boundaries`.
+3. Fix SDK null-options boundary.
+4. Fix facts null-options boundary.
+5. Decide and implement spatial config shape consistency.
+6. Update `docs/audit/CURRENT_BUG_LEDGER.md` with R145 entries and exact gate
+   results.
+7. Run full gates:
+
+   ```bash
+   npm test
+   npm run test:domain
+   npm run check:boundaries
+   npm run smoke:pack
+   npm run perf:check
+   npm run typecheck
+   npm run replay:diff
+   git diff --check
+   ```
+
+8. Only after full gates pass, commit as a single focused R145 hardening commit
+   unless the patch becomes too broad. If it becomes broad, split into:
+   `R145 event/weather config`, `R146 SDK/facts boundaries`, and
+   `R147 spatial config shape`.
 
 ## Non-Negotiable Project Rules
 

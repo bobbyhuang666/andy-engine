@@ -77,6 +77,8 @@ class KnowledgeStore {
    * @param {string|Evidence} sourceOrEvidence - 知识来源字符串或 Evidence 对象
    */
   addKnowledge(agentId, factId, sourceOrEvidence = 'direct') {
+    if (!agentId || typeof agentId !== 'string') return;
+    if (!factId || typeof factId !== 'string') return;
     if (!this._knowledge.has(agentId)) {
       this._knowledge.set(agentId, new Set());
     }

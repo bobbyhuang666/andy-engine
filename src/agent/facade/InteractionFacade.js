@@ -17,6 +17,9 @@ const { getEffectCommitter } = require('../runtime/EffectCommitterResolver');
  * @returns {Object}
  */
 function interact(agent, other, interactionType = 'talk') {
+  if (!other || typeof other !== 'object') {
+    return { valence: 0, type: interactionType, myEmotionChange: {} };
+  }
   const valence = calculateInteractionValence(agent, other, interactionType);
 
   // R37 P1 fix: NaN ?? 0 = NaN (nullish coalescing doesn't catch NaN).

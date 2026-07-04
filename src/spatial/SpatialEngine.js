@@ -644,6 +644,87 @@ class SpatialEngine {
       this.grid.rebuild(this._coords, this._agentIds.length);
     }
   }
+
+  /**
+   * 移除 agent（释放空间哈希中的引用）
+   *
+   * 采用 swap-with-last 策略：将被移除 agent 的数据与最后一个 agent 交换，
+   * 然后收缩数组。O(n) 的 typed array 重建代价仅在必要时发生。
+   * 不会从 WorldMap 或 _regionNames 中移除区域（区域是共享结构）。
+   *
+   * @param {string} agentId
+   * @returns {boolean} 是否成功移除
+   */
+  removeAgent(agentId) {
+    const idx = this._agentIdToIdx.get(agentId);
+    if (idx === undefined) return false;
+
+    const n = this._agentIds.length;
+    if (n === 1) {
+      // 唯一 agent：清空所有数组
+      this._agentIds = [];
+      this._agentIdToIdx.clear();
+      this._coords = null;
+      this._targets = null;
+      this._speeds = null;
+      this._moving = null;
+      this._initialized = false;
+      this.grid.rebuild(null, 0);
+      return true;
+    }
+
+    const lastIdx = n - 1;
+    if (idx !== lastIdx) {
+      // 用最后一个 agent 的数据填充被移除的位置
+      const lastId = this._agentIds[lastIdx];
+
+      // 交换坐标
+      this._coords[idx * 2] = this._coords[lastIdx * 2];
+      this._coords[idx * 2 + 1] = this._coords[lastIdx * 2 + 1];
+
+      // 交换其他属性
+      this._targets[idx] = this._targets[lastIdx];
+      this._speeds[idx] = this._speeds[lastIdx];
+      this._moving[idx] = this._moving[lastIdx];
+
+      // 更新移动 agent 的索引映射
+      this._agentIdToIdx.set(lastId, idx);
+      this._agentIds[idx] = lastId;
+    }
+
+    // 收缩数组
+    this._agentIds.pop();
+    this._agentIdToIdx.delete(agentId);
+
+    const newN = n - 1;
+    if (this._coords) {
+      const newCoords = new Float32Array(newN * 2);
+      newCoords.set(this._coords.subarray(0, newN * 2));
+      this._coords = newCoords;
+    }
+    if (this._targets) {
+      const newTargets = new Int16Array(newN);
+      newTargets.set(this._targets.subarray(0, newN));
+      this._targets = newTargets;
+    }
+    if (this._speeds) {
+      const newSpeeds = new Float32Array(newN);
+      newSpeeds.set(this._speeds.subarray(0, newN));
+      this._speeds = newSpeeds;
+    }
+    if (this._moving) {
+      const newMoving = new Uint8Array(newN);
+      newMoving.set(this._moving.subarray(0, newN));
+      this._moving = newMoving;
+    }
+
+    // 重建空间索引
+    if (this._coords) {
+      this.grid.rebuild(this._coords, newN);
+    }
+
+    return true;
+  }
 }
 
 module.exports = SpatialEngine;

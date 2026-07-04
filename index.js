@@ -61,6 +61,9 @@ class AndyEngine {
 
     // 初始化 RNG
     if (config.rng) {
+      if (typeof config.rng.next !== 'function') {
+        throw new Error('AndyEngine: config.rng must be an RNG instance with a .next() method.');
+      }
       this.rng = config.rng;
     } else if (config.seed !== undefined) {
       this.rng = new RNG(config.seed);
@@ -81,6 +84,9 @@ class AndyEngine {
         throw new Error(`Invalid domain config: ${errorMessages.join('; ')}`);
       }
       this.domain = new DomainRegistry(config.domain, { validate: false });
+    } else if (savedState && savedState.domain) {
+      // R144: restore domain from serialized state for round-trip fidelity
+      this.domain = new DomainRegistry(savedState.domain, { validate: false });
     } else {
       const campusDomain = require('./presets/campus');
       this.domain = new DomainRegistry(campusDomain, { validate: false });
