@@ -21,8 +21,8 @@ class AutoTick {
    * @param {number} options.chatTickMax - 对话中每条消息最多 tick 数（默认 3）
    */
   constructor(options = {}) {
-    this.tickIntervalMinutes = Math.max(1, options.tickIntervalMinutes || 5);
-    this.maxCatchupTicks = Math.max(1, options.maxCatchupTicks || 288);
+    this.tickIntervalMinutes = Number.isFinite(options.tickIntervalMinutes) ? Math.max(1, options.tickIntervalMinutes) : 5;
+    this.maxCatchupTicks = Number.isFinite(options.maxCatchupTicks) ? Math.max(1, options.maxCatchupTicks) : 288;
     this.chatTickMin = Math.max(0, options.chatTickMin ?? 1);
     this.chatTickMax = Math.max(this.chatTickMin, options.chatTickMax ?? 3);
     // R28 P1-002 fix: use seeded RNG fallback instead of Math.random.
@@ -55,7 +55,7 @@ class AutoTick {
    * @returns {number} 需要推进的 tick 数
    */
   calculateTicksToAdvance(engine, now) {
-    if (now === undefined) {
+    if (!Number.isFinite(now)) {
       now = Date.now();
     }
 

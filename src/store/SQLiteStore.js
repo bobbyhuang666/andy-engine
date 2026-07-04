@@ -128,9 +128,11 @@ class SQLiteStore {
 
     const insertAll = this.db.transaction((items) => {
       for (const s of items) {
+        const safeTick = Number.isFinite(s.tick) ? s.tick : 0;
+        const safeTimestamp = Number.isFinite(s.timestamp) ? s.timestamp : Date.now();
         stmt.run(
-          s.tick,
-          s.timestamp,
+          safeTick,
+          safeTimestamp,
           s.agentId,
           s.category || 'daily_life',
           s.content,
@@ -150,7 +152,8 @@ class SQLiteStore {
    * @param {number} [now] - 当前时间戳（默认 Date.now()），支持传入 virtualTime
    */
   getRecent(agentId, hours = 72, limit = 5, now) {
-    const cutoff = (now ?? Date.now()) - hours * 3600 * 1000;
+    const h = Number.isFinite(hours) ? hours : 72;
+    const cutoff = (now ?? Date.now()) - h * 3600 * 1000;
 
     const stmt = this._prepare('getRecent', `
       SELECT tick, timestamp, agent_id as agentId, category, content,
@@ -169,7 +172,8 @@ class SQLiteStore {
    * @param {number} [now] - 当前时间戳（默认 Date.now()），支持传入 virtualTime
    */
   getByEmotion(agentId, emotionTag, hours = 168, limit = 10, now) {
-    const cutoff = (now ?? Date.now()) - hours * 3600 * 1000;
+    const h = Number.isFinite(hours) ? hours : 168;
+    const cutoff = (now ?? Date.now()) - h * 3600 * 1000;
 
     const stmt = this._prepare('getByEmotion', `
       SELECT tick, timestamp, agent_id as agentId, category, content,

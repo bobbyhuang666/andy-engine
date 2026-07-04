@@ -29,7 +29,7 @@ function selectAction(scoredCandidates, { temperature = 0.5, rng = null, agentId
     };
   }
 
-  const valid = scoredCandidates.filter(sc => sc.score && typeof sc.score.total === 'number' && !isNaN(sc.score.total));
+  const valid = scoredCandidates.filter(sc => sc.score && typeof sc.score.total === 'number' && Number.isFinite(sc.score.total));
   if (valid.length === 0) {
     return {
       selected: null,

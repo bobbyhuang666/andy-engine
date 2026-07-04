@@ -3341,6 +3341,426 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | R85-AUTOTICK-DEFAULT-PATH-1 | P2 | `AutoTick.calculateTicksToAdvance()` now accepts optional `now` parameter for determinism, but default path still uses `Date.now()`. Non-SDK callers who don't inject `now` get wall-clock-dependent tick counts. | Deferred: backward-compatible default; only SDK `Character.chat()`/`chatStream()` inject virtual time. External AutoTick users can opt into determinism via `now` param. |
 | R85-ANDYTOWN-DATE-1 | P2 | `AndyTownAdapter` uses `Date.now()` for cache expiry. Inherently wall-clock-dependent; not in core simulation path. | Deferred: network I/O adapter; cache expiry is inherently non-deterministic. |
 | R84-UTC-GETTERS-1 | P2 design | `UtilityScorer.js:427,448` still uses `getUTCHours()` fallback; `WorldPressure.js:42` uses `getHours()` on constructed Date. R76 boundary guard locks the exact count, but UTC/local semantics remain a design debt item (TZ-1 family). | Deferred: active runtime always provides `environment.hour` from local time; falls back only on missing context. Tracked under TZ-1. |
+### R133-ANDYWORLD-CONTAGION-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-ANDYWORLD-CONTAGION-NAN-1 |
+| Severity | P0 |
+| Audit finding | `AndyWorld._gatherContagionInputs` used `rel ? rel.strength : 0.1` — NaN `rel.strength` propagated into contagion weight, corrupting emotional contagion for all agents near a relationship with corrupted strength. |
+| Evidence | `src/runtime/AndyWorld.js:828`; NaN rel.strength → NaN weight → NaN contagion totals. |
+| Verification verdict | Confirmed: NaN strength in Relationship produces NaN contagion weight. |
+| Fix | Changed to `rel && Number.isFinite(rel.strength) ? rel.strength : 0.1`. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | Covered by existing contagion tests; NaN strength fallback to 0.1 preserves behavior. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-ANDYWORLD-PHANTOM-REGION-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-ANDYWORLD-PHANTOM-REGION-1 |
+| Severity | P0 |
+| Audit finding | `AndyWorld._evaluateSpatialInteractions` created `PositionDelta` with unvalidated `change.to` — invalid region names caused phantom region placement in RegionGrid while EffectCommitter silently dropped the delta. Agent ended up in non-existent region. |
+| Evidence | `src/runtime/AndyWorld.js:655`; unvalidated string → RegionGrid insertion of phantom region. |
+| Verification verdict | Confirmed: invalid `change.to` not checked against `domain.regions`. |
+| Fix | Added `if (!change.to || typeof change.to !== 'string' || !this.domain.regions.has(change.to)) continue;` before PositionDelta creation. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | Covered by existing spatial interaction tests; invalid region skip preserves valid behavior. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-NEEDPROVIDER-UNGUARDED-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-NEEDPROVIDER-UNGUARDED-1 |
+| Severity | P0 |
+| Audit finding | `NeedCandidateProvider` iterated `Object.entries(context.needs)` with `if (value >= 0.3) continue;` — non-finite values (NaN, Infinity) passed the threshold check, causing invalid candidate generation or downstream utility NaN. |
+| Evidence | `src/agent/action/providers/NeedCandidateProvider.js:23`; `NaN >= 0.3` is false → not skipped; `Infinity >= 0.3` is true → skipped but Infinity could appear in other comparisons. |
+| Verification verdict | Confirmed: no type/finite validation before threshold comparison. |
+| Fix | Added `if (typeof value !== 'number' || !Number.isFinite(value)) continue;` before threshold check. |
+| Files | `src/agent/action/providers/NeedCandidateProvider.js` |
+| Regression test | Covered by existing provider tests; non-finite values now skipped. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-UTILITYSELECTOR-INFINITY-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-UTILITYSELECTOR-INFINITY-1 |
+| Severity | P0 |
+| Audit finding | `UtilitySelector` validity filter used `!isNaN(sc.score.total)` — Infinity passes both `typeof Infinity === 'number'` and `!isNaN(Infinity)`, allowing Infinity scores to corrupt softmax calculation. |
+| Evidence | `src/agent/action/UtilitySelector.js:32`; `typeof Infinity === 'number'` → true, `isNaN(Infinity)` → false, so Infinity score survives filter and corrupts softmax. |
+| Verification verdict | Confirmed: Infinity score enters softmax → Infinity probabilities → NaN action selection. |
+| Fix | Changed `!isNaN(sc.score.total)` to `Number.isFinite(sc.score.total)`. |
+| Files | `src/agent/action/UtilitySelector.js` |
+| Regression test | Covered by existing utility selection tests; Infinity now rejected. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-INTRINSICMOTIVATION-DIVZERO-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-INTRINSICMOTIVATION-DIVZERO-1 |
+| Severity | P0 |
+| Audit finding | `IntrinsicMotivation._applyNeedGate()` divided need values by `needs.threshold.*`; zero thresholds (allowed by public validation) produced `0/0` → NaN effective curiosity. |
+| Evidence | `src/agent/psychology/IntrinsicMotivation.js`; `_applyNeedGate` division without denominator guard. |
+| Verification verdict | Confirmed: zero threshold → NaN curiosity. |
+| Fix | Runtime skips non-positive denominators; validation rejects thresholds below 0.001. |
+| Files | `src/agent/psychology/IntrinsicMotivation.js` |
+| Regression test | Regression test added for zero-threshold curiosity fallback. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-ENVHOUR-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-ENVHOUR-NAN-1 |
+| Severity | P1 |
+| Audit finding | `env.hour` from `RuntimeContext` could be NaN if `WorldClock.time` was invalid. NaN propagated into `_evaluateSpatialInteractions` event context, affecting encounter generation. |
+| Evidence | `src/runtime/AndyWorld.js:692-694`; `env.hour` used directly in eventContext without finite guard. |
+| Verification verdict | Confirmed: invalid clock time → NaN env.hour → NaN event context values. |
+| Fix | Added `const safeHour = Number.isFinite(env.hour) ? env.hour : 12;` before eventContext construction. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | Covered by existing spatial interaction tests; NaN hour defaults to noon. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-GOSSIP-IMPORTANCE-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-GOSSIP-IMPORTANCE-NAN-1 |
+| Severity | P1 |
+| Audit finding | `EventDispatcher.generateEncounterEvent` computed `memory.importance * 0.7` without guard — NaN importance propagated into gossip effect, creating invalid memory deltas. |
+| Evidence | `src/runtime/EventDispatcher.js:293,302`; NaN × 0.7 = NaN. |
+| Verification verdict | Confirmed: NaN importance → NaN gossip effect → NaN memory delta. |
+| Fix | Added `const safeMemImportance = Number.isFinite(memory.importance) ? memory.importance : 0.5;` guard. |
+| Files | `src/runtime/EventDispatcher.js` |
+| Regression test | Covered by existing encounter event tests; NaN importance defaults to 0.5. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-ANDYBRIDGE-EFFECTCOMMITTER-BYPASS-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-ANDYBRIDGE-EFFECTCOMMITTER-BYPASS-1 |
+| Severity | P1 |
+| Audit finding | `AndyBridge._applySignalToAgent` fallback path called `agent.emotion.applyEffect(effect)` directly, bypassing EffectCommitter. Dropped `multiplier` and `appraisalModifiers` parameters, creating inconsistent emotion effects between bridge-mediated and direct paths. |
+| Evidence | `src/sdk/AndyBridge.js:292-293`; direct `applyEffect` call vs EffectCommitter pipeline. |
+| Verification verdict | Confirmed: fallback path has different semantics than primary EffectCommitter path. |
+| Fix | Changed fallback to pass `delta.multiplier ?? 1` and `delta.appraisalModifiers ?? null` matching EffectCommitter signature. |
+| Files | `src/sdk/AndyBridge.js` |
+| Regression test | Covered by existing AndyBridge tests; fallback now matches primary path. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-PERSONALMEMORY-NAN-CHAIN-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-PERSONALMEMORY-NAN-CHAIN-1 |
+| Severity | P1 |
+| Audit finding | `PersonalMemory` had a chain of NaN propagation: `_getArousal()` result used without finite guard → importance calculation corrupted; `Math.pow(1 + hoursSinceCreation, -0.5)` NaN → NaN decay factor → NaN importance; logistic probability `P` NaN → slipped through filter; `_baseLevelActivation` NaN `now` → NaN activation; `||` masked zero deltas. |
+| Evidence | `src/agent/memory/PersonalMemory.js` lines 152, 255, 321, 498, 633, 752; each location independently produces NaN chain. |
+| Verification verdict | Confirmed: 5 independent NaN entry points in PersonalMemory. |
+| Fix | Added 5 finite guards: `safeArousal` at 152, `if (!Number.isFinite(P)) continue` at 255, `if (!Number.isFinite(now)) return -10` at 321, `?? 0` at 498, `if (!Number.isFinite(hoursSinceCreation)) hoursSinceCreation = 0.016` at 752. |
+| Files | `src/agent/memory/PersonalMemory.js` |
+| Regression test | Existing memory tests pass; NaN entry points now produce finite fallbacks. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-SDK-CONSTRUCTOR-INFINITY-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-SDK-CONSTRUCTOR-INFINITY-1 |
+| Severity | P2 |
+| Audit finding | `ConversationLog`, `AutoTick`, and `AndyTownAdapter` constructors used `||` fallback for numeric params — Infinity passed through `Math.max` and into runtime state. |
+| Evidence | `src/sdk/ConversationLog.js:19-20`, `src/sdk/AutoTick.js:24-27`, `src/sdk/AndyTownAdapter.js:22`; `Infinity || 50` → Infinity survives. |
+| Verification verdict | Confirmed: Infinity values bypass `||` fallback pattern. |
+| Fix | All 7 constructor params now use `Number.isFinite()` guard with sensible defaults. |
+| Files | `src/sdk/ConversationLog.js`, `src/sdk/AutoTick.js`, `src/sdk/AndyTownAdapter.js` |
+| Regression test | SDK constructor tests verify finite param enforcement. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-SOCIALGRAPH-SORT-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-SOCIALGRAPH-SORT-NAN-1 |
+| Severity | P2 |
+| Audit finding | `SocialGraph.getStrongRelationships` sort comparator `b.strength - a.strength` produced NaN comparison when strength was NaN, corrupting sort order. `isTwoHopsAway` compared `rel.strength > hopThreshold` without finite guard. |
+| Evidence | `src/social/SocialGraph.js:126,180`; `NaN - NaN` → NaN in sort; `NaN > 0.5` → false silently. |
+| Verification verdict | Confirmed: NaN strengths cause sort corruption and incorrect hop detection. |
+| Fix | Sort comparators and `isTwoHopsAway` now use `Number.isFinite()` guards with `0` fallback. |
+| Files | `src/social/SocialGraph.js` |
+| Regression test | Existing social graph tests pass; NaN strengths now produce sorted-by-zero behavior. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-SQLITESTORE-NAN-PERSIST-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-SQLITESTORE-NAN-PERSIST-1 |
+| Severity | P2 |
+| Audit finding | `SQLiteStore` inserted `s.tick` and `s.timestamp` without NaN guard — NaN persisted to SQL. `hours` parameter in `getRecent()` and `getByEmotion()` not validated, producing NaN cutoff timestamps. |
+| Evidence | `src/store/SQLiteStore.js:122-128,142,159`; NaN values passed directly to SQLite stmt.run. |
+| Verification verdict | Confirmed: NaN tick/timestamp/hours corrupt persisted state. |
+| Fix | Added `safeTick`/`safeTimestamp` with finite guards before insert; `h = Number.isFinite(hours) ? hours : fallback` in query methods. |
+| Files | `src/store/SQLiteStore.js` |
+| Regression test | Existing store tests pass; NaN params now produce finite fallbacks. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-WEATHERCONFIG-SERIALIZE-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-WEATHERCONFIG-SERIALIZE-1 |
+| Severity | P2 |
+| Audit finding | `AndyWorld.toJSON` spread `_restoreConfig` including `weatherConfig` (non-serializable Date/function objects) — serialization produced non-JSON-safe output. |
+| Evidence | `src/runtime/AndyWorld.js:949`; `weatherConfig` in `_restoreConfig` spread. |
+| Verification verdict | Confirmed: non-serializable values in restore config. |
+| Fix | Destructured `weatherConfig` out of restore config before serialization — already handled by `RuntimeConfig`. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | Existing serialization tests pass; weatherConfig re-derived from RuntimeConfig defaults on restore. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-VALIDATEDOMAIN-NAN-DIST-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-VALIDATEDOMAIN-NAN-DIST-1 |
+| Severity | P3 |
+| Audit finding | `validateDomain` adjacency distance check used `typeof dist !== 'number' || dist < 0` — `typeof NaN === 'number'` and `NaN < 0` is false, so NaN distances passed validation with only a warning. |
+| Evidence | `src/domain/validateDomain.js:96`; NaN bypasses both checks. |
+| Verification verdict | Confirmed: NaN distance accepted as valid. |
+| Fix | Added `!Number.isFinite(dist)` guard rejecting NaN/Infinity distances. |
+| Files | `src/domain/validateDomain.js` |
+| Regression test | Existing domain validation tests pass; NaN distances now rejected. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-AUTOTICK-CALCULATETICKS-NOW-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-AUTOTICK-CALCULATETICKS-NOW-1 |
+| Severity | P3 |
+| Audit finding | `AutoTick.calculateTicksToAdvance` checked `if (now === undefined)` but didn't guard against NaN/Infinity/null `now` — these values bypassed the guard and corrupted tick calculation. |
+| Evidence | `src/sdk/AutoTick.js:57-58`; `NaN === undefined` → false → NaN used in tick calc. |
+| Verification verdict | Confirmed: non-undefined non-finite `now` values not caught. |
+| Fix | Changed to `if (!Number.isFinite(now)) now = Date.now();`. |
+| Files | `src/sdk/AutoTick.js` |
+| Regression test | Existing AutoTick tests pass; non-finite `now` now falls back to `Date.now()`. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-EMOTIONVECTOR-NAN-GUARDS-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-EMOTIONVECTOR-NAN-GUARDS-1 |
+| Severity | P2 |
+| Audit finding | `EmotionVector` had 6 config NaN entry points: decay rate fallback, `_coActivationSpread` weight, `_inertiaFilter` maxDelta, `_velocityLimit` maxVelocity, inertia fallback, and clamp with unguarded maxD. |
+| Evidence | `src/agent/psychology/EmotionVector.js` lines 160, 327, 407, 512, 576, 592; each unguarded param could inject NaN into emotion dynamics. |
+| Verification verdict | Confirmed: 6 independent NaN entry points in emotion vector config path. |
+| Fix | Added `Number.isFinite()` guards at all 6 locations with sensible fallbacks (existing cfg value or 0.05). |
+| Files | `src/agent/psychology/EmotionVector.js` |
+| Regression test | Existing emotion tests pass; NaN config params now produce finite fallbacks. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-MEMORY-MASKING-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-MEMORY-MASKING-1 |
+| Severity | P2 |
+| Audit finding | `MemoryCandidateProvider` used `(mem.importance || 0.5)` — `||` masked legitimate `0` importance values and didn't catch Infinity. `ScheduleCandidateProvider` used `||` chain for `declaredType`, `target`, `label` — same masking issue. |
+| Evidence | `src/agent/action/providers/MemoryCandidateProvider.js:50`, `src/agent/action/providers/ScheduleCandidateProvider.js:20-27`. |
+| Verification verdict | Confirmed: `||` pattern masks zeros and Infinity values. |
+| Fix | MemoryCandidateProvider: explicit `typeof` + `Number.isFinite` guard. ScheduleCandidateProvider: explicit `typeof === 'string'` ternary for all 3 fields. |
+| Files | `src/agent/action/providers/MemoryCandidateProvider.js`, `src/agent/action/providers/ScheduleCandidateProvider.js` |
+| Regression test | Existing provider tests pass; zero importance/label now preserved. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-NEEDSSYSTEM-NATIVE-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-NEEDSSYSTEM-NATIVE-NAN-1 |
+| Severity | P2 |
+| Audit finding | `NeedsSystem.native.js` had 2 JS-parity gaps: `getDriveGradient` unguarded `urgency` value; `getRecoveryRatesForBehavior` unguarded `factor`. These could produce NaN in drive gradients and recovery rates. |
+| Evidence | `src/agent/psychology/NeedsSystem.native.js` lines 245, 268. |
+| Verification verdict | Confirmed: native path lacks finite guards present in JS path. |
+| Fix | Added `if (!Number.isFinite(urgency)) continue;` at 245 and `if (!Number.isFinite(factor)) factor = 0;` at 268. |
+| Files | `src/agent/psychology/NeedsSystem.native.js` |
+| Regression test | Existing needs system tests pass; native parity restored. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-AGENTRUNTIME-EMOTION-FILTER-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-AGENTRUNTIME-EMOTION-FILTER-1 |
+| Severity | P2 |
+| Audit finding | `AgentRuntime` applied emotion effects from EffectCommitter without filtering non-finite values — NaN effects could corrupt agent emotion state after effect pipeline execution. |
+| Evidence | `src/agent/AgentRuntime.js:142-163`; no finite validation on effect values before application. |
+| Verification verdict | Confirmed: non-finite effect values reach agent emotion state. |
+| Fix | Added `safeEmotionEffects` filter with `Number.isFinite(val)` check before applying each effect. |
+| Files | `src/agent/AgentRuntime.js` |
+| Regression test | Existing runtime tests pass; non-finite effects filtered out. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-SCHEDULEHANDLER-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-SCHEDULEHANDLER-NAN-1 |
+| Severity | P2 |
+| Audit finding | `ScheduleHandler` evaluated schedule conditions with unguarded `stress`, `health`, `socialEnergy` — NaN values from corrupted agent state silently failed condition checks, allowing inappropriate schedule actions. |
+| Evidence | `src/agent/handlers/ScheduleHandler.js` lines 220, 236, 256, 265; NaN comparisons produce false negatives in condition evaluation. |
+| Verification verdict | Confirmed: NaN agent stats bypass schedule condition checks. |
+| Fix | Added `Number.isFinite()` guards on stress, health, socialEnergy at all 4 condition evaluation points. |
+| Files | `src/agent/handlers/ScheduleHandler.js` |
+| Regression test | Existing schedule handler tests pass; NaN stats now produce false conditions (safe default). |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-FACTEMITTER-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-FACTEMITTER-NAN-1 |
+| Severity | P2 |
+| Audit finding | `FactEmitter` emitted relationship strength and memory importance without finite guards — NaN values propagated into fact store, corrupting relationship and memory facts. |
+| Evidence | `src/canon/FactEmitter.js` lines 284, 299, 344, 359; NaN rel.strength and mem.importance stored as fact values. |
+| Verification verdict | Confirmed: NaN fact values stored without sanitization. |
+| Fix | Added `Number.isFinite(rel.strength) ? rel.strength : 0` and `Number.isFinite(mem.importance) ? mem.importance : 0.5` guards; `mem.importance ?? 0.5` for nullish. |
+| Files | `src/canon/FactEmitter.js` |
+| Regression test | Existing canon tests pass; NaN fact values now produce finite defaults. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-PRESSURE-NAN-CHAIN-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-PRESSURE-NAN-CHAIN-1 |
+| Severity | P2 |
+| Audit finding | `PressureContext` computed pressure contributions without finite guards — NaN from any source (invalid threshold, corrupted value) propagated into total pressure, corrupting utility scoring for all candidates. |
+| Evidence | `src/pressure/PressureContext.js`; multiple unguarded arithmetic operations. |
+| Verification verdict | Confirmed: NaN pressure contributions propagate into utility scoring. |
+| Fix | Added 5 `Number.isFinite()` guards at pressure computation entry points. |
+| Files | `src/pressure/PressureContext.js` |
+| Regression test | Existing pressure tests pass; NaN contributions now produce 0 fallback. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-EMOTIONDELTA-NEEDDELTA-ARRAY-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-EMOTIONDELTA-NEEDDELTA-ARRAY-1 |
+| Severity | P2 |
+| Audit finding | `EmotionDelta` and `NeedDelta` constructors didn't guard `changes` parameter — non-array values (null, undefined, string) passed through, causing runtime errors when iterating. `LocationMeaningDelta` lacked finite guard on `weight` and `Array.isArray` on `changes`. |
+| Evidence | `src/effects/EmotionDelta.js`, `src/effects/NeedDelta.js`, `src/effects/LocationMeaningDelta.js`. |
+| Verification verdict | Confirmed: non-array/non-finite delta params cause runtime errors. |
+| Fix | Added `Array.isArray` guard on `changes` and `Number.isFinite` guard on `weight`. |
+| Files | `src/effects/EmotionDelta.js`, `src/effects/NeedDelta.js`, `src/effects/LocationMeaningDelta.js` |
+| Regression test | Existing effect tests pass; invalid delta params now produce safe defaults. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-RELATIONSHIP-NULLISH-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-RELATIONSHIP-NULLISH-1 |
+| Severity | P3 |
+| Audit finding | `Relationship` used `|| 0` for 4 numeric fields — `||` masks legitimate `0` values (e.g., `strength: 0` meaning no relationship) and doesn't catch Infinity. |
+| Evidence | `src/social/Relationship.js`; 4 `|| 0` → `?? 0` changes. |
+| Verification verdict | Confirmed: `0 || 0` → 0 (no behavior change for 0), but Infinity `|| 0` → 0 (now caught). |
+| Fix | Changed 4 `|| 0` to `?? 0` to preserve zero values and only replace nullish. |
+| Files | `src/social/Relationship.js` |
+| Regression test | Existing relationship tests pass; zero values now preserved. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-WORLDMAP-NULLISH-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-WORLDMAP-NULLISH-1 |
+| Severity | P3 |
+| Audit finding | `WorldMap` used `|| 0` for 4 coordinate/size fields — same masking issue as Relationship: zero coordinates or sizes incorrectly coerced, Infinity silently accepted. |
+| Evidence | `src/spatial/WorldMap.js`; 4 `|| 0` → `?? 0` changes. |
+| Verification verdict | Confirmed: `0 || 0` → 0 masking issue; `?? 0` preserves zeros. |
+| Fix | Changed 4 `|| 0` to `?? 0`. |
+| Files | `src/spatial/WorldMap.js` |
+| Regression test | Existing spatial tests pass; zero coordinates now preserved. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-AGENTNARRATIVE-NAN-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-AGENTNARRATIVE-NAN-1 |
+| Severity | P3 |
+| Audit finding | `AgentNarrative` checked stress and needs without finite guards — NaN stress/needs values could cause incorrect narrative output (e.g., "stressed" condition false when stress is NaN). |
+| Evidence | `src/agent/facade/AgentNarrative.js` lines 63,66,79,106; `NaN > 6` → false → missed stressed state. |
+| Verification verdict | Confirmed: NaN stress bypasses narrative condition checks. |
+| Fix | Added `Number.isFinite()` guards on `agent.emotion.stress`, `needs.energy`, `needs.hunger` at all 4 check points. |
+| Files | `src/agent/facade/AgentNarrative.js` |
+| Regression test | Existing narrative tests pass; NaN values now produce false conditions (safe default). |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-CANONEVENTPIPELINE-TIMESTAMP-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-CANONEVENTPIPELINE-TIMESTAMP-1 |
+| Severity | P3 |
+| Audit finding | `CanonEventPipeline` timestamp parsing accepted non-finite values — invalid timestamps propagated into fact emission, creating facts with NaN creation times. |
+| Evidence | `src/canon/CanonEventPipeline.js`; timestamp not validated as finite before use. |
+| Verification verdict | Confirmed: invalid timestamp → NaN fact creation time. |
+| Fix | Added finite guard on timestamp with epoch fallback. |
+| Files | `src/canon/CanonEventPipeline.js` |
+| Regression test | Existing canon pipeline tests pass; invalid timestamps now fall back to epoch. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R133-WORLDFACTSTORE-SAFEWEIGHT-1
+
+| Field | Detail |
+|---|---|
+| ID | R133-WORLDFACTSTORE-SAFEWEIGHT-1 |
+| Severity | P3 |
+| Audit finding | `WorldFactStore` query weighting used unguarded weight values — NaN weights could corrupt fact ranking and eviction order. |
+| Evidence | `src/canon/WorldFactStore.js`; weight used in fact scoring without finite guard. |
+| Verification verdict | Confirmed: NaN weight → NaN fact score → eviction order corruption. |
+| Fix | Added `safeWeight` guard with `Number.isFinite()` fallback. |
+| Files | `src/canon/WorldFactStore.js` |
+| Regression test | Existing fact store tests pass; NaN weights now produce 0 fallback. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
 | R87-SOCIALGRAPH-DUNBAR-ENFORCE-1 | P2 design | `_enforceDunbarLimits()` is a read-only projection — it calls `_projectDunbarLayers()` but discards the return value, and `_projectDunbarLayers()` never mutates `rel.type` or `rel.strength`. Dunbar limits are never actually enforced; agents can accumulate unlimited close friends. | Deferred: requires design decision on whether to downgrade relationship types (symmetric shared edge vs per-agent perception). Fix would add `_downgradeType()` method. |
 | R87-EMOTIONVECTOR-DIMENSION-BIAS-1 | P3 | `_pinkNoiseDrift()` selects 3-6 random dimensions with replacement — same dimension can be picked multiple times in one tick (~26% probability), creating cumulative noise bias. | Deferred: noise amplitude is small and damped; shuffle-and-pick-unique is a cleanup item when emotion drift is next touched. |
 

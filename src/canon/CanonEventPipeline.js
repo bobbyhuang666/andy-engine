@@ -89,7 +89,8 @@ class CanonEventPipeline {
    */
   _createEventFact(event) {
     const FALLBACK_EPOCH = new Date('2024-01-01T00:00:00Z');
-    const eventTime = event.time instanceof Date ? event.time : (event.time ? new Date(event.time) : FALLBACK_EPOCH);
+    let eventTime = event.time instanceof Date ? event.time : (event.time ? new Date(event.time) : FALLBACK_EPOCH);
+    if (!Number.isFinite(eventTime.getTime())) eventTime = FALLBACK_EPOCH;
     const eventId = event.id || `evt_${event.type}_${eventTime.getTime()}_${this._eventCounter++}`;
     const scope = FACT_SCOPES.includes(event.scope) ? event.scope : FactScope.PUBLIC;
     const fact = createEventFact({
@@ -216,6 +217,7 @@ class CanonEventPipeline {
   _tryToldPropagation(tellerId, listenerId, event) {
     const tellerFacts = this.knowledgeStore.getKnownFactIds(tellerId);
     const eventTime = event.time instanceof Date ? event.time.getTime() : (event.time || 0);
+    const safeEventTime = Number.isFinite(eventTime) ? eventTime : FALLBACK_EPOCH.getTime();
 
     for (const factId of tellerFacts) {
       // 1. Listener 不知

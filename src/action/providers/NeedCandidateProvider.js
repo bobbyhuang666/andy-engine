@@ -21,7 +21,7 @@ class NeedCandidateProvider extends CandidateProvider {
     const candidates = [];
 
     for (const [needKey, value] of Object.entries(context.needs)) {
-      if (value >= 0.3) continue;
+      if (typeof value !== 'number' || !Number.isFinite(value) || value >= 0.3) continue;
       const mapping = NEED_ACTION_MAP[needKey];
       if (!mapping) continue;
 

@@ -242,10 +242,12 @@ class PersonalMemory {
       category: event.type || 'general',
       emotionTag: this._tagEmotion(emotionState),
       importance: (() => {
+        const arousal = this._getArousal(emotionState?.current || emotionState);
+        const safeArousal = Number.isFinite(arousal) ? arousal : 0.5;
         let importance = (appraisalImportance != null
           ? appraisalImportance
           : this._calculateImportance(event, emotionState))
-          * (1 + this._getArousal(emotionState?.current || emotionState) * 0.3);
+          * (1 + safeArousal * 0.3);
         if (!Number.isFinite(importance)) importance = 0.5;
         return importance;
       })(),
@@ -353,6 +355,8 @@ class PersonalMemory {
 
       const P = 1 / (1 + Math.exp(-(A - this._cfg.retrievalThreshold) / this._cfg.retrievalNoise));
 
+      if (!Number.isFinite(P)) continue;
+
       // 只有概率足够高的记忆才值得进入候选池
       if (P <= 0.1) continue;
 
@@ -412,6 +416,7 @@ class PersonalMemory {
    * @private
    */
   _baseLevelActivation(memory, now) {
+    if (!Number.isFinite(now)) return -10;
     const d = this._cfg.decayRate;
     let sum = 0;
     const minHours = 0.016; // ~1 分钟最小值，防止 log(∞)
@@ -595,7 +600,7 @@ class PersonalMemory {
 
       for (const [dim, value] of Object.entries(baseDelta)) {
         if (dim === 'importanceScale' || dim === 'ruminationMultiplier') continue; // 跳过非维度配置
-        delta[dim] = (delta[dim] || 0) + value * scale;
+        delta[dim] = (delta[dim] ?? 0) + value * scale;
       }
     }
 
@@ -744,6 +749,7 @@ class PersonalMemory {
     for (const memory of this.memories) {
       // 基于创建时间的衰减（防止频繁访问的记忆永不衰减）
       const hoursSinceCreation = Math.max(0.01, (now - memory.timestamp.getTime()) / (1000 * 60 * 60));
+      if (!Number.isFinite(hoursSinceCreation)) hoursSinceCreation = 0.016;
       const blend = Math.min(hoursSinceCreation / 168, 1); // 1 周过渡
 
       const expDecay = Math.exp(-hoursSinceCreation / 24); // 半衰期 24h

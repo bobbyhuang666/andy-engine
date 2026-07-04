@@ -93,7 +93,7 @@ function validateDomain(domain, options = {}) {
         if (!regionSet.has(r2)) {
           addError(`adjacency[${i}][1]`, `引用了不存在的区域 "${r2}"`);
         }
-        if (typeof dist !== 'number' || dist < 0) {
+        if (typeof dist !== 'number' || !Number.isFinite(dist) || dist < 0) {
           addWarning(`adjacency[${i}][2]`, `距离应该是非负数字`);
         }
       }

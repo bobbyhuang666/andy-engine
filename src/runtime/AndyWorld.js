@@ -652,6 +652,7 @@ class AndyWorld {
     const spatialResult = this.spatial.tick(this.agents, this.socialGraph);
 
     for (const change of spatialResult.regionChanges) {
+      if (typeof change.to === 'string' && !this.domain.regions.includes(change.to)) continue;
       const agent = this.agents.get(change.agentId);
       if (agent && change.to !== agent.position) {
         // Route spatial position changes through EffectCommitter (R4 fix).
@@ -689,7 +690,8 @@ class AndyWorld {
       }
     }
 
-    const eventContext = { hour: env.hour, weather: env.weather, timeOfDay: this.environment.timeOfDay };
+    const safeHour = Number.isFinite(env.hour) ? env.hour : 12;
+    const eventContext = { hour: safeHour, weather: env.weather, timeOfDay: this.environment.timeOfDay };
     for (const [agentId, agent] of this.agents) {
       const randomEvent = this.eventDispatcher.generateRandomEvent(agentId, agent.position, eventContext);
       if (randomEvent) events.push(randomEvent);
@@ -761,12 +763,14 @@ class AndyWorld {
         } else if (effect.type === 'memory' && effect.delta) {
           const d = effect.delta;
           if (d.kind === 'candidate') {
-            deltas.push(new MemoryDelta(effect.target, {
+            const safeTarget = typeof effect.target === 'string' ? effect.target : 'unknown';
+            const safeImportance = Number.isFinite(d.importance) ? d.importance : 0.5;
+            deltas.push(new MemoryDelta(safeTarget, {
               kind: d.kind,
               type: d.memoryType || 'gossip',
               content: d.content || '',
               category: d.category,
-              importance: d.importance,
+              importance: safeImportance,
             }));
           }
         }
@@ -821,7 +825,7 @@ class AndyWorld {
       const neighbor = this.agents.get(neighborId);
       if (!neighbor) continue;
       const rel = this.socialGraph.getRelationship(agentId, neighborId);
-      const weight = rel ? rel.strength : 0.1;
+      const weight = rel && Number.isFinite(rel.strength) ? rel.strength : 0.1;
       const blendedEmotion = emotionBlendCache.get(neighborId);
       if (!blendedEmotion) continue;
       inputs[neighborId] = {
@@ -946,7 +950,7 @@ class AndyWorld {
     if (this.rng) {
       data.rngState = this.rng.getState();
     }
-    data._restoreConfig = { ...this._restoreConfig, enableFacts: this.runtimeConfig.enableFacts };
+    data._restoreConfig = JSON.parse(JSON.stringify({ ...this._restoreConfig, enableFacts: this.runtimeConfig.enableFacts }));
     if (this.factStore) {
       data.factStore = this.factStore.toJSON();
     }

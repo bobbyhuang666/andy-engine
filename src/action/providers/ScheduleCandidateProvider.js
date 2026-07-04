@@ -17,14 +17,14 @@ class ScheduleCandidateProvider extends CandidateProvider {
       'continue', 'move', 'rest', 'work', 'socialize',
       'explore', 'consume', 'observe', 'reflect',
     ]);
-    const declaredType = activity.actionType || activity.category || activity.type;
+    const declaredType = [activity.actionType, activity.category, activity.type].find(v => typeof v === 'string');
     const actionType = allowedTypes.has(declaredType) ? declaredType : 'continue';
 
     return [new ActionCandidate({
       type: actionType,
       source: 'schedule',
-      target: activity.location || '',
-      label: activity.label || 'scheduled action',
+      target: typeof activity.location === 'string' ? activity.location : '',
+      label: typeof activity.label === 'string' ? activity.label : 'scheduled action',
       metadata: { scheduleActivity: activity.type || null },
     })];
   }

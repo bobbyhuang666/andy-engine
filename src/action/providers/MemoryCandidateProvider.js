@@ -47,7 +47,8 @@ class MemoryCandidateProvider extends CandidateProvider {
       const mapping = semanticCategoryMap[semanticCategory];
       if (!mapping) continue;
 
-      const priority = Math.min(1, (mem.importance || 0.5) * 0.8);
+      const importance = typeof mem.importance === 'number' && Number.isFinite(mem.importance) ? mem.importance : 0.5;
+      const priority = Math.min(1, importance * 0.8);
 
       candidates.push(new ActionCandidate({
         type: mapping.type,

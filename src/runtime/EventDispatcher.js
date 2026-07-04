@@ -298,7 +298,7 @@ class EventDispatcher {
                 memoryType: 'gossip',
                 content: gossipContent,
                 category: 'gossip',
-                importance: memory.importance * 0.7,
+                importance: Number.isFinite(memory.importance) ? memory.importance * 0.7 : 0.35,
               },
             });
           }

@@ -177,7 +177,7 @@ class SocialGraph {
 
     for (const friend of friendsA) {
       const rel = this.getRelationship(friend, agentB);
-      if (rel && rel.strength > hopThreshold) return true;
+      if (rel && Number.isFinite(rel.strength) && rel.strength > hopThreshold) return true;
     }
     return false;
   }

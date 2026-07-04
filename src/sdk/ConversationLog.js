@@ -16,8 +16,8 @@ class ConversationLog {
    * @param {string} options.characterName - 角色名
    */
   constructor(options = {}) {
-    this.maxMessages = Math.max(4, options.maxMessages || 50);
-    this.maxTokens = Math.max(100, options.maxTokens || 4000);
+    this.maxMessages = Number.isFinite(options.maxMessages) ? Math.max(4, options.maxMessages) : 50;
+    this.maxTokens = Number.isFinite(options.maxTokens) ? Math.max(100, options.maxTokens) : 4000;
     this.characterName = options.characterName || '角色';
     this.messages = [];
     this._summarizedHistory = '';

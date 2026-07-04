@@ -19,7 +19,7 @@ class AndyTownAdapter {
    */
   constructor(options = {}) {
     this.townUrl = options.townUrl || 'http://localhost:3457';
-    this.cacheTimeout = options.cacheTimeout || 5000; // 5 秒缓存
+    this.cacheTimeout = Number.isFinite(options.cacheTimeout) ? options.cacheTimeout : 5000; // 5 秒缓存
 
     this._cache = null;
     this._cacheTime = 0;
