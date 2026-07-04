@@ -40,6 +40,8 @@ class Appraisal {
    * @returns {Object} 评价结果 { dimensions: {...}, emotionModifier: {...}, importance: number }
    */
   static evaluate(event, agent) {
+    if (!agent || !agent.emotion || !agent.needs) return null;
+
     // 从 domain 取配置
     if (!agent.domain) throw new Error('Appraisal.evaluate requires agent.domain');
     const domain = agent.domain;

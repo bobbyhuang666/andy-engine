@@ -29,6 +29,9 @@ function selectAction(scoredCandidates, { temperature = 0.5, rng = null, agentId
     };
   }
 
+  // R134-A3-005 P0: NaN bypasses temperature <= 0 check → NaN softmax probabilities
+  if (!Number.isFinite(temperature)) temperature = 1;
+
   const valid = scoredCandidates.filter(sc => sc.score && typeof sc.score.total === 'number' && Number.isFinite(sc.score.total));
   if (valid.length === 0) {
     return {

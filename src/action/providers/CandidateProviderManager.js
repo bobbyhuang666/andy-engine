@@ -50,8 +50,9 @@ class CandidateProviderManager {
       try {
         candidates = provider.generate(context);
       } catch (e) {
-        diagnostics.warn(`CandidateProvider ${provider.constructor.name}.generate() error: ${e.message}`);
-        diagnostics.collect({ type: 'candidate_provider_error', provider: provider.constructor.name, error: e.message });
+        const name = provider.constructor.name;
+        diagnostics.warn(`CandidateProvider ${name}.generate() error: ${e.message}`);
+        diagnostics.collect({ type: 'candidate_provider_error', provider: name, error: e.message });
         candidates = [];
       }
       for (const cand of candidates) {

@@ -419,7 +419,7 @@ class EmotionVector {
         // pullStrength > 1.0, making (1-pullStrength) negative and flipping
         // the emotion past the baseline to the opposite side.
         const pullStrength = Math.min(1, maxDelta * (1 + (Math.abs(dist) - 0.6) * 2));
-        this.current[dim] = base + dist * (1 - pullStrength);
+        this.current[dim] = Math.max(-1, Math.min(1, base + dist * (1 - pullStrength)));
       }
     }
   }
@@ -453,7 +453,7 @@ class EmotionVector {
         // Negativity bias: when neighbor's negative emotion is HIGHER than mine,
         // the contagion rate is boosted (negative emotions spread faster).
         if (Math.abs(diff) > 0.05) {
-          const isNegative = NEGATIVE_DIMS.has(dim) && theirVal > myVal;
+          const isNegative = NEGATIVE_DIMS.has(dim) && theirVal < 0;
           const contagionRate = isNegative ? baseContagionRate * negativityBias : baseContagionRate;
           this.current[dim] = myVal + diff * effectiveWeight * contagionRate;
         }

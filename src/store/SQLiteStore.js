@@ -277,7 +277,9 @@ class SQLiteStore {
 
     return {
       ...row,
-      meta: row.meta ? JSON.parse(row.meta) : null,
+      meta: row.meta
+        ? (() => { try { return JSON.parse(row.meta); } catch { return null; } })()
+        : null,
     };
   }
 
@@ -296,7 +298,9 @@ class SQLiteStore {
 
     return {
       ...row,
-      meta: row.meta ? JSON.parse(row.meta) : null,
+      meta: row.meta
+        ? (() => { try { return JSON.parse(row.meta); } catch { return null; } })()
+        : null,
     };
   }
 

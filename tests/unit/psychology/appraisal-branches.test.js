@@ -44,8 +44,8 @@ function makeAgent(overrides = {}) {
 // evaluate 入口
 // ═══════════════════════════════════════════
 describe('Appraisal.evaluate — entry', () => {
-  it('throws when agent.domain missing', () => {
-    expect(() => Appraisal.evaluate({ type: 'social' }, {})).toThrow(/requires agent.domain/);
+  it('returns null when agent is missing emotion or needs', () => {
+    expect(Appraisal.evaluate({ type: 'social' }, {})).toBeNull();
   });
   it('returns { dimensions, emotionModifier, importance } shape', () => {
     const r = Appraisal.evaluate({ type: 'social', content: '打招呼', participants: ['a1'] }, makeAgent());

@@ -332,6 +332,9 @@ class SpatialEngine {
     for (let i = 0; i < n; i++) {
       const ax = this._coords[i * 2];
       const ay = this._coords[i * 2 + 1];
+      // R134-A4-010: skip agents with NaN coordinates to prevent them from
+      // silently clustering in cell 0 (NaN cellId clamps to 0).
+      if (!Number.isFinite(ax) || !Number.isFinite(ay)) continue;
       const cid = this.grid.cellId(ax, ay);
       const neighbors = this.grid.queryNeighbors(cid);
 

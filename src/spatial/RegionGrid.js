@@ -161,8 +161,10 @@ class RegionGrid {
    * @param {number} distance 跳数距离（默认1）
    */
   setAdjacent(regionA, regionB, distance = 1) {
-    // R117-001: guard against NaN/Infinity distance.
-    if (!Number.isFinite(distance)) return;
+    // R134-A4-002: reject phantom regions not in _grid
+    if (!this._grid.has(regionA) || !this._grid.has(regionB)) return;
+    // R134-A4-012: reject non-positive distances (negative breaks BFS weighting)
+    if (!Number.isFinite(distance) || distance <= 0) return;
     if (!this._distances.has(regionA)) {
       this._distances.set(regionA, new Map());
     }

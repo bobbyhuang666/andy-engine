@@ -136,7 +136,11 @@ class ConversationLog {
    * 反序列化
    */
   static fromJSON(data) {
-    const log = new ConversationLog({ characterName: data.characterName });
+    const log = new ConversationLog({
+      characterName: data.characterName,
+      maxMessages: data.maxMessages,
+      maxTokens: data.maxTokens,
+    });
     // R12: spread-copy to prevent shared reference from input
     log.messages = (data.messages || []).map(m => ({ ...m }));
     log._summarizedHistory = data.summarizedHistory || '';

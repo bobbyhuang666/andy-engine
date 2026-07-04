@@ -33,23 +33,49 @@ class RuntimeConfig {
     }
     this.tickMinutes = tickMinutes;
     this.enableFacts = config.enableFacts ?? false;
-    this.actionSelection = {
-      ...ANDY_DEFAULTS.actionSelection,
-      ...(config.actionSelection || {}),
-    };
+
+    // R134-A2-001: deep-merge object config sections so partial user overrides
+    // (e.g. { mode: 'normal' }) do not drop default keys (temperature, etc.).
+    this.actionSelection =
+      typeof config.actionSelection === 'object' && config.actionSelection !== null
+        ? { ...ANDY_DEFAULTS.actionSelection, ...config.actionSelection }
+        : { ...ANDY_DEFAULTS.actionSelection };
+
     this.weather = config.weather || 'sunny';
-    // R41 fix: merge user weather config with defaults so weather transitions
-    // are injectable, not just read from the static ANDY_DEFAULTS.
+
+    // R134-A2-016: whitelist-filter weatherConfig to prevent prototype pollution
+    // from untrusted config keys leaking through the spread.
+    const KNOWN_WEATHER_KEYS = new Set([
+      'transitionProb',
+      'seasonProbabilities',
+      'baseTemp',
+      'variance',
+    ]);
+    const rawWeather = config.weatherConfig || {};
+    const filteredWeather = {};
+    for (const key of Object.keys(rawWeather)) {
+      if (KNOWN_WEATHER_KEYS.has(key)) {
+        filteredWeather[key] = rawWeather[key];
+      }
+    }
     this.weatherConfig = {
       ...ANDY_DEFAULTS.weather,
-      ...(config.weatherConfig || {}),
+      ...filteredWeather,
       seasonProbabilities: deepMergeSeasonProbs(
         ANDY_DEFAULTS.weather.seasonProbabilities,
-        config.weatherConfig?.seasonProbabilities || {}
+        filteredWeather.seasonProbabilities || {}
       ),
     };
-    this.spatial = config.spatial || null;
-    this.needs = config.needs || null;
+
+    this.spatial =
+      typeof config.spatial === 'object' && config.spatial !== null
+        ? { ...ANDY_DEFAULTS.spatial, ...config.spatial }
+        : null;
+
+    this.needs =
+      typeof config.needs === 'object' && config.needs !== null
+        ? { ...ANDY_DEFAULTS.needs, ...config.needs }
+        : null;
 
     // 保留完整 defaults 供需要时引用
     this._defaults = ANDY_DEFAULTS;

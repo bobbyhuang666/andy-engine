@@ -48,6 +48,7 @@ class HabitCandidateProvider extends CandidateProvider {
     const habit = proceduralMemory.query(queryContext);
     if (!habit) return [];
     if (!habit.action || !habit.action.state) return [];
+    if (!Number.isFinite(habit.confidence)) return [];
     if (habit.confidence < CONFIDENCE_THRESHOLD) return [];
 
     const stateActionMap = this._getStateActionMap(context.domain);

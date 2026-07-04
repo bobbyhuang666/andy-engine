@@ -42,7 +42,7 @@ class AndyWorld {
     // Engine must be seeded deterministically; pass explicit `rng` for
     // reproducible runs. Default seed 0 matches subsystem fallback pattern.
     this.rng = rng || new RNG(0);
-    if (savedState && savedState.rngState !== undefined) {
+    if (savedState && savedState.rngState !== undefined && Number.isFinite(savedState.rngState)) {
       this.rng.setState(savedState.rngState);
     }
 

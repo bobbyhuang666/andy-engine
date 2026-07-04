@@ -111,7 +111,8 @@ class SimulationStore {
     // 尝试恢复最近快照
     const snapshot = this.db.loadLatest();
     if (snapshot && onRestore) {
-      onRestore(snapshot.data);
+      try { onRestore(snapshot.data); }
+      catch (err) { this._diagnostics?.warn?.('restore_failed', err.message); }
     }
 
     // 加载故事缓冲
