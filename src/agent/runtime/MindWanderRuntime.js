@@ -136,11 +136,17 @@ function mindWander(agent, env = null) {
 
   // Weighted random selection
   const totalWeight = thoughtCandidates.reduce((sum, t) => sum + t.weight, 0);
-  let r = agent.rand() * totalWeight;
-  let thought = thoughtCandidates[0];
-  for (const candidate of thoughtCandidates) {
-    r -= candidate.weight;
-    if (r <= 0) { thought = candidate; break; }
+  let thought;
+  if (totalWeight === 0) {
+    // All weights zero: fall back to uniform random selection
+    thought = thoughtCandidates[Math.floor(agent.rand() * thoughtCandidates.length)];
+  } else {
+    let r = agent.rand() * totalWeight;
+    thought = thoughtCandidates[0];
+    for (const candidate of thoughtCandidates) {
+      r -= candidate.weight;
+      if (r <= 0) { thought = candidate; break; }
+    }
   }
 
   // Emotion effects from thought

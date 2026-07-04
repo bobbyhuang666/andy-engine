@@ -51,6 +51,9 @@ class AndyEngine {
    * @param {Object} [savedState]       - 从持久化恢复的世界状态
    */
   constructor(config = {}, savedState = null) {
+    if (config === null) {
+      throw new Error('AndyEngine: config must be an object, got null. Use {} for defaults.');
+    }
     validateConfig(config);
 
     // 初始化 RNG
@@ -333,7 +336,8 @@ class AndyEngine {
    *     relationship: 80,
    *   });
    */
-  getNarrative(agentId, options = {}) {
+  getNarrative(agentId, options) {
+    options = options ?? {};
     const agent = this.world.getAgent(agentId);
     if (!agent) return '';
     return buildNarrative(agent, options);

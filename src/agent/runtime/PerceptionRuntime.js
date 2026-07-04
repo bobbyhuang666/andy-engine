@@ -41,7 +41,11 @@ function perceiveEvents(agent, events, env = null) {
   agent._recentEventTypes.clear();
   const newEvents = [];
   for (const event of events) {
-    if (event && event.id) {
+    // P1 null event guard: skip null/undefined/broken entries to prevent
+    // Appraisal.evaluate from crashing on event.type access.
+    if (!event || typeof event !== 'object') continue;
+
+    if (event.id) {
       if (agent._perceivedEventIds.has(event.id)) continue;
       agent._perceivedEventIds.add(event.id);
       if (agent._perceivedEventIds.size > 500) {
