@@ -88,6 +88,7 @@ class PersonalMemory {
 
     this._tickCache = new Map();
     this._tickCacheTick = -1;
+    this._reconsolidatedThisTick = new Set();
     // v2.3-W1: deterministic 初值（与 ProceduralMemory 一致），消除构造到 setSimTime
     // 间的墙上时钟渗漏（line 97 createdAt / line 172-174 seed memory timestamp）。
     // setSimTime（每 tick 由 AgentRuntime.tick 调用）覆盖为 sim time。
@@ -384,6 +385,10 @@ class PersonalMemory {
     const results = topK;
 
     for (const { memory } of results) {
+      // R147-AGENT-5 P1 fix: 同一 tick 内多次 retrieve（reflection/mind-wander/emotion-regulation）
+      // 不应对同一记忆重复再巩固。跳过已在本 tick 处理过的记忆，避免 emotionSnapshot 累积漂移。
+      if (this._reconsolidatedThisTick.has(memory.id)) continue;
+      this._reconsolidatedThisTick.add(memory.id);
       this._touchMemory(memory);
       // 记忆再巩固（Reconsolidation, Nader et al. 2000）
       // 每次回忆，情绪标签会轻微偏移向当前情绪状态
@@ -745,6 +750,7 @@ class PersonalMemory {
 
     // 每 tick 开始时清空上一轮缓存
     this.clearTickCache();
+    this._reconsolidatedThisTick.clear();
 
     for (const memory of this.memories) {
       // 基于创建时间的衰减（防止频繁访问的记忆永不衰减）

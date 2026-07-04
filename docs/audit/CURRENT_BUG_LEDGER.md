@@ -5340,6 +5340,21 @@ defensive-guard fixes that were only partial.
 | Regression test | `tests/unit/config/validate-config.test.js` covers negative, NaN, non-object, and transition probability validation. |
 | Status | Fixed. |
 
+### R147-AGENT-5
+
+| Field | Detail |
+|---|---|
+| ID | R147-AGENT-5 |
+| Severity | P1 |
+| Audit finding | `PersonalMemory._reconsolidate()` mutates `memory.emotionSnapshot` in-place during `retrieve()` iteration. Multiple `retrieve()` calls per tick (reflection, mind-wander, emotion-regulation) cause the same memory's emotionSnapshot to accumulate drift beyond the designed 2% per-recall rate. |
+| Evidence | `src/agent/memory/PersonalMemory.js:386-391` — `for (const { memory } of results) { this._reconsolidate(memory, ...); }` with no per-tick dedup. `_reconsolidate()` at lines 647/657 directly writes `memory.emotionSnapshot[dim] += valenceUpdate * 0.3`. |
+| Verification verdict | Confirmed by independent Verification agent: `_reconsolidate()` mutates in-place, no duplicate guard exists, multiple retrieve calls per tick compound drift. |
+| Fix | Added `_reconsolidatedThisTick` Set to `PersonalMemory` constructor, cleared at top of `tick()`. `retrieve()` skips memories already reconsolidated this tick via `if (this._reconsolidatedThisTick.has(memory.id)) continue;`. |
+| Files | `src/agent/memory/PersonalMemory.js` |
+| Regression test | Existing memory tests pass; per-tick dedup prevents double reconsolidation within same tick. |
+| Re-verification | Full gates: `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100 ticks matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
+| Status | Fixed. |
+
 ## Rules For Future Entries
 
 Use this template:
