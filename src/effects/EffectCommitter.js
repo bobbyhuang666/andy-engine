@@ -11,6 +11,8 @@
  *   - All writes are bounded (clamped, guarded).
  */
 
+const { diagnostics } = require('../shared/Diagnostics');
+
 class EffectCommitter {
   /**
    * @param {Object} params
@@ -29,26 +31,32 @@ class EffectCommitter {
    * @returns {{ applied: Array, skipped: Array, errors: Array }}
    */
   commit(effectResult) {
-    const diagnostics = { applied: [], skipped: [], errors: [] };
-    if (!effectResult || !effectResult.deltas) return diagnostics;
+    const result = { applied: [], skipped: [], errors: [] };
+    if (!effectResult || !effectResult.deltas) return result;
 
     const now = this.world?.time || null;
 
     for (const delta of effectResult.deltas) {
       delta.timestamp = now;
       try {
-        const result = this._applyDelta(delta);
-        if (result === 'skipped') {
-          diagnostics.skipped.push(delta);
+        const outcome = this._applyDelta(delta);
+        if (outcome === 'skipped') {
+          result.skipped.push(delta);
+          // P2 fix: log skipped deltas for debugging
+          diagnostics.warn?.('delta_skipped', {
+            agentId: delta.agentId,
+            type: delta.type,
+            reason: 'guard_failure_or_invalid_delta',
+          });
         } else {
-          diagnostics.applied.push(delta);
+          result.applied.push(delta);
         }
       } catch (err) {
-        diagnostics.errors.push({ delta, error: err });
+        result.errors.push({ delta, error: err });
       }
     }
 
-    return diagnostics;
+    return result;
   }
 
   /**

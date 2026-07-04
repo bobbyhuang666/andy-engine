@@ -168,7 +168,7 @@ class ScheduleHandler {
       if (needRegion) {
         ScheduleHandler._commitMove(agent, env, result, needRegion, `need:${needsDrive.need}`);
       }
-    } else if (imResult.drive && imResult.drive.urgency > 0) {
+    } else if (imResult && imResult.drive && Number.isFinite(imResult.drive.urgency) && imResult.drive.urgency > 0) {
       // R39 P0 fix: 探索驱力门槛从 0.1 降到 0。
       // IM 已通过 curiosityThreshold (默认 0.25) 做过门控,这里再加 0.1 门槛会
       // 让 curiosity 略微衰减(0.5→0.35)后的 agent 永久丧失探索能力,卡在初始

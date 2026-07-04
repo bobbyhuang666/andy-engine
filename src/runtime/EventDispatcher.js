@@ -83,6 +83,9 @@ class EventDispatcher {
    * @returns {Object} 事件对象
    */
   createEvent(params) {
+    if (!params || typeof params !== 'object') {
+      params = {};
+    }
     // Core fields: always present with defaults.
     const event = {
       id: `evt_${this._nextId++}`,

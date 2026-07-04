@@ -4649,6 +4649,111 @@ These are not current merge blockers unless the new Chief Planner promotes them.
 | R87-SOCIALGRAPH-DUNBAR-ENFORCE-1 | P2 design | `_enforceDunbarLimits()` is a read-only projection — it calls `_projectDunbarLayers()` but discards the return value, and `_projectDunbarLayers()` never mutates `rel.type` or `rel.strength`. Dunbar limits are never actually enforced; agents can accumulate unlimited close friends. | Deferred: requires design decision on whether to downgrade relationship types (symmetric shared edge vs per-agent perception). Fix would add `_downgradeType()` method. |
 | R87-EMOTIONVECTOR-DIMENSION-BIAS-1 | P3 | `_pinkNoiseDrift()` selects 3-6 random dimensions with replacement — same dimension can be picked multiple times in one tick (~26% probability), creating cumulative noise bias. | Deferred: noise amplitude is small and damped; shuffle-and-pick-unique is a cleanup item when emotion drift is next touched. |
 
+### R140-INTRINSICMOTIVATION-NEEDGATE-CONFIG-BYPASS-1
+
+| Field | Detail |
+|---|---|
+| ID | R140-INTRINSICMOTIVATION-NEEDGATE-CONFIG-BYPASS-1 |
+| Severity | P0 |
+| Audit finding | `IntrinsicMotivation._applyNeedGate()` reads `ANDY_DEFAULTS.needs.threshold` directly at line 691, completely bypassing user-provided or engine-cloned config. The `thresholdConfig` parameter exists but is never passed by callers — the `tick()` method destructures `needsThresholdConfig` from params but never forwards it. |
+| Evidence | `src/agent/psychology/IntrinsicMotivation.js:691`; `thresholdConfig || ANDY_DEFAULTS.needs.threshold`. `src/agent/psychology/IntrinsicMotivation.js:174` — `_applyNeedGate` called without 3rd arg. |
+| Verification verdict | Confirmed: `_applyNeedGate` always uses global defaults regardless of user config. |
+| Fix | 1. Pass `needsThresholdConfig` as 3rd arg to `_applyNeedGate()` at line 174. 2. Add `this._cfg?.threshold` as intermediate fallback before global default at line 693. |
+| Files | `src/agent/psychology/IntrinsicMotivation.js` |
+| Regression test | Existing intrinsic motivation tests pass; need gate now respects instance config. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R140-AGENTRUNTIME-TICK-STEP-ISOLATION-1
+
+| Field | Detail |
+|---|---|
+| ID | R140-AGENTRUNTIME-TICK-STEP-ISOLATION-1 |
+| Severity | P1 |
+| Audit finding | `AgentRuntime.tick()` wraps all 17 handler steps in a single try/catch. If any step throws (e.g., step 8 `needsEmotion.tick()`), steps 9–17 (health, emotion evolution, memory decay, social energy, procedural memory, reflection, mind wander, shadow action) are silently skipped, leaving the agent in a partially-modified state. |
+| Evidence | `src/agent/AgentRuntime.js:114-253`; single try/catch spanning all 17 steps. |
+| Verification verdict | Confirmed: step-8 exception → steps 9-17 skipped → state drift compounds over ticks. |
+| Fix | Restructured to individual try/catch per step. Each step error is logged via `diagnostics?.warn?.('agent_tick_step_error', ...)` and collected in `result.error` as an array. Subsequent steps continue executing after a failure. |
+| Files | `src/agent/AgentRuntime.js` |
+| Regression test | Existing agent tick tests pass; errors in one step no longer skip subsequent steps. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R140-EVENTDISPATCHER-NULL-PARAMS-1
+
+| Field | Detail |
+|---|---|
+| ID | R140-EVENTDISPATCHER-NULL-PARAMS-1 |
+| Severity | P1 |
+| Audit finding | `EventDispatcher.createEvent()` does not validate that `params` is a non-null object. If `params` is `null` or `undefined`, `params.time` throws TypeError at line 89 and `Object.keys(params)` at line 109 also throws. |
+| Evidence | `src/runtime/EventDispatcher.js:85-117`; no params guard before accessing `params.time`. |
+| Verification verdict | Confirmed: `createEvent(null)` → TypeError on `params.time`. |
+| Fix | Added guard at top of `createEvent()`: `if (!params || typeof params !== 'object') params = {};`. |
+| Files | `src/runtime/EventDispatcher.js` |
+| Regression test | Existing event tests pass; null params now safely defaults to empty object. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R140-SOCIALGRAPH-TRIADIC-DUNBAR-ORDERING-1
+
+| Field | Detail |
+|---|---|
+| ID | R140-SOCIALGRAPH-TRIADIC-DUNBAR-ORDERING-1 |
+| Severity | P1 |
+| Audit finding | In `SocialGraph.tick()`, triadic closure ran before Dunbar enforcement. Triadic would boost relationships, then Dunbar would immediately downgrade them on the same tick — creating a cancellation effect and 12-tick oscillation cycles for marginal relationships near the Dunbar boundary. |
+| Evidence | `src/social/SocialGraph.js:247-252`; triadic before Dunbar. `_triadicClosure` boosts `relAC.strength` at line 318, `_enforceDunbarLimits` downgrades `rel.type` at line 347 in same tick. |
+| Verification verdict | Confirmed: Dunbar downgrades after triadic boosts → oscillation across enforcement cycles. |
+| Fix | Moved `_enforceDunbarLimits()` before `_triadicClosure()` in `tick()`. Dunbar sets the ceiling first, then triadic boosts within that constraint. Also removed `relAC._updateType()` from triadic closure to prevent type lag. |
+| Files | `src/social/SocialGraph.js` |
+| Regression test | Social graph tests pass; Dunbar/triadic ordering eliminates cancellation. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R140-ANDYWORLD-SPATIALCONFIG-MERGE-1
+
+| Field | Detail |
+|---|---|
+| ID | R140-ANDYWORLD-SPATIALCONFIG-MERGE-1 |
+| Severity | P1 |
+| Audit finding | `AndyWorld` constructor reads `ANDY_DEFAULTS.spatial.continuous` directly at line 149 when creating `SpatialEngine`, completely ignoring any user-provided spatial config overrides. `config.spatial` object values (worldWidth, cellSize, etc.) are silently discarded. |
+| Evidence | `src/runtime/AndyWorld.js:149`; `const spatialConfig = ANDY_DEFAULTS.spatial.continuous || {};` — no merge with `config.spatial`. |
+| Verification verdict | Confirmed: user spatial overrides ignored for continuous spatial engine. |
+| Fix | Changed to spread-merge pattern: `{ ...ANDY_DEFAULTS.spatial.continuous, ...(config.spatial && typeof config.spatial === 'object' ? config.spatial : {}) }`. Preserves defaults, allows user overrides. |
+| Files | `src/runtime/AndyWorld.js` |
+| Regression test | Existing spatial tests pass; user spatial config now correctly overrides defaults. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R140-SCHEDULEHANDLER-IMRESULT-NULL-1
+
+| Field | Detail |
+|---|---|
+| ID | R140-SCHEDULEHANDLER-IMRESULT-NULL-1 |
+| Severity | P2 |
+| Audit finding | `ScheduleHandler.tick()` accesses `imResult.drive.urgency` at line 171 without null guard. When `agent.intrinsicMotivation.tick()` returns `null` (a documented possibility), this throws `TypeError: Cannot read properties of null`. |
+| Evidence | `src/agent/handlers/ScheduleHandler.js:171`; `imResult.drive && imResult.drive.urgency > 0` — crashes if `imResult` is null. |
+| Verification verdict | Confirmed: null imResult → TypeError at ScheduleHandler step 5. |
+| Fix | Added null guard + Number.isFinite check: `imResult && imResult.drive && Number.isFinite(imResult.drive.urgency) && imResult.drive.urgency > 0`. |
+| Files | `src/agent/handlers/ScheduleHandler.js` |
+| Regression test | Existing handler tests pass; null imResult now safely skipped. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
+### R140-EFFECTCOMMITTER-SKIP-LOGGING-1
+
+| Field | Detail |
+|---|---|
+| ID | R140-EFFECTCOMMITTER-SKIP-LOGGING-1 |
+| Severity | P2 |
+| Audit finding | `EffectCommitter.commit()` silently skips invalid deltas (returning 'skipped' from `_applyDelta`) with no diagnostic logging. This makes debugging difficult when deltas fail due to guard failures (missing agent, missing subsystem, invalid values). |
+| Evidence | `src/effects/EffectCommitter.js:39-48`; skipped deltas pushed to `diagnostics.skipped` array but never logged. |
+| Verification verdict | Confirmed: guard failures silently ignored — no visibility into why deltas are skipped. |
+| Fix | 1. Added `const { diagnostics } = require('../shared/Diagnostics')` import. 2. Added `diagnostics.warn?.('delta_skipped', ...)` in the skipped-delta branch. 3. Renamed local `diagnostics` → `result` to avoid shadowing the imported module. |
+| Files | `src/effects/EffectCommitter.js` |
+| Regression test | Existing effect tests pass; skipped deltas now produce diagnostic warnings. |
+| Re-verification | `npm test` 3291 passed, `npm run check:boundaries` clean, `npm run smoke:pack` 19/19. |
+| Status | Fixed. |
+
 ## Rules For Future Entries
 
 Use this template:

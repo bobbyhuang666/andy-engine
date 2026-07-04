@@ -171,7 +171,9 @@ class IntrinsicMotivation {
     }
 
     // ─── 5. 计算有效好奇心驱力（需求门控）───
-    const effectiveCuriosity = this._applyNeedGate(this.curiosity, needsState);
+    const effectiveCuriosity = this._applyNeedGate(
+      this.curiosity, needsState, needsThresholdConfig,
+    );
 
     // ─── 6. 生成驱力信号 ───
     if (effectiveCuriosity > this._cfg.curiosityThreshold) {
@@ -688,7 +690,7 @@ class IntrinsicMotivation {
   _applyNeedGate(rawCuriosity, needsState, thresholdConfig) {
     if (!needsState) return rawCuriosity;
 
-    const thresholds = thresholdConfig || ANDY_DEFAULTS.needs.threshold;
+    const thresholds = thresholdConfig || this._cfg?.threshold || ANDY_DEFAULTS.needs.threshold;
 
     // 计算最低需求满足度（最匮乏的需求决定门控）
     let minSatisfaction = 1;

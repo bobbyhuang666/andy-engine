@@ -242,14 +242,17 @@ class SocialGraph {
     }
 
     // 三元闭合：朋友的朋友更可能成为朋友
-    // 性能优化：每 tick 只检查 1/3 的 agent（轮询），减少 O(N×d²) 计算量
+    // 性能优化：每 tick 只检查 1/3 的 agent（轮询抽样），减少 O(N×d²) 计算量
     this._tickCount = (this._tickCount || 0) + 1;
-    this._triadicClosure();
 
     // Dunbar 层级限制：每 12 tick 执行一次（~1小时模拟时间），减少排序开销
+    // R140 P1 fix: Dunbar 先于 triadic closure 执行，设置关系强度上限，
+    // 然后 triadic 在上限内增强关系，避免同一 tick 内 Dunbar 降级 → triadic 回升的振荡。
     if (this._tickCount % 12 === 0) {
       this._enforceDunbarLimits();
     }
+
+    this._triadicClosure();
   }
 
   /**
@@ -316,7 +319,9 @@ class SocialGraph {
 
           if (delta > 0.0001) {
             relAC.strength = Math.min(1, relAC.strength + delta);
-            relAC._updateType();
+            // R140 P1 fix: 不在这里调用 _updateType()。
+            // 类型重评估统一由 decay (rel.tick) 和 Dunbar 完成，
+            // 避免 triadic 增强后立即被 Dunbar 降级导致的类型抖动。
           }
         }
       }

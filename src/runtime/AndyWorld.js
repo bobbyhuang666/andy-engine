@@ -146,7 +146,10 @@ class AndyWorld {
     // AndyEngine.fromJSON(json) 无需调用方再传 { spatial: 'continuous' } 即可
     // 重建连续坐标层；旧离散快照无 spatial 键 → 不创建（向后兼容）。
     if (config.spatial === 'continuous' || (savedState && savedState.spatial)) {
-      const spatialConfig = ANDY_DEFAULTS.spatial.continuous || {};
+      const spatialConfig = {
+        ...ANDY_DEFAULTS.spatial.continuous,
+        ...(config.spatial && typeof config.spatial === 'object' ? config.spatial : {}),
+      };
       const regionDefs = this._buildRegionDefs({
         regionCoords: this.domain.regionCoords,
         regions: this.domain.regions,
