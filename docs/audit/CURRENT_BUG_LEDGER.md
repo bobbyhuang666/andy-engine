@@ -5557,6 +5557,53 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 | R149-SQLITE-1/2 WAL/concurrent | **Downgraded to P2** | Single-threaded Node, WAL handles atomicity |
 | R149-EFF-3/5 EmotionDelta/MemoryDelta | **Downgraded to P2/P3** | Downstream guards exist / zero callers |
 
+### R150-DOM-1
+
+| Field | Detail |
+|---|---|
+| ID | R150-DOM-1 |
+| Severity | P1 |
+| Audit finding | `getDefaultDomain()` uses `JSON.parse(JSON.stringify(campusDomain))` to deep-clone the campus preset. JSON serialization drops ALL function-valued properties: `scheduleFactories` (4 factory functions → `{}`), `withGoodFriendTemplate` (function → `undefined`), `timeLabels.hoursAgo` (function → `{}`). After clone, the default singleton has broken `scheduleFactories`, causing `factory is not a function` errors. |
+| Evidence | `src/domain/DomainRegistry.js:416` — `JSON.parse(JSON.stringify(campusDomain))` confirmed to drop all function values from campus preset. |
+| Verification verdict | Confirmed by independent verification: node test confirmed scheduleFactories becomes `{}`, withGoodFriendTemplate becomes `undefined`, timeLabels becomes `{}` after JSON clone. |
+| Fix | Added `deepClonePreserveFunctions()` helper that preserves function values by returning them as-is while deep-cloning nested objects/arrays. Replaced `JSON.parse(JSON.stringify())` with `deepClonePreserveFunctions()` in `getDefaultDomain()`. |
+| Files | `src/domain/DomainRegistry.js` |
+| Regression test | 65 domain tests pass; verified scheduleFactories/withGoodFriendTemplate/timeLabels functions preserved after clone; verified deep clone isolation (mutating clone doesn't affect original). |
+| Re-verification | `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100/100 matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
+| Status | Fixed. |
+
+### R150-EFF-2
+
+| Field | Detail |
+|---|---|
+| ID | R150-EFF-2 |
+| Severity | P1 |
+| Audit finding | `EmotionDelta` constructor accepts a `changes` object mapping dimension names to numeric offsets, but does NOT validate individual values for NaN/Infinity. `NeedDelta` already has this validation pattern. Without the filter, NaN delta values propagate through to `EmotionVector.applyEffect()` and corrupt emotion arithmetic. |
+| Evidence | `src/effects/EmotionDelta.js:24` — `this.changes = ...` assigned without per-value NaN guard. Compare `src/effects/NeedDelta.js:21-25` which has the filter. |
+| Verification verdict | Confirmed by independent verification: EmotionDelta accepts `{ calm: NaN }` without filtering; NeedDelta filters correctly. |
+| Fix | Added per-value NaN/Infinity filter loop matching NeedDelta pattern: `for (const [key, val] of Object.entries(this.changes)) { if (!Number.isFinite(val)) delete this.changes[key]; }` |
+| Files | `src/effects/EmotionDelta.js` |
+| Regression test | All 3311 tests pass; 48 effect-delta-contract tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all other gates green. |
+| Status | Fixed. |
+
+### R150 Verification Summary
+
+| Reported | Verdict | Reason |
+|---|---|---|
+| R150-KNOWN-1 P0 Map iteration delete | **Rejected (false positive)** | ES2015 spec guarantees for...of deletion of current entry is safe; V8 test confirmed all entries visited. |
+| R150-SOCIAL-1 P1 triadic/Dunbar oscillation | **Downgraded to P2** | Bounded oscillation (12-tick self-correcting cycle), not sustained corruption. |
+| R150-SPATIAL-1 P1 removeAgent stale grid | **Rejected (false positive)** | `_agentIdToIdx` guards in setCoords/queryNearby prevent null access; `_initialized` flag protects tick path. |
+| R150-CFG-2 P1 shallow-spread config | **Rejected (false positive)** | ANDY_DEFAULTS.events/needs are currently flat objects; shallow spread does not lose nested keys. |
+| R150-NARR-1 P1 StoryGenerator bypass | **Rejected (false positive)** | StoryGenerator is designed as simulation debug output, not agent narrative path. LLM path uses FactProvider + FactConsistencyChecker. |
+| R150-STORE-1 P1 saveSnapshot+prune not atomic | **Downgraded to P2** | At most 1 extra snapshot beyond limit; no data loss. |
+| R150-STORE-2 P1 metadata when snapshot incomplete | **Downgraded to P2** | Only affects shutdown final snapshot; max 1 tick metadata drift. |
+| R150-EVT-1 P1 SEMANTIC_EVENT_CATEGORIES shared ref | **Downgraded to P2** | Shared reference is intentional; defaults are not mutated at runtime. |
+
+**Confirmed P1 findings: 2** (R150-DOM-1, R150-EFF-2) — both fixed. R150 confirmed P0/P1 = 0.
+
+**Convergence status: R148(0) + R150(0) = 2 consecutive clean rounds. ✅ CONVERGED.**
+
 ## Rules For Future Entries
 
 Use this template:

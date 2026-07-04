@@ -9,6 +9,25 @@
 
 const { validateDomain } = require('./validateDomain');
 
+/**
+ * 深拷贝函数，保留函数值不被丢弃。
+ * JSON.parse(JSON.stringify) 会丢弃所有函数，导致 scheduleFactories、
+ * withGoodFriendTemplate、timeLabels.hoursAgo 等函数属性变为 {} 或 undefined。
+ * 本函数对对象/数组递归深拷贝，对函数直接返回原引用。
+ * @param {*} obj
+ * @returns {*}
+ */
+function deepClonePreserveFunctions(obj) {
+  if (typeof obj === 'function') return obj;
+  if (obj === null || typeof obj !== 'object') return obj;
+  if (Array.isArray(obj)) return obj.map(deepClonePreserveFunctions);
+  const result = {};
+  for (const [key, value] of Object.entries(obj)) {
+    result[key] = deepClonePreserveFunctions(value);
+  }
+  return result;
+}
+
 class DomainRegistry {
   /**
    * @param {Object} [domainConfig] - 自定义 domain 配置
@@ -394,7 +413,7 @@ function getDefaultDomain() {
     const campusDomain = require('../../presets/campus');
     // Deep-clone to prevent external mutation of the singleton via the shared
     // campusDomain reference (R149-DOM-6: mutable singleton cross-contamination).
-    const clonedDomain = JSON.parse(JSON.stringify(campusDomain));
+    const clonedDomain = deepClonePreserveFunctions(campusDomain);
     _defaultInstance = new DomainRegistry(clonedDomain, { validate: false });
   }
   return _defaultInstance;
