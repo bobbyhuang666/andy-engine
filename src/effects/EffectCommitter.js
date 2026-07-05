@@ -125,6 +125,9 @@ class EffectCommitter {
     const agent = this.agents?.get?.(delta.agentId);
     if (!agent || !agent.emotion || typeof agent.emotion.applyEffect !== 'function') return false;
 
+    let emotionApplied = false;
+    let stressApplied = false;
+
     if (delta.changes && Object.keys(delta.changes).length > 0) {
       const multiplier = Number.isFinite(delta.multiplier) ? delta.multiplier : 1;
       const appraisalModifiers = delta.appraisalModifiers && typeof delta.appraisalModifiers === 'object'
@@ -138,17 +141,19 @@ class EffectCommitter {
       }
       if (Object.keys(safeChanges).length > 0) {
         agent.emotion.applyEffect(safeChanges, multiplier, appraisalModifiers);
+        emotionApplied = true;
       }
     }
 
     if (Number.isFinite(delta.stress) && typeof agent.emotion.setStress === 'function') {
       agent.emotion.setStress(delta.stress);
+      stressApplied = true;
     }
-    // R158: return 'skipped' when neither applyEffect nor setStress was invoked
-    // (e.g., all changes filtered out and stress non-finite). Previously always
-    // returned true, misclassifying no-op deltas as "applied".
-    return (delta.changes && Object.keys(delta.changes).length > 0)
-      || Number.isFinite(delta.stress);
+    // R161: return based on what was actually applied (safeChanges), not
+    // what delta.changes contained. Previously checked delta.changes which
+    // could have keys but produce empty safeChanges (NaN values filtered),
+    // causing false-positive 'applied' classification.
+    return emotionApplied || stressApplied;
   }
 
   /**

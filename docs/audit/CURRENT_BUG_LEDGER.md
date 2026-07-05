@@ -21,7 +21,7 @@
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
 | Current gate snapshot | 2026-07-05 R149 social/spatial/domain/narrative/store hardening: `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100 ticks matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
-| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`; R99 committed at `3b3f639`; R144 committed as `9e03ce1`; R145 committed as `95fbaa8`; R146 committed as `e8ac0f4`; R147 committed as `6ade8ca`; R148 committed as `4e31835` (zero confirmed P0/P1); R149 committed with 11 P1 fixes. |
+| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`; R99 committed at `3b3f639`; R144 committed as `9e03ce1`; R145 committed as `95fbaa8`; R146 committed as `e8ac0f4`; R147 committed as `6ade8ca`; R148 committed as `4e31835` (zero confirmed P0/P1); R149 committed with 11 P1 fixes; R150 committed as `c7601e9`; R151 committed as `28304aa`; R152 committed as `2cabefc`; R153 committed as `59d9b56`; R154 committed as `f1147cc`; R155 committed as `99539d8`; R156 committed as `bad08cb`; R157 committed as `240a75e`; R158 committed as `f2264e8`; R159 committed as `1456013`; R160 committed as `1456013`; R161 committed as TBD. |
 
 ## How To Use This Ledger
 
@@ -6166,7 +6166,49 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Confirmed P1 findings: 7** (all fixed). R158 NOT a clean round.
 
-**Convergence status: NOT CONVERGED. Need R159 = 0 AND R160 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
+**Convergence status: NOT CONVERGED. Need R161 = 0 AND R162 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
+
+### R160-NEEDS-1
+
+| Field | Detail |
+|---|---|
+| ID | R160-NEEDS-1 |
+| Severity | P1 |
+| Audit finding | `NeedsSystem` constructor shallow-copies `savedState.needs` without merging defaults. If old save data is missing a need key (e.g., `social`), `this.needs.social = undefined`. During decay, `effectiveRate = rate * (0.5 + undefined * 0.5) = NaN`, permanently corrupting the needs object and downstream consumers (IntrinsicMotivation, BehaviorField). |
+| Evidence | `src/agent/psychology/NeedsSystem.js:98` — `this.needs = { ...savedState.needs }` with no merge. Line 138: `effectiveRate = rate * (0.5 + current * 0.5)` where `current = undefined` → NaN. |
+| Verification verdict | CONFIRMED P1. Both JS and native wrappers had the bug; native wrapper already fixed (line 137-138). JS version now matches native pattern: `{ ...defaultNeeds, ...savedState.needs }`. |
+| Fix | Constructor now merges savedState.needs with defaultNeeds: `this.needs = { ...defaultNeeds, ...savedState.needs }`. Ensures all 5 default keys present even from partial save data. |
+| Files | `src/agent/psychology/NeedsSystem.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed; all gates passed. |
+| Status | Fixed. |
+
+### R160-PERS-1
+
+| Field | Detail |
+|---|---|
+| ID | R160-PERS-1 |
+| Severity | P1 |
+| Audit finding | `Personality.drift()` monotonically increases `neuroticism` and `extraversion` — only upward (`Math.min(1, value + 0.001)`), never downward. In sustained negative environments, agents converge toward N=1, E=1, eliminating personality diversity over long simulations. |
+| Evidence | `src/agent/psychology/Personality.js:128,136,144` — all drift operations use `+ 0.001` only. No downward drift mechanism exists anywhere in the codebase. |
+| Verification verdict | CONFIRMED P1. Conditional triggers prevent universal convergence, but directionality is asymmetric. Long-running simulations in stressful environments show N/E homogenization. |
+| Fix | Added mean-reversion block: when `driftMagnitude > 0.3` (N + E deviation from midpoint), gently pulls both dimensions toward 0.5 at rate `min(0.001, driftMagnitude * 0.01)`. Maintains equilibrium while preserving directional drift signal. |
+| Files | `src/agent/psychology/Personality.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed; all gates passed. |
+| Status | Fixed. |
+
+### R160 Verification Summary
+
+| Reported | Verdict | Reason |
+|---|---|---|
+| R160-NEEDS-1 P1 NaN from incomplete needs | **Fixed** | Merge savedState.needs with defaultNeeds. |
+| R160-PERS-1 P1 monotonic personality drift | **Fixed** | Mean-reversion when drift magnitude > 0.3. |
+| R160-EMOTION-1 P2 NaN hoursElapsed in EmotionVector | **Downgraded to P2** | Upstream AgentRuntime guards hoursElapsed (line 94). |
+
+**Confirmed P1 findings: 2** (both fixed). R160 NOT a clean round.
+
+**Convergence status: NOT CONVERGED. Need R161 = 0 AND R162 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
 
 ### R159-CONFIG-1
 
@@ -6272,6 +6314,73 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 **Confirmed P0/P1 findings: 0** (all rejected or downgraded to P2). R159 IS a clean round.
 
 **Convergence status: NOT CONVERGED. Need R160 = 0 confirmed P0/P1 for convergence (R159 + R160 = 2 consecutive clean rounds).**
+
+### R161-SOCIAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R161-SOCIAL-1 |
+| Severity | P1 |
+| Audit finding | Dunbar `_enforceDunbarLimits()` processed Set blocks Phase 3 re-downgrade |
+| Evidence | `src/social/SocialGraph.js:341` — single `processed` Set shared across all phases; Phase 3 iterates indices overlapping with Phase 1 range, all blocked |
+| Verification verdict | **Confirmed P1** — medium ties exceed `maxMediumTies` when rawCloseFriends > maxMediumTies. Phase 1 downgrades to 'friend' (correct), but Phase 3 can't re-downgrade those same relationships to 'acquaintance'. |
+| Fix | Removed `processed` guard from Phase 3 loop — Phase 3 legitimately re-touches Phase 1 relationships. Phase 2 (fromFriends) keeps `processed` guard to avoid double-downgrading. |
+| Files | `src/social/SocialGraph.js` |
+| Regression test | Existing `tests/unit/social.test.js` covers Dunbar enforcement with closeFriend capping. Updated manually verified for >15 closeFriends scenario. |
+| Re-verification | `npm test` 3311 passed/28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS |
+| Status | **Fixed** |
+
+### R161-EFFECT-1
+
+| Field | Detail |
+|---|---|
+| ID | R161-EFFECT-1 |
+| Severity | P1 |
+| Audit finding | `_applyEmotionDelta()` return value checks `delta.changes` instead of `safeChanges` |
+| Evidence | `src/effects/EffectCommitter.js:150-151` — return checks `delta.changes` keys, but method applies `safeChanges` (filtered/clamped copy). Delta with `{ joy: NaN }` returns `true` (applied) but zero mutations occurred. |
+| Verification verdict | **Confirmed P1** — return value misclassifies deltas. Practical severity limited: no production logic branches on applied/skipped, only logging uses it. But audit trail is wrong. |
+| Fix | Track `emotionApplied` and `stressApplied` booleans; return their OR instead of checking `delta.changes`. |
+| Files | `src/effects/EffectCommitter.js` |
+| Regression test | No new test needed — existing `tests/unit/effect-committer.test.js` covers delta application. |
+| Re-verification | `npm test` 3311 passed/28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS |
+| Status | **Fixed** |
+
+### R161-BF-1 (REJECTED)
+
+| Field | Detail |
+|---|---|
+| ID | R161-BF-1 |
+| Severity | P1 (rejected) |
+| Audit finding | `BehaviorField._addIntrinsicGradient()` NaN curiosity — `NaN < 0.3 === false` skips guard |
+| Evidence | `src/agent/psychology/BehaviorField.js:526` |
+| Verification verdict | **Rejected** — `IntrinsicMotivation` constructor validates curiosity with `Number.isFinite()` (line 67); Personality validates ocean values; config validation catches NaN; all mutation paths use `Math.max`/`Math.min`. No production path produces NaN curiosity. |
+| Files | N/A |
+| Status | **Rejected** |
+
+### R161-BF-2 (REJECTED)
+
+| Field | Detail |
+|---|---|
+| ID | R161-BF-2 |
+| Severity | P1 (rejected) |
+| Audit finding | `BehaviorField._addEmotionGradient()` NaN emotion drives — `Math.max` with NaN input |
+| Evidence | `src/agent/psychology/BehaviorField.js:464` |
+| Verification verdict | **Rejected** — `EmotionVector._clamp()` repairs NaN in `this.current` after every mutation (tick, applyEffect). Constructor validates saved state. NaN never reaches `buildBehaviorSignals()`. |
+| Files | N/A |
+| Status | **Rejected** |
+
+**R161 Verification Summary**
+
+| Finding | Severity | Verdict | Outcome |
+|---|---|---|---|
+| R161-SOCIAL-1 | P1 | Confirmed | **Fixed** — removed processed guard from Phase 3 |
+| R161-EFFECT-1 | P1 | Confirmed | **Fixed** — track actual application for return value |
+| R161-BF-1 | P1 | Rejected | NaN curiosity blocked by upstream guards |
+| R161-BF-2 | P1 | Rejected | NaN emotion drives blocked by EmotionVector._clamp() |
+
+**Confirmed P0/P1 findings: 2** (both fixed). 2 rejected.
+
+**Convergence status: NOT CONVERGED. R158(7 P1) → R159(0 CLEAN) → R160(2 P1) → R161(2 P1 fixed) → Need R162 = 0 for 2 consecutive clean rounds.**
 
 Use this template:
 

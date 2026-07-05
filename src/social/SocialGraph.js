@@ -385,23 +385,18 @@ class SocialGraph {
           if (processed.has(key)) continue;
           processed.add(key);
           rel.strength = Math.min(rel.strength, friendCap);
-          // R158: _updateType cannot produce 'acquaintance' for strength < 0.15
-          // without the type already being 'acquaintance' (the bottom hysteresis
-          // guard only fires for type === 'acquaintance'). Directly set the type
-          // to enforce the one-tier Dunbar downgrade, then _updateType validates.
           rel.type = 'acquaintance';
           rel._updateType();
         }
         const remaining = excessMedium - fromFriends;
         if (remaining > 0) {
+          // R161: Phase 3 re-downgrades Phase 1 relationships from friend→acquaintance.
+          // These indices overlap with Phase 1's range, so processed would block all
+          // iterations. The processed guard is intentionally omitted here — Phase 3
+          // legitimately re-touches Phase 1 relationships to enforce the medium tie cap.
           for (let i = maxStrongTies; i < Math.min(rawCloseFriends.length, maxStrongTies + remaining); i++) {
             const rel = rawCloseFriends[i];
-            const key = [rel.agentA, rel.agentB].sort().join('_');
-            if (processed.has(key)) continue;
-            processed.add(key);
             rel.strength = Math.min(rel.strength, friendCap);
-            // R158: same reasoning as fromFriends loop — direct type assignment
-            // ensures two-tier downgrade closeFriend→acquaintance, not stranger.
             rel.type = 'acquaintance';
             rel._updateType();
           }
