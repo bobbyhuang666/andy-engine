@@ -28,7 +28,6 @@
     "profile:emotion:quick": "node benchmarks/emotion-profile.js quick",
     "profile:contagion": "node benchmarks/contagion-profile.js",
     "profile:contagion:quick": "node benchmarks/contagion-profile.js quick",
-    "demo": "cd demo/character-lab && npm install && node server.js",
     "pack:dry-run": "npm pack --dry-run",
     "check:boundaries": "node scripts/check-boundaries.js",
     "typecheck": "tsc --noEmit",

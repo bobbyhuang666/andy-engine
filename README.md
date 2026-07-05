@@ -25,10 +25,10 @@ Most AI characters can say "I went to the backyard yesterday" even if no world s
 
 Andy takes the opposite approach:
 
-1. Bobby moves from the tavern hall to the backyard at 21:30.
+1. Alex moves from the tavern hall to the backyard at 21:30.
 2. The engine records this as a **CanonEvent**.
-3. Bobby knows the full event.
-4. Mira only saw Bobby leave the hall.
+3. Alex knows the full event.
+4. Mira only saw Alex leave the hall.
 5. Leo knows nothing.
 6. The LLM can only express each character's own knowledge.
 
@@ -62,7 +62,7 @@ The LLM is a rendering layer, not the source of truth.
 
 | Area | Status |
 |---|---|
-| Unit / integration / domain / source-scan tests | 3197 tests passing / 28 skipped |
+| Unit / integration / domain / source-scan tests | 3312 tests passing / 28 skipped |
 | Custom domain | Tavern preset passes domain-agnostic validation |
 | Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
 | Seeded RNG | Core runtime paths support seeded simulation baseline (not full deterministic replay) |
@@ -141,7 +141,7 @@ Andy Engine v2 is the architecture-preview line that turns Andy from a character
 - Continuous 4D BehaviorField as the core behavior dynamics layer
 - Seeded RNG baseline for reproducible core runtime paths (not full deterministic replay)
 - Performance benchmark / profiling / perf-check baseline
-- 3146 tests passing / 28 skipped across unit, integration, domain, compatibility, and source-scan suites
+- 3312 tests passing / 28 skipped across unit, integration, domain, compatibility, and source-scan suites
 - Core runtime tests and default package smoke do not require SQLite native bindings; SQLite persistence is verified separately with `npm run sqlite:smoke`
 - Clean Architecture Pass complete: `src/` owns implementation; old top-level runtime wrappers retired; Semantic Closure Pass complete with 9 domain-safe read-only providers
 
@@ -210,7 +210,7 @@ Habit ──────────→ habit gradient ──────┘    
 - **Personality emerges from physics**: different OCEAN values create different dynamics on the same potential surface — no hardcoded weight tables
 - **Needs → behavior is natural**: hunger creates a gradient that pulls B toward the food zone, not a discrete state switch
 
-**Validation** (`experiments/behavior_field_personality.js`):
+**Validation snapshot** (historical experiment asset archived outside the repo):
 
 ```
 ── INFP ──  γ=4.20  σ=0.097  B=[0.38, 0.41, 0.20, 0.39]  12 unique labels
@@ -314,10 +314,10 @@ const engine = new AndyEngine({
   seed: 42, // reproducible simulation
 });
 
-const bobby = engine.createCharacter({ id: 'bobby', name: 'Bobby' });
+const alex = engine.createCharacter({ id: 'alex', name: 'Alex' });
 engine.tick();
 
-const grounding = engine.getGroundingPackage('bobby');
+const grounding = engine.getGroundingPackage('alex');
 console.log(grounding.allowedFacts);
 // Facts/Grounding are experimental and opt-in via enableFacts: true.
 ```
@@ -374,20 +374,6 @@ node examples/longitudinal-life-demo/demo.js
 - Epistemic boundary (character only knows what it experienced)
 - Relationship evolution (based on interactions)
 - Narrative grounded in reality (no fabrication)
-
-### Character Lab Demo
-
-Interactive web demo:
-
-```bash
-cd demo/character-lab
-npm install
-node server.js
-# → http://localhost:3456
-```
-
----
-
 
 ## SDK
 
@@ -482,25 +468,18 @@ const latest = db.loadLatest();
 
 ---
 
-## Experiments
+## Research Assets
 
-See `experiments/` for the full experiment suite:
+Historical experiment suites, the old Character Lab demo, and synthetic data
+generation scripts were removed from the main repository during the GitHub
+cleanup pass to keep the public tree focused on the engine, examples, tests, and
+current docs.
 
-- **practical_eval/** — A/B comparison, personality consistency, state awareness, memory, emergent behavior
-- **llm_ab_test/** — 100-turn long conversation evaluation across 5 dimensions
-- **spatial_eval/** — Spatial engine quality and scalability
-- **behavior_field_personality.js** — 4 personality types behavior field comparison
-- **output_round5/** — Round 5 iteration results
+Archived local copy:
 
----
-
-## Data Generator
-
-`data_generator/` can produce synthetic training data for LLM fine-tuning:
-
-- 5,000 agents × 30 days = **44 million data points** in 7 minutes
-- ChatML format, ready for fine-tuning
-- Emotion change contrast samples + multi-turn dialogues
+```text
+/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01/repo-assets-removed-2026-07-05
+```
 
 ---
 
@@ -547,10 +526,10 @@ LLM 只能表达角色知道的事，不能创造世界事实。
 
 Andy 的做法相反：
 
-1. Bobby 从酒馆大厅走到后院，待了 25 分钟。
+1. Alex 从酒馆大厅走到后院，待了 25 分钟。
 2. 引擎将此记录为 **CanonEvent**。
-3. Bobby 知道完整事件。
-4. Mira 只看到 Bobby 离开了大厅。
+3. Alex 知道完整事件。
+4. Mira 只看到 Alex 离开了大厅。
 5. Leo 什么都不知道。
 6. LLM 只能表达每个角色自己的知识。
 
@@ -613,7 +592,7 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 - 连续 4D BehaviorField 作为核心行为动力学层
 - 可播种 RNG 基线，支持核心运行时路径的可复现模拟（非全路径确定性重放）
 - 性能基准 / Profiling / perf-check 基线
-- 3146 tests passing / 28 skipped（单元、集成、domain、兼容性、source-scan）
+- 3312 tests passing / 28 skipped（单元、集成、domain、兼容性、source-scan）
 - Clean Architecture Pass 完成：`src/` 拥有实现，旧顶层 runtime wrappers 已退休；Semantic Closure Pass 完成，9 个 domain-safe read-only provider 已接入
 
 ### 实验性
@@ -709,7 +688,7 @@ Grounded Narrative（有事实边界的叙事）
 
 | 项目 | 状态 |
 |---|---|
-| 单元 / 集成 / domain / source-scan 测试 | 3197 tests passing / 28 skipped |
+| 单元 / 集成 / domain / source-scan 测试 | 3312 tests passing / 28 skipped |
 | custom domain | tavern preset 通过 domain-agnostic 验证 |
 | facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
 | seeded RNG | 核心运行时路径支持 seeded simulation 基线（非全路径确定性重放） |
@@ -745,10 +724,7 @@ AffectCompiler 生成 AffectFrame，包含：
 ## 快速开始
 
 ```bash
-cd demo/character-lab
-npm install
-node server.js
-# → http://localhost:3456
+node examples/offline-demo.js
 ```
 
 **默认校园模式（向后兼容）：**
@@ -806,11 +782,11 @@ const engine = new AndyEngine({
   seed: 42,          // 可复现模拟
 });
 
-const bobby = engine.createCharacter({ id: 'bobby', name: 'Bobby' });
+const alex = engine.createCharacter({ id: 'alex', name: 'Alex' });
 engine.tick();
 
 // 获取角色的知识边界（哪些事实是"允许知道的"）
-const grounding = engine.getGroundingPackage('bobby');
+const grounding = engine.getGroundingPackage('alex');
 console.log(grounding.allowedFacts);
 // 事实/知识系统是实验性的，通过 enableFacts: true 开启。
 ```
@@ -948,7 +924,7 @@ Rust SoA f32 引擎在 50K agents 时比 JS 快 **5.92x**，精度误差 < 1e-8�
 |------|-----|
 | 50K agents × 20 ticks | 24.9ms/tick（Rust） |
 
-此外，Dunbar 层级传染优化（JS 侧）在 500K agents 时达到 **8.94x** 加速，详见 `experiments/RESULTS.md`。
+此外，Dunbar 层级传染优化（JS 侧）在 500K agents 时达到 **8.94x** 加速；历史实验资产已归档到外部 archive。
 
 详见 `benchmarks/` 目录。
 

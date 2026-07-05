@@ -139,7 +139,7 @@ typecheck, consumer typecheck, fresh consumer matrix, SQLite smoke, `git diff --
 Secondary public subpath TypeScript declarations are now covered by fresh
 tarball consumer checks. The published package baseline is now Node.js 20+.
 Long-run fact retention has been rechecked; full `npm test` is currently
-3197 passed / 28 skipped. The package whitelist now publishes `agent/Agent.js`
+3312 passed / 28 skipped. The package whitelist now publishes `agent/Agent.js`
 without the retired `agent/action/*` implementation files; dry-run tarball size
 is 198 files. Legacy phase tests have been migrated to canonical `src/action`,
 and the repo-local `agent/action` implementation files have been removed.

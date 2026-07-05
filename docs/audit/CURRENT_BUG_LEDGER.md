@@ -20,8 +20,8 @@
 | External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
-| Current gate snapshot | 2026-07-05 R149 social/spatial/domain/narrative/store hardening: `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100 ticks matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
-| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`; R99 committed at `3b3f639`; R144 committed as `9e03ce1`; R145 committed as `95fbaa8`; R146 committed as `e8ac0f4`; R147 committed as `6ade8ca`; R148 committed as `4e31835` (zero confirmed P0/P1); R149 committed with 11 P1 fixes; R150 committed as `c7601e9`; R151 committed as `28304aa`; R152 committed as `2cabefc`; R153 committed as `59d9b56`; R154 committed as `f1147cc`; R155 committed as `99539d8`; R156 committed as `bad08cb`; R157 committed as `240a75e`; R158 committed as `f2264e8`; R159 committed as `1456013`; R160 committed as `1456013`; R161 committed as `df873e5`; R162 committed as `72e9f17`; R163 CONVERGENCE (0 P0/P1); R164 committed as `fb6f50b`. |
+| Current gate snapshot | 2026-07-05 GitHub cleanup gate: `npm test` 3312 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run typecheck:consumer` clean; `npm run replay:diff` 100/100 matched; `npm run fresh:consumer` passed; `npm run sqlite:smoke` passed; `npm run release:clean` passed; `git diff --check` clean. |
+| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`; R99 committed at `3b3f639`; R144 committed as `9e03ce1`; R145 committed as `95fbaa8`; R146 committed as `e8ac0f4`; R147 committed as `6ade8ca`; R148 committed as `4e31835` (zero confirmed P0/P1); R149 committed with 11 P1 fixes; R150 committed as `c7601e9`; R151 committed as `28304aa`; R152 committed as `2cabefc`; R153 committed as `59d9b56`; R154 committed as `f1147cc`; R155 committed as `99539d8`; R156 committed as `bad08cb`; R157 committed as `240a75e`; R158 committed as `f2264e8`; R159 committed as `1456013`; R160 committed as `1456013`; R161 committed as `df873e5`; R162 committed as `72e9f17`; R163 CONVERGENCE (0 P0/P1); R164 committed as `fb6f50b`; R165 committed as `01b7d41`; R166 CONVERGENCE (0 P0/P1). |
 
 ## How To Use This Ledger
 
@@ -6494,9 +6494,9 @@ Direct manual review of all critical code paths (subagent dispatch unavailable f
 
 **Confirmed P0/P1 findings: 0**. R165 IS a clean round.
 
-**Convergence status: NOT CONVERGED. R163(0) + R165(0) are NOT consecutive (R164 intervenes). Need R166 = 0 for 2 consecutive clean rounds (R165 + R166).**
+**Convergence status: CONVERGED. R165(0) + R166(0) = 2 consecutive clean rounds.**
 
-### R164-SOCIAL-1
+## New Entry Template
 
 | Field | Detail |
 |---|---|
@@ -6510,6 +6510,27 @@ Direct manual review of all critical code paths (subagent dispatch unavailable f
 | Regression test | Existing tests pass. Need new test that asserts raw closeFriend+friend ≤ maxMediumTies after enforcement. |
 | Re-verification | `npm test` 3311 passed/28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS |
 | Status | **Fixed** |
+
+### R166 Convergence Audit
+
+Direct manual review of all critical code paths. All R161/R162/R163/R164/R165 fixes verified holding. No new P0/P1 findings.
+
+| Finding | Severity | Verdict | Reason |
+|---|---|---|---|
+| R166-SOCIAL-1 | P1 | Rejected | R164 fix verified: `processed` is per-agent (line 342). Phase 3 intentionally omits guard (correct). |
+| R166-SOCIAL-2 | P1 | Rejected | `_projectDunbarLayers` masks raw rel.type — projection view correct; raw types enforced by `_updateType()` hysteresis |
+| R166-EFFECT-1 | P1 | Rejected | `_applyEmotionDelta` tracks actual application (R161 fix). `_applyNeedDelta` complete NaN defense |
+| R166-EFFECT-2 | P1 | Rejected | `_applyRelationshipDelta` returns true only after `recordInteraction` success |
+| R166-PSYCH-1 | P1 | Rejected | R162 fixed: `_recoveryMultipliers` computed; `_syncFromNative` validates native output |
+| R166-PSYCH-2 | P1 | Rejected | BehaviorField NaN defense: `_enforceBoundary` catches NaN; all gradient paths have upstream guards |
+| R166-SPATIAL-1 | P1 | Rejected | `_pruneRegionNames` in restore+removeAgent; phantom guards in addAgent+_syncTargets |
+| R166-RUNTIME-1 | P1 | Rejected | Error isolation works; UtilitySelector NaN/zero handling; KnowledgeStore propagation correct |
+
+**Confirmed P0/P1 findings: 0**. R166 IS a clean round.
+
+**Convergence achieved: R165(0) + R166(0) = 2 consecutive clean rounds.**
+
+### R164-SOCIAL-1
 
 Use this template:
 
@@ -6529,4 +6550,3 @@ Use this template:
 | Re-verification | commands and results |
 | Status | Fixed / Deferred / Rejected / Needs design |
 ```
-

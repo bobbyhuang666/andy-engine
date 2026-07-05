@@ -1,16 +1,16 @@
 # Aliveness Report
 
-> 生成时间: 2026-06-27T17:41:51.836Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
+> 生成时间: 2026-07-05T14:19:45.238Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
 > ALIVENESS_BENCHMARK_RFC v0.3 §3 报告制度。每次 release 重新生成。
 
 ## 测试命令快照
 
 | 命令 | 退出码 | 关键输出 |
 |---|---|---|
-| npm test | 0 | Test Files  169 passed (169) / Tests  2788 passed (2788) |
-| npm run test:domain | 0 |  Test Files  5 passed (5) /       Tests  81 passed (81) |
-| npm run perf:check | 0 | 100 agents avg/tick                26.48     25.52   1.04x   ✓ PASS / 300 agents avg/tick               192.61    202.48   0.95x   ✓ PASS / fixed-clustered gather (ms)        35.88     33.87   1.06x   ✓ PASS / fixed-clustered cache (ms)          6.27      7.33   0.86x   ✓ PASS / runtime-clustered gather (ms)      36.69     34.85   1.05x   ✓ PASS / ✓ All performance checks passed |
-| npm run replay:diff | 0 | ticks: 100 | matched: 100 | mismatched: 0 |
+| npm test | 0 | Test Files  194 passed \| 1 skipped (195) / Tests  3312 passed \| 28 skipped (3340) |
+| npm run test:domain | 0 |  Test Files  5 passed (5) /       Tests  82 passed (82) |
+| npm run perf:check | 0 | 100 agents avg/tick                15.11     25.52   0.59x   ✓ PASS / 300 agents avg/tick                86.43    202.48   0.43x   ✓ PASS / fixed-clustered gather (ms)        36.75     33.87   1.09x   ✓ PASS / fixed-clustered cache (ms)          7.05      7.33   0.96x   ✓ PASS / runtime-clustered gather (ms)      26.66     34.85   0.76x   ✓ PASS / ✓ All performance checks passed |
+| npm run replay:diff | 0 | ticks: 100 \| matched: 100 \| mismatched: 0 |
 
 ## 七维度状态
 

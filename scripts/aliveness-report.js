@@ -219,6 +219,12 @@ function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult)
 
 // ─── 报告渲染 ───
 
+function mdCell(value) {
+  return String(value ?? '')
+    .replace(/\r?\n/g, ' ')
+    .replace(/\|/g, '\\|');
+}
+
 function renderReport(dimensions, testParsed, domainResult, perfResult, replayResult, generatedAt) {
   const lines = [];
   lines.push('# Aliveness Report');
@@ -230,10 +236,10 @@ function renderReport(dimensions, testParsed, domainResult, perfResult, replayRe
   lines.push('');
   lines.push('| 命令 | 退出码 | 关键输出 |');
   lines.push('|---|---|---|');
-  lines.push(`| npm test | ${testParsed.testFilesLine ? '0' : '?'} | ${testParsed.testFilesLine} / ${testParsed.testsLine} |`);
-  lines.push(`| npm run test:domain | ${domainResult.status} | ${domainResult.stdout.split('\n').filter(l => l.match(/Tests|Test Files/)).join(' / ') || '(见完整输出)'} |`);
-  lines.push(`| npm run perf:check | ${perfResult.status} | ${perfResult.stdout.split('\n').filter(l => l.includes('PASS') || l.includes('performance checks')).join(' / ') || '(见完整输出)'} |`);
-  lines.push(`| npm run replay:diff | ${replayResult.status} | ${replayResult.stdout.split('\n').filter(l => l.includes('matched') || l.includes('mismatched')).join(' / ') || '(见完整输出)'} |`);
+  lines.push(`| npm test | ${testParsed.testFilesLine ? '0' : '?'} | ${mdCell(`${testParsed.testFilesLine} / ${testParsed.testsLine}`)} |`);
+  lines.push(`| npm run test:domain | ${domainResult.status} | ${mdCell(domainResult.stdout.split('\n').filter(l => l.match(/Tests|Test Files/)).join(' / ') || '(见完整输出)')} |`);
+  lines.push(`| npm run perf:check | ${perfResult.status} | ${mdCell(perfResult.stdout.split('\n').filter(l => l.includes('PASS') || l.includes('performance checks')).join(' / ') || '(见完整输出)')} |`);
+  lines.push(`| npm run replay:diff | ${replayResult.status} | ${mdCell(replayResult.stdout.split('\n').filter(l => l.includes('matched') || l.includes('mismatched')).join(' / ') || '(见完整输出)')} |`);
   lines.push('');
   lines.push('## 七维度状态');
   lines.push('');
