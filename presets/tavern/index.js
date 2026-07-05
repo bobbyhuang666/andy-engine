@@ -5,6 +5,17 @@
  * 5 个区域、8 个状态，完全不包含校园内容。
  */
 
+function deepFreeze(obj) {
+  if (obj === null || typeof obj !== 'object') return obj;
+  Object.freeze(obj);
+  for (const [key, value] of Object.entries(obj)) {
+    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
+  }
+  return obj;
+}
+
 const tavernDomain = {
   id: 'tavern',
   name: '中世纪酒馆世界观',
@@ -577,5 +588,7 @@ const tavernDomain = {
     explore: { B_delta: [0.3, 0, 0.3, 0], description: '适合探索' },
   },
 };
+
+deepFreeze(tavernDomain);
 
 module.exports = tavernDomain;

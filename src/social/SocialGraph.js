@@ -357,6 +357,7 @@ class SocialGraph {
           if (processed.has(key)) continue;
           processed.add(key);
           rel.strength = Math.min(rel.strength, closeFriendCap);
+          rel._updateType();
         }
       }
 
@@ -373,6 +374,7 @@ class SocialGraph {
           if (processed.has(key)) continue;
           processed.add(key);
           rel.strength = Math.min(rel.strength, friendCap);
+          rel._updateType();
         }
         const remaining = excessMedium - fromFriends;
         if (remaining > 0) {
@@ -382,6 +384,7 @@ class SocialGraph {
             if (processed.has(key)) continue;
             processed.add(key);
             rel.strength = Math.min(rel.strength, friendCap);
+            rel._updateType();
           }
         }
       }

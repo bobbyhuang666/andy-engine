@@ -15,6 +15,17 @@
  *   - campus schedules module (presets/campus/schedules.js) owns legacy schedule configs
  */
 
+function deepFreeze(obj) {
+  if (obj === null || typeof obj !== 'object') return obj;
+  Object.freeze(obj);
+  for (const [key, value] of Object.entries(obj)) {
+    if (value && typeof value === 'object' && !Object.isFrozen(value)) {
+      deepFreeze(value);
+    }
+  }
+  return obj;
+}
+
 const campusSchedules = require('./schedules');
 
 const campusDomain = {
@@ -867,5 +878,7 @@ const campusDomain = {
     explore: { B_delta: [0.2, 0, 0.3, 0], description: '适合探索' },
   },
 };
+
+deepFreeze(campusDomain);
 
 module.exports = campusDomain;
