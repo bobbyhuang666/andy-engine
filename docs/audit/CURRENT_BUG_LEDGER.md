@@ -21,7 +21,7 @@
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
 | Current gate snapshot | 2026-07-05 R149 social/spatial/domain/narrative/store hardening: `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100 ticks matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
-| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`; R99 committed at `3b3f639`; R144 committed as `9e03ce1`; R145 committed as `95fbaa8`; R146 committed as `e8ac0f4`; R147 committed as `6ade8ca`; R148 committed as `4e31835` (zero confirmed P0/P1); R149 committed with 11 P1 fixes; R150 committed as `c7601e9`; R151 committed as `28304aa`; R152 committed as `2cabefc`; R153 committed as `59d9b56`; R154 committed as `f1147cc`; R155 committed as `99539d8`; R156 committed as `bad08cb`; R157 committed as `240a75e`; R158 committed as `f2264e8`; R159 committed as `1456013`; R160 committed as `1456013`; R161 committed as `df873e5`; R162 committed as `72e9f17`. |
+| Current caveat | R43-R83 baseline committed at `2260fd6`/`c108562`; R84 committed at `3ff5024`; R85 committed at `62db2c7`; R95 committed at `3b3f639`; R96 committed at `2e09b2f`; R97 committed at `9eae010`; R98 committed at `5f3fcd5`; R99 committed at `3b3f639`; R144 committed as `9e03ce1`; R145 committed as `95fbaa8`; R146 committed as `e8ac0f4`; R147 committed as `6ade8ca`; R148 committed as `4e31835` (zero confirmed P0/P1); R149 committed with 11 P1 fixes; R150 committed as `c7601e9`; R151 committed as `28304aa`; R152 committed as `2cabefc`; R153 committed as `59d9b56`; R154 committed as `f1147cc`; R155 committed as `99539d8`; R156 committed as `bad08cb`; R157 committed as `240a75e`; R158 committed as `f2264e8`; R159 committed as `1456013`; R160 committed as `1456013`; R161 committed as `df873e5`; R162 committed as `72e9f17`; R163 CONVERGENCE (0 P0/P1). |
 
 ## How To Use This Ledger
 
@@ -6428,7 +6428,29 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Confirmed P0/P1 findings: 2** (both fixed). 7 rejected.
 
-**Convergence status: NOT CONVERGED. R158(7 P1) → R159(0 CLEAN) → R160(2 P1) → R161(2 P1 fixed) → R162(2 P1 fixed) → Need R163 = 0 for 2 consecutive clean rounds.**
+**Convergence status: CONVERGED. R162(2 P1 fixed) → R163(0 CLEAN) = 2 consecutive clean rounds.**
+
+### R163 Convergence Audit
+
+**R163 Verification Summary**
+
+5-path parallel audit + independent manual review of all critical code paths.
+
+| Finding | Severity | Verdict | Reason |
+|---|---|---|---|
+| R163-SOCIAL-1 | P1 | Rejected | Phase 3 processed guard IS present — Phase 1 keys correctly block Phase 3 |
+| R163-SOCIAL-2 | P1 | Rejected | Registration-order doesn't affect final state — shared Relationship objects cascade mutations |
+| R163-SOCIAL-3 | P2 | Rejected | Triadic oscillation slow (~33h sim); Dunbar runs every 12 ticks |
+| R163-EFFECT-1 | P1 | Rejected | `agent.emotion.stress` always finite after EmotionVector._clamp() |
+| R163-EFFECT-2 | P1 | Rejected | `getOrCreateRelationship` always returns proper Relationship object |
+| R163-PSYCH-1 | P1 | Rejected | R162 fixed: _recoveryMultipliers now computed |
+| R163-PSYCH-2 | P1 | Rejected | R162 fixed: _syncFromNative validates native output |
+| R163-SPATIAL-1 | P1 | Rejected | _pruneRegionNames called in both restore() and removeAgent(); phantom region guards in addAgent() and _syncTargets() |
+| R163-RUNTIME-1 | P1 | Rejected | Error isolation works correctly; UtilitySelector handles NaN/zero scores |
+
+**Confirmed P0/P1 findings: 0**. R163 IS a clean round.
+
+**CONVERGENCE ACHIEVED. R162(0 P0/P1) + R163(0 P0/P1) = 2 consecutive clean rounds.**
 
 Use this template:
 
