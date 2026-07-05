@@ -5849,6 +5849,53 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Convergence status: NOT CONVERGED. Need R155 = 0 AND R156 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
 
+### R155-SOCIAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R155-SOCIAL-1 |
+| Severity | P1 |
+| Audit finding | `_enforceDunbarLimits` caps `rel.strength` but never calls `rel._updateType()`. Relationship type remains stale (e.g., type='closeFriend' but strength=0.39). `_projectDunbarLayers` classifies by `rel.type`, causing over-counting. |
+| Evidence | `src/social/SocialGraph.js:359,375,384` — `rel.strength = Math.min(rel.strength, cap)` without `_updateType()`. `_projectDunbarLayers` (line 471) checks `rel.type === 'closeFriend'`. |
+| Verification verdict | Confirmed by independent verification: type/strength mismatch causes `_projectDunbarLayers` to over-count closeFriends; consumers checking `rel.type` get misleading info. |
+| Fix | Added `rel._updateType()` after each strength cap assignment in `_enforceDunbarLimits`. |
+| Files | `src/social/SocialGraph.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; all gates passed. |
+| Status | Fixed. |
+
+### R155-BUG-3
+
+| Field | Detail |
+|---|---|
+| ID | R155-BUG-3 |
+| Severity | P1 |
+| Audit finding | Domain presets (`campus`, `tavern`) exported as mutable plain objects. Any code mutating the preset after import silently corrupts all DomainRegistry instances sharing the reference. |
+| Evidence | `presets/campus/index.js:869` — `module.exports = campusDomain;` (mutable). `presets/tavern/index.js:581` — same pattern. |
+| Verification verdict | Confirmed: `getDefaultDomain()` deep-clones the preset, but direct `new DomainRegistry(campus)` users get the mutable reference. `Object.freeze()` not applied. |
+| Fix | Added `deepFreeze` helper function + `deepFreeze(domain)` call before `module.exports` in both presets. |
+| Files | `presets/campus/index.js`, `presets/tavern/index.js` |
+| Regression test | All 3311 tests pass; 82 domain tests pass; `Object.isFrozen()` confirmed true for top-level and nested objects. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; all gates passed. |
+| Status | Fixed. |
+
+### R155 Verification Summary
+
+| Reported | Verdict | Reason |
+|---|---|---|
+| R155-SOCIAL-1 P1 Dunbar _updateType | **Fixed** | Added `rel._updateType()` after each strength cap. |
+| R155-BUG-3 P1 presets not frozen | **Fixed** | Deep-freeze campus and tavern presets at export. |
+| R155-ANTH-1 P0 Anthropic URL | **Rejected (false positive)** | R154 verified: `https://api.anthropic.com/v1/messages` is correct per Anthropic API docs. |
+| R155-PARTICIPANTS-1 P1 fact.participants | **Downgraded to P2** | Caller at line 212 already checks `fact.participants` truthiness. |
+| R155-ERROR-SWALLOW-1 P1 ActionSelectionRuntime | **Downgraded to P3** | Intentional design — shadow selection is non-blocking. |
+| R155-CROSS-HANDLER-EMOTION-1 P1 emotion ordering | **Downgraded to P2** | Design asymmetry, not a bug. Reflection/mind-wander are end-of-tick effects. |
+| R155-BUG-2 P1 validateConfig gaps | **Remaining P1** | 5 config sections (tick, stateMachine, weather, actionSelection, eventConsequenceRules) lack validation. |
+| R155-BUG-1 P0 config shallow merge | **Deferred to P2** | Same as R154-MERGE-1; limited practical impact. |
+
+**Confirmed P1 findings: 3** (SOCIAL-1 fixed, BUG-3 fixed, BUG-2 remaining). R155 NOT a clean round.
+
+**Convergence status: NOT CONVERGED. Need R156 = 0 AND R157 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
+
 ## Rules For Future Entries
 
 Use this template:
