@@ -6428,7 +6428,7 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Confirmed P0/P1 findings: 2** (both fixed). 7 rejected.
 
-**Convergence status: NOT CONVERGED. R162 had 2 confirmed P1 (not a clean round). R163 had 0 confirmed P0/P1 (clean round). Need R164 = 0 for 2 consecutive clean rounds (R163 + R164).**
+**Convergence status: NOT CONVERGED. R162 had 2 confirmed P1 (not a clean round). R163 had 0 confirmed P0/P1 (clean round). R164 had 0 confirmed P0/P1 (clean round). CONVERGED: R163 + R164 = 2 consecutive clean rounds.**
 
 ### R163 Convergence Audit
 
@@ -6450,7 +6450,29 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Confirmed P0/P1 findings: 0**. R163 IS a clean round.
 
-**CONVERGENCE ACHIEVED. R162(0 P0/P1) + R163(0 P0/P1) = 2 consecutive clean rounds.**
+**Convergence status: NOT CONVERGED. R162 had 2 confirmed P1 (not a clean round). R163 had 0 confirmed P0/P1 (clean round). Need R164 = 0 for 2 consecutive clean rounds (R163 + R164).**
+
+### R164 Convergence Audit
+
+**R164 Verification Summary**
+
+Direct manual review of all critical code paths (subagent dispatch unavailable).
+
+| Finding | Severity | Verdict | Reason |
+|---|---|---|---|
+| R164-SOCIAL-1 | P1 | Rejected | Phase 3 processed guard IS present — Phase 1 keys correctly block Phase 3 |
+| R164-SOCIAL-2 | P1 | Rejected | Registration-order doesn't affect final state — shared Relationship objects cascade mutations |
+| R164-SOCIAL-3 | P2 | Rejected | Triadic oscillation slow (~33h sim); Dunbar runs every 12 ticks |
+| R164-EFFECT-1 | P1 | Rejected | `agent.emotion.stress` always finite after EmotionVector._clamp() |
+| R164-EFFECT-2 | P1 | Rejected | `getOrCreateRelationship` always returns proper Relationship object |
+| R164-PSYCH-1 | P1 | Rejected | R162 fixed: _recoveryMultipliers now computed |
+| R164-PSYCH-2 | P1 | Rejected | R162 fixed: _syncFromNative validates native output |
+| R164-SPATIAL-1 | P1 | Rejected | _pruneRegionNames called in both restore() and removeAgent(); phantom region guards in addAgent() and _syncTargets() |
+| R164-RUNTIME-1 | P1 | Rejected | Error isolation works correctly; UtilitySelector handles NaN/zero scores |
+
+**Confirmed P0/P1 findings: 0**. R164 IS a clean round.
+
+**CONVERGENCE ACHIEVED. R163(0 P0/P1) + R164(0 P0/P1) = 2 consecutive clean rounds.**
 
 Use this template:
 
