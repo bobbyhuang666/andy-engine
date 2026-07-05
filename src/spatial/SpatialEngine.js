@@ -634,6 +634,15 @@ class SpatialEngine {
     // 注册区域
     const regionIdx = this._regionNameToIdx.get(region);
     if (regionIdx === undefined) {
+      // R153-SPATIAL-1: guard against phantom regions — match _syncTargets logic
+      if (!this.worldMap.regions.has(region)) {
+        this._targets[idx] = -1;
+        this._initialized = true;
+        if (this._coords) {
+          this.grid.rebuild(this._coords, this._agentIds.length);
+        }
+        return;
+      }
       const newIdx = this._regionNames.length;
       this._regionNames.push(region);
       this._regionNameToIdx.set(region, newIdx);

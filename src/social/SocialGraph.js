@@ -341,18 +341,22 @@ class SocialGraph {
     const processed = new Set(); // Relationships are bidirectional/shared; avoid cascading type oscillation
 
     for (const agentId of this._adjacency.keys()) {
-      const layers = this._projectDunbarLayers(agentId);
+      const rels = this.getRelationships(agentId)
+        .sort((a, b) => (Number.isFinite(b.strength) ? b.strength : 0) - (Number.isFinite(a.strength) ? a.strength : 0));
       const { maxStrongTies, maxMediumTies } = this._cfg;
       const t = this._cfg.threshold;
+
+      const rawCloseFriends = rels.filter(r => r.type === 'closeFriend');
+      const rawFriends = rels.filter(r => r.type === 'friend');
 
       // Downgrade excess close friends → friend
       // Cap strength below the friend threshold so _updateType() naturally selects 'friend'.
       const closeFriendCap = Math.min(t.friend - 0.01, t.closeFriend - 0.01);
-      const excessClose = layers.closeFriends.length - maxStrongTies;
+      const excessClose = rawCloseFriends.length - maxStrongTies;
       if (excessClose > 0) {
         // weakest close friends first (already sorted by strength descending)
-        for (let i = maxStrongTies; i < layers.closeFriends.length; i++) {
-          const rel = layers.closeFriends[i];
+        for (let i = maxStrongTies; i < rawCloseFriends.length; i++) {
+          const rel = rawCloseFriends[i];
           const key = [rel.agentA, rel.agentB].sort().join('_');
           if (processed.has(key)) continue;
           processed.add(key);
@@ -364,12 +368,12 @@ class SocialGraph {
       // Downgrade excess friends → acquaintance (within medium tie budget)
       // Cap strength below the acquaintance threshold so _updateType() naturally selects 'acquaintance'.
       const friendCap = Math.min(t.acquaintance - 0.01, t.friend - 0.01);
-      const totalMedium = layers.closeFriends.length + layers.friends.length;
+      const totalMedium = rawCloseFriends.length + rawFriends.length;
       const excessMedium = totalMedium - maxMediumTies;
       if (excessMedium > 0) {
-        const fromFriends = Math.min(excessMedium, layers.friends.length);
+        const fromFriends = Math.min(excessMedium, rawFriends.length);
         for (let i = 0; i < fromFriends; i++) {
-          const rel = layers.friends[i];
+          const rel = rawFriends[i];
           const key = [rel.agentA, rel.agentB].sort().join('_');
           if (processed.has(key)) continue;
           processed.add(key);
@@ -378,8 +382,8 @@ class SocialGraph {
         }
         const remaining = excessMedium - fromFriends;
         if (remaining > 0) {
-          for (let i = maxStrongTies; i < Math.min(layers.closeFriends.length, maxStrongTies + remaining); i++) {
-            const rel = layers.closeFriends[i];
+          for (let i = maxStrongTies; i < Math.min(rawCloseFriends.length, maxStrongTies + remaining); i++) {
+            const rel = rawCloseFriends[i];
             const key = [rel.agentA, rel.agentB].sort().join('_');
             if (processed.has(key)) continue;
             processed.add(key);
