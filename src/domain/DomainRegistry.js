@@ -77,7 +77,7 @@ class DomainRegistry {
    * @param {Object} newConfig - 新的 domain 配置
    */
   setDomainConfig(newConfig) {
-    this.domain = JSON.parse(JSON.stringify(newConfig));
+    this.domain = deepClonePreserveFunctions(newConfig);
     this._invalidateCaches();
   }
 

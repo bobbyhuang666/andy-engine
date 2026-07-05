@@ -5670,7 +5670,46 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Confirmed P1 findings: 3** (R151-AGENT-TICK-1, R151-AB-1, R151-NB-1) — all fixed. After fixes, P0/P1 count = 0.
 
-**Convergence status: NOT CONVERGED. R150(2 P1) + R151(3 P1) both had confirmed findings. Need R152 = 0 confirmed P0/P1 for convergence.**
+**Convergence status: NOT CONVERGED. R150(2 P1) + R151(3 P1) + R152(1 P1) all had confirmed findings. Need R153 = 0 AND R154 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
+
+### R152-DR-1
+
+| Field | Detail |
+|---|---|
+| ID | R152-DR-1 |
+| Severity | P1 |
+| Audit finding | `DomainRegistry.setDomainConfig()` uses `JSON.parse(JSON.stringify())` to deep-clone domain config, silently discarding function-valued properties (`scheduleFactories`, `withGoodFriendTemplate`, `timeLabels.hoursAgo`). The `deepClonePreserveFunctions()` helper was created in R150 to fix this exact issue in `getDefaultDomain()`, but `setDomainConfig()` was not updated. |
+| Evidence | `src/domain/DomainRegistry.js:80` — `this.domain = JSON.parse(JSON.stringify(newConfig))` while `deepClonePreserveFunctions` exists at line 20. |
+| Verification verdict | Confirmed by independent verification: same root cause as R150-DOM-1, same impact. |
+| Fix | Changed `setDomainConfig()` to use `deepClonePreserveFunctions(newConfig)` instead of `JSON.parse(JSON.stringify(newConfig))`. |
+| Files | `src/domain/DomainRegistry.js` |
+| Regression test | 82 domain tests pass; 3311 total tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run replay:diff` 100/100 matched; `npm run fresh:consumer` passed; `git diff --check` clean. |
+| Status | Fixed. |
+
+### R152 Verification Summary
+
+| Reported | Verdict | Reason |
+|---|---|---|
+| R152-DR-1 P1 setDomainConfig JSON clone | **Fixed** | Replaced with deepClonePreserveFunctions. |
+| R152-DR-2 P1 deepClonePreserveFunctions no circular ref | **Downgraded to P2** | Domain configs don't contain circular references in practice. |
+| R152-CROSS-1 P1 no defensive copy safeEvents | **Downgraded to P2** | Handlers read safeEvents, don't mutate it. Defensive gap, not bug. |
+| R152-CROSS-4 P1 double emotion feedback | **Downgraded to P2** | Cache key includes agentId + keywords + limit + region + emotion + semanticCategory. Different callers use different keys. |
+| R152-DUNBAR-1 P1 triadic/Dunbar oscillation | **Downgraded to P2** | Triadic delta ≈ 0.00144/tick, 12-tick cumulative ≈ 0.017, far below hysteresis 0.08. Cannot cross boundary within cycle. |
+| R152-HYSTERESIS-1 P1 upgrade hysteresis gap | **Downgraded to P2** | Intentional design — relationships form easier than dissolve. |
+| R152-SPATIAL-1 P1 dynamic _regionNames | **Downgraded to P2** | _syncTargets runs before _moveAgents. Null check in _moveAgents handles unknown regions. |
+| R152-FP-1 P1 _getForbiddenFacts full scan | **Downgraded to P2** | Performance concern, not correctness bug. |
+| R152-KS-2 P1 purgeEvictedFacts O(A×E) | **Downgraded to P2** | Performance concern. |
+| R152-CC-1 P1 commonNonAgents agent IDs | **Downgraded to P3** | Agent IDs are English, commonNonAgents are Chinese. Near-zero practical overlap. |
+| R152-CEP-1 P1 told propagation non-deterministic | **Downgraded to P2** | Set iteration order = insertion order = deterministic (agents added in known order). |
+| R152-WFS-1 P1 fromJSON stale knowledge | **Downgraded to P2** | _knowledgeStore is null during fromJSON. Invalidated facts filtered by getKnownFacts. |
+| R152-SER-1 P1 migration throws on unknown versions | **Downgraded to P2** | By design — cannot migrate unknown versions. |
+| R152-SER-2/MIG-2 P1 mixed Date/string types | **Downgraded to P2** | Survives JSON serialization (Date.toJSON()). Subtle type inconsistency. |
+| Effects audit agent P1 findings | **Unverifiable** | Agent returned only summary ("2 P1 silent delta skip misclassification") without detailed evidence. Cannot independently verify. |
+
+**Confirmed P1 findings: 1** (R152-DR-1) — fixed. R152 NOT a clean round.
+
+**Convergence status: NOT CONVERGED. Need R153 = 0 AND R154 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
 
 ## Rules For Future Entries
 
