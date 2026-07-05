@@ -21,7 +21,12 @@ class EmotionDelta extends StateDelta {
    */
   constructor(agentId, changes, options = {}) {
     super('emotion', 'agent', agentId);
-    this.changes = (changes && typeof changes === 'object' && !Array.isArray(changes)) ? changes : {};
+    // R150: clone to avoid mutating caller's object (R154-NAN-2: delete on
+    // this.changes would corrupt the caller's original changes reference).
+    // Shallow copy is sufficient — values are always numbers.
+    this.changes = (changes && typeof changes === 'object' && !Array.isArray(changes))
+      ? { ...changes }
+      : {};
     // R150: validate per-value is finite — corrupted delta payloads (e.g., JSON
     // deserialization) could contain NaN/Infinity that passes the factory but
     // corrupts downstream arithmetic. Filter to finite numbers only.
