@@ -5600,9 +5600,9 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 | R150-STORE-2 P1 metadata when snapshot incomplete | **Downgraded to P2** | Only affects shutdown final snapshot; max 1 tick metadata drift. |
 | R150-EVT-1 P1 SEMANTIC_EVENT_CATEGORIES shared ref | **Downgraded to P2** | Shared reference is intentional; defaults are not mutated at runtime. |
 
-**Confirmed P1 findings: 2** (R150-DOM-1, R150-EFF-2) — both fixed. R150 confirmed P0/P1 = 0.
+**Confirmed P1 findings: 2** (R150-DOM-1, R150-EFF-2) — both fixed. After fixes, P0/P1 count = 0.
 
-**Convergence status: R150(0) + R151(0) = 2 consecutive clean rounds. ✅ CONVERGED.**
+**Convergence status: NOT CONVERGED. R150 had 2 confirmed P1 in audit report. Need next round (R152) = 0 confirmed P0/P1.**
 
 ### R151-AGENT-TICK-1
 
@@ -5668,9 +5668,9 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 | R151-EVT-1 SEMANTIC_EVENT_CATEGORIES shared ref | **Rejected (false positive)** | Never mutated in production code. |
 | R151-RNG-1 Date.now() in tick | **Rejected (false positive)** | Profiling only, not a determinism issue. |
 
-**Confirmed P1 findings: 3** (R151-AGENT-TICK-1, R151-AB-1, R151-NB-1) — all fixed. R151 confirmed P0/P1 = 0.
+**Confirmed P1 findings: 3** (R151-AGENT-TICK-1, R151-AB-1, R151-NB-1) — all fixed. After fixes, P0/P1 count = 0.
 
-**Convergence status: R150(0) + R151(0) = 2 consecutive clean rounds. ✅ CONVERGED.**
+**Convergence status: NOT CONVERGED. R150(2 P1) + R151(3 P1) both had confirmed findings. Need R152 = 0 confirmed P0/P1 for convergence.**
 
 ## Rules For Future Entries
 
