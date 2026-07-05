@@ -3,12 +3,8 @@
 `docs/rfc/` contains RFCs that are still open, foundational, or useful for future
 design decisions.
 
-Implemented or superseded RFCs were moved to the external archive:
-
-```text
-/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01/implemented-rfcs
-/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01/superseded-rfcs
-```
+Implemented or superseded RFCs were moved to the maintainer's private archive
+package outside this repository.
 
 ## Active / Reference RFCs
 

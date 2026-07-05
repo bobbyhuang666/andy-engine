@@ -3,11 +3,8 @@
 Historical documents were moved out of the repository to keep full-repo AI audits from
 loading obsolete phase plans, old diagnosis reports, and superseded audit ledgers.
 
-External archive location:
-
-```text
-/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01
-```
+External archive location: kept outside this repository in the maintainer's
+private archive package.
 
 External archive categories:
 

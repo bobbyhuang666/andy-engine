@@ -16,8 +16,8 @@
 | Field | Value |
 |---|---|
 | Updated | 2026-07-05 |
-| Repository | `/Users/huangweijie/Desktop/andy-engine` |
-| External archive | `/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01` |
+| Repository | Andy Engine repository root |
+| External archive | Maintainer private archive package outside this repository |
 | Release status | Not an active goal. FROZEN unless the user explicitly reopens publish/tag/release planning. Current strategy is polish-first hardening before any release decision. |
 | Active fleet mode | No-quota fleet: use executable free models first, currently `agnes/agnes-2.0-flash`, `opencode/deepseek-v4-flash-free`, `opencode/mimo-v2.5-free`, `opencode/nemotron-3-ultra-free`, plus `xspark/deepseek-v4-flash` for scans/checks; reserve `xspark/glm52-fp8` for narrow high-reasoning escalation only. |
 | Current gate snapshot | 2026-07-05 GitHub cleanup gate: `npm test` 3312 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `npm run typecheck` clean; `npm run typecheck:consumer` clean; `npm run replay:diff` 100/100 matched; `npm run fresh:consumer` passed; `npm run sqlite:smoke` passed; `npm run release:clean` passed; `git diff --check` clean. |

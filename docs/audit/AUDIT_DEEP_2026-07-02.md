@@ -1,7 +1,7 @@
 # Andy Engine 深度审计报告 — 2026-07-02
 
 **审计类型**: 全维度架构 + 行为 + 持久化 + 测试覆盖审计
-**审计范围**: `/Users/huangweijie/Desktop/andy-engine` @ `157380a`
+**审计范围**: Andy Engine repository @ `157380a`
 **知识图谱基准**: 1401 节点, 2827 边, 10 层架构, 9 步导览
 
 ---

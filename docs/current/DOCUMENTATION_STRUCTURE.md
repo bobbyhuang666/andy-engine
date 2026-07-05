@@ -75,11 +75,8 @@ See `docs/audit/README.md`.
 `docs/archive/` contains only a pointer README. Historical evidence has been moved
 outside the repository so full-repo AI audits do not load obsolete context by default.
 
-External archive:
-
-```text
-/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01
-```
+External archive: kept outside this repository in the maintainer's private
+archive package.
 
 Archive docs are useful context, but they must not override:
 

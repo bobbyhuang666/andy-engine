@@ -2,12 +2,8 @@
 
 `docs/audit/` is for current or high-signal audit artifacts.
 
-Historical round-by-round audit reports and bug ledgers were moved to the external
-archive:
-
-```text
-/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01/audit-rounds
-```
+Historical round-by-round audit reports and bug ledgers were moved to the
+maintainer's private archive package outside this repository.
 
 ## Current Audit Entry Points
 

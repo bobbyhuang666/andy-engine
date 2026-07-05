@@ -475,11 +475,8 @@ generation scripts were removed from the main repository during the GitHub
 cleanup pass to keep the public tree focused on the engine, examples, tests, and
 current docs.
 
-Archived local copy:
-
-```text
-/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01/repo-assets-removed-2026-07-05
-```
+Archived local copy: kept outside this repository in the maintainer's private
+archive package.
 
 ---
 

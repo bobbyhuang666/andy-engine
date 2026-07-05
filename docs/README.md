@@ -28,8 +28,5 @@ Historical documents are moved out of the repository, not deleted, unless they a
 clearly duplicated and their evidence is preserved elsewhere. This keeps full-repo AI
 reviews focused on current source, contracts, and high-signal docs.
 
-External archive:
-
-```text
-/Users/huangweijie/Desktop/andy-engine-docs-archive-2026-07-01
-```
+External archive: kept outside this repository in the maintainer's private
+archive package.
