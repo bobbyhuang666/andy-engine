@@ -3,8 +3,7 @@
 Historical documents were moved out of the repository to keep reviews from loading
 obsolete phase plans, old diagnosis reports, and superseded audit ledgers.
 
-External archive location: kept outside this repository in the maintainer's
-private archive package.
+External archive location: kept outside this repository.
 
 External archive categories:
 

@@ -1,6 +1,9 @@
-# AGENTS.md — Andy Engine AI Agent 工作指南
+# AGENTS.md — AI Coding Agent Notes
 
-> 本文件是当前代码库的**活文档**。如果你要在 Andy Engine 上工作，先读这里，再读 `README.md`、`docs/archive/CLEAN_ARCHITECTURE_FINAL_AUDIT.md` 和 `docs/PUBLIC_API_CONTRACT.md`。
+This file contains repository-specific guardrails for AI coding agents and other
+automation-assisted contributors. Human readers should start with `README.md`;
+coding agents should also read `AI_README.md`, `docs/archive/CLEAN_ARCHITECTURE_FINAL_AUDIT.md`,
+and `docs/PUBLIC_API_CONTRACT.md` before making changes.
 
 ---
 
@@ -284,9 +287,10 @@ docs/DOMAIN.md
 docs/WORLD_SCHEMA.md
 ```
 
-历史规划、阶段执行记录、临时路线图不再保存在 GitHub 仓库中。
-它们只保留在本地备份包里。当前工程判断以 README、AI_README、
-AGENTS.md 和 docs 根目录中的活文档为准。
+Historical planning notes, completed phase reports, and temporary execution
+cards are not part of the public repository. Current engineering judgment should
+come from source code, tests, `README.md`, `AI_README.md`, `AGENTS.md`, and the
+public docs under `docs/`.
 
 ---
 
@@ -313,6 +317,6 @@ AGENTS.md 和 docs 根目录中的活文档为准。
 5. 新随机源接 RNG。
 6. 写针对性测试。
 7. 跑完整验证。
-8. 更新活文档或明确记录为 RFC/历史文档。
+8. 更新相关公开文档，或明确记录为 RFC / archived historical note。
 
 如果你不确定某个能力该放哪里，先停下来写边界说明，不要直接编码。

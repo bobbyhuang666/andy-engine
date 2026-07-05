@@ -3,8 +3,8 @@
 `docs/rfc/` contains RFCs that are still open, foundational, or useful for future
 design decisions.
 
-Implemented or superseded RFCs were moved to the maintainer's private archive
-package outside this repository.
+Implemented or superseded RFCs were moved to an external archive outside this
+repository.
 
 ## Active / Reference RFCs
 
