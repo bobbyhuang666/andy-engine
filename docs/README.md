@@ -1,4 +1,8 @@
-# Andy Engine Documentation
+# Andy Engine Docs
+
+This is the README for the `docs/` directory, not the project homepage.
+
+For the main project overview, start at [`../README.md`](../README.md).
 
 This directory is organized so public engineering references are easy to find while
 historical internal planning evidence remains outside the repository.
