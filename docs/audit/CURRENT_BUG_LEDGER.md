@@ -6428,7 +6428,7 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Confirmed P0/P1 findings: 2** (both fixed). 7 rejected.
 
-**Convergence status: CONVERGED. R162(2 P1 fixed) → R163(0 CLEAN) = 2 consecutive clean rounds.**
+**Convergence status: NOT CONVERGED. R162 had 2 confirmed P1 (not a clean round). R163 had 0 confirmed P0/P1 (clean round). Need R164 = 0 for 2 consecutive clean rounds (R163 + R164).**
 
 ### R163 Convergence Audit
 
