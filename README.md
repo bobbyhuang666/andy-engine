@@ -2,7 +2,7 @@
 
 **Persistent life-world runtime for AI characters.**
 
-> **[中文](#andy-engine-中文)**
+> **Language**: [English](#andy-engine) / [中文](#andy-engine-中文)
 
 Andy Engine maintains a shared **WorldCanon**: what happened, who saw it, and what changed.
 
@@ -16,6 +16,8 @@ LLMs only express what a character knows; they do not create world facts.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
+
+**中文简介**：Andy Engine 是一个心理学驱动的 Persistent World / multi-agent simulation engine。它维护同一个可持续世界里的事实、记忆、关系、知识边界和角色状态，让 LLM 只表达角色知道的内容，而不是凭空编故事。完整中文说明见 [Andy Engine 中文](#andy-engine-中文)。
 
 ---
 
