@@ -5805,6 +5805,50 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Convergence status: NOT CONVERGED. Need R154 = 0 AND R155 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
 
+### R154-NAN-2
+
+| Field | Detail |
+|---|---|
+| ID | R154-NAN-2 |
+| Severity | P1 |
+| Audit finding | `EmotionDelta` constructor stores a reference to the caller's `changes` object (not a copy). The NaN filter at line 30 (`delete this.changes[key]`) mutates the caller's original object. Multi-agent perception of the same event shares `effect.delta` objects — the first agent's NaN filter deletes keys from the shared object, corrupting subsequent agents' deltas. |
+| Evidence | `src/effects/EmotionDelta.js:24` — `this.changes = changes ? changes : {};` stores reference; line 30 `delete this.changes[key]` mutates caller's object. `PerceptionRuntime.js:72` passes `effect.delta` from shared event objects. |
+| Verification verdict | Confirmed by independent verification: two production paths demonstrate shared-object reuse — (1) multi-agent perception of events from `eventLog`, (2) domain template objects in `EventDispatcher.generateRandomEvent()`. |
+| Fix | Changed line 24 to shallow copy: `this.changes = { ...changes }`. Matches `appraisalModifiers` copy pattern at line 34-35. |
+| Files | `src/effects/EmotionDelta.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `git diff --check` clean. |
+| Status | Fixed. |
+
+### R154-MERGE-1
+
+| Field | Detail |
+|---|---|
+| ID | R154-MERGE-1 |
+| Severity | P1 |
+| Audit finding | `index.js:98-104` uses shallow spread `{ ...clonedDefaults, ...config }` which drops nested defaults when user config overrides a nested key. R138 deep-clones ANDY_DEFAULTS (line 97) to prevent cross-instance mutation, but the shallow merge still overwrites entire nested objects. |
+| Evidence | `index.js:98-104` — `{ ...clonedDefaults, ...config }` where `config.emotion = { decayLambda: 2.0 }` replaces the entire `emotion` object, losing `dimensions`, `inertia`, `maxDeltaPerTick`, etc. |
+| Verification verdict | Confirmed by independent verification: R138 deep-clone exists at line 97 but doesn't fix shallow merge. Most modules read from ANDY_DEFAULTS directly, so practical impact is limited to config inspection and serialization paths. |
+| Fix | Deferred — requires implementing deep merge utility. Low practical impact since modules use ANDY_DEFAULTS directly. |
+| Files | `index.js` |
+| Regression test | No existing tests cover nested config override. |
+| Status | Deferred (P2 — limited practical impact). |
+
+### R154 Verification Summary
+
+| Reported | Verdict | Reason |
+|---|---|---|
+| R154-NAN-2 P1 EmotionDelta mutation | **Fixed** | Shallow copy `{ ...changes }` prevents caller object mutation. |
+| R154-MERGE-1 P1 config shallow merge | **Deferred to P2** | Real bug but limited practical impact — most modules read ANDY_DEFAULTS directly, not this.config subfields. |
+| R154-KNOWN-1 P1 purgeEvictedFacts iteration | **Rejected (duplicate)** | Same claim as R150-KNOWN-1, already rejected. ES2015 spec guarantees current-entry deletion during for...of is safe. |
+| R154-REL-1 P1 Relationship.tick NaN | **Downgraded to P2** | Defense-in-depth gap; hoursElapsed already guarded at AgentRuntime line 94. |
+| R154-RESOLVER-1 P1 stub world | **Downgraded to P2** | Latent — current call sites don't produce LocationMeaningDelta through resolver. |
+| R154-PIPELINE-3 P0 fact.participants | **Downgraded to P2** | Caller at line 212 already checks `fact.participants` truthiness before loop. |
+
+**Confirmed P1 findings: 2** (R154-NAN-2 fixed, R154-MERGE-1 deferred to P2). R154 NOT a clean round.
+
+**Convergence status: NOT CONVERGED. Need R155 = 0 AND R156 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
+
 ## Rules For Future Entries
 
 Use this template:
