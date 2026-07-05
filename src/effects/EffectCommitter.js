@@ -67,26 +67,19 @@ class EffectCommitter {
   _applyDelta(delta) {
     switch (delta.type) {
       case 'need':
-        this._applyNeedDelta(delta);
-        return 'applied';
+        return this._applyNeedDelta(delta) ? 'applied' : 'skipped';
       case 'emotion':
-        this._applyEmotionDelta(delta);
-        return 'applied';
+        return this._applyEmotionDelta(delta) ? 'applied' : 'skipped';
       case 'memory':
-        this._applyMemoryDelta(delta);
-        return 'applied';
+        return this._applyMemoryDelta(delta) ? 'applied' : 'skipped';
       case 'relationship':
-        this._applyRelationshipDelta(delta);
-        return 'applied';
+        return this._applyRelationshipDelta(delta) ? 'applied' : 'skipped';
       case 'position':
-        this._applyPositionDelta(delta);
-        return 'applied';
+        return this._applyPositionDelta(delta) ? 'applied' : 'skipped';
       case 'locationMeaning':
-        this._applyLocationMeaningDelta(delta);
-        return 'applied';
+        return this._applyLocationMeaningDelta(delta) ? 'applied' : 'skipped';
       case 'futureTendency':
-        this._applyFutureTendencyDelta(delta);
-        return 'applied';
+        return this._applyFutureTendencyDelta(delta) ? 'applied' : 'skipped';
       default:
         return 'skipped';
     }
@@ -99,10 +92,10 @@ class EffectCommitter {
     const agent = this.agents?.get?.(delta.agentId);
     if (!agent || !agent.needs || !agent.needs.needs) {
       this.world?.diagnostics?.warn?.('applyNeedDelta: agent.needs.needs missing, delta skipped');
-      return;
+      return false;
     }
     // R113-001: guard against null/undefined delta.changes (e.g. corrupted JSON).
-    if (!delta.changes || typeof delta.changes !== 'object') return;
+    if (!delta.changes || typeof delta.changes !== 'object') return false;
 
     for (const [name, value] of Object.entries(delta.changes)) {
       // R135-A2-008: recover from NaN-corrupted need values so the delta isn't silently lost.
@@ -122,6 +115,7 @@ class EffectCommitter {
         }
       }
     }
+    return true;
   }
 
   /**
@@ -129,7 +123,7 @@ class EffectCommitter {
    */
   _applyEmotionDelta(delta) {
     const agent = this.agents?.get?.(delta.agentId);
-    if (!agent || !agent.emotion || typeof agent.emotion.applyEffect !== 'function') return;
+    if (!agent || !agent.emotion || typeof agent.emotion.applyEffect !== 'function') return false;
 
     if (delta.changes && Object.keys(delta.changes).length > 0) {
       const multiplier = Number.isFinite(delta.multiplier) ? delta.multiplier : 1;
@@ -150,6 +144,7 @@ class EffectCommitter {
     if (Number.isFinite(delta.stress) && typeof agent.emotion.setStress === 'function') {
       agent.emotion.setStress(delta.stress);
     }
+    return true;
   }
 
   /**
@@ -157,15 +152,15 @@ class EffectCommitter {
    */
   _applyMemoryDelta(delta) {
     const agent = this.agents?.get?.(delta.agentId);
-    if (!agent || !agent.memory) return;
+    if (!agent || !agent.memory) return false;
     if (delta.kind === 'appraisalBias') {
-      if (typeof agent.memory.addAppraisalBias !== 'function') return;
-      if (!delta.bias || typeof delta.bias !== 'object') return;
+      if (typeof agent.memory.addAppraisalBias !== 'function') return false;
+      if (!delta.bias || typeof delta.bias !== 'object') return false;
       agent.memory.addAppraisalBias({ ...delta.bias });
-      return;
+      return true;
     }
 
-    if (typeof agent.memory.addExperience !== 'function') return;
+    if (typeof agent.memory.addExperience !== 'function') return false;
     if (delta.kind === 'candidate') {
       const memEvent = delta.event && typeof delta.event === 'object'
         ? { ...delta.event }
@@ -191,9 +186,10 @@ class EffectCommitter {
         configurable: true,
         writable: true,
       });
-    } else {
-      this.world?.diagnostics?.warn?.('unknown_memory_kind', { kind: delta.kind, agentId: delta.agentId });
+      return true;
     }
+    this.world?.diagnostics?.warn?.('unknown_memory_kind', { kind: delta.kind, agentId: delta.agentId });
+    return false;
   }
 
   /**
@@ -201,14 +197,14 @@ class EffectCommitter {
    */
   _applyRelationshipDelta(delta) {
     const agent = this.agents?.get?.(delta.agentId);
-    if (!agent) return;
+    if (!agent) return false;
 
     const graph = agent.socialGraph;
-    if (!graph) return;
-    if (typeof delta.targetAgentId !== 'string') return;
-    if (delta.targetAgentId === delta.agentId) return;
-    if (typeof graph.hasAgent !== 'function') return;
-    if (!graph.hasAgent(delta.agentId) || !graph.hasAgent(delta.targetAgentId)) return;
+    if (!graph) return false;
+    if (typeof delta.targetAgentId !== 'string') return false;
+    if (delta.targetAgentId === delta.agentId) return false;
+    if (typeof graph.hasAgent !== 'function') return false;
+    if (!graph.hasAgent(delta.agentId) || !graph.hasAgent(delta.targetAgentId)) return false;
 
     const relationship = graph.getOrCreateRelationship(delta.agentId, delta.targetAgentId);
     if (typeof relationship.recordInteraction === 'function') {
@@ -222,6 +218,7 @@ class EffectCommitter {
         this.world?.time || null
       );
     }
+    return true;
   }
 
   /**
@@ -230,14 +227,14 @@ class EffectCommitter {
   _applyPositionDelta(delta) {
     if (!delta.agentId) {
       this.world?.diagnostics?.warn?.('position_delta_missing_agent', { delta });
-      return;
+      return false;
     }
     const agent = this.agents?.get?.(delta.agentId);
-    if (!agent) return;
-    if (typeof delta.to !== 'string' || !delta.to) return;
+    if (!agent) return false;
+    if (typeof delta.to !== 'string' || !delta.to) return false;
 
     const domain = agent.domain;
-    if (domain && typeof domain.hasRegion === 'function' && !domain.hasRegion(delta.to)) return;
+    if (domain && typeof domain.hasRegion === 'function' && !domain.hasRegion(delta.to)) return false;
 
     if (delta.to !== agent.position) {
       agent.position = delta.to;
@@ -248,6 +245,7 @@ class EffectCommitter {
         this.world.regions.place(agent.id, delta.to);
       }
     }
+    return true;
   }
 
   /**
@@ -255,8 +253,8 @@ class EffectCommitter {
    */
   _applyLocationMeaningDelta(delta) {
     const factStore = this.world?.factStore;
-    if (!factStore || typeof factStore.updateLocationMeaning !== 'function') return;
-    if (!delta.location) return;
+    if (!factStore || typeof factStore.updateLocationMeaning !== 'function') return false;
+    if (!delta.location) return false;
 
     // R34 P2 fix: validate weight is finite before passing to factStore.
     // This was the one delta path without downstream NaN protection.
@@ -268,6 +266,7 @@ class EffectCommitter {
       weight,
       reason: delta.reason,
     });
+    return true;
   }
 
   /**
@@ -275,8 +274,8 @@ class EffectCommitter {
    */
   _applyFutureTendencyDelta(delta) {
     const agent = this.agents?.get(delta.agentId);
-    if (!agent || !agent.futureTendency || typeof agent.futureTendency.updateTendency !== 'function') return;
-    if (!delta.location) return;
+    if (!agent || !agent.futureTendency || typeof agent.futureTendency.updateTendency !== 'function') return false;
+    if (!delta.location) return false;
 
     // R35 P1 fix: validate importance with Number.isFinite. NaN importance
     // causes `dv * NaN = NaN` in updateTendency, and Math.max(-1, NaN) = NaN,
@@ -284,6 +283,7 @@ class EffectCommitter {
     const importance = typeof delta.importance === 'number' && Number.isFinite(delta.importance)
       ? delta.importance : 0.1;
     agent.futureTendency.updateTendency(delta.location, delta.delta, importance);
+    return true;
   }
 }
 

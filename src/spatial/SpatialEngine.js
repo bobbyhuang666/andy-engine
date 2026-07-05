@@ -203,7 +203,13 @@ class SpatialEngine {
 
       const regionIdx = this._regionNameToIdx.get(region);
       if (regionIdx === undefined) {
-        // 新区域，注册
+        // R153-SPATIAL-1: validate that the region actually exists in the
+        // world map before registering it.  Skipping unknown regions prevents
+        // phantom entries that later cause regionCenter() → null → silent
+        // agent death.
+        if (!this.worldMap.regions.has(region)) {
+          continue;
+        }
         const newIdx = this._regionNames.length;
         this._regionNames.push(region);
         this._regionNameToIdx.set(region, newIdx);
@@ -723,7 +729,56 @@ class SpatialEngine {
       this.grid.rebuild(this._coords, newN);
     }
 
+    // R153-SPATIAL-2: prune stale / phantom region entries from _regionNames.
+    // Scan _targets to find which region indices are still referenced by
+    // active agents, then compact _regionNames and remap _targets accordingly.
+    this._pruneRegionNames();
+
     return true;
+  }
+
+  /**
+   * Compact _regionNames to only include regions still referenced by
+   * active agents, remapping _targets indices and rebuilding
+   * _regionNameToIdx.
+   * @private
+   */
+  _pruneRegionNames() {
+    if (!this._targets || this._targets.length === 0) {
+      this._regionNames = [];
+      this._regionNameToIdx.clear();
+      return;
+    }
+
+    // 1. Collect all region indices still referenced by active agents.
+    const activeSet = new Set();
+    const n = this._targets.length;
+    for (let i = 0; i < n; i++) {
+      const ri = this._targets[i];
+      if (ri >= 0) activeSet.add(ri);
+    }
+
+    // 2. Build a mapping from old index → new compact index.
+    const sortedActive = [...activeSet].sort((a, b) => a - b);
+    const oldToNew = new Map();
+    sortedActive.forEach((oldIdx, newIdx) => oldToNew.set(oldIdx, newIdx));
+
+    // 3. Filter _regionNames to only keep active regions.
+    this._regionNames = sortedActive.map(i => this._regionNames[i]);
+
+    // 4. Remap _targets values.
+    const newTargets = new Int32Array(n);
+    for (let i = 0; i < n; i++) {
+      const ri = this._targets[i];
+      newTargets[i] = ri >= 0 ? oldToNew.get(ri) ?? -1 : -1;
+    }
+    this._targets = newTargets;
+
+    // 5. Rebuild _regionNameToIdx.
+    this._regionNameToIdx.clear();
+    this._regionNames.forEach((name, idx) =>
+      this._regionNameToIdx.set(name, idx),
+    );
   }
 }
 

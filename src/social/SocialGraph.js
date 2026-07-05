@@ -343,8 +343,11 @@ class SocialGraph {
     for (const agentId of this._adjacency.keys()) {
       const layers = this._projectDunbarLayers(agentId);
       const { maxStrongTies, maxMediumTies } = this._cfg;
+      const t = this._cfg.threshold;
 
       // Downgrade excess close friends → friend
+      // Cap strength below the friend threshold so _updateType() naturally selects 'friend'.
+      const closeFriendCap = Math.min(t.friend - 0.01, t.closeFriend - 0.01);
       const excessClose = layers.closeFriends.length - maxStrongTies;
       if (excessClose > 0) {
         // weakest close friends first (already sorted by strength descending)
@@ -353,12 +356,13 @@ class SocialGraph {
           const key = [rel.agentA, rel.agentB].sort().join('_');
           if (processed.has(key)) continue;
           processed.add(key);
-          rel.type = 'friend';
-          rel._updateType();
+          rel.strength = Math.min(rel.strength, closeFriendCap);
         }
       }
 
       // Downgrade excess friends → acquaintance (within medium tie budget)
+      // Cap strength below the acquaintance threshold so _updateType() naturally selects 'acquaintance'.
+      const friendCap = Math.min(t.acquaintance - 0.01, t.friend - 0.01);
       const totalMedium = layers.closeFriends.length + layers.friends.length;
       const excessMedium = totalMedium - maxMediumTies;
       if (excessMedium > 0) {
@@ -368,8 +372,7 @@ class SocialGraph {
           const key = [rel.agentA, rel.agentB].sort().join('_');
           if (processed.has(key)) continue;
           processed.add(key);
-          rel.type = 'acquaintance';
-          rel._updateType();
+          rel.strength = Math.min(rel.strength, friendCap);
         }
         const remaining = excessMedium - fromFriends;
         if (remaining > 0) {
@@ -378,8 +381,7 @@ class SocialGraph {
             const key = [rel.agentA, rel.agentB].sort().join('_');
             if (processed.has(key)) continue;
             processed.add(key);
-            rel.type = 'acquaintance';
-            rel._updateType();
+            rel.strength = Math.min(rel.strength, friendCap);
           }
         }
       }

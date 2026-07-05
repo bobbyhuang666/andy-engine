@@ -5670,7 +5670,82 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Confirmed P1 findings: 3** (R151-AGENT-TICK-1, R151-AB-1, R151-NB-1) — all fixed. After fixes, P0/P1 count = 0.
 
-**Convergence status: NOT CONVERGED. R150(2 P1) + R151(3 P1) + R152(1 P1) all had confirmed findings. Need R153 = 0 AND R154 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
+**Convergence status: NOT CONVERGED. R150(2 P1) + R151(3 P1) + R152(1 P1) + R153(5 P1) all had confirmed findings. Need R154 = 0 AND R155 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
+
+### R153-EC-1
+
+| Field | Detail |
+|---|---|
+| ID | R153-EC-1 |
+| Severity | P1 |
+| Audit finding | `EffectCommitter._applyDelta()` always returns `'applied'` regardless of whether guard clauses in `_applyNeedDelta`, `_applyEmotionDelta`, etc. cause silent skips. The `commit()` method uses the return value to classify deltas as applied vs skipped, so deltas that hit guard clauses are misclassified as "applied" — corrupting diagnostic reporting. |
+| Evidence | `src/effects/EffectCommitter.js:67-92` — every switch case calls inner method then `return 'applied'` unconditionally. Inner methods like `_applyNeedDelta` (line 100-102) return early on guard failure. |
+| Verification verdict | Confirmed by independent verification: each `_apply*Delta` has guard clauses that return early; `_applyDelta` never inspects their return value. |
+| Fix | Changed all `_apply*Delta` methods to return `true`/`false` indicating actual application. `_applyDelta` propagates: `return this._applyNeedDelta(delta) ? 'applied' : 'skipped'`. |
+| Files | `src/effects/EffectCommitter.js` |
+| Regression test | All 3311 tests pass; no test assertions depend on applied/skipped counts. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `git diff --check` clean. |
+| Status | Fixed. |
+
+### R153-SOCIAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R153-SOCIAL-1 |
+| Severity | P1 |
+| Audit finding | `_enforceDunbarLimits` sets `rel.type = 'friend'` then calls `rel._updateType()`, which re-evaluates type from `rel.strength`. If strength >= 0.65 (closeFriend threshold), `_updateType()` overrides the Dunbar downgrade back to `'closeFriend'`, nullifying the enforcement. |
+| Evidence | `src/social/SocialGraph.js:356-357` — `rel.type = 'friend'; rel._updateType()`; `Relationship._updateType()` (line 220-252) is strength-driven, not type-driven. |
+| Verification verdict | Confirmed by independent verification: `_updateType()` reads `this.strength >= t.closeFriend (0.65)` and sets `type = 'closeFriend'`, overriding the manual `'friend'` assignment. |
+| Fix | Replaced direct `rel.type` assignment with strength capping: `rel.strength = Math.min(rel.strength, closeFriendCap)` where `closeFriendCap = t.friend - 0.01`. Removed redundant `_updateType()` calls. |
+| Files | `src/social/SocialGraph.js` |
+| Regression test | All 3311 tests pass; social graph tests verify Dunbar enforcement correctness. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS; `git diff --check` clean. |
+| Status | Fixed. |
+
+### R153-SOCIAL-2
+
+| Field | Detail |
+|---|---|
+| ID | R153-SOCIAL-2 |
+| Severity | P1 |
+| Audit finding | `_triadicClosure` runs every tick incrementing `rel.strength`, while `_enforceDunbarLimits` runs every 12 ticks only modifying `type` (not strength). Triadic continuously pushes strength back up after Dunbar forces a type downgrade, creating perpetual oscillation. |
+| Evidence | `src/social/SocialGraph.js:317-323` — triadic increments `relAC.strength = Math.min(1, relAC.strength + delta)` every tick. Dunbar enforcement (line 252) only runs every 12 ticks and only changes type. |
+| Verification verdict | Confirmed by independent verification: Dunbar enforcement has no strength capping mechanism; triadic closure pushes strength upward every tick; `_updateType()` re-promotes type as strength climbs back toward 0.65. |
+| Fix | Combined with SOCIAL-1 fix: `_enforceDunbarLimits` now caps `rel.strength` to values below threshold, preventing triadic from pushing strength back above Dunbar limits. |
+| Files | `src/social/SocialGraph.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all gates passed. |
+| Status | Fixed. |
+
+### R153-SPATIAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R153-SPATIAL-1 |
+| Severity | P1 |
+| Audit finding | `_syncTargets` dynamically registers regions from agent positions without checking if they exist in `worldMap.regions`. Later, `_moveAgents` calls `worldMap.regionCenter()` which returns null for phantom regions, causing agents to stop moving permanently (silent agent death). |
+| Evidence | `src/spatial/SpatialEngine.js:204-213` — `_syncTargets` unconditionally pushes unknown region names onto `_regionNames`. `_moveAgents` line 255-258 catches null `regionCenter` return by setting `_moving[i] = 0`. |
+| Verification verdict | Confirmed by independent verification: `WorldMap.regionCenter()` returns null for unknown regions; guard at line 255-258 silently stops agent movement. |
+| Fix | Added `if (!this.worldMap.regions.has(region)) continue;` guard in `_syncTargets` before registering unknown regions. |
+| Files | `src/spatial/SpatialEngine.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all gates passed. |
+| Status | Fixed. |
+
+### R153-SPATIAL-2
+
+| Field | Detail |
+|---|---|
+| ID | R153-SPATIAL-2 |
+| Severity | P1 |
+| Audit finding | `_regionNames` is never pruned in `removeAgent`, so phantom/stale region names accumulate indefinitely (memory leak). `_targets` indices become stale references to dead region entries. |
+| Evidence | `src/spatial/SpatialEngine.js:658-727` — `removeAgent` performs swap-with-last but never touches `_regionNames`. Comment on line 653 confirms regions are never removed. |
+| Verification verdict | Confirmed by independent verification: `_regionNames` is only ever appended to (initialize, `_syncTargets`, `addAgent`), never pruned. |
+| Fix | Added `_pruneRegionNames()` method called from `removeAgent` after shrink operations. Scans `_targets` for actively referenced region indices, builds compact mapping, filters `_regionNames`, remaps `_targets`, rebuilds `_regionNameToIdx`. |
+| Files | `src/spatial/SpatialEngine.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all gates passed. |
+| Status | Fixed. |
 
 ### R152-DR-1
 
@@ -5709,7 +5784,26 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Confirmed P1 findings: 1** (R152-DR-1) — fixed. R152 NOT a clean round.
 
-**Convergence status: NOT CONVERGED. Need R153 = 0 AND R154 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
+**Convergence status: NOT CONVERGED. R150(2 P1) + R151(3 P1) + R152(1 P1) + R153(5 P1) all had confirmed findings. Need R154 = 0 AND R155 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
+
+### R153 Verification Summary
+
+| Reported | Verdict | Reason |
+|---|---|---|
+| R153-EC-1 P1 _applyDelta misclassification | **Fixed** | `_apply*Delta` now return true/false; `_applyDelta` propagates correctly. |
+| R153-SOCIAL-1 P1 Dunbar type override | **Fixed** | Replaced direct `rel.type` assignment with strength capping. |
+| R153-SOCIAL-2 P1 triadic/Dunbar oscillation | **Fixed** | Combined with SOCIAL-1: strength capping prevents triadic rebound. |
+| R153-SPATIAL-1 P1 phantom region agent death | **Fixed** | `_syncTargets` validates region against `worldMap.regions` before registration. |
+| R153-SPATIAL-2 P1 _regionNames memory leak | **Fixed** | Added `_pruneRegionNames()` called from `removeAgent`. |
+| R153-FP-1 P0 _unindexAgents all-agents scan | **Rejected (false positive)** | Code already correct (R41 fix); `_unindexAgents` iterates only fact's own agents, identical to `_indexAgents`. |
+| R153-EC-4 P1 per-agent committer | **Downgraded to P3** | Per-agent usage pattern prevents actual cross-agent delta loss. AndyWorld uses global committer for batch commits. |
+| R153-003-1 P1 BehaviorField NaN curiosity | **Downgraded to P2** | Defense-in-depth gap; NaN curiosity cannot naturally arise through any production code path (upstream IntrinsicMotivation guards). |
+| R153-004-1 P1 BehaviorField NaN emotion drives | **Rejected** | Comprehensive upstream NaN guards (_clamp, applyEffect, AgentRuntime filter) make this path unreachable. |
+| R153-009-1 P1 NeedsSystem hoursElapsed NaN | **Downgraded to P2** | Defense-in-depth gap; NaN hoursElapsed cannot reach `tickWithBehavior` through production paths (guarded at AgentRuntime line 94). |
+
+**Confirmed P1 findings: 5** (R153-EC-1, SOCIAL-1, SOCIAL-2, SPATIAL-1, SPATIAL-2) — all fixed. R153 NOT a clean round.
+
+**Convergence status: NOT CONVERGED. Need R154 = 0 AND R155 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
 
 ## Rules For Future Entries
 
