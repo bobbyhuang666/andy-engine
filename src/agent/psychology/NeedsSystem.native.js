@@ -29,6 +29,22 @@ function _mergeNeedsConfig(userConfig) {
   return merged;
 }
 
+/**
+ * Compute personality-driven need recovery multipliers.
+ * Mirrors NeedsSystem.js _calcRecoveryMultipliers exactly.
+ * @param {Object} ocean - OCEAN personality traits
+ * @returns {Object} recovery rate multipliers per need
+ */
+function _calcRecoveryMultipliers(ocean) {
+  return {
+    hunger: 1.0,
+    energy: 1.0,
+    social: 1.0 + ocean.extraversion * 0.6,
+    comfort: 1.0 + ocean.neuroticism * 0.4,
+    stimulation: 1.0 + ocean.openness * 0.5,
+  };
+}
+
 // R16 fix: constants needed by tickWithBehavior / getDriveGradient / getRecoveryRatesForBehavior
 // Must match NeedsSystem.js exactly to ensure native/JS parity.
 const NEED_DEPRIVATION_GRADIENT_TARGETS = {
@@ -140,13 +156,34 @@ class NeedsSystemNative {
     } else {
       this.needs = { ...defaultNeeds };
     }
+    // R162: compute _recoveryMultipliers from personality (mirrors NeedsSystem.js)
+    // Previously never assigned, so getRecoveryRatesForBehavior() always fell back to 1.0
+    this._recoveryMultipliers = _calcRecoveryMultipliers(ocean);
     this._syncFromNative();
   }
 
   _syncFromNative() {
     const json = JSON.parse(this._ns.toJson());
+    // R162-PSYCH-2: validate native output for NaN before assigning to JS mirror.
+    // Native Rust code can produce NaN via integer overflow, division by zero, or
+    // corrupted state. Without guards, NaN silently propagates through getDrive(),
+    // getStateWeights(), and BehaviorField gradients.
+    if (json.needs) {
+      for (const [key, val] of Object.entries(json.needs)) {
+        if (!Number.isFinite(val)) {
+          json.needs[key] = this.needs[key] || 0.5;
+        }
+      }
+    }
+    if (json._decayRates) {
+      for (const key of Object.keys(json._decayRates)) {
+        if (!Number.isFinite(json._decayRates[key])) {
+          delete json._decayRates[key];
+        }
+      }
+    }
     Object.assign(this.needs, json.needs);
-    this._decayRates = json._decayRates;
+    this._decayRates = json._decayRates || {};
   }
 
   tick(hoursElapsed, currentState, currentRegion) {
