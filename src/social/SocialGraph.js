@@ -338,9 +338,9 @@ class SocialGraph {
    * @private
    */
   _enforceDunbarLimits() {
-    const processed = new Set(); // Relationships are bidirectional/shared; avoid cascading type oscillation
-
     for (const agentId of this._adjacency.keys()) {
+      const processed = new Set(); // per-agent: avoid cascading type oscillation within this agent's enforcement
+
       const rels = this.getRelationships(agentId)
         .sort((a, b) => (Number.isFinite(b.strength) ? b.strength : 0) - (Number.isFinite(a.strength) ? a.strength : 0));
       const { maxStrongTies, maxMediumTies } = this._cfg;

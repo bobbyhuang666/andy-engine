@@ -6460,7 +6460,7 @@ Direct manual review of all critical code paths (subagent dispatch unavailable).
 
 | Finding | Severity | Verdict | Reason |
 |---|---|---|---|
-| R164-SOCIAL-1 | P1 | Rejected | Phase 3 processed guard IS present — Phase 1 keys correctly block Phase 3 |
+| R164-SOCIAL-1 | P1 | **Confirmed** | `processed` Set created once before per-agent loop (line 341), shared across all agents. Later agents' Phase 2 blocked by earlier agents' keys, leaving medium ties above maxMediumTies. Fixed: moved `processed` inside per-agent loop. |
 | R164-SOCIAL-2 | P1 | Rejected | Registration-order doesn't affect final state — shared Relationship objects cascade mutations |
 | R164-SOCIAL-3 | P2 | Rejected | Triadic oscillation slow (~33h sim); Dunbar runs every 12 ticks |
 | R164-EFFECT-1 | P1 | Rejected | `agent.emotion.stress` always finite after EmotionVector._clamp() |
@@ -6470,9 +6470,24 @@ Direct manual review of all critical code paths (subagent dispatch unavailable).
 | R164-SPATIAL-1 | P1 | Rejected | _pruneRegionNames called in both restore() and removeAgent(); phantom region guards in addAgent() and _syncTargets() |
 | R164-RUNTIME-1 | P1 | Rejected | Error isolation works correctly; UtilitySelector handles NaN/zero scores |
 
-**Confirmed P0/P1 findings: 0**. R164 IS a clean round.
+**Confirmed P0/P1 findings: 1** (fixed). 8 rejected.
 
-**CONVERGENCE ACHIEVED. R163(0 P0/P1) + R164(0 P0/P1) = 2 consecutive clean rounds.**
+**Convergence status: NOT CONVERGED. R164 had 1 confirmed P1 (not a clean round). R163 had 0 confirmed P0/P1 (clean round). Need R165 = 0 for 2 consecutive clean rounds (R163 + R165).**
+
+### R164-SOCIAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R164-SOCIAL-1 |
+| Severity | P1 |
+| Audit finding | `_enforceDunbarLimits()` `processed` Set created once before per-agent loop, shared across all agents. Later agents' Phase 2 blocked by earlier agents' keys, leaving medium ties above maxMediumTies. |
+| Evidence | `src/social/SocialGraph.js:341` — `const processed = new Set()` before `for (const agentId of this._adjacency.keys())`. With default config maxStrongTies=7, maxMediumTies=15: agent with 18 closeFriends → Phase 1 downgrades 11 (indices 7-17), adds keys to processed. Phase 2 for next agent blocked. Minimal repro: 18 highly-connected agents → some have raw closeFriend+friend > 15. |
+| Verification verdict | **Confirmed P1** — user provided minimal repro showing rawClose=6, rawFriend=11 (total 17 > 15). Existing test at social.test.js:194 checks `getLayers()` projection view which masks raw `rel.type` violations via `_projectDunbarLayers()` clipping. Raw `rel.type` leaks to Relationship.toJSON(), FactEmitter relationship facts, and SDK narrative context. |
+| Fix | Moved `processed = new Set()` inside the per-agent loop (line 343) so each agent enforces its own Dunbar limits independently without cross-agent blocking. |
+| Files | `src/social/SocialGraph.js` |
+| Regression test | Existing tests pass. Need new test that asserts raw closeFriend+friend ≤ maxMediumTies after enforcement. |
+| Re-verification | `npm test` 3311 passed/28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS |
+| Status | **Fixed** |
 
 Use this template:
 
