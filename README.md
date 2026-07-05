@@ -69,7 +69,7 @@ The LLM is a rendering layer, not the source of truth.
 | Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
 | Seeded RNG | Core runtime paths support seeded simulation baseline (not full deterministic replay) |
 | Perf-check | Benchmark / contagion profile regression checks exit 0 in 3-run median mode |
-| Early subjective evaluation | Internal experiments suggest stronger character continuity and presence; not yet published as a standard benchmark |
+| Early subjective evaluation | Early experiments suggest stronger character continuity and presence; not yet published as a standard benchmark |
 
 ## AffectCompiler
 
@@ -90,10 +90,10 @@ This ensures the LLM receives expression constraints, not raw psychology data.
 
 1. E2E semantic tests are improving but not exhaustive
 2. Full deterministic replay is not claimed — seeded RNG provides baseline for core paths only
-3. External production users are not yet established
+3. Production adoption is not yet documented
 4. Domain maturity varies by preset
 5. **D5 Grounded Narrative Faithfulness is at Warning** — `FactConsistencyChecker` is regex-based and experimental; it detects hand-crafted violation patterns but has not been validated against real LLM-generated output. A Stable release requires D5 hardening.
-6. Package has not been published to npm — infrastructure is ready, publish requires explicit human approval
+6. Distribution is alpha-stage; install from the repository or release artifacts until a registry package is available
 
 ---
 
@@ -166,7 +166,7 @@ The following remain experimental or deferred to v2.1/v3:
 - `WorldObject` is modeled but not fully integrated into `Agent.tick`
 - StoryArc runtime is paused
 - AffectCompiler basic implementation (v0.2)
-- npm publish not yet performed; package infrastructure ready for alpha release pending human approval
+- Distribution is alpha-stage; install from the repository or release artifacts until a registry package is available
 
 ---
 
@@ -452,7 +452,7 @@ await store.init({
 await store.shutdown();
 ```
 
-**Note:** Andy Engine's published package baseline is Node.js 20+. SQLite persistence uses the optional `better-sqlite3` dependency, which also requires Node.js 20+ in the current 12.x line. If it is not installed, skipped by npm, or its native binding is not built, the store facade still loads; only constructing a `SQLiteStore` instance will throw a clear optional-dependency error. The default `smoke:pack` does not require SQLite; use `npm run sqlite:smoke` to verify SQLite persistence when `better-sqlite3` is available. Install it with:
+**Note:** Andy Engine's package baseline is Node.js 20+. SQLite persistence uses the optional `better-sqlite3` dependency, which also requires Node.js 20+ in the current 12.x line. If it is not installed, skipped by npm, or its native binding is not built, the store facade still loads; only constructing a `SQLiteStore` instance will throw a clear optional-dependency error. The default `smoke:pack` does not require SQLite; use `npm run sqlite:smoke` to verify SQLite persistence when `better-sqlite3` is available. Install it with:
 
 ```bash
 npm install better-sqlite3
@@ -484,7 +484,7 @@ archive package.
 
 ## License
 
-This project is licensed under the AGPL-3.0-only license. npm publication has not been performed but package infrastructure is ready for Foundation Alpha release pending human approval.
+This project is licensed under the AGPL-3.0-only license.
 
 [GNU Affero General Public License v3.0](LICENSE)
 
@@ -613,7 +613,7 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 - `WorldObject` 已建模但尚未完全集成到 `Agent.tick`
 - StoryArc 运行时已暂停
 - AffectCompiler 基础实现（v0.2）
-- npm 尚未发布；包基础设施已就绪，等待人工审批后即可进行 alpha 发布
+- 当前为 alpha 阶段分发；在 registry package 可用前，可从仓库或 release artifacts 安装
 
 ---
 
@@ -692,7 +692,7 @@ Grounded Narrative（有事实边界的叙事）
 | facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
 | seeded RNG | 核心运行时路径支持 seeded simulation 基线（非全路径确定性重放） |
 | perf-check | benchmark / contagion profile 回归检查以 3-run median mode exit 0 |
-| 早期主观评测 | 内部实验显示角色连续性和状态感更强，尚未作为公开 benchmark 发布 |
+| 早期主观评测 | 早期实验显示角色连续性和状态感更强，尚未作为公开 benchmark 发布 |
 
 ## AffectCompiler
 
@@ -713,10 +713,10 @@ AffectCompiler 生成 AffectFrame，包含：
 
 1. E2E 语义测试持续改进中，尚未穷尽
 2. 不承诺完整的确定性重放 — seeded RNG 仅为核心路径提供基线
-3. 尚未有外部生产用户
+3. 尚未有公开记录的生产采用案例
 4. Domain 成熟度因 preset 而异
 5. **D5 叙事忠实度为 Warning** — `FactConsistencyChecker` 基于正则表达式，是实验性的；能检测手工构造的违规模式，但尚未在真实 LLM 输出上验证。Stable 发布需要 D5 加固。
-6. 包尚未发布到 npm — 基础设施已就绪，发布需明确人工审批
+6. 当前为 alpha 阶段分发；在 registry package 可用前，可从仓库或 release artifacts 安装
 
 ---
 
@@ -931,7 +931,7 @@ Rust SoA f32 引擎在 50K agents 时比 JS 快 **5.92x**，精度误差 < 1e-8�
 
 ## 许可证
 
-本项目基于 AGPL-3.0-only 许可证。npm 尚未发布，但包基础设施已就绪，等待人工审批后即可进行 Foundation Alpha 发布。
+本项目基于 AGPL-3.0-only 许可证。
 
 [GNU Affero General Public License v3.0](LICENSE)
 
