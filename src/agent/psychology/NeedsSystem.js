@@ -94,18 +94,19 @@ class NeedsSystem {
     // 人格影响需求衰减速率
     const ocean = personality.ocean;
 
+    // R160: default needs for merge-with-savedState (backward compatibility).
+    // If savedState.needs is missing a key (e.g., old save before a new need
+    // was added to defaults), the shallow copy on line 98 would leave that
+    // key undefined. undefined in decay computation produces NaN, corrupting
+    // all downstream consumers. Merge ensures every default key is present.
+    const defaultNeeds = { hunger: 0.8, energy: 0.9, social: 0.6, comfort: 0.7, stimulation: 0.5 };
+
     if (savedState) {
-      this.needs = { ...savedState.needs };
+      this.needs = { ...defaultNeeds, ...savedState.needs };
       this._decayRates = savedState._decayRates || this._calcDecayRates(ocean);
       this._recoveryMultipliers = savedState._recoveryMultipliers || this._calcRecoveryMultipliers(ocean);
     } else {
-      this.needs = {
-        hunger: 0.8,
-        energy: 0.9,
-        social: 0.6,
-        comfort: 0.7,
-        stimulation: 0.5,
-      };
+      this.needs = { ...defaultNeeds };
       this._decayRates = this._calcDecayRates(ocean);
       this._recoveryMultipliers = this._calcRecoveryMultipliers(ocean);
     }
@@ -113,7 +114,7 @@ class NeedsSystem {
     // NaN 防御：验证 needs、_decayRates 和 _recoveryMultipliers 内部值
     // R31 P1 fix: this.needs from corrupted save data can contain NaN,
     // and Math.max(0, NaN) = NaN propagates permanently through tick().
-    const defaultNeeds = { hunger: 0.8, energy: 0.9, social: 0.6, comfort: 0.7, stimulation: 0.5 };
+    // R160: defaultNeeds declared above (line ~96) for merge-with-savedState.
     for (const key of Object.keys(this.needs)) {
       if (!Number.isFinite(this.needs[key])) {
         this.needs[key] = defaultNeeds[key] || 0.5;

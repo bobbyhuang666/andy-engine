@@ -121,7 +121,7 @@ class Personality {
 
     let changed = false;
 
-    // 负面社交事件 → neuroticism 上升
+    // 负面社交事件 → neuroticism 上升（但不超过上限）
     if (w.totalSocialEvents >= 5) {
       const negativeRate = w.negativeSocialEvents / w.totalSocialEvents;
       if (negativeRate >= 0.2) {
@@ -137,11 +137,29 @@ class Personality {
       changed = true;
     }
 
-    // 频繁社交 → extraversion 微增
+    // R160: 频繁社交 → extraversion 微增（但不超过上限）
     if (w.ticks >= 100) {
       const socialRate = w.totalSocialEvents / w.ticks;
       if (socialRate > 0.4) {
         this.ocean.extraversion = Math.min(1, this.ocean.extraversion + 0.001);
+        changed = true;
+      }
+    }
+
+    // R160: mean-reversion — prevent monotonic drift toward N=1, E=1.
+    // Without downward drift, agents in sustained negative environments
+    // converge toward neuroticism=1, extraversion=1, eliminating diversity.
+    // Gentle pull toward midpoint (0.5) when drift has accumulated.
+    if (w.ticks >= 100) {
+      const driftMagnitude = (this.ocean.neuroticism - 0.5) + (this.ocean.extraversion - 0.5);
+      if (driftMagnitude > 0.3) {
+        const meanReversion = Math.min(0.001, driftMagnitude * 0.01);
+        if (this.ocean.neuroticism > 0.5) {
+          this.ocean.neuroticism = Math.max(0, this.ocean.neuroticism - meanReversion);
+        }
+        if (this.ocean.extraversion > 0.5) {
+          this.ocean.extraversion = Math.max(0, this.ocean.extraversion - meanReversion);
+        }
         changed = true;
       }
     }
