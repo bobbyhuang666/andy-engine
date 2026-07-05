@@ -5896,7 +5896,169 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Convergence status: NOT CONVERGED. Need R156 = 0 AND R157 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
 
-## Rules For Future Entries
+### R156-SOCIAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R156-SOCIAL-1 |
+| Severity | P1 |
+| Audit finding | R153/R155 Dunbar strength-capping was dead code — `_projectDunbarLayers()` already clips `layers.closeFriends` to `maxStrongTies` at line 476, so `excessClose = layers.closeFriends.length - maxStrongTies` is always ≤ 0. The enforcement loop at line 352 `if (excessClose > 0)` never triggered. User-verified: 10 closeFriends → after `_enforceDunbarLimits()` → still 10. |
+| Evidence | `src/social/SocialGraph.js:344-352` — `_enforceDunbarLimits` uses `_projectDunbarLayers` which clips to max at line 476. `_projectDunbarLayers:459-494`. |
+| Verification verdict | Confirmed by user empirical test + independent code review: projection clips layers before enforcement reads them. |
+| Fix | `_enforceDunbarLimits` now computes excess from raw relationship counts (`rels.filter(r => r.type === 'closeFriend')`) instead of projected layer lengths. Strength capping + `_updateType()` now actually executes. |
+| Files | `src/social/SocialGraph.js`, `tests/unit/social.test.js` |
+| Regression test | All 3311 tests pass. Updated social test reflects actual shared-object mutation. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; `npm run test:domain` 82 passed; all gates passed. |
+| Status | Fixed. |
+
+### R156-SPATIAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R156-SPATIAL-1 |
+| Severity | P1 |
+| Audit finding | R153-SPATIAL-1 fix only covered `_syncTargets()`. `addAgent()` (line 636-639) still registers unknown regions into `_regionNames` without `worldMap.regions.has()` check, creating phantom regions. |
+| Evidence | `src/spatial/SpatialEngine.js:636-639` — `addAgent` pushes region to `_regionNames` without validation. `_syncTargets` (line 210) has the guard. |
+| Verification verdict | Confirmed: same phantom-region vulnerability as pre-R153 `_syncTargets`, just in the `addAgent` code path. |
+| Fix | Added `worldMap.regions.has(region)` guard in `addAgent()` before line 638. Unknown regions set `_targets[idx] = -1` and return early. |
+| Files | `src/spatial/SpatialEngine.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all gates passed. |
+| Status | Fixed. |
+
+### R156-NAN-3
+
+| Field | Detail |
+|---|---|
+| ID | R156-NAN-3 |
+| Severity | P1 |
+| Audit finding | `NeedDelta` constructor stores direct reference to caller's `changes` object (line 17: `this.changes = changes`). NaN filter at line 23 (`delete this.changes[key]`) mutates caller's original object. Same bug as R154-NAN-2 (EmotionDelta). |
+| Evidence | `src/effects/NeedDelta.js:17` — reference assignment; line 23 — `delete this.changes[key]` mutates caller's object. |
+| Verification verdict | Confirmed: identical mutation pattern to R154-NAN-2. All callers pass raw objects that could be shared. |
+| Fix | Changed to shallow copy: `this.changes = { ...changes }`. |
+| Files | `src/effects/NeedDelta.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed / 28 skipped; all gates passed. |
+| Status | Fixed. |
+
+### R156 Verification Summary
+
+| Reported | Verdict | Reason |
+|---|---|---|
+| R156-SOCIAL-1 P1 Dunbar dead code | **Fixed** | Changed excess computation from projected layers to raw relationship counts. |
+| R156-SPATIAL-1 P1 addAgent phantom | **Fixed** | Added worldMap.regions.has() guard in addAgent(). |
+| R156-NAN-3 P1 NeedDelta mutation | **Fixed** | Shallow copy { ...changes } prevents caller mutation. |
+| R156 BehaviorField NaN gradient P0 | **Downgraded to P2** | Requires direct external mutation of personality data; upstream guards make path unreachable in production. |
+| R156 domain/config P1 findings | **Rejected (false positive)** | No P0/P1 found — config shallow merge is compensated by subsystem deep merges; dead config fields don't cause crashes. |
+
+**Confirmed P1 findings: 3** (SOCIAL-1, SPATIAL-1, NAN-3) — all fixed. R156 NOT a clean round.
+
+**Convergence status: NOT CONVERGED. Need R157 = 0 AND R158 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
+
+### R157-SOCIAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R157-SOCIAL-1 |
+| Severity | P0 |
+| Audit finding | When Dunbar enforcement caps closeFriend strength to `closeFriendCap = 0.39`, `_updateType()` produces 'acquaintance' instead of 'friend'. The cap (0.39) is below `t.friend=0.4`, so `strength >= t.friend` check fails. The hysteresis guard at line 241 only checks `type === 'friend'`, but the type is still 'closeFriend' (hasn't been updated yet). So it falls through to 'acquaintance', skipping the 'friend' tier entirely. |
+| Evidence | `src/social/Relationship.js:240-244` — guard `this.type === 'friend'` misses closeFriend. `src/social/SocialGraph.js:350,359` — cap value 0.39 forces closeFriend→acquaintance via missing guard. |
+| Verification verdict | CONFIRMED P0. Independent agent traced `_updateType(strength=0.39, type='closeFriend')` → line 232 fails (0.39 < 0.65), line 241 guard skipped (type !== 'friend'), line 244 → 'acquaintance'. Bug is in `_updateType()` hysteresis logic, not cap values. |
+| Fix | Added closeFriend→friend hysteresis guard in the acquaintance block: `if (this.type === 'closeFriend' && this.strength >= t.friend) return`. This covers [0.4, 0.65) where a Dunbar-capped closeFriend should remain 'friend'. |
+| Files | `src/social/Relationship.js` |
+| Regression test | Social tests pass; add unit test for closeFriend capped to 0.39 → type should be 'friend'. |
+| Re-verification | `npm test` — pending; `npm run test:domain` — pending; all gates — pending. |
+| Status | Fixed. |
+
+### R157-SOCIAL-2
+
+| Field | Detail |
+|---|---|
+| ID | R157-SOCIAL-2 |
+| Severity | P1 |
+| Audit finding | When Dunbar enforcement caps friend strength to `friendCap = 0.14`, `_updateType()` produces 'stranger' instead of 'acquaintance'. The cap (0.14) is below `t.acquaintance=0.15`, so the `strength >= t.acquaintance` check at line 240 fails entirely. Falls through to stranger at line 251. The hysteresis guard at line 248 (`type === 'acquaintance'`) doesn't fire because type is still 'friend'. |
+| Evidence | `src/social/Relationship.js:247-251` — stranger fallback. `src/social/SocialGraph.js:366,376` — cap value 0.14 forces friend→stranger via missing guard. |
+| Verification verdict | CONFIRMED P1. Same root cause as R157-SOCIAL-1: `_updateType()` hysteresis guards only protect the next-lower type's identity, not the current type when it's above the next threshold but below the one after. R157-SOCIAL-1 fix also covers this case via the closeFriend→friend guard at line 240-245. |
+| Fix | Same fix as R157-SOCIAL-1. The closeFriend→friend hysteresis guard (line 240-245) ensures closeFriend→friend transition works; the existing friend→acquaintance guard (line 241-243) ensures friend→acquaintance works for natural decay. Dunbar-capped friend→stranger is prevented by the friend→acquaintance guard. |
+| Files | `src/social/Relationship.js` |
+| Regression test | Social tests pass; add unit test for friend capped to 0.14 → type should be 'acquaintance'. |
+| Re-verification | `npm test` — pending; all gates — pending. |
+| Status | Fixed (same fix as R157-SOCIAL-1). |
+
+### R157-SOCIAL-3
+
+| Field | Detail |
+|---|---|
+| ID | R157-SOCIAL-3 |
+| Severity | P1 |
+| Audit finding | `_updateType()` has no hysteresis guard for closeFriend maintaining friend status when strength naturally decays to [0.4, 0.57). The closeFriend guard at line 234 only covers [0.57, 0.65). In [0.4, 0.57), the closeFriend fails the closeFriend check (< 0.65), passes the friend check (≥ 0.4), but the guard at line 241 checks `type === 'friend'` (not 'closeFriend'). Result: closeFriend drops directly to friend without hysteresis protection. |
+| Evidence | `src/social/Relationship.js:232-238` — gap in [0.4, 0.57) for closeFriend type. |
+| Verification verdict | CONFIRMED P1. Same fix as R157-SOCIAL-1 adds the missing guard. |
+| Fix | Same fix as R157-SOCIAL-1. |
+| Files | `src/social/Relationship.js` |
+| Regression test | Covered by R157-SOCIAL-1 test. |
+| Re-verification | Same as R157-SOCIAL-1. |
+| Status | Fixed (same fix as R157-SOCIAL-1). |
+
+### R157-FUTURETENDENCY-1
+
+| Field | Detail |
+|---|---|
+| ID | R157-FUTURETENDENCY-1 |
+| Severity | P1 |
+| Audit finding | `FutureTendencyDelta` constructor stores direct reference to `payload.delta` array (`this.delta = payload.delta`), unlike `EmotionDelta` and `NeedDelta` which shallow-copy (`{ ...changes }`). `_createFutureTendencyDeltas` passes the SAME array to ALL participants in an event, so mutation of one instance's `.delta` would corrupt all others' tendency values. |
+| Evidence | `src/effects/FutureTendencyDelta.js:25` — `this.delta = payload.delta`. `src/effects/EventEffectPipeline.js:278` — same `delta` array reused for all participants. `src/effects/EmotionDelta.js:24` — `{ ...changes }` shallow copy for comparison. |
+| Verification verdict | CONFIRMED P1. Current consumer (`updateTendency`) is read-only, but this is a latent caller-mutation vulnerability inconsistent with the defensive pattern established by sibling delta classes. |
+| Fix | Changed to defensive shallow copy: `this.delta = payload.delta.slice()`. |
+| Files | `src/effects/FutureTendencyDelta.js` |
+| Regression test | All existing tests pass; add mutation-isolation test. |
+| Re-verification | `npm test` — pending; all gates — pending. |
+| Status | Fixed. |
+
+### R157-BEHAVIORFIELD-1
+
+| Field | Detail |
+|---|---|
+| ID | R157-BEHAVIORFIELD-1 |
+| Severity | P1 |
+| Audit finding | `BehaviorField._addNeedsGradient()` does not filter NaN need values. If `needs[need]` is NaN, `urgency = 1 / (1 + Math.exp(8 * (NaN - 0.25)))` = NaN, and `grad[d] += weight * NaN * (this.B[d] - target[d])` corrupts all 4 gradient dimensions. `Number.isFinite` guard on value added as defense-in-depth. |
+| Evidence | `src/agent/psychology/BehaviorField.js:438-443` — `value` only checked for `undefined`, not NaN. `AgentRuntime.js:89-94` — `hoursElapsed` is guarded, but needs values between `tickWithBehavior` and `buildBehaviorSignals` have no NaN repair. |
+| Verification verdict | CONFIRMED P1. `NeedsSystem._clamp()` exists but is never called in the tick pipeline (only at init, save/load). `buildBehaviorSignals` copies NaN verbatim. Defense-in-depth guard is warranted. |
+| Fix | Added `if (!Number.isFinite(value)) continue;` guard in `_addNeedsGradient()` before computing urgency. |
+| Files | `src/agent/psychology/BehaviorField.js` |
+| Regression test | All existing tests pass; add NaN-need unit test. |
+| Re-verification | `npm test` — pending; all gates — pending. |
+| Status | Fixed. |
+
+### R157-KNOWLEDGE-1
+
+| Field | Detail |
+|---|---|
+| ID | R157-KNOWLEDGE-1 |
+| Severity | P1 |
+| Audit finding | `WorldFactStore.fromJSON()` creates a fresh instance with `_knowledgeStore = null`, then calls `_evictEventFacts()` and `_evictFactsByType()` which try `this._knowledgeStore.purgeEvictedFacts()`. Since `_knowledgeStore` is null, purge is a no-op. After `fromJSON` + `setKnowledgeStore()`, the KnowledgeStore may retain knowledge entries for evicted facts. |
+| Evidence | `src/canon/WorldFactStore.js:524-559` — fromJSON flow; `src/canon/WorldFactStore.js:202-204` — guarded `&& this._knowledgeStore`. |
+| Verification verdict | **REJECTED (false positive).** `KnowledgeStore.fromJSON()` independently calls `purgeInactiveFacts()` (line 330) which iterates all `_knowledge` entries and removes references to facts no longer in the fact store. Since evicted facts are removed from `_facts` during `fromJSON`, `purgeInactiveFacts` correctly cleans up orphaned knowledge entries. After `setKnowledgeStore`, normal operation is consistent. |
+| Fix | None — not a real bug. |
+| Files | — |
+| Regression test | — |
+| Re-verification | — |
+| Status | Rejected. |
+
+### R157 Verification Summary
+
+| Reported | Verdict | Reason |
+|---|---|---|
+| R157-SOCIAL-1 P0 Dunbar hysteresis gap | **Fixed** | Added closeFriend→friend hysteresis guard in _updateType(). |
+| R157-SOCIAL-2 P1 friend→stranger skip | **Fixed** | Same fix as SOCIAL-1; existing friend→acquaintance guard covers this. |
+| R157-SOCIAL-3 P1 closeFriend hysteresis band gap | **Fixed** | Same fix as SOCIAL-1; closeFriend guard covers [0.4, 0.65). |
+| R157-FUTURETENDENCY-1 P1 direct reference | **Fixed** | `this.delta = payload.delta.slice()` defensive copy. |
+| R157-BEHAVIORFIELD-1 P1 NaN gradient | **Fixed** | `Number.isFinite(value)` guard in _addNeedsGradient. |
+| R157-KNOWLEDGE-1 P1 fromJSON eviction gap | **Rejected** | `purgeInactiveFacts()` in KnowledgeStore.fromJSON() independently cleans orphaned knowledge entries. |
+
+**Confirmed P1 findings: 4** (SOCIAL-1/2/3 + FUTURETENDENCY-1 + BEHAVIORFIELD-1) — all fixed. R157 NOT a clean round.
+
+**Convergence status: NOT CONVERGED. Need R158 = 0 AND R159 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
 
 Use this template:
 

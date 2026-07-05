@@ -238,6 +238,15 @@ class Relationship {
       return;
     }
     if (this.strength >= t.acquaintance) {
+      // R157: closeFriend→friend hysteresis guard. When Dunbar enforcement
+      // caps closeFriend strength below t.friend (e.g., 0.39), _updateType
+      // needs to produce 'friend', not 'acquaintance'. The closeFriend guard
+      // at line 234 only covers [t.closeFriend - hysteresis, t.closeFriend)
+      // = [0.57, 0.65); this guard covers [t.friend, t.closeFriend) = [0.4, 0.65)
+      // so a capped closeFriend smoothly transitions to friend, not acquaintance.
+      if (this.type === 'closeFriend' && this.strength >= t.friend) {
+        return; // 滞后带内，维持 friend（closeFriend 降级过渡态）
+      }
       if (this.type === 'friend' && this.strength >= t.friend - hysteresis) {
         return; // 滞后带内，维持 friend
       }

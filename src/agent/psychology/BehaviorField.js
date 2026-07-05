@@ -437,6 +437,7 @@ class BehaviorField {
     for (const [need, target] of Object.entries(NEED_SATISFACTION_TARGETS)) {
       const value = needs[need];
       if (value === undefined) continue;
+      if (!Number.isFinite(value)) continue; // R157: guard against NaN/Infinity
 
       // 需求越匮乏，拉力越强（sigmoid 映射）
       // 更陡的 sigmoid (k=8)：极端饥饿(value≈0)时 urgency≈0.97
