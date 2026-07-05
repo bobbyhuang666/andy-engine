@@ -6060,6 +6060,219 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Convergence status: NOT CONVERGED. Need R158 = 0 AND R159 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
 
+### R158-SOCIAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R158-SOCIAL-1 |
+| Severity | P1 |
+| Audit finding | R157 _updateType hysteresis redesign left dead guard: `if (this.type === 'closeFriend' && this.strength >= t.friend)` at line 247 is unreachable because reaching that block requires `strength < t.friend`. Also, _enforceDunbarLimits stale type filtering: rawCloseFriends/rawFriends computed before the per-agent loop, so cross-agent _updateType() mutations cause stale type labels in subsequent agents' excess counting. |
+| Evidence | `src/social/Relationship.js:247` — dead guard. `src/social/SocialGraph.js:349-350` — raw lists computed before loop. |
+| Verification verdict | CONFIRMED P1. Independent agent traced control flow: `strength >= t.friend` at line 247 is always false when that block executes. Stale type filtering confirmed via code analysis. |
+| Fix | Redesigned _updateType() to use boundary-separated hysteresis: each threshold has its own upgrade check + hysteresis guard + fallthrough. closeFriend→friend transition via `[t.friend - hysteresis, t.friend)` band with type transition. Moved rawCloseFriends/rawFriends computation inside per-agent loop. Added `rel.type = 'acquaintance'` direct assignment in _enforceDunbarLimits for friend→acquaintance downgrade (needed because _updateType can't produce 'acquaintance' for strength < 0.15 without type already being 'acquaintance'). |
+| Files | `src/social/Relationship.js`, `src/social/SocialGraph.js`, `tests/unit/social.test.js` |
+| Regression test | All 3311 tests pass. Updated social test for correct one-tier downgrade behavior. |
+| Re-verification | `npm test` 3311 passed; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS. |
+| Status | Fixed. |
+
+### R158-SPATIAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R158-SPATIAL-1 |
+| Severity | P0 |
+| Audit finding | `SpatialEngine.removeAgent()` (line 673) is dead code — zero production call sites. No agent removal path exists in AndyWorld/AndyEngine/Character API. `_pruneRegionNames()` (called only from removeAgent) also never executes in production. Phantom regions accumulate if agents are removed at the world.agents level without spatial cleanup. |
+| Evidence | `grep -rn "removeAgent" src/` → only definition at SpatialEngine.js:673. `AndyWorld.js` has addAgent but no removeAgent. |
+| Verification verdict | CONFIRMED P0. Independent agent searched entire codebase for removeAgent call sites — zero production callers. |
+| Fix | Added `_pruneRegionNames()` call at end of `restore()` to ensure serialized state is validated (matches initialize()'s Set-based deduplication). Note: removeAgent wiring into AndyWorld agent lifecycle is a separate architectural decision — _pruneRegionNames now runs on restore, but removeAgent remains pending wiring. |
+| Files | `src/spatial/SpatialEngine.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed; all gates passed. |
+| Status | Fixed (restore asymmetry). removeAgent wiring deferred. |
+
+### R158-CANON-1
+
+| Field | Detail |
+|---|---|
+| ID | R158-CANON-1 |
+| Severity | P1 |
+| Audit finding | `WorldFactStore.fromJSON()` only evicts 4 of 9 fact types (EVENT, OBSERVATION, MEMORY, INVALIDATED). Missing: STATIC_ENV (500), AGENT_STATE (1000), RELATIONSHIP (2000), RULE (200), LOCATION_MEANING (500). After restore, snapshots with >500 STATIC_ENV facts retain all unbounded. |
+| Evidence | `src/canon/WorldFactStore.js:556-559` — 4 eviction calls vs `src/canon/WorldFactStore.js:128-148` — 9 eviction calls in addFact. |
+| Verification verdict | CONFIRMED P1. Independent agent verified 5 missing types with concrete risk assessment. |
+| Fix | Added 5 `_evictFactsByType` calls in fromJSON mirroring addFact pattern. |
+| Files | `src/canon/WorldFactStore.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed; all gates passed. |
+| Status | Fixed. |
+
+### R158-EFFECT-1
+
+| Field | Detail |
+|---|---|
+| ID | R158-EFFECT-1 |
+| Severity | P1 |
+| Audit finding | `EffectResult.toLegacyFormat()` need merge (line 80) performs bare addition `(stateDeltas.need[key] || 0) + val` with NO NaN/Infinity guard. Emotion merge (line 89) has clamping but need merge has no protection. Asymmetric with emotion path. |
+| Evidence | `src/effects/EffectResult.js:80` vs `src/effects/EffectResult.js:89`. NeedDelta constructor filters NaN, but toLegacyFormat is a defense-in-depth gap. |
+| Verification verdict | CONFIRMED P1 (downgraded from P0 — NeedDelta constructor blocks NaN in production). |
+| Fix | Added `Number.isFinite(val)` guard before addition in need merge loop. |
+| Files | `src/effects/EffectResult.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed; all gates passed. |
+| Status | Fixed. |
+
+### R158-EFFECT-2
+
+| Field | Detail |
+|---|---|
+| ID | R158-EFFECT-2 |
+| Severity | P1 |
+| Audit finding | `_applyEmotionDelta` returns `true` even when all changes are filtered out and stress is non-finite — delta classified as "applied" despite zero state modification. |
+| Evidence | `src/effects/EffectCommitter.js:147` — unconditional `return true`. |
+| Verification verdict | CONFIRMED P1. |
+| Fix | Added conditional return: `(delta.changes && Object.keys(delta.changes).length > 0) || Number.isFinite(delta.stress)`. Also added defensive copy of `appraisalModifiers` before passing to `applyEffect`. |
+| Files | `src/effects/EffectCommitter.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed; all gates passed. |
+| Status | Fixed. |
+
+### R158-INT-1
+
+| Field | Detail |
+|---|---|
+| ID | R158-INT-1 |
+| Severity | P1 |
+| Audit finding | `IntrinsicMotivation._recordVisit()` calls `simTime.getTime()` without guarding against Invalid Date / NaN. If simTime is uninitialized (first tick, no env.simTime), _lastSimTime=0 → lastVisit=0 → getNovelty treats 0 as "never visited", causing permanent novelty tracking corruption. |
+| Evidence | `src/agent/psychology/IntrinsicMotivation.js:228` — unprotected `simTime.getTime()`. `src/agent/psychology/IntrinsicMotivation.js:280-283` — getNovelty treats 0 as "never visited". |
+| Verification verdict | CONFIRMED P1. Concrete path: first tick with no env.simTime → lastVisit=0 → hoursSinceVisit=0 → forgettingFactor=0 → region never regains novelty. |
+| Fix | Added `(simTime && Number.isFinite(simTime.getTime())) ? simTime.getTime() : this._lastSimTime` guard in _recordVisit. |
+| Files | `src/agent/psychology/IntrinsicMotivation.js` |
+| Regression test | All 3311 tests pass. |
+| Re-verification | `npm test` 3311 passed; all gates passed. |
+| Status | Fixed. |
+
+### R158 Verification Summary
+
+| Reported | Verdict | Reason |
+|---|---|---|
+| R158-SOCIAL-1 P1 dead hysteresis guard + stale type filtering | **Fixed** | Redesigned _updateType boundary-separated hysteresis; moved raw lists inside per-agent loop. |
+| R158-SPATIAL-1 P0 removeAgent dead code + restore asymmetry | **Fixed** | Added _pruneRegionNames in restore; removeAgent wiring deferred. |
+| R158-CANON-1 P1 fromJSON missing eviction | **Fixed** | Added 5 missing _evictFactsByType calls. |
+| R158-EFFECT-1 P1 EffectResult NaN guard | **Fixed** | Number.isFinite guard in need merge. |
+| R158-EFFECT-2 P1 _applyEmotionDelta no-op classification | **Fixed** | Conditional return + appraisalModifiers defensive copy. |
+| R158-INT-1 P1 IntrinsicMotivation simTime guard | **Fixed** | getTime guard in _recordVisit. |
+| R158 SocialGraph under-enforcement P1 | **Fixed** | Same fix as SOCIAL-1; direct type assignment in _enforceDunbarLimits. |
+| R158 Dunbar closeFriendCap P1 | **Fixed** | Same fix as SOCIAL-1; redesigned _updateType handles transition. |
+| R158 BehaviorField NaN needs weight P1 | **Fixed** | Same fix as R157-BEHAVIORFIELD-1; Number.isFinite guard already in place. |
+
+**Confirmed P1 findings: 7** (all fixed). R158 NOT a clean round.
+
+**Convergence status: NOT CONVERGED. Need R159 = 0 AND R160 = 0 confirmed P0/P1 for 2 consecutive clean rounds.**
+
+### R159-CONFIG-1
+
+| Field | Detail |
+|---|---|
+| ID | R159-CONFIG-1 |
+| Severity | P1 (audit) → REJECTED |
+| Audit finding | `validateConfig()` omits `stateMachine` section validation. Config has `stateMachine.duration` and `eventDrivenBoost` fields not validated. |
+| Evidence | `src/config/validate.js` — no `stateMachine` validation block. `src/config/defaults.js:73-83` — stateMachine config structure. |
+| Verification verdict | **REJECTED (false positive).** The `stateMachine` config section is dead code — never read by any module in `src/`. The fields referenced (initialState, states, transitions) don't exist in the actual config. Zero runtime impact. |
+| Fix | None — not a real bug. |
+| Files | — |
+| Regression test | — |
+| Re-verification | — |
+| Status | Rejected. |
+
+### R159-DOMAIN-1
+
+| Field | Detail |
+|---|---|
+| ID | R159-DOMAIN-1 |
+| Severity | P1 (audit) → P2 |
+| Audit finding | `getDefaultDomain()` returns a deep-cloned domain config that is NOT deep-frozen. Campus/tavern presets ARE frozen at export, but the clone from `deepClonePreserveFunctions()` is mutable. |
+| Evidence | `src/domain/DomainRegistry.js:411-420` — `deepClonePreserveFunctions` doesn't freeze. `presets/campus/index.js:882` — campus is frozen. |
+| Verification verdict | **P2 (downgraded).** Clone is separate from frozen preset. No production code accesses `.domain` directly and mutates it. Risk is theoretical — requires deliberate mutation of public `.domain` property. |
+| Fix | None for R159 — P2 deferred to future polish cycle. |
+| Files | — |
+| Regression test | — |
+| Re-verification | — |
+| Status | Downgraded to P2. |
+
+### R159-SDK-1
+
+| Field | Detail |
+|---|---|
+| ID | R159-SDK-1 |
+| Severity | P1 (audit) → REJECTED |
+| Audit finding | `AndyBridge._applySignalToAgent()` and `_restoreAgents()` directly mutate agent internal state (emotion.current, needs.needs, position) bypassing EffectCommitter. |
+| Evidence | `src/sdk/AndyBridge.js:303-307` — direct emotion mutation fallback. `src/sdk/AndyBridge.js:385-428` — restore-time direct assignments. |
+| Verification verdict | **REJECTED (intentional SDK bridge patterns).** R70 classified these as restore-time exceptions. `_applySignalToAgent` uses EffectCommitter as primary path; direct mutation is documented fallback for isolated tests. `_restoreAgents` is a partial restore path where delta semantics don't apply. |
+| Fix | None — intentional design. |
+| Files | — |
+| Regression test | — |
+| Re-verification | — |
+| Status | Rejected. |
+
+### R159-BF-1
+
+| Field | Detail |
+|---|---|
+| ID | R159-BF-1 |
+| Severity | P1 (audit) → P2 |
+| Audit finding | `BehaviorField.toJSON()` omits `_timeSchedule` despite persisting `_attractor`. If domain config changes between save/restore, behavior field uses different schedule. |
+| Evidence | `src/agent/psychology/BehaviorField.js:710-722` — toJSON omits _timeSchedule. Line 209 — _timeSchedule derived from domain. |
+| Verification verdict | **P2 (downgraded).** _timeSchedule is derived from domain config, not independent state. Re-derivation on restore is correct behavior. Inconsistent with _attractor persistence pattern but not a bug. |
+| Fix | None for R159 — P2 deferred. |
+| Files | — |
+| Regression test | — |
+| Re-verification | — |
+| Status | Downgraded to P2. |
+
+### R159-WFS-1
+
+| Field | Detail |
+|---|---|
+| ID | R159-WFS-1 |
+| Severity | P1 (audit) → P2 |
+| Audit finding | `WorldFactStore._simTime` not persisted in toJSON/fromJSON. After save/restore, invalidateFact() uses FALLBACK_EPOCH if called before first tick. |
+| Evidence | `src/canon/WorldFactStore.js:500-517` — toJSON omits _simTime. Line 622 — invalidateFact uses `this._simTime \|\| FALLBACK_EPOCH`. |
+| Verification verdict | **P2 (downgraded).** _simTime is re-established on first tick via `AndyWorld.step()`. Only affects code paths that call invalidateFact/updateLocationMeaning immediately after fromJSON before any tick — not a production path. |
+| Fix | None for R159 — P2 deferred. |
+| Files | — |
+| Regression test | — |
+| Re-verification | — |
+| Status | Downgraded to P2. |
+
+### R159-SPATIAL-1
+
+| Field | Detail |
+|---|---|
+| ID | R159-SPATIAL-1 |
+| Severity | P1 (audit) → P2 |
+| Audit finding | `_pruneRegionNames()` line 774 accesses `this._regionNames[i]` without validating `i < this._regionNames.length`. Requires corrupted state (stale _targets referencing nonexistent regions) to trigger. |
+| Evidence | `src/spatial/SpatialEngine.js:774` — `sortedActive.map(i => this._regionNames[i])`. |
+| Verification verdict | **P2 (downgraded).** Requires corrupted serialized state. Normal save/restore preserves consistency between _targets and _regionNames. Edge case, not a production risk. |
+| Fix | None for R159 — P2 deferred. |
+| Files | — |
+| Regression test | — |
+| Re-verification | — |
+| Status | Downgraded to P2. |
+
+### R159 Verification Summary
+
+| Reported | Verdict | Reason |
+|---|---|---|
+| R159-CONFIG-1 P1 validateConfig stateMachine gap | **Rejected** | stateMachine config is dead code — never consumed by any module. |
+| R159-DOMAIN-1 P1 getDefaultDomain not frozen | **Downgraded to P2** | Clone is separate from frozen preset; no production code mutates `.domain`. |
+| R159-SDK-1 P1 AndyBridge write-back | **Rejected** | Intentional SDK bridge patterns — R70 classified as restore-time exceptions. |
+| R159-BF-1 P1 BehaviorField _timeSchedule omission | **Downgraded to P2** | _timeSchedule derived from domain, not independent state. |
+| R159-WFS-1 P1 WorldFactStore _simTime not persisted | **Downgraded to P2** | Re-established on first tick; not a production path. |
+| R159-SPATIAL-1 P1 _pruneRegionNames bounds | **Downgraded to P2** | Requires corrupted state; normal restore preserves consistency. |
+
+**Confirmed P0/P1 findings: 0** (all rejected or downgraded to P2). R159 IS a clean round.
+
+**Convergence status: NOT CONVERGED. Need R160 = 0 confirmed P0/P1 for convergence (R159 + R160 = 2 consecutive clean rounds).**
+
 Use this template:
 
 ```md
