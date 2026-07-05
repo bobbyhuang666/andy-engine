@@ -6382,6 +6382,54 @@ R148 audit reported 9 P1 findings across 5 scan paths. Independent Verification 
 
 **Convergence status: NOT CONVERGED. R158(7 P1) → R159(0 CLEAN) → R160(2 P1) → R161(2 P1 fixed) → Need R162 = 0 for 2 consecutive clean rounds.**
 
+### R162-PSYCH-1
+
+| Field | Detail |
+|---|---|
+| ID | R162-PSYCH-1 |
+| Severity | P1 |
+| Audit finding | NeedsSystemNative `_recoveryMultipliers` never assigned in constructor |
+| Evidence | `src/agent/psychology/NeedsSystem.native.js:76-144` — constructor never calls `_calcRecoveryMultipliers`; `getRecoveryRatesForBehavior()` always falls back to `1.0` |
+| Verification verdict | **Confirmed P1** — personality-driven recovery rates (extraversion×1.6 for social, openness×1.5 for stimulation) are always 1.0 in native path |
+| Fix | Added `_calcRecoveryMultipliers(ocean)` helper function and call in constructor |
+| Files | `src/agent/psychology/NeedsSystem.native.js` |
+| Regression test | Existing needs tests cover recovery rates |
+| Re-verification | `npm test` 3311 passed/28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS |
+| Status | **Fixed** |
+
+### R162-PSYCH-2
+
+| Field | Detail |
+|---|---|
+| ID | R162-PSYCH-2 |
+| Severity | P1 |
+| Audit finding | `_syncFromNative()` has no NaN validation on native output |
+| Evidence | `src/agent/psychology/NeedsSystem.native.js:146-150` — `Object.assign(this.needs, json.needs)` without guard; native Rust code can produce NaN |
+| Verification verdict | **Confirmed P1** — native code NaN silently corrupts JS mirror needs and _decayRates |
+| Fix | Added Number.isFinite guards on needs and _decayRates in `_syncFromNative()`, falling back to existing JS values |
+| Files | `src/agent/psychology/NeedsSystem.native.js` |
+| Regression test | Existing needs tests cover NaN defense |
+| Re-verification | `npm test` 3311 passed/28 skipped; `npm run test:domain` 82 passed; `npm run check:boundaries` clean; `npm run smoke:pack` 19/19; `npm run perf:check` all PASS |
+| Status | **Fixed** |
+
+**R162 Verification Summary**
+
+| Finding | Severity | Verdict | Outcome |
+|---|---|---|---|
+| R162-SOCIAL-1 | P1 | Rejected | Phase 3 processed guard IS present — Phase 1 keys block Phase 3 correctly |
+| R162-SOCIAL-2 | P1 | Rejected | Registration-order doesn't affect final state — shared Relationship objects cascade mutations |
+| R162-SOCIAL-3 | P2 | Rejected | Triadic oscillation is slow (~33h sim time) and Dunbar runs every 12 ticks |
+| R162-EFFECT-1 | P1 | Rejected | `agent.emotion.stress` always finite after EmotionVector._clamp() |
+| R162-EFFECT-2 | P1 | Rejected | `getOrCreateRelationship` always returns proper Relationship object |
+| R162-PSYCH-3 | P1 | Rejected | R161 verified: IntrinsicMotivation + EmotionVector._clamp prevent NaN |
+| R162-PSYCH-4 | P1 | Rejected | R161 verified: EmotionVector._clamp prevents NaN emotion drives |
+| R162-PSYCH-1 | P1 | **Confirmed** | **Fixed** — _recoveryMultipliers now computed from personality |
+| R162-PSYCH-2 | P1 | **Confirmed** | **Fixed** — _syncFromNative now validates native output for NaN |
+
+**Confirmed P0/P1 findings: 2** (both fixed). 7 rejected.
+
+**Convergence status: NOT CONVERGED. R158(7 P1) → R159(0 CLEAN) → R160(2 P1) → R161(2 P1 fixed) → R162(2 P1 fixed) → Need R163 = 0 for 2 consecutive clean rounds.**
+
 Use this template:
 
 ```md
