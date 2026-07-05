@@ -112,7 +112,11 @@ class SimulationStore {
     const snapshot = this.db.loadLatest();
     if (snapshot && onRestore) {
       try { onRestore(snapshot.data); }
-      catch (err) { this._diagnostics?.warn?.('restore_failed', err.message); }
+      catch (err) {
+        const message = err && err.message ? err.message : String(err);
+        diagnostics.collect({ type: 'restore_failed', error: message });
+        diagnostics.warn(`SimulationStore restore failed: ${message}`);
+      }
     }
 
     // 加载故事缓冲

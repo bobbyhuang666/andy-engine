@@ -64,6 +64,35 @@ describe('SimulationStore — init restore path', () => {
     expect(store._snapshotFn).toBeDefined();
     expect(store._restoreFn).toBeDefined();
   });
+
+  it('init records diagnostics when onRestore throws for an existing snapshot', async () => {
+    diagnostics.clear();
+    const warnSpy = vi.spyOn(diagnostics, 'warn').mockImplementation(() => {});
+    const dbPath = makeTempDbPath('restore-failure');
+
+    const writer = makeStore({ dbPath });
+    await writer.init({ onSnapshot: () => Buffer.from('snap') });
+    writer.tickCount = 5;
+    writer.virtualTime = new Date(MS);
+    writer._saveSnapshot();
+    await writer.shutdown();
+
+    const reader = makeStore({ dbPath });
+    const result = await reader.init({
+      onRestore: () => { throw new Error('restore boom'); },
+    });
+
+    expect(result.hasSnapshot).toBe(true);
+    expect(diagnostics.getCollected()).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'restore_failed', error: 'restore boom' }),
+      ]),
+    );
+    expect(warnSpy).toHaveBeenCalledWith('SimulationStore restore failed: restore boom');
+
+    await reader.shutdown();
+    warnSpy.mockRestore();
+  });
 });
 
 describe('SimulationStore — onTick branches', () => {
