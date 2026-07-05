@@ -1,6 +1,6 @@
 # Aliveness Benchmark RFC
 
-> World Kernel Trust Phase — 草案 v0.3，独立审计师已审（Pass with required edits）。
+> World Kernel Trust Phase — draft v0.3, reviewed with required edits.
 > v0.3 修订（响应审计 B3 + 采纳 S6/S8）：§0 明确性能归入 release gate 不重复入七维；§D5 Warning 判定从"误报率 >15%"改为"已知 violation 检出率"（避免小样本误报波动）；§5 D2 允许"3 Pass + 1 Warning = D2 Warning"中间态。
 > v0.2 修订：delta 不再绝对、narrative checker 不过度承诺、Character Continuity 拆分多指标、七维补 owner 与测试入口。
 
@@ -113,7 +113,7 @@
 - **S7（裁定）**：corpus ≥10 启动可接受，受 B3 修正约束（误报率不再触发降级）。
 - **S8（已采纳）**：§5 增加 D2 中间态（3 Pass + 1 Warning = D2 Warning）。
 
-## 7. v0.3 后待总规划师确认的问题
+## 7. v0.3 Follow-up Questions
 
 - D5 的 narrative regression corpus 首批 ≥10 条 violation 样本，来源（人工构造 / 历史叙事抓取）需明确，属任务波次而非 RFC。
 - D3 当前断言为"非饥饿底线"，是否在 v2.1 升级为精确跨 agent 知识传播断言，需评估 knowledge 层实现成本。

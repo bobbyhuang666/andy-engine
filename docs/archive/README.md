@@ -1,7 +1,7 @@
 # Archive Pointer
 
-Historical documents were moved out of the repository to keep full-repo AI audits from
-loading obsolete phase plans, old diagnosis reports, and superseded audit ledgers.
+Historical documents were moved out of the repository to keep reviews from loading
+obsolete phase plans, old diagnosis reports, and superseded audit ledgers.
 
 External archive location: kept outside this repository in the maintainer's
 private archive package.
@@ -16,7 +16,7 @@ External archive categories:
 - `superseded-rfcs/` — RFCs/design briefs replaced by later work or diagnosis.
 - `waves/` — historical wave task cards.
 - `legacy-archive-root/` — older files that were previously directly under `docs/archive/`.
-- `legacy-handoff/` — older handoff document superseded by the Chief Planner manual.
+- `legacy-handoff/` — older internal handoff documents.
 - `legacy-root-docs/` — older plan/audit/gate documents previously directly under `docs/`.
 
 Archived documents may still contain useful evidence, but they are not current project

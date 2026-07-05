@@ -1,6 +1,6 @@
 # Quality Gate RFC
 
-> World Kernel Trust Phase — 草案 v0.3，独立审计师已审（Pass with required edits）。
+> World Kernel Trust Phase — draft v0.3, reviewed with required edits.
 > v0.3 修订（响应审计 B1/B2 + 采纳 S1）：§2 明确 `vitest.config.js` thresholds 须一并处理；§4 Merge blocker 纳入 R4 smoke:pack；§6 R5 判定机制未实现，不再声称"全守护"，明确 R5 生效条件。
 > v0.2 修订：修正 facade 归类、区分 merge/release blocker、coverage 降为 trend metric、R5 两段式判定不再单赖 v8 归因。
 
@@ -22,7 +22,7 @@ Foundation Alpha 阶段（单人开发）的发布与合入门禁准则。本 RF
 - 全局 coverage **不作为 Foundation Alpha 的 Release blocker**。
 - Coverage 作为 **trend metric + regression warning**：每次 release 记录当前 lines/statements/functions/branches 数值到 `docs/quality/coverage-trend.md`，若较上次 release 下降超过 3 个百分点（任意一项），发 warning，需在 release notes 说明原因。
 - 成熟版本（Foundation Beta 起）可重新评估是否将 coverage 提升为 Release blocker。届时单独发 RFC，不在本 RFC 内承诺阈值。
-- **v8 thresholds 处理（审计 B2，方案 c 已落地）**：总规划师已确认采纳方案 (c)。W1 已执行：`vitest.config.js` 的 `coverage.thresholds` 块已移除；`package.json` `test:coverage` 修正为 `vitest run --coverage`（修正既有 watch-mode bug）；`npm run test:coverage` 现产出 coverage 报告且 exit 0，不再因阈值失败退出。coverage 数据进入 `docs/quality/coverage-trend.md` 供趋势追踪。W1 基线数值（v2.0.1）：stmts 80.56 / branches 68.46 / functions 77.96 / lines 82.48。
+- **v8 thresholds 处理**：W1 已执行：`vitest.config.js` 的 `coverage.thresholds` 块已移除；`package.json` `test:coverage` 修正为 `vitest run --coverage`（修正既有 watch-mode bug）；`npm run test:coverage` 现产出 coverage 报告且 exit 0，不再因阈值失败退出。coverage 数据进入 `docs/quality/coverage-trend.md` 供趋势追踪。W1 基线数值（v2.0.1）：stmts 80.56 / branches 68.46 / functions 77.96 / lines 82.48。
 
 ## 3. 五项 Release blocker
 

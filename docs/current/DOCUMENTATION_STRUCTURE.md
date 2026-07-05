@@ -3,17 +3,17 @@
 This document defines the live documentation layout for Andy Engine.
 
 Andy Engine has accumulated many phase plans, audit reports, diagnosis reports, and
-execution cards. The current rule is: active guidance stays easy to find; historical
-evidence is archived, not deleted.
+execution cards. The current rule is: public guidance stays easy to find; internal
+historical evidence is archived outside the repository, not deleted.
 
 ## Directory Map
 
 ```text
 docs/
 ├── *.md                    Core public/engineering documentation
-├── current/                Active governance, contracts, and handoff docs
+├── current/                Active contracts and engineering notes
 ├── rfc/                    Open or foundational RFCs
-├── audit/                  Current/high-signal audit entry points
+├── audit/                  Pointer to archived internal audit logs
 ├── quality/                Generated quality reports and manifests
 └── archive/                Pointer to external historical archive
 ```
@@ -34,15 +34,13 @@ These documents should describe current behavior, not phase history.
 
 ## Current Documents
 
-`docs/current/` is for documents that actively guide ongoing engineering:
+`docs/current/` is for public documents that actively guide ongoing engineering:
 
-- governance and handoff manuals;
 - active contracts not broad enough for top-level `docs/`;
-- current release/readiness checklists;
-- current documentation truth-pass notes.
+- current implementation reference notes.
 
-Do not keep completed wave reports, old task cards, or root-cause investigations in
-`docs/current/`.
+Do not keep completed wave reports, old task cards, root-cause investigations,
+model-routing notes, or private planning handoffs in `docs/current/`.
 
 See `docs/current/README.md` for the current file list.
 
@@ -63,17 +61,19 @@ See `docs/rfc/README.md`.
 
 ## Audit Documents
 
-`docs/audit/` is for current/high-signal audit artifacts only.
+`docs/audit/` is a public pointer to internal audit logs that have been archived
+outside the repository.
 
-Round-by-round historical reports and old bug ledgers belong in the external archive's
-`audit-rounds/` directory.
+Round-by-round historical reports and bug ledgers belong in the external archive's
+audit area, not in the public repository.
 
 See `docs/audit/README.md`.
 
 ## Archive Documents
 
-`docs/archive/` contains only a pointer README. Historical evidence has been moved
-outside the repository so full-repo AI audits do not load obsolete context by default.
+`docs/archive/` contains only pointer documents required by architecture checks.
+Historical evidence has been moved outside the repository so reviews do not load
+obsolete context by default.
 
 External archive: kept outside this repository in the maintainer's private
 archive package.

@@ -1,7 +1,7 @@
 # Andy Engine Documentation
 
-This directory is organized so active engineering references are easy to find while
-historical phase evidence remains available in archive form.
+This directory is organized so public engineering references are easy to find while
+historical internal planning evidence remains outside the repository.
 
 ## Start Here
 
@@ -11,21 +11,21 @@ historical phase evidence remains available in archive form.
 - `WORLD_SCHEMA.md` — world schema documentation.
 - `DOMAIN.md` — domain system documentation.
 - `TESTING_ARCHITECTURE.md` — testing architecture.
-- `current/CHIEF_PLANNER_HANDOFF_MANUAL.md` — governance manual for Chief Planner AIs.
-- `current/DOCUMENTATION_STRUCTURE.md` — documentation layout and maintenance rules.
+- `current/` — narrower contracts and active engineering reference notes.
+- `rfc/` — open or foundational design RFCs.
 
 ## Main Directories
 
-- `current/` — active governance, contracts, handoff, and current checklists.
+- `current/` — active contracts and engineering reference notes.
 - `rfc/` — open or foundational RFCs.
-- `audit/` — current/high-signal audit entry points.
+- `audit/` — public pointer to archived internal audit logs.
 - `quality/` — generated quality reports and manifests.
 - `archive/` — pointer to the external historical archive.
 
 ## Archive Policy
 
 Historical documents are moved out of the repository, not deleted, unless they are
-clearly duplicated and their evidence is preserved elsewhere. This keeps full-repo AI
+clearly duplicated and their evidence is preserved elsewhere. This keeps repository
 reviews focused on current source, contracts, and high-signal docs.
 
 External archive: kept outside this repository in the maintainer's private

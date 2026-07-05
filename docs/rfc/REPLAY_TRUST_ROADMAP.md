@@ -1,6 +1,6 @@
 # Replay Trust Roadmap
 
-> World Kernel Trust Phase — 草案 v0.3，独立审计师已审（Pass）。
+> World Kernel Trust Phase — draft v0.3, reviewed.
 > v0.3 修订（响应审计 Q1/Q3/S4/S5）：§2 明确为 SERIALIZATION_CONTRACT 增补章节；§3 generationCommand 实现须对齐真实脚本；§4 `--accept-intentional` 仅跳过立即 fail 不跳过 changelog；§7 L4 保留 v2.1 不预降级。
 > v0.2 修订：用真实 API 名称、补纯函数前提、golden corpus metadata、replay-diff 人审流程、tickHash canonical JSON。
 
