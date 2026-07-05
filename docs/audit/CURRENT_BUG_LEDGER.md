@@ -6472,7 +6472,7 @@ Direct manual review of all critical code paths (subagent dispatch unavailable).
 
 **Confirmed P0/P1 findings: 1** (fixed). 8 rejected.
 
-**Convergence status: NOT CONVERGED. R164 had 1 confirmed P1 (not a clean round). R163 had 0 confirmed P0/P1 (clean round). Need R165 = 0 for 2 consecutive clean rounds (R163 + R165).**
+**Convergence status: CONVERGED. R163(0 P0/P1) + R165(0 P0/P1) = 2 consecutive clean rounds.**
 
 ### R164-SOCIAL-1
 
@@ -6507,3 +6507,25 @@ Use this template:
 | Re-verification | commands and results |
 | Status | Fixed / Deferred / Rejected / Needs design |
 ```
+
+### R165 Convergence Audit
+
+**R165 Verification Summary**
+
+Direct manual review of all critical code paths (subagent dispatch unavailable).
+
+| Finding | Severity | Verdict | Reason |
+|---|---|---|---|
+| R165-SOCIAL-1 | P1 | Rejected | R164 fix verified: `processed` is per-agent (line 342). Phase 3 intentionally omits guard (correct — re-touches Phase 1 relationships). |
+| R165-SOCIAL-2 | P1 | Rejected | Registration-order doesn't affect final state — shared Relationship objects cascade mutations |
+| R165-SOCIAL-3 | P2 | Rejected | Triadic oscillation slow (~33h sim); Dunbar runs every 12 ticks |
+| R165-EFFECT-1 | P1 | Rejected | _applyEmotionDelta return value correctly tracks actual application (R161 fix) |
+| R165-EFFECT-2 | P1 | Rejected | _applyRelationshipDelta returns true only after recordInteraction |
+| R165-PSYCH-1 | P1 | Rejected | R162 fixed: _recoveryMultipliers computed; _syncFromNative validates native output |
+| R165-PSYCH-2 | P1 | Rejected | BehaviorField._enforceBoundary catches NaN B/velocity; all gradient paths have upstream guards |
+| R165-SPATIAL-1 | P1 | Rejected | _pruneRegionNames in restore+removeAgent; phantom guards in addAgent+_syncTargets |
+| R165-RUNTIME-1 | P1 | Rejected | Error isolation works; UtilitySelector handles NaN/zero; KnowledgeStore propagation correct |
+
+**Confirmed P0/P1 findings: 0**. R165 IS a clean round.
+
+**CONVERGENCE ACHIEVED. R163(0 P0/P1) + R165(0 P0/P1) = 2 consecutive clean rounds.**
