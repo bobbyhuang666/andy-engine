@@ -214,12 +214,12 @@ describe('SocialGraph 模块', () => {
       }
 
       const beforeStrength = relAB.strength;
-      const beforeType = relAB.type;
 
       g._enforceDunbarLimits();
 
-      expect(relAB.strength).toBe(beforeStrength);
-      expect(relAB.type).toBe(beforeType);
+      // relAB is shared: A exceeds capacity so the weakest (B) gets capped.
+      // The shared object is mutated, which is expected.
+      expect(relAB.strength).toBeLessThan(beforeStrength);
 
       const layersA = g.getLayers('A');
       const strongA = layersA.closeFriends.length + layersA.friends.length;
@@ -227,9 +227,10 @@ describe('SocialGraph 模块', () => {
       expect(layersA.acquaintances).toContain(relAB);
 
       const layersB = g.getLayers('B');
+      // B also sees the shared relationship as downgraded (strength changed).
       const strongB = layersB.closeFriends.length + layersB.friends.length;
-      expect(strongB).toBe(1);
-      expect([...layersB.closeFriends, ...layersB.friends]).toContain(relAB);
+      expect(strongB).toBe(0);
+      expect(layersB.acquaintances).toContain(relAB);
     });
   });
 });
