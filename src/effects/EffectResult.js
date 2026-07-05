@@ -76,7 +76,10 @@ class EffectResult {
         case 'need':
           // R139: additive merge — multiple NeedDeltas targeting the same need
           // must sum their changes, not overwrite. Object.assign replaces.
+          // R158: guard against NaN/Infinity values in delta changes to prevent
+          // corruption of legacy format output consumed by ActionSelectionRuntime.
           for (const [key, val] of Object.entries(delta.changes)) {
+            if (!Number.isFinite(val)) continue;
             stateDeltas.need[key] = (stateDeltas.need[key] || 0) + val;
           }
           break;

@@ -218,19 +218,23 @@ describe('SocialGraph 模块', () => {
       g._enforceDunbarLimits();
 
       // relAB is shared: A exceeds capacity so the weakest (B) gets capped.
-      // The shared object is mutated, which is expected.
+      // R158: Dunbar cap (0.39) + redesigned _updateType → type becomes 'friend'
+      // (one-tier downgrade). A already has 7 closeFriends, so relAB (the 8th
+      // strong tie) lands in acquaintances layer for A. B has only 1 tie, so
+      // relAB lands in friends layer for B. The shared object IS mutated.
       expect(relAB.strength).toBeLessThan(beforeStrength);
 
       const layersA = g.getLayers('A');
       const strongA = layersA.closeFriends.length + layersA.friends.length;
       expect(strongA).toBe(ANDY_DEFAULTS.relationship.maxStrongTies);
+      // A's 8th tie exceeds maxStrongTies → acquaintances layer
       expect(layersA.acquaintances).toContain(relAB);
 
       const layersB = g.getLayers('B');
-      // B also sees the shared relationship as downgraded (strength changed).
+      // B has 1 tie (within maxStrongTies) → friends layer
       const strongB = layersB.closeFriends.length + layersB.friends.length;
-      expect(strongB).toBe(0);
-      expect(layersB.acquaintances).toContain(relAB);
+      expect(strongB).toBe(1);
+      expect(layersB.friends).toContain(relAB);
     });
   });
 });

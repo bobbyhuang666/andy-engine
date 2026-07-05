@@ -563,12 +563,10 @@ class SpatialEngine {
     this._regionNameToIdx.clear();
     this._regionNames.forEach((name, idx) => this._regionNameToIdx.set(name, idx));
 
-    this._initialized = n > 0;
-
-    // 重建空间索引使查询即时生效
-    if (this._coords) {
-      this.grid.rebuild(this._coords, this._agentIds.length);
-    }
+    // R158: prune stale / phantom region entries to maintain consistency
+    // with initialize()'s Set-based deduplication. Without this, serialized
+    // snapshots from pre-R153 engines could re-introduce phantom regions.
+    this._pruneRegionNames();
   }
 
   /**

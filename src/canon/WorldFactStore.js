@@ -557,6 +557,14 @@ class WorldFactStore {
     store._evictFactsByType(FactType.OBSERVATION, MAX_OBSERVATION_FACTS);
     store._evictFactsByType(FactType.MEMORY, MAX_MEMORY_FACTS);
     store._evictFactsByType(FactType.INVALIDATED, MAX_INVALIDATED_FACTS);
+    // R158: mirror addFact() eviction for types missing from fromJSON.
+    // Previously only 4 of 9 types were bounded after restore, leaving
+    // STATIC_ENV, AGENT_STATE, RELATIONSHIP, RULE, LOCATION_MEANING unbounded.
+    store._evictFactsByType(FactType.STATIC_ENV, MAX_STATIC_ENV_FACTS);
+    store._evictFactsByType(FactType.AGENT_STATE, MAX_AGENT_STATE_FACTS);
+    store._evictFactsByType(FactType.RELATIONSHIP, MAX_RELATIONSHIP_FACTS);
+    store._evictFactsByType(FactType.RULE, MAX_RULE_FACTS);
+    store._evictFactsByType(FactType.LOCATION_MEANING, MAX_LOCATION_MEANING_FACTS);
 
     return store;
   }

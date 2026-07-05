@@ -128,7 +128,7 @@ class EffectCommitter {
     if (delta.changes && Object.keys(delta.changes).length > 0) {
       const multiplier = Number.isFinite(delta.multiplier) ? delta.multiplier : 1;
       const appraisalModifiers = delta.appraisalModifiers && typeof delta.appraisalModifiers === 'object'
-        ? delta.appraisalModifiers
+        ? { ...delta.appraisalModifiers }
         : null;
 
       // R136-A3-001: clamp changes to [-1, 1] and reject non-finite values
@@ -144,7 +144,11 @@ class EffectCommitter {
     if (Number.isFinite(delta.stress) && typeof agent.emotion.setStress === 'function') {
       agent.emotion.setStress(delta.stress);
     }
-    return true;
+    // R158: return 'skipped' when neither applyEffect nor setStress was invoked
+    // (e.g., all changes filtered out and stress non-finite). Previously always
+    // returned true, misclassifying no-op deltas as "applied".
+    return (delta.changes && Object.keys(delta.changes).length > 0)
+      || Number.isFinite(delta.stress);
   }
 
   /**

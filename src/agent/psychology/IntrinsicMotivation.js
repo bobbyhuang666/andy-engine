@@ -225,7 +225,10 @@ class IntrinsicMotivation {
       }
       this.familiarity[position] = {
         visits: 0,
-        lastVisit: simTime.getTime(),
+        // R158: guard against Invalid Date / NaN getTime from corrupted simTime.
+        // If simTime is uninitialised (first tick, no env.simTime), fall back to
+        // _lastSimTime (0 on first tick → getNovelty treats 0 as "never visited").
+        lastVisit: (simTime && Number.isFinite(simTime.getTime())) ? simTime.getTime() : this._lastSimTime,
         totalTime: 0,
       };
     }

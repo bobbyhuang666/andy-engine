@@ -224,39 +224,44 @@ class Relationship {
     // 例：friend 升级阈值 0.4，降级阈值 0.32
     const hysteresis = 0.08;
 
-    // 升级路径：直接根据强度确定最高可达层级（无逐级限制）
+    // 逐边界检查：升级路径 → 滞后带维持 → 降级路径
+    // 滞后带在升级检查之后独立处理，确保高等级类型在边界附近
+    // 不会被强度的小幅波动错误降级。
+
+    // closeFriend 边界 (0.65)
     if (this.strength >= t.closeFriend) {
       this.type = 'closeFriend';
       return;
     }
+    // closeFriend 滞后带 [0.57, 0.65)：维持 closeFriend
+    if (this.type === 'closeFriend' && this.strength >= t.closeFriend - hysteresis) {
+      return;
+    }
+
+    // friend 边界 (0.4)
     if (this.strength >= t.friend) {
-      // 当前是 closeFriend 但强度跌到 closeFriend 以下 → 需要滞后检查
-      if (this.type === 'closeFriend' && this.strength >= t.closeFriend - hysteresis) {
-        return; // 仍在滞后带内，维持 closeFriend
-      }
       this.type = 'friend';
       return;
     }
+    // friend/closeFriend 滞后带 [0.32, 0.4)：维持 friend
+    // closeFriend 在此范围时过渡为 friend（Dunbar 强制降级的一级降级）
+    if ((this.type === 'friend' || this.type === 'closeFriend') && this.strength >= t.friend - hysteresis) {
+      if (this.type === 'closeFriend') {
+        this.type = 'friend';
+      }
+      return;
+    }
+
+    // acquaintance 边界 (0.15)
     if (this.strength >= t.acquaintance) {
-      // R157: closeFriend→friend hysteresis guard. When Dunbar enforcement
-      // caps closeFriend strength below t.friend (e.g., 0.39), _updateType
-      // needs to produce 'friend', not 'acquaintance'. The closeFriend guard
-      // at line 234 only covers [t.closeFriend - hysteresis, t.closeFriend)
-      // = [0.57, 0.65); this guard covers [t.friend, t.closeFriend) = [0.4, 0.65)
-      // so a capped closeFriend smoothly transitions to friend, not acquaintance.
-      if (this.type === 'closeFriend' && this.strength >= t.friend) {
-        return; // 滞后带内，维持 friend（closeFriend 降级过渡态）
-      }
-      if (this.type === 'friend' && this.strength >= t.friend - hysteresis) {
-        return; // 滞后带内，维持 friend
-      }
       this.type = 'acquaintance';
       return;
     }
-    // 强度 < acquaintance
+    // acquaintance 滞后带 [0.07, 0.15)：维持 acquaintance
     if (this.type === 'acquaintance' && this.strength >= t.acquaintance - hysteresis) {
-      return; // 滞后带内，维持 acquaintance
+      return;
     }
+
     this.type = 'stranger';
   }
 

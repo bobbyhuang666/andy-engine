@@ -346,6 +346,10 @@ class SocialGraph {
       const { maxStrongTies, maxMediumTies } = this._cfg;
       const t = this._cfg.threshold;
 
+      // R158: compute raw lists INSIDE the per-agent loop so they reflect
+      // the latest relationship types after previous agents' _updateType() calls.
+      // Previously these were computed once before the loop, capturing stale
+      // type labels that could be mutated by earlier agents' processing.
       const rawCloseFriends = rels.filter(r => r.type === 'closeFriend');
       const rawFriends = rels.filter(r => r.type === 'friend');
 
@@ -361,6 +365,9 @@ class SocialGraph {
           if (processed.has(key)) continue;
           processed.add(key);
           rel.strength = Math.min(rel.strength, closeFriendCap);
+          // R158: redesigned _updateType naturally transitions closeFriend→friend
+          // via the friend hysteresis band [0.32, 0.4). No direct type assignment
+          // needed — _updateType handles the one-tier downgrade.
           rel._updateType();
         }
       }
@@ -378,6 +385,11 @@ class SocialGraph {
           if (processed.has(key)) continue;
           processed.add(key);
           rel.strength = Math.min(rel.strength, friendCap);
+          // R158: _updateType cannot produce 'acquaintance' for strength < 0.15
+          // without the type already being 'acquaintance' (the bottom hysteresis
+          // guard only fires for type === 'acquaintance'). Directly set the type
+          // to enforce the one-tier Dunbar downgrade, then _updateType validates.
+          rel.type = 'acquaintance';
           rel._updateType();
         }
         const remaining = excessMedium - fromFriends;
@@ -388,6 +400,9 @@ class SocialGraph {
             if (processed.has(key)) continue;
             processed.add(key);
             rel.strength = Math.min(rel.strength, friendCap);
+            // R158: same reasoning as fromFriends loop — direct type assignment
+            // ensures two-tier downgrade closeFriend→acquaintance, not stranger.
+            rel.type = 'acquaintance';
             rel._updateType();
           }
         }
