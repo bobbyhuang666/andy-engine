@@ -67,6 +67,7 @@ The LLM is a rendering layer, not the source of truth.
 | Unit / integration / domain / source-scan tests | 3312 tests passing / 28 skipped |
 | Custom domain | Tavern preset passes domain-agnostic validation |
 | Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
+| D5 narrative faithfulness | Structured grounding checker (ClaimExtractor + GroundingChecker v3) with evidence-bound narrative validation; semantic corpus 455 samples (incl. 110 real LLM-output), false-pass/block 0%, §7 M4 Semantic Alpha gate met; optional semantic verifier adapter (NoOp default). Not a guarantee of perfect natural-language truth; Semantic Beta requires corpus>=1000 + realLLM>=500 + multi-LLM benchmark |
 | Seeded RNG | Core runtime paths support seeded simulation baseline (not full deterministic replay) |
 | Perf-check | Benchmark / contagion profile regression checks exit 0 in 3-run median mode |
 | Early subjective evaluation | Early experiments suggest stronger character continuity and presence; not yet published as a standard benchmark |
@@ -92,7 +93,7 @@ This ensures the LLM receives expression constraints, not raw psychology data.
 2. Full deterministic replay is not claimed — seeded RNG provides baseline for core paths only
 3. Production adoption is not yet documented
 4. Domain maturity varies by preset
-5. **D5 Grounded Narrative Faithfulness is at Warning** — `FactConsistencyChecker` is regex-based and experimental; it detects hand-crafted violation patterns but has not been validated against real LLM-generated output. A Stable release requires D5 hardening.
+5. **D5 Grounded Narrative Faithfulness is at Semantic Alpha Pass (D5 v3, §7 M4 gate met)** — `FactConsistencyChecker` now defaults to `GroundingChecker` v3 evidence-bound path, with evidenceTrace on every claim (source/support/reason); optional claim sidecar, conservative coreference resolution, location alias, optional semantic verifier adapter (NoOp default); D5 semantic corpus at 455 samples (incl. 110 real LLM-output, model: glm-5.2-subagent), false-pass 0% / false-block 0%, 12 §9 hard regressions all hard-gated, semanticAlphaGateMet=true. Still evidence-bound structured grounding, not full semantic NLI nor formally provably true; not Semantic Beta (requires corpus>=1000, realLLM>=500, verifier benchmark report, multi-LLM evaluation); not Stable (requires third-party validation, sidecar stable, long-running SDK evidence).
 6. Distribution is alpha-stage; install from the repository or release artifacts until a registry package is available
 
 ---
@@ -162,11 +163,13 @@ This is a Foundation-stage alpha release. The public API surface, persistence co
 The following remain experimental or deferred to v2.1/v3:
 
 - Fact schema and Knowledge schema may still change
-- `FactConsistencyChecker` is regex-based and experimental
+- `FactConsistencyChecker` (v1 regex-only) was experimental; v2 起 ClaimExtractor+GroundingChecker v3 接管主路径，正则仅 fallback。见 D5 Semantic Alpha Pass (D5 v3)。
 - `WorldObject` is modeled but not fully integrated into `Agent.tick`
 - StoryArc runtime is paused
 - AffectCompiler basic implementation (v0.2)
 - Distribution is alpha-stage; install from the repository or release artifacts until a registry package is available
+
+(Note: v2 起 ClaimExtractor+GroundingChecker v3 接管主路径，正则仅 fallback；见 D5 Semantic Alpha Pass。GroundingChecker v2 + v3 推进见 docs/rfc/GROUNDING_CHECKER_V3_SEMANTIC_PLAN.md（§7 M4 Semantic Alpha gate met, corpus 455, realLLM 110）。)
 
 ---
 
@@ -609,11 +612,13 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 以下仍为实验性或推迟到 v2.1/v3：
 
 - Fact schema 和 Knowledge schema 可能还会变化
-- `FactConsistencyChecker` 基于正则表达式，是实验性的
+- `FactConsistencyChecker` (v1 仅正则) 是实验性的；v2 起 ClaimExtractor+GroundingChecker v3 接管主路径，正则仅 fallback。见 D5 Semantic Alpha Pass (D5 v3)。
 - `WorldObject` 已建模但尚未完全集成到 `Agent.tick`
 - StoryArc 运行时已暂停
 - AffectCompiler 基础实现（v0.2）
 - 当前为 alpha 阶段分发；在 registry package 可用前，可从仓库或 release artifacts 安装
+
+(注：v2 起 ClaimExtractor+GroundingChecker v3 接管主路径，正则仅 fallback；见 D5 Semantic Alpha Pass。GroundingChecker v2 + v3 推进见 docs/rfc/GROUNDING_CHECKER_V3_SEMANTIC_PLAN.md（Semantic Alpha Pass 达成）。)
 
 ---
 
@@ -715,7 +720,7 @@ AffectCompiler 生成 AffectFrame，包含：
 2. 不承诺完整的确定性重放 — seeded RNG 仅为核心路径提供基线
 3. 尚未有公开记录的生产采用案例
 4. Domain 成熟度因 preset 而异
-5. **D5 叙事忠实度为 Warning** — `FactConsistencyChecker` 基于正则表达式，是实验性的；能检测手工构造的违规模式，但尚未在真实 LLM 输出上验证。Stable 发布需要 D5 加固。
+5. **D5 叙事忠实度为 Semantic Alpha Pass (D5 v3, §7 M4 gate met)** — `FactConsistencyChecker` 现默认走 `GroundingChecker` v3 证据绑定路径，含 evidenceTrace 每条 claim 都附 source/support/reason；可选 claim sidecar、保守 coreference 解析、location alias、optional semantic verifier adapter (默认 NoOp)；D5 semantic corpus 已 455 样本（含 110 真 LLM-生成输出，model: glm-5.2-subagent），false-pass 0% / false-block 0%，12 §9 hard regressions 全 hard-gated，semanticAlphaGateMet=true。仍是 evidence-bound structured grounding，不是完整语义 NLI 或形式可证真；未达 Semantic Beta（需 corpus>=1000、realLLM>=500、verifier benchmark report、多 LLM 评测）；未达 Stable（需第三方验证、sidecar stable、长跑 SDK 证据）。
 6. 当前为 alpha 阶段分发；在 registry package 可用前，可从仓库或 release artifacts 安装
 
 ---
@@ -830,7 +835,7 @@ Andy Engine 正在从"角色模拟"扩展到"世界知识管理"：
 | **知识 (Knowledge)** | 角色通过经历积累的事实集合 |
 | **边界 (Grounding)** | 每个角色只能知道它"有资格知道"的事实——不是全知全能 |
 | **规范事件 (Canon Event)** | 事件 → 事实 → 知识的自动管线 |
-| **一致性检查** | 新事实与已有知识矛盾时的检测（实验性，基于正则） |
+| **一致性检查** | 新事实与已有知识矛盾时的检测（v2 前基于正则；v3 起 ClaimExtractor+GroundingChecker v3 证据绑定路径为主，正则仅 fallback） |
 
 **为什么需要知识边界？**
 
@@ -838,7 +843,7 @@ LLM 天然是全知的——它知道训练数据里的一切。但一个"活着
 
 **当前状态：**
 - `WorldFactStore`、`CanonEventPipeline`、`KnowledgeStore`、`FactProvider` 已实现
-- `FactConsistencyChecker` 是实验性的（基于正则表达式）
+- `FactConsistencyChecker` 仍保留正则 fallback（v3 主路径为 ClaimExtractor+GroundingChecker v3 证据绑定）
 - Fact schema 和 Knowledge schema 可能还会变化
 - 通过 `enableFacts: true` 开启
 

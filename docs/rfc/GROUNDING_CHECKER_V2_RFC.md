@@ -1,30 +1,29 @@
 # Grounding Checker v2 RFC
 
-> Stage 42 — RFC only. Not implemented.
+> Stage 42 — v2 implemented baseline. FactConsistencyChecker now delegates to GroundingChecker v2 as primary path.
 
 ---
 
 ## 1. Current Checker Role
 
-`FactConsistencyChecker` serves as a **fallback guard** — the final safety net between LLM output and canon violations.
+`FactConsistencyChecker` serves as the **compatibility facade** — v2 `GroundingChecker` is the primary implementation path, with regex-based checks preserved as fallback.
 
-**Current responsibilities:**
+**v2 responsibilities:**
+- Structured claim extraction via `ClaimExtractor` (location, event, relationship, state, source_attribution, time)
+- Claim normalization (negation, uncertainty, source markers)
+- Deterministic validation against `allowedFacts` / `KnowledgeStore` evidence tiers
+- Blocking violations derived from structured claim objects, not bare regex matches
+
+**v1 preserved (regex fallback):**
 - Character name validation (regex-based)
 - Location name validation (regex-based)
 - Event knowledge validation (regex-based)
 - Time conflict detection (simple hour comparison)
 - New content detection (relationship/event creation patterns)
 - Agent-location claim validation (regex + allowedFacts)
-
-**Known limitations:**
-- Chinese regex patterns produce false positives (e.g., `在学习` matched as location `学习`)
-- No structured claim extraction — only raw string matching
-- No knowledge source distinction (observed vs told)
-- No confidence scoring
-- Cannot handle ambiguous Chinese sentence boundaries
-
-**Design intent:**
-The checker is a **short-term guard**, not a long-term truth validator. It exists to catch obvious LLM hallucinations before they enter the narrative layer.
+- Missing source attribution (v2.5-W1)
+- Agent state leak (v2.5-W2, evidence fix W3)
+- Local scope leak (v2.5-W2)
 
 ---
 
@@ -207,7 +206,8 @@ Knowledge propagation (who knows what) is handled by `CanonEventPipeline` and `K
 
 ## 8. Out of Scope
 
-- Implementing `GroundingChecker.js` (this is an RFC only)
-- Modifying `FactConsistencyChecker.js` (v1 preserved)
-- Modifying `FactProvider.js` or `KnowledgeStore`
-- Adding new domain presets
+- Full semantic NLI (Natural Language Inference) — deferred to future Stable milestone
+- LLM-side structured output cooperation for per-fact attribution tracking
+- Multi-turn conversation context resolution (e.g., pronoun "他" references)
+- Configurable confidence threshold per domain
+- Implementing `GroundingChecker.js` as a standalone replacement (v1 facade preserved)

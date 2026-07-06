@@ -442,16 +442,17 @@ class AndyEngine {
    *
    * @param {string} llmOutput - LLM 生成的文本
    * @param {string} agentId - 角色 ID
+   * @param {Object} [options={}] - 可选参数（如 structuredClaims）
    * @returns {Object} { valid, violations, severity, suggestion }
    */
-  checkConsistency(llmOutput, agentId) {
+  checkConsistency(llmOutput, agentId, options = {}) {
     if (!this.world.factStore) {
       return { valid: true, violations: [], severity: 'pass', suggestion: null };
     }
 
     const grounding = this.getGroundingPackage(agentId);
     const checker = new FactConsistencyChecker(this.world.factStore, this.domain);
-    return checker.check(llmOutput, grounding);
+    return checker.check(llmOutput, grounding, options);
   }
 
   // ═══════════════════════════════════════════

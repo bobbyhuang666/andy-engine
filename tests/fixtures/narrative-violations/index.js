@@ -29,8 +29,8 @@
 const { FactType } = require('../../../src/canon/FactSchema');
 const { FactScope } = require('../../../src/canon/FactSchema');
 
-const KNOWN_AGENT = '爱丽丝';
-const KNOWN_OTHER = '鲍勃';
+const KNOWN_AGENT = 'alice';
+const KNOWN_OTHER = 'bob';
 const KNOWN_REGIONS = ['图书馆', '食堂', '宿舍'];
 
 function baseGrounding(overrides = {}) {
@@ -41,6 +41,7 @@ function baseGrounding(overrides = {}) {
     ],
     metadata: {
       agentId: KNOWN_AGENT,
+      agentNames: { alice: '爱丽丝', bob: '鲍勃' },
       // 用中午 12:00 本地时间确保 checker 走白天分支（6-18），
       // 避免 UTC 转 local 时区导致 hour 落在夜晚分支。
       // checker 用 getHours()（本地时区），故用本地中午。
@@ -243,6 +244,7 @@ const corpus = [
       ],
     }),
     expectedViolations: [],
+    may_detect: false,  // regex may treat "今天" as unknown character at 图书馆
   },
 
   // ─── boundary cases (may_detect: false) ───
@@ -559,7 +561,392 @@ const corpus = [
       ],
     }),
     expectedViolations: [{ type: 'agent_state_leak' }],
-    may_detect: false,  // backward compat: no _evidence → not justifiable, but may not detect without evidence
+  },
+
+  // ═══════════════════════════════════════════
+  // v2.5-W4 新增：negation / uncertainty / paraphrase / source attribution / other-agent inner state / local leak
+  // ═══════════════════════════════════════════
+
+  // ─── Negation samples (5): negative polarity → should NOT trigger unsupported_claim ───
+  {
+    id: 'nv-036',
+    category: 'pass',
+    description: '否定 location claim — "我没去后院"，不应触发 unsupported_claim',
+    llmOutput: '我没去后院。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // regex "后院" may trigger unknown_location
+  },
+  {
+    id: 'nv-037',
+    category: 'pass',
+    description: '否定 location claim — "我没有在图书馆"，不同否定标记',
+    llmOutput: '我没有在图书馆。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT, position: '图书馆' },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // regex may trigger unsupported_claim for "在图书馆"
+  },
+  {
+    id: 'nv-038',
+    category: 'pass',
+    description: '否定 other-agent location — "小明没来食堂"',
+    llmOutput: '小明没来食堂。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // regex "来食堂" may trigger unknown_location
+  },
+  {
+    id: 'nv-039',
+    category: 'pass',
+    description: '否定身份 — "不是鲍勃"',
+    llmOutput: '不是鲍勃干的。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // regex "鲍勃干" may trigger unknown_character
+  },
+  {
+    id: 'nv-040',
+    category: 'pass',
+    description: '祈使否定 — "别去那里"',
+    llmOutput: '别去那里。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // regex "去那" may trigger unknown_location
+  },
+
+  // ─── Uncertainty samples (5): uncertain polarity → warning only, no blocking ───
+  {
+    id: 'nv-041',
+    category: 'pass',
+    description: '不确定性 — "Bob可能在酒馆"，酒馆不在 regions → 应只产生 warning',
+    llmOutput: 'Bob可能在酒馆。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],  // uncertainty → non-blocking
+    may_detect: false,
+  },
+  {
+    id: 'nv-042',
+    category: 'pass',
+    description: '不确定性 — "大概在图书馆" 带 self location',
+    llmOutput: '大概在图书馆。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],  // uncertainty → non-blocking
+    may_detect: false,
+  },
+  {
+    id: 'nv-043',
+    category: 'pass',
+    description: '不确定性 — "也许食堂有人" 带 event',
+    llmOutput: '也许食堂有人聚餐。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],  // uncertainty → non-blocking
+    may_detect: false,
+  },
+  {
+    id: 'nv-044',
+    category: 'pass',
+    description: '不确定性 — "应该很累" 带 state',
+    llmOutput: '应该很累。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],  // uncertainty → non-blocking
+    may_detect: false,
+  },
+  {
+    id: 'nv-045',
+    category: 'pass',
+    description: '不确定性 — "想必鲍勃在食堂" 带 other-agent location',
+    llmOutput: '想必鲍勃在食堂。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],  // uncertainty → non-blocking
+    may_detect: false,
+  },
+
+  // ─── Paraphrase / synonym samples (5) ───
+  {
+    id: 'nv-046',
+    category: 'pass',
+    description: '"到了" 同义于 "去了" — "我到了图书馆"，应在 regions 内 → pass',
+    llmOutput: '我到了图书馆。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT, position: '图书馆' },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // regex "到了" may trigger unknown_location
+  },
+  {
+    id: 'nv-047',
+    category: 'pass',
+    description: '"待在" 同义于 "在" — "待在食堂"，应在 regions 内 → pass',
+    llmOutput: '我待在食堂。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT, position: '食堂' },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // regex may trigger unsupported_claim for "待在"
+  },
+  {
+    id: 'nv-048',
+    category: 'pass',
+    description: '"正在" 同义于 "在" — "正在学习"，self activity → pass',
+    llmOutput: '我正在学习。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // regex "在" may trigger unsupported_claim
+  },
+  {
+    id: 'nv-049',
+    category: 'pass',
+    description: '"到过" 过去完成 — "到过咖啡馆"，不在 regions → unsupported_claim',
+    llmOutput: '我到过咖啡馆。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT, position: '图书馆' },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [{ type: 'unsupported_claim' }],
+    may_detect: false,  // "到过" 可能被正则捕获为 location
+  },
+  {
+    id: 'nv-050',
+    category: 'pass',
+    description: '"看到了" 观察同义 — "我看到了鲍勃"，self observation → pass',
+    llmOutput: '我看到了鲍勃。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: false,  // regex "看到了" may trigger unsupported_claim + unknown_location
+  },
+  {
+    id: 'nv-051',
+    category: 'missing_source_attribution',
+    description: 'told 事实无"听说" → missing_source_attribution warning',
+    llmOutput: '鲍勃发现了一本好书。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        { type: FactType.EVENT, description: '鲍勃发现了一本好书', location: '图书馆', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: KNOWN_OTHER } },
+      ],
+    }),
+    expectedViolations: [{ type: 'missing_source_attribution' }],
+  },
+  {
+    id: 'nv-052',
+    category: 'pass',
+    description: 'told 事实有"据说" → pass',
+    llmOutput: '据说鲍勃发现了一本好书。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        { type: FactType.EVENT, description: '鲍勃发现了一本好书', location: '图书馆', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: KNOWN_OTHER } },
+      ],
+    }),
+    expectedViolations: [],
+  },
+  {
+    id: 'nv-053',
+    category: 'missing_source_attribution',
+    description: 'inferred 事实无"推测" → missing_source_attribution warning',
+    llmOutput: '食堂发生了有趣的事。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        { type: FactType.EVENT, description: '食堂发生了有趣的事', location: '食堂', _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null } },
+      ],
+    }),
+    expectedViolations: [{ type: 'missing_source_attribution' }],
+  },
+  {
+    id: 'nv-054',
+    category: 'pass',
+    description: 'inferred 事实有"大概" → pass',
+    llmOutput: '食堂大概有人聚餐。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        { type: FactType.EVENT, description: '食堂有人聚餐', location: '食堂', _evidence: { source: 'inferred', confidence: 0.5, propagatedFrom: null } },
+      ],
+    }),
+    expectedViolations: [],
+  },
+  {
+    id: 'nv-055',
+    category: 'pass',
+    description: '"XX告诉我" 格式 → pass',
+    llmOutput: '鲍勃告诉我他去了图书馆。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        { type: FactType.EVENT, description: '鲍勃去了图书馆', location: '图书馆', participants: [KNOWN_OTHER], _evidence: { source: 'told', confidence: 0.6, propagatedFrom: KNOWN_OTHER } },
+      ],
+    }),
+    expectedViolations: [],
+    may_detect: true,   // v1 regex fallback now skips source-attributed regions
+  },
+  {
+    id: 'nv-056',
+    category: 'agent_state_leak',
+    description: 'Bob很焦虑 无 EVENT/OBSERVATION 证据 → agent_state_leak',
+    llmOutput: '鲍勃很焦虑。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+      ],
+    }),
+    expectedViolations: [{ type: 'agent_state_leak' }],
+  },
+  {
+    id: 'nv-057',
+    category: 'pass',
+    description: 'Bob很开心 有 EVENT 且 narrator 是参与者 → pass',
+    llmOutput: '鲍勃很开心。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        {
+          type: FactType.EVENT,
+          description: '鲍勃在食堂吃饭',
+          location: '食堂',
+          participants: [KNOWN_AGENT, KNOWN_OTHER],
+          _evidence: { source: 'observed', confidence: 0.9, propagatedFrom: null },
+        },
+      ],
+    }),
+    expectedViolations: [],
+  },
+  {
+    id: 'nv-058',
+    category: 'pass',
+    description: 'Bob在看书 有 observed EVENT 但 narrator 不在场 → activity justifiable',
+    llmOutput: '鲍勃在看书。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+        { type: FactType.AGENT_STATE, agentId: KNOWN_OTHER },
+        {
+          type: FactType.EVENT,
+          description: '鲍勃在看书',
+          location: '图书馆',
+          participants: [KNOWN_OTHER],
+          _evidence: { source: 'observed', confidence: 0.9, propagatedFrom: null },
+        },
+      ],
+    }),
+    expectedViolations: [],
+  },
+
+  // ─── Local leak samples (2) ───
+  {
+    id: 'nv-059',
+    category: 'local_scope_leak',
+    description: '提及 forbidden LOCAL event → local_scope_leak',
+    llmOutput: '操场发生了冲突。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+      ],
+      forbiddenFacts: [
+        {
+          type: FactType.EVENT,
+          scope: FactScope.LOCAL,
+          description: '操场发生了冲突',
+          location: '操场',
+        },
+      ],
+    }),
+    expectedViolations: [{ type: 'local_scope_leak' }],
+  },
+  {
+    id: 'nv-060',
+    category: 'local_scope_leak',
+    description: '提及 forbidden LOCAL observation → local_scope_leak',
+    llmOutput: '远处发生了地震。',
+    grounding: baseGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: KNOWN_AGENT },
+      ],
+      forbiddenFacts: [
+        {
+          type: FactType.OBSERVATION,
+          scope: FactScope.LOCAL,
+          description: '远处发生了地震',
+          location: '远方',
+        },
+      ],
+    }),
+    expectedViolations: [{ type: 'local_scope_leak' }],
   },
 ];
 

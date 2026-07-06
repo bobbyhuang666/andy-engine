@@ -7,9 +7,13 @@
 const FactProvider = require('./FactProvider');
 const FactConsistencyChecker = require('./FactConsistencyChecker');
 const FactFormatter = require('./FactFormatter');
+const GroundingChecker = require('./GroundingChecker');
+const ClaimExtractor = require('./ClaimExtractor');
 
 module.exports = {
   FactProvider,
   FactConsistencyChecker,
   FactFormatter,
+  GroundingChecker,
+  ClaimExtractor,
 };

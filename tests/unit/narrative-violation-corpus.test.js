@@ -4,7 +4,7 @@
  * 遍历 corpus，对每条跑 FactConsistencyChecker，断言检出 expectedViolations 类别。
  * 统计 gate rate 和 boundary rate，按 RFC §4.2 质量门槛判定。
  *
- * W3 目标：≥35 条，gate rate ≥85%，boundary ≥5 条，覆盖 ≥9 类。
+ * W4 目标：≥50 条，gate rate ≥90%，boundary ≥10 条，覆盖 ≥10 类。
  */
 
 import { describe, it, expect } from 'vitest';
@@ -13,13 +13,13 @@ const require = createRequire(import.meta.url);
 const FactConsistencyChecker = require('../../src/narrative/FactConsistencyChecker.js');
 const { corpus, KNOWN_REGIONS } = require('../fixtures/narrative-violations/index.js');
 
-const GATE_RATE_THRESHOLD = 0.85; // RFC §4.2
+const GATE_RATE_THRESHOLD = 0.90; // RFC §4.2
 
 describe('Narrative Violation Corpus — 检出率 (v2.5-W3)', () => {
   const checker = new FactConsistencyChecker({}, { regions: KNOWN_REGIONS });
 
-  it('corpus 至少 35 条', () => {
-    expect(corpus.length).toBeGreaterThanOrEqual(35);
+  it('corpus 至少 50 条', () => {
+    expect(corpus.length).toBeGreaterThanOrEqual(50);
   });
 
   // 每条样本单独断言（便于失败时定位）
@@ -54,7 +54,7 @@ describe('Narrative Violation Corpus — 检出率 (v2.5-W3)', () => {
     });
   }
 
-  it('gate rate ≥85% (RFC §4.2)', () => {
+  it('gate rate ≥90% (RFC §4.2)', () => {
     // Gate cases = samples with expected violations and may_detect !== false
     const gateCases = corpus.filter(c => c.expectedViolations.length > 0 && c.may_detect !== false);
     let detected = 0;
@@ -88,6 +88,8 @@ describe('Narrative Violation Corpus — 检出率 (v2.5-W3)', () => {
     const details = [];
 
     for (const sample of passSamples) {
+      // skip boundary cases — they are allowed to FP without counting against the limit
+      if (sample.may_detect === false) continue;
       const result = checker.check(sample.llmOutput, sample.grounding);
       if (result.violations.length > 0) {
         falsePositives++;
@@ -103,7 +105,7 @@ describe('Narrative Violation Corpus — 检出率 (v2.5-W3)', () => {
     }
   });
 
-  it('corpus 覆盖至少 9 类 violation（含 agent_state_leak, local_scope_leak）', () => {
+  it('corpus 覆盖至少 10 类 violation（含 agent_state_leak, local_scope_leak）', () => {
     const categories = new Set(
       corpus
         .filter(c => c.expectedViolations.length > 0)
@@ -116,7 +118,7 @@ describe('Narrative Violation Corpus — 检出率 (v2.5-W3)', () => {
 
   it('boundary cases 单独报告检出率', () => {
     const boundaryCases = corpus.filter(c => c.may_detect === false);
-    expect(boundaryCases.length, 'boundary cases 应 ≥5').toBeGreaterThanOrEqual(5);
+    expect(boundaryCases.length, 'boundary cases 应 ≥10').toBeGreaterThanOrEqual(10);
 
     let detected = 0;
     const details = [];

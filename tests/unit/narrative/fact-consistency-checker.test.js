@@ -242,6 +242,23 @@ describe('_checkMissingSourceAttribution (v2.5-W1)', () => {
     expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(true);
   });
 
+  it('does NOT flag self-negation text matching 4-char fragment of told fact (P2 fix)', () => {
+    // "我没有在图书馆" contains fragment "在图书" from told fact "鲍勃在图书馆"
+    // but should NOT trigger missing_source_attribution
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      allowedFacts: [
+        { type: FactType.AGENT_STATE, agentId: 'alice' },
+        { type: FactType.AGENT_STATE, agentId: 'bob' },
+        { type: FactType.EVENT, description: '鲍勃在图书馆', location: '图书馆', _evidence: { source: 'told', confidence: 0.6, propagatedFrom: 'bob' } },
+      ],
+      metadata: { agentId: 'alice', agentNames: { alice: '爱丽丝', bob: '鲍勃' } },
+    });
+    const r = c.check('我没有在图书馆', grounding);
+    // Self-negation should not trigger missing_source_attribution for unrelated told fact
+    expect(r.violations.some(v => v.type === 'missing_source_attribution')).toBe(false);
+  });
+
   it('flags inferred fact expressed without "推测/大概"', () => {
     const c = makeChecker();
     const grounding = makeGrounding({

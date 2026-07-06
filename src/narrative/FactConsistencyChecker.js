@@ -1,12 +1,14 @@
 /**
- * FactConsistencyChecker - 一致性校验器（实验性）
+ * FactConsistencyChecker - 一致性校验器
  *
- * 第一版实现：基于正则的硬校验。
- * 已知局限：中文名字/地名检测有误报风险。
- * 未来可升级为基于 KnowledgeStore 的精确校验。
+ * v2 facade：默认调用 GroundingChecker v2（结构化 claim 校验），
+ * 保留全部 9 个 regex 子检查器作为 fallback。
+ * 返回兼容 shape：{ valid, violations, severity, suggestion }
+ * 附加可选字段：claims, checkerVersion: 'v2-structured'
  */
 
 const { FactType, FactScope } = require('../canon/FactSchema');
+const GroundingChecker = require('./GroundingChecker');
 
 class FactConsistencyChecker {
   /**
@@ -79,49 +81,62 @@ class FactConsistencyChecker {
 
   /**
    * 校验 LLM 输出
+   *
+   * v2 facade：默认调用 GroundingChecker v2（结构化 claim 校验），
+   * 保留全部 9 个 regex 子检查器作为 fallback。
+   * 返回兼容 shape：{ valid, violations, severity, suggestion }
+   * 附加可选字段：claims, checkerVersion: 'v2-structured'
+   *
    * @param {string} llmOutput - LLM 生成的文本
    * @param {Object} grounding - 角色的 grounding package
-   * @returns {Object} { valid, violations, severity, suggestion }
+   * @param {Object} [options={}] - 可选参数（如 structuredClaims）
+   * @returns {Object} { valid, violations, severity, suggestion, claims?, checkerVersion? }
    */
-  check(llmOutput, grounding) {
+  check(llmOutput, grounding, options = {}) {
     if (!llmOutput || !grounding) {
       return { valid: true, violations: [], severity: 'pass', suggestion: null };
     }
 
-    const violations = [];
+    // v2 structured checker — primary path
+    const v2Checker = new GroundingChecker(this.store, this.domain);
+    const v2Result = v2Checker.check(llmOutput, grounding, options);
 
-    // 1. 角色名校验
-    violations.push(...this._checkCharacterNames(llmOutput, grounding));
+    // v1 regex fallback — for patterns not yet covered by structured claims
+    const regexViolations = [];
+    regexViolations.push(...this._checkCharacterNames(llmOutput, grounding));
+    regexViolations.push(...this._checkLocationNames(llmOutput, grounding));
+    regexViolations.push(...this._checkEventKnowledge(llmOutput, grounding));
+    regexViolations.push(...this._checkTimeConflicts(llmOutput, grounding));
+    regexViolations.push(...this._checkNewContent(llmOutput, grounding));
+    regexViolations.push(...this._checkAgentLocationClaims(llmOutput, grounding));
+    regexViolations.push(...this._checkMissingSourceAttribution(llmOutput, grounding));
+    regexViolations.push(...this._checkAgentStateLeak(llmOutput, grounding));
+    regexViolations.push(...this._checkLocalScopeLeak(llmOutput, grounding));
 
-    // 2. 地名校验
-    violations.push(...this._checkLocationNames(llmOutput, grounding));
+    // Merge: v2 blocking violations first, then regex-only violations (no duplicates)
+    const merged = [...v2Result.violations];
+    const existingTypes = new Set(v2Result.violations.map(v => `${v.type}:${v.agent || ''}:${v.location || ''}:${v.event || ''}`));
 
-    // 3. 事件知识校验
-    violations.push(...this._checkEventKnowledge(llmOutput, grounding));
+    for (const rv of regexViolations) {
+      const key = `${rv.type}:${rv.agent || ''}:${rv.location || ''}:${rv.event || ''}`;
+      if (!existingTypes.has(key)) {
+        merged.push(rv);
+      }
+    }
 
-    // 4. 时间冲突校验
-    violations.push(...this._checkTimeConflicts(llmOutput, grounding));
-
-    // 5. 新内容校验
-    violations.push(...this._checkNewContent(llmOutput, grounding));
-
-    // 6. Agent-location 声明校验
-    violations.push(...this._checkAgentLocationClaims(llmOutput, grounding));
-
-    // 7. 来源标注校验 (v2.5-W1)
-    violations.push(...this._checkMissingSourceAttribution(llmOutput, grounding));
-
-    // 8. 其他角色内心状态泄漏校验 (v2.5-W2)
-    violations.push(...this._checkAgentStateLeak(llmOutput, grounding));
-
-    // 9. LOCAL 事件知识泄漏校验 (v2.5-W2)
-    violations.push(...this._checkLocalScopeLeak(llmOutput, grounding));
+    const severity = merged.length > 0 ? this._computeSeverity(merged) : 'pass';
+    const suggestion = merged.length > 0 ? this._suggestFix(merged) : null;
 
     return {
-      valid: violations.length === 0,
-      violations,
-      severity: this._computeSeverity(violations),
-      suggestion: violations.length > 0 ? this._suggestFix(violations) : null,
+      valid: merged.length === 0,
+      violations: merged,
+      severity,
+      suggestion,
+      claims: v2Result.claims,
+      checkerVersion: 'v2-structured',
+      ...(v2Result.evidenceTrace !== undefined ? { evidenceTrace: v2Result.evidenceTrace } : {}),
+      ...(v2Result.coreferenceNotes !== undefined ? { coreferenceNotes: v2Result.coreferenceNotes } : {}),
+      ...(v2Result.verifierDecisions !== undefined ? { verifierDecisions: v2Result.verifierDecisions } : {}),
     };
   }
 
@@ -159,6 +174,24 @@ class FactConsistencyChecker {
     }
 
     return violations;
+  }
+
+  /**
+   * Check if a position in the text falls within a source-attributed region
+   * (i.e., after a source marker like "听说", "告诉我", "据说", etc.).
+   * Locations inside such regions are source-attributed claims, not direct
+   * world claims, so they should not trigger unknown_location violations.
+   * @private
+   */
+  _isInSourceAttributedRegion(text, index) {
+    const sourceMarkers = ['听说', '告诉我', '告诉过', '说的', '跟我说的', '跟我讲', '说是', '据说', '风闻', '传闻'];
+    for (const marker of sourceMarkers) {
+      const markerPos = text.lastIndexOf(marker, index);
+      if (markerPos >= 0 && markerPos < index) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -200,12 +233,15 @@ class FactConsistencyChecker {
     let match;
     while ((match = locationPattern.exec(text)) !== null) {
       const location = match[1];
+      const matchIndex = match.index;
       // Filter: must be a plausible location (not a verb/adj suffix)
       const nonLocationSuffixes = ['看书', '学习', '吃饭', '聊天', '休息', '睡觉', '工作', '运动', '跑步'];
       if (nonLocationSuffixes.some(suffix => location.endsWith(suffix))) continue;
       // Skip common non-location words
       const commonNonLocations = ['这里', '那里', '哪里', '外面', '里面', '旁边', '对面', '上面', '下面'];
       if (commonNonLocations.includes(location)) continue;
+      // Skip locations inside source-attributed regions (e.g. "鲍勃告诉我他去了图书馆")
+      if (this._isInSourceAttributedRegion(text, matchIndex)) continue;
       // Only flag if the location is NOT in the domain's region list AND NOT in known facts
       if (!allDomainLocations.has(location) && !knownLocations.has(location)) {
         violations.push({
@@ -790,15 +826,13 @@ class FactConsistencyChecker {
    * @private
    */
   _textContainsFactContent(text, description) {
-    // Simple substring check — if description appears in text
+    // Require the full description to appear in text.
+    // 4-char fragment matching caused false positives:
+    //   text "我没有在图书馆" contains 4-char fragment "在图书" from
+    //   told fact "鲍勃在图书馆" → spurious missing_source_attribution.
+    // The v2 structured checker handles paraphrased matches; v1 regex
+    // should only flag exact description repetitions without attribution.
     if (text.includes(description)) return true;
-    // Check partial match for longer descriptions (at least 4 chars overlap)
-    if (description.length >= 4) {
-      for (let i = 0; i <= description.length - 4; i++) {
-        const fragment = description.substring(i, i + 4);
-        if (text.includes(fragment)) return true;
-      }
-    }
     return false;
   }
 

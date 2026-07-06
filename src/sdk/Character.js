@@ -147,6 +147,7 @@ class Character {
    * @param {Object} [options]
    * @param {Object} [options.llm] - 临时覆盖 LLM 配置
    * @param {number} [options.relationship] - 与角色的关系强度 0-100
+   * @param {Object} [options.structuredClaims] - 结构化 claim sidecar（M2-R3 透传管道）
    * @returns {Promise<string>} 角色回复
    */
   async chat(message, options = {}) {
@@ -206,7 +207,8 @@ class Character {
 
     // 5.5 一致性校验（如果启用事实系统）
     if (this._engine.checkConsistency) {
-      const consistency = this._engine.checkConsistency(reply, this.id);
+      const consistencyOpts = options?.structuredClaims != null ? { structuredClaims: options.structuredClaims } : {};
+      const consistency = this._engine.checkConsistency(reply, this.id, consistencyOpts);
       if (!consistency.valid) {
         // R39 P1 fix (B2): 拦截 reject AND rewrite 两种 severity。
         // 原实现只拦截 reject,rewrite 级违规内容被原样返回给用户,违反
@@ -240,6 +242,8 @@ class Character {
    *
    * @param {string} message - 用户消息
    * @param {Object} [options]
+   * @param {Object} [options.llm] - 临时覆盖 LLM 配置
+   * @param {Object} [options.structuredClaims] - 结构化 claim sidecar（M2-R3 透传管道）
    * @returns {AsyncGenerator<string>} 逐 token 产出
    *
    * @example
@@ -307,7 +311,8 @@ class Character {
     // Apply consistency check before yielding any content
     let outputReply = fullReply;
     if (this._engine.checkConsistency) {
-      const consistency = this._engine.checkConsistency(fullReply, this.id);
+      const consistencyOpts = options?.structuredClaims != null ? { structuredClaims: options.structuredClaims } : {};
+      const consistency = this._engine.checkConsistency(fullReply, this.id, consistencyOpts);
       if (!consistency.valid) {
         // R39 P1 fix: 拦截 reject AND rewrite 两种 severity。
         // 原实现只拦截 reject,rewrite 级违规内容被原样 yield 给用户,违反
