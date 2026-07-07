@@ -57,6 +57,7 @@ describe('M2-R3: FactConsistencyChecker 双参调用零回归', () => {
     expect(r.violations.some(v => v.type === 'unsupported_claim')).toBe(true);
     expect(r.severity).toBe('rewrite');
     expect(r.checkerVersion).toBe('v2-structured');
+    expect(r.groundingVersion).toBe('v3-semantic-alpha');
   });
 
   it('双参调用 — corpus 每条样本 legacy 结果不变', () => {
@@ -64,6 +65,7 @@ describe('M2-R3: FactConsistencyChecker 双参调用零回归', () => {
     for (const sample of corpus) {
       const r = fcc.check(sample.llmOutput, sample.grounding);
       expect(r.checkerVersion).toBe('v2-structured');
+      expect(r.groundingVersion).toBe('v3-semantic-alpha');
       expect(Array.isArray(r.violations)).toBe(true);
       expect(['reject', 'rewrite', 'warning', 'degrade_to_template', 'pass']).toContain(r.severity);
       expect(r.valid).toBe(r.violations.length === 0);

@@ -126,6 +126,17 @@ if (result.valid === undefined) throw new Error('checkConsistency 3-param failed
 const et: any[] | undefined = result.evidenceTrace;
 const cn: any[] | undefined = result.coreferenceNotes;
 const vd: any[] | undefined = result.verifierDecisions;
+
+// D5 v3 sidecar via facts subpath: FactConsistencyChecker.check accepts options
+const FactChecker = facts.FactConsistencyChecker;
+const factStore = new facts.WorldFactStore();
+const factChecker = new FactChecker(factStore);
+const factResult: any = factChecker.check('hello world', { allowedFacts: [] }, { structuredClaims: [] });
+if (factResult.valid === undefined) throw new Error('facts FactConsistencyChecker 3-param failed');
+const factEt: any[] | undefined = factResult.evidenceTrace;
+const factCn: any[] | undefined = factResult.coreferenceNotes;
+const factVd: any[] | undefined = factResult.verifierDecisions;
+const factGv: string | undefined = factResult.groundingVersion;
 TS_EOF
 
 # 5. Create tsconfig

@@ -14,7 +14,7 @@
  *   10. fake verifier 返回 malformed decisions → adapter 容错，verifierDecisions 空
  *   11. fake verifier 决策不含 unknown claimId → review 'unknown claimId'
  *   12. 无网络调用：grep 实证
- *   13. checkerVersion 仍 'v2-structured'
+ *   13. checkerVersion + groundingVersion unchanged
  *   14. evidenceTrace 仍存在（M1 行为不变）
  *   15. propagatedFrom 红线在 verifier 路径守住
  *   16. fake verifier 给 deterministic supports claim 标 contradicts → verifierDecisions 保留
@@ -349,8 +349,8 @@ describe('GroundingChecker verifier adapter integration (M5-R2)', () => {
 
   // ── 13. checkerVersion 仍 'v2-structured' ──
 
-  describe('Test 13: checkerVersion unchanged', () => {
-    it('无论 verifier 如何设置，checkerVersion 都是 "v2-structured"', () => {
+  describe('Test 13: checkerVersion + groundingVersion unchanged', () => {
+    it('无论 verifier 如何设置，checkerVersion 都是 "v2-structured"，groundingVersion 都是 "v3-semantic-alpha"', () => {
       const c = makeChecker();
       const impl = makeFakeVerifier(() => ({ decisions: [], meta: {} }));
 
@@ -361,6 +361,9 @@ describe('GroundingChecker verifier adapter integration (M5-R2)', () => {
       expect(r1.checkerVersion).toBe('v2-structured');
       expect(r2.checkerVersion).toBe('v2-structured');
       expect(r3.checkerVersion).toBe('v2-structured');
+      expect(r1.groundingVersion).toBe('v3-semantic-alpha');
+      expect(r2.groundingVersion).toBe('v3-semantic-alpha');
+      expect(r3.groundingVersion).toBe('v3-semantic-alpha');
     });
   });
 
@@ -524,6 +527,7 @@ describe('GroundingChecker verifier adapter integration (M5-R2)', () => {
       });
 
       expect(r.checkerVersion).toBe('v2-structured');
+      expect(r.groundingVersion).toBe('v3-semantic-alpha');
     });
   });
 

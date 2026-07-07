@@ -11,7 +11,7 @@
  *   - polarity === uncertain 的 claim 不按确定事实硬拦截
  *   - 否定 claim 不能被当作正向 claim
  *   - 保留 FactConsistencyChecker 的 { valid, violations, severity, suggestion } API shape
- *   - 附加可选字段：claims, checkerVersion: 'v2-structured'
+ *   - 附加可选字段：claims, checkerVersion: 'v2-structured', groundingVersion: 'v3-semantic-alpha'
  */
 
 const ClaimExtractor = require('./ClaimExtractor');
@@ -50,7 +50,7 @@ class GroundingChecker {
    * @param {Object} grounding - grounding package from FactProvider
    * @param {Object} [options] - optional sidecar support
    * @param {*} [options.structuredClaims] - sidecar claims from LLM structured output
-   * @returns {Object} { valid, violations, severity, suggestion, claims?, checkerVersion? }
+   * @returns {Object} { valid, violations, severity, suggestion, claims?, checkerVersion?, groundingVersion? }
    */
   check(llmOutput, grounding, options = {}) {
     const structuredClaims = options?.structuredClaims;
@@ -483,6 +483,7 @@ class GroundingChecker {
       suggestion,
       claims: debugClaims.length > 0 ? debugClaims : undefined,
       checkerVersion: 'v2-structured',
+      groundingVersion: 'v3-semantic-alpha',
       ...(evidenceTrace !== undefined ? { evidenceTrace } : {}),
       ...(coreferenceNotes !== undefined ? { coreferenceNotes } : {}),
       ...(verifierDecisions !== undefined ? { verifierDecisions } : {}),

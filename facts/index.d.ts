@@ -41,6 +41,10 @@ interface ConsistencyCheckResult {
   coreferenceNotes?: CoreferenceNote[];
   /** v3 sidecar: semantic verifier decisions */
   verifierDecisions?: VerifierDecision[];
+  /** checker implementation version (compat) */
+  checkerVersion?: 'v2-structured';
+  /** v3 semantic alpha grounding version (additive) */
+  groundingVersion?: 'v3-semantic-alpha';
   [key: string]: any;
 }
 

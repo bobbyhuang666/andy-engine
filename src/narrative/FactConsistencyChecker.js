@@ -4,7 +4,7 @@
  * v2 facade：默认调用 GroundingChecker v2（结构化 claim 校验），
  * 保留全部 9 个 regex 子检查器作为 fallback。
  * 返回兼容 shape：{ valid, violations, severity, suggestion }
- * 附加可选字段：claims, checkerVersion: 'v2-structured'
+ * 附加可选字段：claims, checkerVersion: 'v2-structured', groundingVersion: 'v3-semantic-alpha'
  */
 
 const { FactType, FactScope } = require('../canon/FactSchema');
@@ -85,12 +85,12 @@ class FactConsistencyChecker {
    * v2 facade：默认调用 GroundingChecker v2（结构化 claim 校验），
    * 保留全部 9 个 regex 子检查器作为 fallback。
    * 返回兼容 shape：{ valid, violations, severity, suggestion }
-   * 附加可选字段：claims, checkerVersion: 'v2-structured'
+   * 附加可选字段：claims, checkerVersion: 'v2-structured', groundingVersion: 'v3-semantic-alpha'
    *
    * @param {string} llmOutput - LLM 生成的文本
    * @param {Object} grounding - 角色的 grounding package
    * @param {Object} [options={}] - 可选参数（如 structuredClaims）
-   * @returns {Object} { valid, violations, severity, suggestion, claims?, checkerVersion? }
+   * @returns {Object} { valid, violations, severity, suggestion, claims?, checkerVersion?, groundingVersion? }
    */
   check(llmOutput, grounding, options = {}) {
     if (!llmOutput || !grounding) {
@@ -134,6 +134,7 @@ class FactConsistencyChecker {
       suggestion,
       claims: v2Result.claims,
       checkerVersion: 'v2-structured',
+      groundingVersion: 'v3-semantic-alpha',
       ...(v2Result.evidenceTrace !== undefined ? { evidenceTrace: v2Result.evidenceTrace } : {}),
       ...(v2Result.coreferenceNotes !== undefined ? { coreferenceNotes: v2Result.coreferenceNotes } : {}),
       ...(v2Result.verifierDecisions !== undefined ? { verifierDecisions: v2Result.verifierDecisions } : {}),
