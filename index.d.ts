@@ -169,7 +169,50 @@ interface ConsistencyCheckResult {
   violations: ConsistencyViolation[];
   severity: 'pass' | 'reject' | 'rewrite' | 'degrade_to_template' | 'warning';
   suggestion: string | null;
+  /** v3 sidecar: evidence trace for each claim (source/support/reason) */
+  evidenceTrace?: EvidenceTraceEntry[];
+  /** v3 sidecar: coreference resolution notes */
+  coreferenceNotes?: CoreferenceNote[];
+  /** v3 sidecar: semantic verifier decisions */
+  verifierDecisions?: VerifierDecision[];
   [key: string]: any;
+}
+
+/** v3 sidecar entry: per-claim evidence binding */
+interface EvidenceTraceEntry {
+  claim: string;
+  source: string;
+  support: string;
+  reason: string;
+  [key: string]: any;
+}
+
+/** v3 sidecar entry: coreference resolution note */
+interface CoreferenceNote {
+  pronoun: string;
+  resolvedTo: string;
+  confidence: number;
+  [key: string]: any;
+}
+
+/** v3 sidecar entry: verifier decision */
+interface VerifierDecision {
+  claim: string;
+  verdict: string;
+  reason: string;
+  [key: string]: any;
+}
+
+/** v3 sidecar options passed to checkConsistency / FactConsistencyChecker.check */
+interface ConsistencyCheckOptions {
+  /** structured claim sidecar for v3 evidence-bound path */
+  structuredClaims?: object;
+  /** location alias map (alias → canonical) for diagnostic trace */
+  locationAliases?: Record<string, string[]>;
+  /** optional semantic verifier adapter */
+  verifier?: object;
+  /** strictness level */
+  strictness?: 'normal' | 'strict' | 'semantic_review';
 }
 
 interface AgentSnapshot {
@@ -402,7 +445,7 @@ declare class AndyEngine {
   getNarrative(agentId: string, options?: { userText?: string; relationship?: number }): string;
   getWorldContext(agentId: string): WorldContext | null;
   getGroundingPackage(agentId: string, options?: object): GroundingPackage | null;
-  checkConsistency(llmOutput: string, agentId: string): ConsistencyCheckResult;
+  checkConsistency(llmOutput: string, agentId: string, options?: ConsistencyCheckOptions): ConsistencyCheckResult;
   tick(): TickResult;
   runTicks(count: number): TickResult[];
   advanceTo(targetTime: Date, maxTicks?: number): TickResult[] & { _completed: boolean; _ticksUsed: number };

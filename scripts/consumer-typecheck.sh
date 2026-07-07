@@ -118,6 +118,14 @@ const tavernRegistry = new DomainRegistrySubpath(tavern, { validate: false });
 if (!domainResult.valid || !campusResult.valid || !registry.hasRegion('room') || !tavernRegistry.hasRegion('酒馆') || !defaults.ANDY_DEFAULTS || !restored || !deserialized || !latest || !latestAlias || metaValue !== 'value' || legacyMeta !== 'ok' || !savedEnvelope || snapshotList.length !== 0) {
   throw new Error('public facade type smoke failed');
 }
+
+// D5 v3 sidecar: checkConsistency accepts 3rd param options with structuredClaims
+// and ConsistencyCheckResult exposes evidenceTrace/coreferenceNotes/verifierDecisions
+const result: any = engine.checkConsistency('hello world', 'a', { structuredClaims: [] });
+if (result.valid === undefined) throw new Error('checkConsistency 3-param failed');
+const et: any[] | undefined = result.evidenceTrace;
+const cn: any[] | undefined = result.coreferenceNotes;
+const vd: any[] | undefined = result.verifierDecisions;
 TS_EOF
 
 # 5. Create tsconfig

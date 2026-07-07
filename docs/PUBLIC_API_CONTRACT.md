@@ -42,7 +42,7 @@ require('andy-engine/presets/tavern') → presets/tavern/index.js
   - `getNarrative(id, options?)` — stable
   - `getWorldContext(id)` — stable
   - `getGroundingPackage(id, options?)` — stable
-  - `checkConsistency(llmOutput, id)` — stable
+  - `checkConsistency(llmOutput, id, options?) — stable`
   - `tick()` — stable
   - `runTicks(count)` — stable
   - `advanceTo(targetTime, maxTicks?)` — stable
@@ -266,14 +266,24 @@ The following are explicitly NOT part of the public API and must NOT appear in `
 
 ## TypeScript Support (Alpha)
 
-`package.json` exports 为 `.` 与 `./sdk` 提供 `types` 子键(指向 `index.d.ts` / `sdk/index.d.ts`)。
-其余 8 个 subpath(`./domain`、`./domain/validate`、`./domain/registry`、`./facts`、`./store`、`./config/defaults`、`./presets/campus`、`./presets/tavern`)是纯 JavaScript,**未提供独立 `.d.ts`**。
+`package.json` exports 为以下 subpath 均提供 `types` 子键(指向对应 `.d.ts`)：
 
-这是 Foundation Alpha 阶段的已知限制。TS 消费者:
-- 从 `.` 或 `./sdk` 导入时获得类型声明。
-- 从其余 subpath 导入时,TS 会回退到 JS 推断或 root `index.d.ts`(不精确)。
+| Subpath | `.d.ts` 路径 |
+|---------|-------------|
+| `.` | `index.d.ts` |
+| `./sdk` | `sdk/index.d.ts` |
+| `./domain` | `domain/index.d.ts` |
+| `./domain/validate` | `src/domain/validateDomain.d.ts` |
+| `./domain/registry` | `src/domain/DomainRegistry.d.ts` |
+| `./facts` | `facts/index.d.ts` |
+| `./store` | `store/index.d.ts` |
+| `./config/defaults` | `src/config/defaults.d.ts` |
+| `./presets/campus` | `presets/campus/index.d.ts` |
+| `./presets/tavern` | `presets/tavern/index.d.ts` |
 
-未来 GA 阶段会为每个 subpath 补 `.d.ts`。在此之前,纯 JS subpath 的类型支持不构成契约承诺。
+所有 10 个 subpath 均已提供独立 `.d.ts` 类型声明。TS 消费者从任一 subpath 导入均可获得精确的类型推导。
+
+D5 v3 sidecar options (`structuredClaims`, `locationAliases`, `verifier`, `strictness`) 通过 `checkConsistency` 的第三参 `options` 传入，与 `GroundingChecker` v3 evidence-bound path 对齐。`ConsistencyCheckResult` 附带可选字段 `evidenceTrace`、`coreferenceNotes`、`verifierDecisions` 供 TS 消费者消费诊断旁路数据。
 
 ---
 

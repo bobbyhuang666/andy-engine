@@ -158,7 +158,7 @@ export class Character {
    * @param options - 可选配置
    * @returns 角色回复
    */
-  chat(message: string, options?: { llm?: LLMConfig | LLMFunction }): Promise<string>;
+  chat(message: string, options?: { llm?: LLMConfig | LLMFunction; structuredClaims?: object }): Promise<string>;
 
   /**
    * 流式对话（逐 token 产出）
@@ -166,7 +166,7 @@ export class Character {
    * @param options - 可选配置
    * @returns 逐 token 产出的异步迭代器
    */
-  chatStream(message: string, options?: { llm?: LLMConfig | LLMFunction }): AsyncGenerator<string>;
+  chatStream(message: string, options?: { llm?: LLMConfig | LLMFunction; structuredClaims?: object }): AsyncGenerator<string>;
 
   /**
    * 获取角色当前状态

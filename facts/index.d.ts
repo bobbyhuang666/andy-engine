@@ -35,6 +35,37 @@ interface ConsistencyCheckResult {
   violations: ConsistencyViolation[];
   severity: 'pass' | 'reject' | 'rewrite' | 'degrade_to_template' | 'warning';
   suggestion: string | null;
+  /** v3 sidecar: evidence trace for each claim (source/support/reason) */
+  evidenceTrace?: EvidenceTraceEntry[];
+  /** v3 sidecar: coreference resolution notes */
+  coreferenceNotes?: CoreferenceNote[];
+  /** v3 sidecar: semantic verifier decisions */
+  verifierDecisions?: VerifierDecision[];
+  [key: string]: any;
+}
+
+/** v3 sidecar entry: per-claim evidence binding */
+interface EvidenceTraceEntry {
+  claim: string;
+  source: string;
+  support: string;
+  reason: string;
+  [key: string]: any;
+}
+
+/** v3 sidecar entry: coreference resolution note */
+interface CoreferenceNote {
+  pronoun: string;
+  resolvedTo: string;
+  confidence: number;
+  [key: string]: any;
+}
+
+/** v3 sidecar entry: verifier decision */
+interface VerifierDecision {
+  claim: string;
+  verdict: string;
+  reason: string;
   [key: string]: any;
 }
 
@@ -103,7 +134,7 @@ declare class FactProvider {
 
 declare class FactConsistencyChecker {
   constructor(worldFactStore: WorldFactStore, domain?: any);
-  check(llmOutput: string, agentId: string): ConsistencyCheckResult;
+  check(llmOutput: string, grounding: object, options?: { structuredClaims?: object; locationAliases?: Record<string, string[]>; verifier?: object; strictness?: 'normal' | 'strict' | 'semantic_review' }): ConsistencyCheckResult;
 }
 
 declare class FactFormatter {
