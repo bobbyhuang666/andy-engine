@@ -1,13 +1,15 @@
-# Aliveness Report
+# Aliveness Report (Historical Snapshot)
 
 > 生成时间: 2026-07-05T14:19:45.238Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
 > ALIVENESS_BENCHMARK_RFC v0.3 §3 报告制度。每次 release 重新生成。
+> 历史快照: 此文件早于 D5 Semantic Beta / post-beta hardening。
+> 当前 D5 grounding 状态请以 `docs/quality/d5-semantic-beta-report.md` 和 `README.md` 为准。
 
 ## 测试命令快照
 
 | 命令 | 退出码 | 关键输出 |
 |---|---|---|
-| npm test | 0 | Test Files  196 passed \| 1 skipped (197) / Tests  3418 passed \| 28 skipped (3446) |
+| npm test | 0 | Historical output superseded by current `README.md` verification status. |
 | npm run test:domain | 0 |  Test Files  5 passed (5) /       Tests  82 passed (82) |
 | npm run perf:check | 0 | 100 agents avg/tick                15.11     25.52   0.59x   ✓ PASS / 300 agents avg/tick                86.43    202.48   0.43x   ✓ PASS / fixed-clustered gather (ms)        36.75     33.87   1.09x   ✓ PASS / fixed-clustered cache (ms)          7.05      7.33   0.96x   ✓ PASS / runtime-clustered gather (ms)      26.66     34.85   0.76x   ✓ PASS / ✓ All performance checks passed |
 | npm run replay:diff | 0 | ticks: 100 \| matched: 100 \| mismatched: 0 |
@@ -43,13 +45,13 @@
 - **Owner**: effects 层
 - **测试输出引用**: tests/unit/effects/ 1/1 文件 pass
 
-### D5 Grounded Narrative Faithfulness — Semantic Alpha Pass (D5 v3, §7 M4 gate met)
+### D5 Grounded Narrative Faithfulness — Superseded Snapshot
 
 - **标准**: narrative regression corpus + violation tracking（不承诺语义完备）。
 - **测试入口**: tests/unit/narrative/grounding/ (ClaimSchema/EvidenceBinder/SidecarValidator/CoreferenceResolver/GroundingVerifier) + tests/unit/narrative/semantic-corpus.test.js + tests/fixtures/narrative-semantic-corpus/
 - **Owner**: narrative 层
-- **特殊说明**: v3 Semantic Alpha Pass (D5 v3, §7 M4 gate met) — ClaimExtractor→GroundingChecker v3 路径含 ClaimSchema/EvidenceBinder/SidecarValidator/CoreferenceResolver/GroundingVerifier modules；已有 evidence trace + coreference notes + optional verifier adapter (NoOp 默认)；semantic corpus 共 455 样本（345 hand-written + simulated-LLM + 110 real-LLM 输出，model metadata 见 fixtures），其中 gold_pass 65 / gold_violation 80 / ambiguous_boundary 35 / paraphrase 50 / coreference 50 / source_attribution 35 / emotion_needs 33 / time 25 / domain_portability 47 / multi_sentence 35；false pass rate 0% / false block rate 0%；12 §9 hard regressions 全 hard-gated。§7 M4 Semantic Alpha gate 6 条全达成（totalSamples 455>=300 / realLLM 110>=100 / paraphrase+coreference 100>=80 / falsePass 0%<=5% / falseBlock 0%<=8% / p1HardGated 12）；semanticAlphaGateMet=true。仍非 Semantic Beta（需 corpus>=1000、realLLM>=500、verifier benchmark report、多 LLM 评测）；仍非 Stable（需第三方验证、sidecar stable、长跑 SDK 证据）；仍非完整语义 NLI 或形式可证真。
-- **测试输出引用**: npm test 3847 passed / semantic-corpus.test.js pass (455 samples, gate rate: false block 0%, false pass 0%, P1 hard-gated 12, semanticAlphaGateMet=true) / report-runner gateMet=true / grounding-verifier.test.js pass / grounding-checker-verifier.test.js pass
+- **特殊说明**: 此历史快照已被 `docs/quality/d5-semantic-beta-report.md` supersede。当前 D5 状态请以 Beta report 和 `README.md` 为准。
+- **测试输出引用**: superseded by D5 Semantic Beta report.
 
 ### D6 Multi-Agent Social Emergence — Pass
 
@@ -68,4 +70,3 @@
 ## Sanity check
 
 - **500 tick 不单调发散**: golden-seed-replay 100 ticks 稳定（通过）+ perf:check exit 0
-

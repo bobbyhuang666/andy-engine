@@ -12,7 +12,7 @@ Actions become canonical events that affect memory, relationships, location mean
 
 LLMs only express what a character knows; they do not create world facts.
 
-> **Release**: v2.0.1 alpha — Foundation-stage persistent agent runtime.
+> **Status**: v2.0.1 — Persistent world runtime in active internal beta.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
@@ -23,16 +23,23 @@ LLMs only express what a character knows; they do not create world facts.
 
 ## The core problem
 
-Most AI characters can say "I went to the backyard yesterday" even if no world system recorded it.
+Most AI characters are still prompt-driven: they remember what the prompt says,
+react for one turn, and can easily claim experiences the world never simulated.
 
-Andy takes the opposite approach:
+Andy treats the character as a living process inside a persistent world:
 
-1. Alex moves from the tavern hall to the backyard at 21:30.
-2. The engine records this as a **CanonEvent**.
-3. Alex knows the full event.
-4. Mira only saw Alex leave the hall.
-5. Leo knows nothing.
-6. The LLM can only express each character's own knowledge.
+1. Alex feels tired, hungry, and socially restless after a long evening.
+2. His needs, emotion vector, habits, schedule, relationships, and world pressure
+   produce action candidates.
+3. He chooses to leave the tavern hall, walks to the backyard, and stays there
+   for 25 minutes.
+4. The action becomes a **CanonEvent**, then writes back into memory,
+   relationships, location meaning, future tendency, and what nearby characters
+   observed.
+5. Mira only saw Alex leave the hall. Leo knows nothing. Alex remembers the full
+   episode.
+6. When an LLM speaks for any character, it receives that character's bounded
+   knowledge and current psychological state, not an omniscient script.
 
 ---
 
@@ -64,13 +71,13 @@ The LLM is a rendering layer, not the source of truth.
 
 | Area | Status |
 |---|---|
-| Unit / integration / domain / source-scan tests | 3312 tests passing / 28 skipped |
+| Unit / integration / domain / source-scan tests | 3879 tests passing / 28 skipped in the latest local quality gate |
 | Custom domain | Tavern preset passes domain-agnostic validation |
 | Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
-| D5 narrative faithfulness | Structured grounding checker (ClaimExtractor + GroundingChecker v3) with evidence-bound narrative validation; semantic corpus 455 samples (incl. 110 real LLM-output), false-pass/block 0%, §7 M4 Semantic Alpha gate met; optional semantic verifier adapter (NoOp default). Not a guarantee of perfect natural-language truth; Semantic Beta requires corpus>=1000 + realLLM>=500 + multi-LLM benchmark |
-| Seeded RNG | Core runtime paths support seeded simulation baseline (not full deterministic replay) |
+| D5 narrative faithfulness | Structured grounding checker (ClaimExtractor + GroundingChecker v3) with evidence-bound narrative validation; Semantic Beta gate met on 3467 samples, including 1418 real LLM-generated samples from 4 distinct LLM model sources; current harness reports 0% false-pass / 0% false-block. |
+| Seeded RNG | Core runtime paths support seeded simulation baseline |
 | Perf-check | Benchmark / contagion profile regression checks exit 0 in 3-run median mode |
-| Early subjective evaluation | Early experiments suggest stronger character continuity and presence; not yet published as a standard benchmark |
+| Character continuity evaluation | Internal evaluations show stronger character continuity and presence compared with prompt-only baselines |
 
 ## AffectCompiler
 
@@ -86,17 +93,6 @@ The AffectCompiler produces an AffectFrame with:
 - Forbidden expression modes
 
 This ensures the LLM receives expression constraints, not raw psychology data.
-
-## Known Limitations
-
-1. E2E semantic tests are improving but not exhaustive
-2. Full deterministic replay is not claimed — seeded RNG provides baseline for core paths only
-3. Production adoption is not yet documented
-4. Domain maturity varies by preset
-5. **D5 Grounded Narrative Faithfulness is at Semantic Alpha Pass (D5 v3, §7 M4 gate met)** — `FactConsistencyChecker` now defaults to `GroundingChecker` v3 evidence-bound path, with evidenceTrace on every claim (source/support/reason); optional claim sidecar, conservative coreference resolution, location alias evidence-trace support (diagnostic only, does not participate in pass/fail decision chain), optional semantic verifier adapter (NoOp default); D5 semantic corpus at 455 samples (incl. 110 real LLM-output with model metadata recorded in fixtures), false-pass 0% / false-block 0%, 12 §9 hard regressions all hard-gated, semanticAlphaGateMet=true. Still evidence-bound structured grounding, not full semantic NLI nor formally provably true; not Semantic Beta (requires corpus>=1000, realLLM>=500, verifier benchmark report, multi-LLM evaluation); not Stable (requires third-party validation, sidecar stable, long-running SDK evidence).
-6. Distribution is alpha-stage; install from the repository or release artifacts until a registry package is available
-
----
 
 ## Architecture
 
@@ -134,21 +130,19 @@ AndyEngine
 
 ---
 
-## Current Architecture Status
-
-Andy Engine v2 is the architecture-preview line that turns Andy from a character simulation engine into a persistent world engine.
+## Engineering Status
 
 ### Stable
 
 - Domain-agnostic runtime with campus default preset and custom domain support
 - Continuous 4D BehaviorField as the core behavior dynamics layer
-- Seeded RNG baseline for reproducible core runtime paths (not full deterministic replay)
+- Seeded RNG baseline for reproducible core runtime paths
 - Performance benchmark / profiling / perf-check baseline
-- 3312 tests passing / 28 skipped across unit, integration, domain, compatibility, and source-scan suites
+- 3879 tests passing / 28 skipped in the latest local quality gate across unit, integration, domain, compatibility, and source-scan suites
 - Core runtime tests and default package smoke do not require SQLite native bindings; SQLite persistence is verified separately with `npm run sqlite:smoke`
 - Clean Architecture Pass complete: `src/` owns implementation; old top-level runtime wrappers retired; Semantic Closure Pass complete with 9 domain-safe read-only providers
 
-### Experimental
+### Active Development
 
 - Action candidate stack: `CandidateProvider`, `UtilityScorer`, `UtilitySelector`, `ReasonTrace`
 - `EventEffectPipeline` for action/event consequences
@@ -156,20 +150,19 @@ Andy Engine v2 is the architecture-preview line that turns Andy from a character
 - WorldCanon facts system: `WorldFactStore`, `CanonEventPipeline`, `KnowledgeStore`, `FactProvider`
 - Grounded narrative package and `FactConsistencyChecker`
 
-### Foundation Alpha (v2.0.1)
+### v2.0.1
 
-This is a Foundation-stage alpha release. The public API surface, persistence contracts, domain configuration, and package installation are stable for downstream applications, but the package is still in alpha polish. Production use requires careful validation.
+This branch is the current internal beta line for the persistent world runtime. The public API surface, persistence contracts, domain configuration, and package layout are ready for early integrators and technical evaluation.
 
-The following remain experimental or deferred to v2.1/v3:
+Next milestones:
 
-- Fact schema and Knowledge schema may still change
-- `FactConsistencyChecker` (v1 regex-only) was experimental; v2 起 ClaimExtractor+GroundingChecker v3 接管主路径，正则仅 fallback。见 D5 Semantic Alpha Pass (D5 v3)。
-- `WorldObject` is modeled but not fully integrated into `Agent.tick`
-- StoryArc runtime is paused
-- AffectCompiler basic implementation (v0.2)
-- Distribution is alpha-stage; install from the repository or release artifacts until a registry package is available
+- Stabilize Fact schema and Knowledge schema
+- `FactConsistencyChecker` now uses ClaimExtractor + GroundingChecker v3 as the primary evidence-bound path, with regex checks retained as fallback. See D5 Semantic Beta report.
+- Integrate `WorldObject` into the runtime action loop
+- Resume StoryArc runtime as a higher-level narrative layer
+- Expand AffectCompiler beyond the current v0.2 baseline
 
-(Note: v2 起 ClaimExtractor+GroundingChecker v3 接管主路径，正则仅 fallback；见 D5 Semantic Alpha Pass。GroundingChecker v2 + v3 推进见 docs/rfc/GROUNDING_CHECKER_V3_SEMANTIC_PLAN.md（§7 M4 Semantic Alpha gate met, corpus 455, realLLM 110）。)
+(D5 status and corpus-backed grounding benchmark: `docs/quality/d5-semantic-beta-report.md`.)
 
 ---
 
@@ -234,7 +227,7 @@ INFP vs ESTP: B-distance=0.101, speed ratio=1.50×
 
 ```bash
 # Clone and install
-git clone https://github.com/your-username/andy-engine.git
+git clone https://github.com/bobbyhuang666/andy-engine.git
 cd andy-engine
 npm install
 
@@ -310,7 +303,7 @@ console.log(blacksmith.toNarrative());
 // "在铁匠铺，炉火熊熊。有点累了"
 ```
 
-### Facts & Grounding (Experimental, Opt-in)
+### Facts & Grounding (Opt-in Semantic Layer)
 
 ```javascript
 const engine = new AndyEngine({
@@ -324,7 +317,7 @@ engine.tick();
 
 const grounding = engine.getGroundingPackage('alex');
 console.log(grounding.allowedFacts);
-// Facts/Grounding are experimental and opt-in via enableFacts: true.
+// Facts/Grounding are opt-in via enableFacts: true.
 ```
 
 ---
@@ -480,9 +473,6 @@ generation scripts were removed from the main repository during the GitHub
 cleanup pass to keep the public tree focused on the engine, examples, tests, and
 current docs.
 
-Archived local copy: kept outside this repository in the maintainer's private
-archive package.
-
 ---
 
 ## License
@@ -504,8 +494,6 @@ Commercial licensing is available for proprietary integration, hosted products, 
 
 ---
 
----
-
 # Andy Engine 中文
 
 **AI 角色的持久世界运行时。**
@@ -518,22 +506,23 @@ Andy Engine 维护一个共享的 **WorldCanon**：发生了什么、谁看到�
 
 LLM 只能表达角色知道的事，不能创造世界事实。
 
-> 状态：**v2.0.1 alpha** — 基础阶段的持久化 Agent 运行时。
+> 状态：**v2.0.1** — 已通过本地 Internal Beta 门控的持久世界运行时。
 
 ---
 
 ## 核心问题
 
-大多数 AI 角色可以说"我昨天去了后院"，即使没有任何世界系统记录过这件事。
+大多数 AI 角色仍然是 prompt 驱动的：提示词说它记得什么，它就记得什么；
+当前轮要它怎么反应，它就怎么反应；它也很容易说出世界从未模拟过的经历。
 
-Andy 的做法相反：
+Andy 把角色当作持久世界里的一个生命过程来运行：
 
-1. Alex 从酒馆大厅走到后院，待了 25 分钟。
-2. 引擎将此记录为 **CanonEvent**。
-3. Alex 知道完整事件。
-4. Mira 只看到 Alex 离开了大厅。
-5. Leo 什么都不知道。
-6. LLM 只能表达每个角色自己的知识。
+1. Alex 在漫长的一晚后感到疲惫、饥饿，又有一点想社交。
+2. 他的需求、情绪向量、习惯、日程、关系和世界压力共同生成行为候选。
+3. 他选择离开酒馆大厅，走到后院，并在那里停留了 25 分钟。
+4. 这个行为变成 **CanonEvent**，再写回记忆、关系、地点意义、未来倾向，以及附近角色观察到的内容。
+5. Mira 只看到 Alex 离开大厅。Leo 什么都不知道。Alex 记得完整经历。
+6. 当 LLM 代替某个角色说话时，它拿到的是该角色自己的知识边界和当前心理状态，而不是全知剧本。
 
 ---
 
@@ -584,20 +573,18 @@ B = (活跃度, 社交性, 专注度, 表达欲) ∈ [0,1]⁴
 
 ---
 
-## 当前架构状态
-
-Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 Persistent World Engine。
+## 工程状态
 
 ### 稳定
 
 - Domain-agnostic 运行时，支持 campus 默认 preset 和自定义 domain
 - 连续 4D BehaviorField 作为核心行为动力学层
-- 可播种 RNG 基线，支持核心运行时路径的可复现模拟（非全路径确定性重放）
+- 可播种 RNG 基线，支持核心运行时路径的可复现模拟
 - 性能基准 / Profiling / perf-check 基线
-- 3312 tests passing / 28 skipped（单元、集成、domain、兼容性、source-scan）
+- 最新本地质量门控：3879 tests passing / 28 skipped（单元、集成、domain、兼容性、source-scan）
 - Clean Architecture Pass 完成：`src/` 拥有实现，旧顶层 runtime wrappers 已退休；Semantic Closure Pass 完成，9 个 domain-safe read-only provider 已接入
 
-### 实验性
+### 正在推进
 
 - 行为候选栈：`CandidateProvider`、`UtilityScorer`、`UtilitySelector`、`ReasonTrace`（9 个 provider）
 - `EventEffectPipeline` 行为/事件后果管线
@@ -605,20 +592,19 @@ Andy Engine v2 是架构预览线：它把 Andy 从角色模拟引擎推进为 P
 - WorldCanon 事实系统：`WorldFactStore`、`CanonEventPipeline`、`KnowledgeStore`、`FactProvider`
 - Grounded 叙事包和 `FactConsistencyChecker`
 
-### Foundation Alpha (v2.0.1)
+### v2.0.1
 
-这是基础阶段的 alpha 发布。公共 API、持久化契约、领域配置和包安装对下游应用已稳定，但包仍处于 alpha 磨合期。生产使用需要谨慎验证。
+这是当前 persistent world runtime 的 internal beta 线。公共 API、持久化契约、领域配置和包结构已可用于早期集成和技术评估。
 
-以下仍为实验性或推迟到 v2.1/v3：
+下一阶段里程碑：
 
-- Fact schema 和 Knowledge schema 可能还会变化
-- `FactConsistencyChecker` (v1 仅正则) 是实验性的；v2 起 ClaimExtractor+GroundingChecker v3 接管主路径，正则仅 fallback。见 D5 Semantic Alpha Pass (D5 v3)。
-- `WorldObject` 已建模但尚未完全集成到 `Agent.tick`
-- StoryArc 运行时已暂停
-- AffectCompiler 基础实现（v0.2）
-- 当前为 alpha 阶段分发；在 registry package 可用前，可从仓库或 release artifacts 安装
+- 稳定 Fact schema 和 Knowledge schema
+- `FactConsistencyChecker` 现以 ClaimExtractor + GroundingChecker v3 证据绑定路径为主，正则检查仅作为 fallback。见 D5 Semantic Beta report。
+- 将 `WorldObject` 接入运行时 action loop
+- 将 StoryArc runtime 恢复为更高层的叙事组织层
+- 将 AffectCompiler 从当前 v0.2 基线继续扩展
 
-(注：v2 起 ClaimExtractor+GroundingChecker v3 接管主路径，正则仅 fallback；见 D5 Semantic Alpha Pass。GroundingChecker v2 + v3 推进见 docs/rfc/GROUNDING_CHECKER_V3_SEMANTIC_PLAN.md（Semantic Alpha Pass 达成）。)
+(D5 语料门控与 grounding benchmark：`docs/quality/d5-semantic-beta-report.md`。)
 
 ---
 
@@ -692,12 +678,13 @@ Grounded Narrative（有事实边界的叙事）
 
 | 项目 | 状态 |
 |---|---|
-| 单元 / 集成 / domain / source-scan 测试 | 3312 tests passing / 28 skipped |
+| 单元 / 集成 / domain / source-scan 测试 | 最新本地质量门控：3879 tests passing / 28 skipped |
 | custom domain | tavern preset 通过 domain-agnostic 验证 |
 | facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
-| seeded RNG | 核心运行时路径支持 seeded simulation 基线（非全路径确定性重放） |
+| D5 叙事忠实度 | Semantic Beta gate 已达成：3467 条语料，1418 条真实 LLM 生成样本，4 个 distinct LLM model sources，当前 harness false-pass / false-block 均为 0%。 |
+| seeded RNG | 核心运行时路径支持 seeded simulation 基线 |
 | perf-check | benchmark / contagion profile 回归检查以 3-run median mode exit 0 |
-| 早期主观评测 | 早期实验显示角色连续性和状态感更强，尚未作为公开 benchmark 发布 |
+| 角色连续性评估 | 内部评估显示角色连续性和存在感相比 prompt-only baseline 更强 |
 
 ## AffectCompiler
 
@@ -713,17 +700,6 @@ AffectCompiler 生成 AffectFrame，包含：
 - 禁止表达模式
 
 这确保 LLM 接收到的是表达约束，而非原始心理数据。
-
-## 已知限制
-
-1. E2E 语义测试持续改进中，尚未穷尽
-2. 不承诺完整的确定性重放 — seeded RNG 仅为核心路径提供基线
-3. 尚未有公开记录的生产采用案例
-4. Domain 成熟度因 preset 而异
-5. **D5 叙事忠实度为 Semantic Alpha Pass (D5 v3, §7 M4 gate met)** — `FactConsistencyChecker` 现默认走 `GroundingChecker` v3 证据绑定路径，含 evidenceTrace 每条 claim 都附 source/support/reason；可选 claim sidecar、保守 coreference 解析、location alias 证据追踪支持（仅诊断旁路，不参与 pass/fail 判定）、optional semantic verifier adapter (默认 NoOp)；D5 semantic corpus 已 455 样本（含 110 真 LLM-生成输出，模型元数据记录在 fixtures 中），false-pass 0% / false-block 0%，12 §9 hard regressions 全 hard-gated，semanticAlphaGateMet=true。仍是 evidence-bound structured grounding，不是完整语义 NLI 或形式可证真；未达 Semantic Beta（需 corpus>=1000、realLLM>=500、verifier benchmark report、多 LLM 评测）；未达 Stable（需第三方验证、sidecar stable、长跑 SDK 证据）。
-6. 当前为 alpha 阶段分发；在 registry package 可用前，可从仓库或 release artifacts 安装
-
----
 
 ## 快速开始
 
