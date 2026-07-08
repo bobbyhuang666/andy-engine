@@ -6,7 +6,7 @@
 
 ## 0. 范围
 
-Foundation Alpha 阶段（单人开发）的发布与合入门禁准则。本 RFC 把既有人工约定（`npm test && npm run test:domain && npm run check:boundaries && npm run smoke:pack`）写成可执行准则，**不**新增 CI 基础设施。
+当前工程线的发布与合入门禁准则。本 RFC 把既有人工约定（`npm test && npm run test:domain && npm run check:boundaries && npm run smoke:pack`）写成可执行准则，**不**新增 CI 基础设施。
 
 ## 1. 阻塞分层
 
@@ -19,9 +19,9 @@ Foundation Alpha 阶段（单人开发）的发布与合入门禁准则。本 RF
 
 ## 2. Coverage 定位（不再作为阻塞）
 
-- 全局 coverage **不作为 Foundation Alpha 的 Release blocker**。
+- 全局 coverage **不作为当前 Release blocker**。
 - Coverage 作为 **trend metric + regression warning**：每次 release 记录当前 lines/statements/functions/branches 数值到 `docs/quality/coverage-trend.md`，若较上次 release 下降超过 3 个百分点（任意一项），发 warning，需在 release notes 说明原因。
-- 成熟版本（Foundation Beta 起）可重新评估是否将 coverage 提升为 Release blocker。届时单独发 RFC，不在本 RFC 内承诺阈值。
+- 后续可重新评估是否将 coverage 提升为 Release blocker。届时单独发 RFC，不在本 RFC 内承诺阈值。
 - **v8 thresholds 处理**：W1 已执行：`vitest.config.js` 的 `coverage.thresholds` 块已移除；`package.json` `test:coverage` 修正为 `vitest run --coverage`（修正既有 watch-mode bug）；`npm run test:coverage` 现产出 coverage 报告且 exit 0，不再因阈值失败退出。coverage 数据进入 `docs/quality/coverage-trend.md` 供趋势追踪。W1 基线数值（v2.0.1）：stmts 80.56 / branches 68.46 / functions 77.96 / lines 82.48。
 
 ## 3. 五项 Release blocker
@@ -71,7 +71,7 @@ R5（模块清单审计）成本较高，留作 release 前一次性校验。若
 
 **审计 B1 修正（v0.3）→ W2 落地后更新**：R5 主判定工具已落地（W2）。`scripts/module-guard-scan.js` 实现两段式判定的主判定（source-scan + test-manifest，递归可达性图）；`tests/module-guard.test.js` 驱动扫描并断言未守护模块不超过已知 Gap 白名单；`docs/quality/module-guard-manifest.md` 生成全量守护清单。
 
-- 主判定已落地：147 模块全量判定，125 直接守护 / 21 间接守护 / 0 弱守护 / 1 已知 Gap。
+- 主判定已落地：156 模块全量判定，136 直接守护 / 19 间接守护 / 0 弱守护 / 1 已知 Gap。
 - 辅助判定（coverage 0% 弱守护）依赖 coverage artifact 按需生成，当前未跑 `test:coverage` 时该档不触发。
 - **已知 Gap**：`src/sdk/AndyTownAdapter.js`（Andy Town 外部服务适配层，非 Engine 逻辑，AGENTS.md 禁止 Engine Core 实现 Andy Town；文件未被任何 export/import 使用，属清理候选，本波次不动因超出写入边界）。Gap 原因记录于 `tests/module-guard.test.js` KNOWN_GAPS 白名单。
 - R5 仍**不立即作为可执行 release blocker 调用**——工具刚落地，先观察稳定性；正式作为 blocker 调用需后续波次确认扫描器在各 PR 场景下不误报/漏报。
@@ -93,4 +93,4 @@ R5（模块清单审计）成本较高，留作 release 前一次性校验。若
 ## 9. 后续待办
 
 - §2 thresholds 处理：**已落地**（W1，方案 c 已执行）。
-- R5 判定工具实现属 W2 任务，本 RFC 仅定义标准与生效条件；工具落地后再回头验证"全守护状态"。
+- R5 判定工具已落地，本 RFC 定义标准与生效条件；正式作为 blocker 调用前需确认扫描器在各 PR 场景下不误报/漏报。

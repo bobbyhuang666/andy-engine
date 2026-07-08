@@ -128,7 +128,6 @@ describe('Package Boundary', () => {
   describe('excluded files not in package', () => {
     const excludedFiles = [
       'AGENTS.md',
-      'REFACTOR_PLAN.md',
       'tests/',
       'experiments/',
       'demo/',

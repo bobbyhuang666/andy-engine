@@ -14,7 +14,8 @@
  *   - _evidence.propagatedFrom 仅作来源元数据（"谁告诉了我"），
  *     绝不能当作 agent 在场的物理证据。索引构建时只读 participants / observers 字段。
  *
- * 对应 RFC GROUNDING_CHECKER_V3_SEMANTIC_PLAN §5.2 / W4 / §9 / Risk Register。
+ * Part of the D5 Semantic Beta grounding design. See
+ * docs/quality/d5-semantic-beta-report.md for the checked-in benchmark.
  */
 
 const { FactType } = require('../../canon/FactSchema');

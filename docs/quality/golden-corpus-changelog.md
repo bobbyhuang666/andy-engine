@@ -26,3 +26,4 @@
 | 2026-06-28 | 1061a47 | tests/fixtures/golden-campus-seed42-100ticks.json | 0-99 | R18 修复导致序列化格式变更：BehaviorField 新增 _attractor/_attractorTicksLeft 持久化；IntrinsicMotivation 新增 _lastSimTime 持久化；eventLog/rngState 随之漂移。npm run golden:regen 重生成，tickHash 100/100 一致 | R18 |
 | 2026-07-02 | R51 | tests/fixtures/golden-campus-seed42-100ticks.json | 6-99 | R51 修复 PerceptionRuntime 重复感知同一 event.id，避免 emotion/memory/stress 在 eventLog 滑窗内重复应用；行为语义有意改变，npm run golden:regen 重生成 | R51 |
 | 2026-07-03 | R89 | tests/fixtures/golden-campus-seed42-100ticks.json | 全部 | R89-STRESS-HARDRESET-1: 替换 stress < 2.0 硬重置为 10%/h 渐变漂移，stress > 2.0 添加指数衰减；行为语义有意改变，npm run golden:regen 重生成 | R89 |
+| 2026-07-08 | 6155c7b | tests/fixtures/golden-campus-seed42-100ticks.json | 0-99 | encounter emotion effects 改为当 tick 通过 EffectCommitter 提交，并用 `_committedByEncounterEffects` 防止 perception 重复应用；行为语义有意改变，npm run golden:regen 重生成 | Codex |

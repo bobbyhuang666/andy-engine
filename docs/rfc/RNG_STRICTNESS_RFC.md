@@ -273,5 +273,5 @@ describe('RNG Strictness Audit', () => {
 - `src/runtime/RuntimeContext.js` — Runtime context with rng
 - `src/runtime/AndyWorld.js` — Main runtime orchestrator
 - `src/agent/AgentRuntime.js` — Agent tick pipeline
-- `docs/CLEAN_ARCHITECTURE_FINAL_AUDIT.md` — Architecture state
+- `docs/archive/CLEAN_ARCHITECTURE_FINAL_AUDIT.md` — Architecture state
 - `docs/PUBLIC_API_CONTRACT.md` — Public API commitments

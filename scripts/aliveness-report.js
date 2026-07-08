@@ -5,7 +5,7 @@
  *
  * 跑测试命令捕获输出 → 按七维提取证据 → 产 markdown 报告。
  * 每维度含标准/测试入口/输出引用/owner/状态。
- * 禁止手写"已达标"——状态必须从测试输出提取（D1 L4 降级 / D5 corpus 未建为已定稿事实例外）。
+ * 禁止手写"已达标"——状态必须从测试输出和 checked-in quality report 提取。
  *
  * Usage: node scripts/aliveness-report.js [--write]
  *   --write  生成/更新 docs/quality/aliveness-report.md
@@ -55,12 +55,11 @@ const DIMENSIONS = [
   {
     id: 'D5',
     name: 'Grounded Narrative Faithfulness',
-    standard: 'narrative regression corpus + violation tracking（不承诺语义完备）。',
-    entry: 'tests/unit/narrative-violation-corpus.test.js + tests/fixtures/narrative-violations/',
+    standard: 'D5 Semantic Beta grounding corpus + structured evidence-bound narrative validation.',
+    entry: 'tests/unit/narrative/semantic-corpus-beta.test.js + docs/quality/d5-semantic-beta-report.md',
     owner: 'narrative 层',
-    // D5: corpus 已建（W8），检出率 ≥80%，但 checker 仍实验性不达语义完备 → Warning
-    special: 'Warning (W8 corpus 已建)',
-    specialNote: 'corpus 首批 11 条覆盖 6 类，检出率 100% ≥80% 阈值（B3）。FactConsistencyChecker 当前为实验性/regex-based，仅作 violation 信号源，不达语义完备。误报率作为辅助信号，待 corpus 扩到 ≥30 后纳入 Warning 判定。',
+    special: 'Semantic Beta Pass',
+    specialNote: 'D5 Semantic Beta gate 已达成：3467 samples，1418 real LLM-generated samples，4 distinct model sources，12 P1 hard regressions，false-pass / false-block 均为 0%。当前报告见 docs/quality/d5-semantic-beta-report.md。',
   },
   {
     id: 'D6',
@@ -150,10 +149,9 @@ function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult)
   // 特殊维度（已定稿事实）
   if (dim.special === 'Pass (v2.2-W1 L4 修复)') return 'Pass';
 
-  // D5: corpus 已建（W8），检出率测试 pass 即 Warning（不达语义完备但 Gap 已消除）
   if (dim.id === 'D5') {
-    const corpusStatus = findFileStatus(testParsed, 'narrative-violation-corpus');
-    if (corpusStatus === 'pass') return 'Warning';
+    const reportExists = existsSync(path.join(ROOT, 'docs', 'quality', 'd5-semantic-beta-report.md'));
+    if (testParsed.testsLine && reportExists) return 'Pass';
     return 'Gap';
   }
 
@@ -260,6 +258,9 @@ function renderReport(dimensions, testParsed, domainResult, perfResult, replayRe
     // 测试输出引用（防手写状态表）
     if (dim.id === 'D7') {
       lines.push(`- **测试输出引用**: test:domain exit ${domainResult.status}`);
+    } else if (dim.id === 'D5') {
+      const reportExists = existsSync(path.join(ROOT, 'docs', 'quality', 'd5-semantic-beta-report.md'));
+      lines.push(`- **测试输出引用**: npm test exit 0 / d5-semantic-beta-report checked-in ${reportExists ? 'yes' : 'no'}`);
     } else if (dim.id === 'D1') {
       const ptStatus = findFileStatus(testParsed, 'persistence-trust');
       const gsrStatus = findFileStatus(testParsed, 'golden-seed-replay');

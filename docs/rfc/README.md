@@ -3,8 +3,7 @@
 `docs/rfc/` contains RFCs that are still open, foundational, or useful for future
 design decisions.
 
-Implemented or superseded RFCs were moved to an external archive outside this
-repository.
+Implemented or superseded RFCs are removed from this active RFC index.
 
 ## Active / Reference RFCs
 
@@ -12,7 +11,6 @@ repository.
 - `ALIVENESS_BENCHMARK_RFC.md`
 - `DEFAULT_DOMAIN_DECOUPLING_RFC.md`
 - `GROUNDING_CHECKER_V2_RFC.md`
-- `GROUNDING_CHECKER_V3_SEMANTIC_PLAN.md`
 - `KNOWLEDGE_PROPAGATION_RFC.md`
 - `PERSISTENCE_OPACITY_RFC.md`
 - `QUALITY_GATE_RFC.md`

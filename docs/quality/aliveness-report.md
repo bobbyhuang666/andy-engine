@@ -1,17 +1,15 @@
-# Aliveness Report (Historical Snapshot)
+# Aliveness Report
 
-> 生成时间: 2026-07-05T14:19:45.238Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
+> 生成时间: 2026-07-08T08:06:53.611Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
 > ALIVENESS_BENCHMARK_RFC v0.3 §3 报告制度。每次 release 重新生成。
-> 历史快照: 此文件早于 D5 Semantic Beta / post-beta hardening。
-> 当前 D5 grounding 状态请以 `docs/quality/d5-semantic-beta-report.md` 和 `README.md` 为准。
 
 ## 测试命令快照
 
 | 命令 | 退出码 | 关键输出 |
 |---|---|---|
-| npm test | 0 | Historical output superseded by current `README.md` verification status. |
+| npm test | 0 | Test Files  211 passed \| 1 skipped (212) / Tests  3882 passed \| 28 skipped (3910) |
 | npm run test:domain | 0 |  Test Files  5 passed (5) /       Tests  82 passed (82) |
-| npm run perf:check | 0 | 100 agents avg/tick                15.11     25.52   0.59x   ✓ PASS / 300 agents avg/tick                86.43    202.48   0.43x   ✓ PASS / fixed-clustered gather (ms)        36.75     33.87   1.09x   ✓ PASS / fixed-clustered cache (ms)          7.05      7.33   0.96x   ✓ PASS / runtime-clustered gather (ms)      26.66     34.85   0.76x   ✓ PASS / ✓ All performance checks passed |
+| npm run perf:check | 0 | 100 agents avg/tick                18.96     25.52   0.74x   ✓ PASS / 300 agents avg/tick               113.11    202.48   0.56x   ✓ PASS / fixed-clustered gather (ms)        38.01     33.87   1.12x   ✓ PASS / fixed-clustered cache (ms)          7.61      7.33   1.04x   ✓ PASS / runtime-clustered gather (ms)      28.27     34.85   0.81x   ✓ PASS / ✓ All performance checks passed |
 | npm run replay:diff | 0 | ticks: 100 \| matched: 100 \| mismatched: 0 |
 
 ## 七维度状态
@@ -45,13 +43,13 @@
 - **Owner**: effects 层
 - **测试输出引用**: tests/unit/effects/ 1/1 文件 pass
 
-### D5 Grounded Narrative Faithfulness — Superseded Snapshot
+### D5 Grounded Narrative Faithfulness — Pass
 
-- **标准**: narrative regression corpus + violation tracking（不承诺语义完备）。
-- **测试入口**: tests/unit/narrative/grounding/ (ClaimSchema/EvidenceBinder/SidecarValidator/CoreferenceResolver/GroundingVerifier) + tests/unit/narrative/semantic-corpus.test.js + tests/fixtures/narrative-semantic-corpus/
+- **标准**: D5 Semantic Beta grounding corpus + structured evidence-bound narrative validation.
+- **测试入口**: tests/unit/narrative/semantic-corpus-beta.test.js + docs/quality/d5-semantic-beta-report.md
 - **Owner**: narrative 层
-- **特殊说明**: 此历史快照已被 `docs/quality/d5-semantic-beta-report.md` supersede。当前 D5 状态请以 Beta report 和 `README.md` 为准。
-- **测试输出引用**: superseded by D5 Semantic Beta report.
+- **特殊说明**: Semantic Beta Pass — D5 Semantic Beta gate 已达成：3467 samples，1418 real LLM-generated samples，4 distinct model sources，12 P1 hard regressions，false-pass / false-block 均为 0%。当前报告见 docs/quality/d5-semantic-beta-report.md。
+- **测试输出引用**: npm test exit 0 / d5-semantic-beta-report checked-in yes
 
 ### D6 Multi-Agent Social Emergence — Pass
 

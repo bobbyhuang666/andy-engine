@@ -1,12 +1,12 @@
 # Aliveness Benchmark RFC
 
 > World Kernel Trust Phase — draft v0.3, reviewed with required edits.
-> v0.3 修订（响应审计 B3 + 采纳 S6/S8）：§0 明确性能归入 release gate 不重复入七维；§D5 Warning 判定从"误报率 >15%"改为"已知 violation 检出率"（避免小样本误报波动）；§5 D2 允许"3 Pass + 1 Warning = D2 Warning"中间态。
+> v0.3 修订（响应审计 B3 + 采纳 S6/S8）：§0 明确性能归入 release gate 不重复入七维；§D5 由 checked-in semantic beta report + narrative tests 判定；§5 D2 允许"3 Pass + 1 Warning = D2 Warning"中间态。
 > v0.2 修订：delta 不再绝对、narrative checker 不过度承诺、Character Continuity 拆分多指标、七维补 owner 与测试入口。
 
 ## 0. 范围
 
-把"对标 Linux/macOS/Minecraft"转译为可验证维度。"对标"对 Foundation Alpha 阶段单人开发项目在单次会话内客观不可达成，本 RFC 的作用是把模糊口号转成**七维度 Pass/Warning/Gap 报告**，每维度指定标准、owner、最小测试入口。
+把"对标 Linux/macOS/Minecraft"转译为可验证维度。本 RFC 的作用是把模糊口号转成**七维度 Pass/Warning/Gap 报告**，每维度指定标准、owner、最小测试入口。
 
 **审计 S6 声明**：七维度聚焦 persistent world kernel 的世界/角色/认知/因果/叙事/社会/域能力，**不**单列性能维度。性能与稳定性归入 Quality Gate RFC 的 Release blocker（`npm run perf:check`）守护，不重复入七维，避免"对标 Minecraft"被误读为"性能对标"。读者若疑惑"为何无性能维度"，见本声明与 QUALITY_GATE_RFC。
 
@@ -59,13 +59,12 @@
 
 ### D5 Grounded Narrative Faithfulness
 
-- 标准（修正后降低承诺）：
-  - v2.1 目标 = **narrative regression corpus + violation tracking**，**不**承诺语义完备
-  - `FactConsistencyChecker` 当前为实验性 / regex-based（`src/narrative/FactConsistencyChecker.js` 源码自述"实验性 / 基于正则 / 已知中文名/地名误报"），仅作为 violation 信号源，不作为"叙事正确性"最终判定
-- 测试入口：narrative regression corpus（待建，最小集 ≥10 条已知 violation 样本启动）
+- 标准：
+  - D5 Semantic Beta grounding corpus + structured evidence-bound narrative validation。
+  - `FactConsistencyChecker` 作为兼容 facade，主路径委托 ClaimExtractor / GroundingChecker / EvidenceBinder，regex checks 仅作为 fallback。
+- 测试入口：`tests/unit/narrative/semantic-corpus-beta.test.js` + `docs/quality/d5-semantic-beta-report.md`
 - Owner：narrative 层
-- **Warning 判定（审计 B3 修正）**：原"checker 误报率 > 15% 时降级"在小样本下不可靠（10 条样本，2 条误报即 20%）。改为以**已知 violation 检出率**为 Warning 信号——即 corpus 中已标注的 violation 样本，checker 能检出的比例。检出率 < 80% 发 Warning（checker 漏报风险），检出率稳定 ≥ 80% 维持 Pass。误报率作为**辅助信号**记录但不触发降级（小样本下误报率统计无意义）；corpus 扩到 ≥30 条后再考虑把误报率纳入 Warning 判定。
-- **W8 落地状态**：corpus 首批已建（W8）。`tests/fixtures/narrative-violations/`（11 条样本覆盖 6 类：unknown_character / unknown_location / unknown_event / time_conflict / new_relationship / new_event），`tests/unit/narrative-violation-corpus.test.js` 驱动检出率统计。当前检出率 100% ≥80% 阈值（B3）。D5 状态从 Gap 升级为 Warning（corpus 已建 + 检出率达标，但 checker 仍实验性不达语义完备）。误报率作为辅助信号待 corpus 扩到 ≥30 后纳入。样本严格对齐 checker 实际触发条件（regex 能力边界），非造假。
+- **当前落地状态**：D5 Semantic Beta gate 已达成。当前 checked-in report 覆盖 3467 samples、1418 real LLM-generated samples、4 distinct model sources、12 P1 hard regressions，false-pass / false-block 均为 0%。
 
 ### D6 Multi-Agent Social Emergence
 
@@ -91,7 +90,7 @@
 
 报告落点：`docs/quality/aliveness-report.md`，每次 release 重新生成。
 
-**W7 落地状态**：报告制度已落地（W7）。`scripts/aliveness-report.js` 生成器跑测试命令（npm test / test:domain / perf:check / replay:diff）捕获输出 → 按七维提取证据 → 产 markdown 报告，状态从测试输出提取（非手写状态表）。`package.json` 新增 `aliveness:report` script。报告 `docs/quality/aliveness-report.md` 七维齐全：D1 Pass（v2.2-W1 L4 修复后达标）/ D2 Pass / D3 Warning / D4 Pass / D5 Warning（corpus 已建 W8，不达语义完备）/ D6 Warning / D7 Pass。D1 经 v2.2-W1 修复 5 层 persistence fidelity 缺口后，截断续跑 fidelity 达标。
+**W7 落地状态**：报告制度已落地（W7）。`scripts/aliveness-report.js` 生成器跑测试命令（npm test / test:domain / perf:check / replay:diff）捕获输出 → 按七维提取证据 → 产 markdown 报告，状态从测试输出提取（非手写状态表）。`package.json` 新增 `aliveness:report` script。当前报告见 `docs/quality/aliveness-report.md`。
 
 ## 4. 不做的事
 
@@ -108,7 +107,7 @@
 
 ## 6. 审计裁定记录
 
-- **B3（已修）**：§D5 Warning 判定从"误报率 >15%"改为"已知 violation 检出率 <80%"，避免小样本误报波动；误报率降为辅助信号。
+- **B3（已 superseded）**：早期 D5 Warning 判定已被 Semantic Beta corpus/report gate 取代。
 - **S6（已采纳）**：§0 明确性能归入 Quality Gate release blocker，不单列第八维。
 - **S7（裁定）**：corpus ≥10 启动可接受，受 B3 修正约束（误报率不再触发降级）。
 - **S8（已采纳）**：§5 增加 D2 中间态（3 Pass + 1 Warning = D2 Warning）。

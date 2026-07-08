@@ -9,7 +9,8 @@
  *     提升为 'supports'（P1 Risk Register 红线）。
  *   - 工厂函数 createGroundingVerifierAdapter 方便构造。
  *
- * 对应 RFC GROUNDING_CHECKER_V3_SEMANTIC_PLAN §W6 / M5 / §3 Non-Goals / §10 Risk Register。
+ * Part of the D5 Semantic Beta grounding design. The verifier is optional and
+ * disabled by default.
  *
  * 设计原则：
  *   - 不引入新 npm 依赖。
@@ -165,7 +166,7 @@ class NoOpVerifier extends GroundingVerifier {
  *   - 永远不允许 verifier 把 deterministic unsupported/contradicts 直接变 'supports'。
  *     最高只能降级到 'review'（即使 strictness === 'semantic_review'）。
  *
- * @see RFC GROUNDING_CHECKER_V3_SEMANTIC_PLAN §W6 / §10 Risk Register
+ * @see docs/quality/d5-semantic-beta-report.md
  */
 class GroundingVerifierAdapter {
   /**

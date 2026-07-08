@@ -1,7 +1,7 @@
 # Module Guard Manifest
 
 > R5 "未守护模块"判定 (QUALITY_GATE_RFC v0.3 §6 主判定)。由 `scripts/module-guard-scan.js` 生成。
-> 生成日期: 2026-06-26 | 模块总数: 148 | 守护(直接): 126 | 守护(间接): 21 | 弱守护: 0 | 未守护: 1
+> 生成日期: 2026-07-08 | 模块总数: 156 | 守护(直接): 136 | 守护(间接): 19 | 弱守护: 0 | 未守护: 1
 > coverage 辅助判定: 不可用（未跑 test:coverage）
 
 ## 守护状态汇总
@@ -15,7 +15,6 @@
 |---|---|
 | src/sdk/AndyTownAdapter.js | unguarded |
 | src/action/providers/CandidateProvider.js | guarded-indirect |
-| src/action/ReasonTrace.js | guarded-indirect |
 | src/action/SelectedAction.js | guarded-indirect |
 | src/agent/facade/AgentNarrative.js | guarded-indirect |
 | src/agent/facade/AgentSerializer.js | guarded-indirect |
@@ -24,12 +23,11 @@
 | src/agent/lifecycle/AgentDefaults.js | guarded-indirect |
 | src/agent/lifecycle/AgentSubsystemFactory.js | guarded-indirect |
 | src/agent/lifecycle/AgentWiring.js | guarded-indirect |
+| src/agent/runtime/EffectCommitterResolver.js | guarded-indirect |
 | src/agent/runtime/MindWanderRuntime.js | guarded-indirect |
-| src/agent/runtime/PerceptionRuntime.js | guarded-indirect |
 | src/canon/CanonEventPipeline.js | guarded-indirect |
 | src/canon/index.js | guarded-indirect |
 | src/knowledge/index.js | guarded-indirect |
-| src/narrative/FactFormatter.js | guarded-indirect |
 | src/sdk/AndyEngine.js | guarded-indirect |
 | src/sdk/AutoTick.js | guarded-indirect |
 | src/sdk/ConversationLog.js | guarded-indirect |
@@ -48,6 +46,7 @@
 | src/action/providers/ScheduleCandidateProvider.js | guarded-direct |
 | src/action/providers/SocializeCandidateProvider.js | guarded-direct |
 | src/action/providers/WorldPressureCandidateProvider.js | guarded-direct |
+| src/action/ReasonTrace.js | guarded-direct |
 | src/action/UtilityScorer.js | guarded-direct |
 | src/action/UtilitySelector.js | guarded-direct |
 | src/action/WorldObject.js | guarded-direct |
@@ -75,6 +74,7 @@
 | src/agent/psychology/Personality.js | guarded-direct |
 | src/agent/psychology/StateMachine.js | guarded-direct |
 | src/agent/runtime/ActionSelectionRuntime.js | guarded-direct |
+| src/agent/runtime/PerceptionRuntime.js | guarded-direct |
 | src/agent/runtime/PhysiologyRuntime.js | guarded-direct |
 | src/agent/runtime/ReflectionRuntime.js | guarded-direct |
 | src/agent/schedule/Schedule.js | guarded-direct |
@@ -101,8 +101,16 @@
 | src/effects/RelationshipDelta.js | guarded-direct |
 | src/effects/StateDelta.js | guarded-direct |
 | src/knowledge/KnowledgeStore.js | guarded-direct |
+| src/narrative/ClaimExtractor.js | guarded-direct |
 | src/narrative/FactConsistencyChecker.js | guarded-direct |
+| src/narrative/FactFormatter.js | guarded-direct |
 | src/narrative/FactProvider.js | guarded-direct |
+| src/narrative/grounding/ClaimSchema.js | guarded-direct |
+| src/narrative/grounding/CoreferenceResolver.js | guarded-direct |
+| src/narrative/grounding/EvidenceBinder.js | guarded-direct |
+| src/narrative/grounding/GroundingVerifier.js | guarded-direct |
+| src/narrative/grounding/SidecarValidator.js | guarded-direct |
+| src/narrative/GroundingChecker.js | guarded-direct |
 | src/narrative/index.js | guarded-direct |
 | src/narrative/StoryGenerator.js | guarded-direct |
 | src/pressure/index.js | guarded-direct |

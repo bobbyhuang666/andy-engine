@@ -14,7 +14,7 @@
  *   - 不改 evidence bindings（那是 EvidenceBinder 的事）
  *   - CommonJS require + JSDoc，与 src/narrative/grounding/ 现有风格一致
  *
- * 对应 RFC GROUNDING_CHECKER_V3_SEMANTIC_PLAN §W3 / M3
+ * Part of the D5 Semantic Beta grounding design.
  */
 
 'use strict';

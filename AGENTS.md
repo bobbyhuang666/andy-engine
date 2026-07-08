@@ -237,7 +237,8 @@ world.factStore.addFact(...)
 agent.position = ...
 ```
 
-已有 legacy 写回路径请参考 `docs/archive/STATE_WRITEBACK_OWNERSHIP.md`，不要扩大。
+已有 legacy 写回路径不要扩大；新增写回应优先参考 `src/effects/`、
+`docs/current/ACTION_EFFECT_CANONICALIZATION_NOTE.md` 和现有 EffectCommitter 测试。
 
 ---
 

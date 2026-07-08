@@ -29,7 +29,7 @@
  *   25. evidenceTrace 元素 count 不受 verifier 影响
  *   26. P0 红线：默认 NoOp 无网络调用
  *
- * 对应 RFC GROUNDING_CHECKER_V3_SEMANTIC_PLAN §W6 / M5 / §3 Non-Goals / §10 Risk Register
+ * Covers GroundingChecker integration with the optional D5 verifier adapter.
  */
 
 import { describe, it, expect } from 'vitest';

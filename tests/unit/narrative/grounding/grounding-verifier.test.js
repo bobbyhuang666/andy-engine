@@ -28,7 +28,7 @@
  *   24. NoOpVerifier 单例可复用
  *   25. 文档注释：Verifier cannot promote a claim to pass if deterministic evidence is absent
  *
- * 对应 RFC GROUNDING_CHECKER_V3_SEMANTIC_PLAN §W6 / M5 / §10 Risk Register
+ * Covers the optional verifier policy guard used by D5 Semantic Beta grounding.
  */
 
 const fs = require('fs');

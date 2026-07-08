@@ -12,7 +12,7 @@ Actions become canonical events that affect memory, relationships, location mean
 
 LLMs only express what a character knows; they do not create world facts.
 
-> **Status**: v2.0.1 — Persistent world runtime in active internal beta.
+> **Status**: v2.0.1 — Persistent world runtime.
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
@@ -71,7 +71,7 @@ The LLM is a rendering layer, not the source of truth.
 
 | Area | Status |
 |---|---|
-| Unit / integration / domain / source-scan tests | 3883 tests passing / 28 skipped in the latest local quality gate |
+| Unit / integration / domain / source-scan tests | 3882 tests passing / 28 skipped in the latest local quality gate |
 | Custom domain | Tavern preset passes domain-agnostic validation |
 | Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
 | D5 narrative faithfulness | Structured grounding checker (ClaimExtractor + GroundingChecker v3) with evidence-bound narrative validation; Semantic Beta gate met on 3467 samples, including 1418 real LLM-generated samples from 4 distinct LLM model sources; current harness reports 0% false-pass / 0% false-block. |
@@ -138,7 +138,7 @@ AndyEngine
 - Continuous 4D BehaviorField as the core behavior dynamics layer
 - Seeded RNG baseline for reproducible core runtime paths
 - Performance benchmark / profiling / perf-check baseline
-- 3883 tests passing / 28 skipped in the latest local quality gate across unit, integration, domain, compatibility, and source-scan suites
+- 3882 tests passing / 28 skipped in the latest local quality gate across unit, integration, domain, compatibility, and source-scan suites
 - Core runtime tests and default package smoke do not require SQLite native bindings; SQLite persistence is verified separately with `npm run sqlite:smoke`
 - Clean Architecture Pass complete: `src/` owns implementation; old top-level runtime wrappers retired; Semantic Closure Pass complete with 9 domain-safe read-only providers
 
@@ -152,17 +152,12 @@ AndyEngine
 
 ### v2.0.1
 
-This branch is the current internal beta line for the persistent world runtime. The public API surface, persistence contracts, domain configuration, and package layout are ready for early integrators and technical evaluation.
+This branch is the current persistent world runtime line.
+The public API surface, persistence contracts, domain configuration, and package
+layout are ready for early integrators and technical evaluation.
 
-Next milestones:
-
-- Stabilize Fact schema and Knowledge schema
-- `FactConsistencyChecker` now uses ClaimExtractor + GroundingChecker v3 as the primary evidence-bound path, with regex checks retained as fallback. See D5 Semantic Beta report.
-- Integrate `WorldObject` into the runtime action loop
-- Resume StoryArc runtime as a higher-level narrative layer
-- Expand AffectCompiler beyond the current v0.2 baseline
-
-(D5 status and corpus-backed grounding benchmark: `docs/quality/d5-semantic-beta-report.md`.)
+D5 status and corpus-backed grounding benchmark:
+`docs/quality/d5-semantic-beta-report.md`.
 
 ---
 
@@ -581,7 +576,7 @@ B = (活跃度, 社交性, 专注度, 表达欲) ∈ [0,1]⁴
 - 连续 4D BehaviorField 作为核心行为动力学层
 - 可播种 RNG 基线，支持核心运行时路径的可复现模拟
 - 性能基准 / Profiling / perf-check 基线
-- 最新本地质量门控：3883 tests passing / 28 skipped（单元、集成、domain、兼容性、source-scan）
+- 最新本地质量门控：3882 tests passing / 28 skipped（单元、集成、domain、兼容性、source-scan）
 - Clean Architecture Pass 完成：`src/` 拥有实现，旧顶层 runtime wrappers 已退休；Semantic Closure Pass 完成，9 个 domain-safe read-only provider 已接入
 
 ### 正在推进
@@ -594,17 +589,10 @@ B = (活跃度, 社交性, 专注度, 表达欲) ∈ [0,1]⁴
 
 ### v2.0.1
 
-这是当前 persistent world runtime 的 internal beta 线。公共 API、持久化契约、领域配置和包结构已可用于早期集成和技术评估。
+这是当前 persistent world runtime 线。公共 API、持久化契约、
+领域配置和包结构已可用于早期集成和技术评估。
 
-下一阶段里程碑：
-
-- 稳定 Fact schema 和 Knowledge schema
-- `FactConsistencyChecker` 现以 ClaimExtractor + GroundingChecker v3 证据绑定路径为主，正则检查仅作为 fallback。见 D5 Semantic Beta report。
-- 将 `WorldObject` 接入运行时 action loop
-- 将 StoryArc runtime 恢复为更高层的叙事组织层
-- 将 AffectCompiler 从当前 v0.2 基线继续扩展
-
-(D5 语料门控与 grounding benchmark：`docs/quality/d5-semantic-beta-report.md`。)
+D5 语料门控与 grounding benchmark：`docs/quality/d5-semantic-beta-report.md`。
 
 ---
 
@@ -678,7 +666,7 @@ Grounded Narrative（有事实边界的叙事）
 
 | 项目 | 状态 |
 |---|---|
-| 单元 / 集成 / domain / source-scan 测试 | 最新本地质量门控：3883 tests passing / 28 skipped |
+| 单元 / 集成 / domain / source-scan 测试 | 最新本地质量门控：3882 tests passing / 28 skipped |
 | custom domain | tavern preset 通过 domain-agnostic 验证 |
 | facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
 | D5 叙事忠实度 | Semantic Beta gate 已达成：3467 条语料，1418 条真实 LLM 生成样本，4 个 distinct LLM model sources，当前 harness false-pass / false-block 均为 0%。 |
@@ -904,7 +892,7 @@ Rust SoA f32 引擎在 50K agents 时比 JS 快 **5.92x**，精度误差 < 1e-8�
 |------|-----|
 | 50K agents × 20 ticks | 24.9ms/tick（Rust） |
 
-此外，Dunbar 层级传染优化（JS 侧）在 500K agents 时达到 **8.94x** 加速；历史实验资产已归档到外部 archive。
+此外，Dunbar 层级传染优化（JS 侧）在 500K agents 时达到 **8.94x** 加速。
 
 详见 `benchmarks/` 目录。
 

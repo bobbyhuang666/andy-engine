@@ -1,6 +1,6 @@
 # Coverage Trend
 
-> Foundation Alpha 阶段 coverage 趋势追踪。coverage 不作为 release/merge blocker（见 QUALITY_GATE_RFC v0.3 §2 方案 c），仅作 trend metric + 3pp 回归 warning。
+> Coverage 趋势追踪。coverage 不作为 release/merge blocker（见 QUALITY_GATE_RFC v0.3 §2 方案 c），仅作 trend metric + 3pp 回归 warning。
 > 每次 release 由 `npm run test:coverage` 产出数值后 append 一条。
 
 ## 基线规则
