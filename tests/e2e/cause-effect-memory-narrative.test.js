@@ -409,4 +409,48 @@ describe('Cause/Effect/Memory/Narrative E2E', () => {
     expect(aliceHelpMemory.content).toContain('帮助');
     expect(bobHelpMemory.content).toContain('帮助');
   });
+
+  it('applies encounter emotion effects in the same commit pass even when later events exceed the perception window', () => {
+    const engine = new AndyEngine({ seed: 'encounter-emotion-window-test' });
+    const alice = engine.createCharacter({
+      id: 'alice',
+      name: 'Alice',
+      mbti: 'INFP',
+      schedule: 'student',
+    });
+    engine.createCharacter({
+      id: 'bob',
+      name: 'Bob',
+      mbti: 'ESTJ',
+      schedule: 'student',
+    });
+
+    const joyBefore = alice.emotion.current.joy || 0;
+    engine.world.eventDispatcher.createEvent({
+      type: 'social',
+      scope: 'local',
+      participants: ['alice', 'bob'],
+      content: 'Alice and Bob had a warm encounter',
+      effects: [
+        { target: 'alice', type: 'emotion', delta: { joy: 0.2 } },
+      ],
+      time: engine.world.clock.time,
+    });
+
+    for (let i = 0; i < 12; i++) {
+      engine.world.eventDispatcher.createEvent({
+        type: 'environment',
+        scope: 'global',
+        participants: [],
+        content: `noise event ${i}`,
+        effects: [],
+        time: engine.world.clock.time,
+      });
+    }
+
+    const dispatched = engine.world.eventDispatcher.dispatch();
+    engine.world._applyEncounterEffects(dispatched);
+
+    expect(alice.emotion.current.joy).toBeGreaterThan(joyBefore);
+  });
 });

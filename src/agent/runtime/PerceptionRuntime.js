@@ -69,6 +69,7 @@ function perceiveEvents(agent, events, env = null) {
     // entire perception loop for that agent.
     for (const effect of (event.effects || [])) {
       if (effect.target === agent.id && effect.type === 'emotion') {
+        if (effect._committedByEncounterEffects) continue;
         deltas.push(new EmotionDelta(agent.id, effect.delta, {
           multiplier: 1,
           appraisalModifiers: appraisal.emotionModifier,

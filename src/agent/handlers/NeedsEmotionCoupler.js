@@ -10,8 +10,8 @@ class NeedsEmotionCoupler {
     this.agent = agent;
   }
 
-  tick() {
-    applyNeedsToEmotion(this.agent);
+  tick(context = null) {
+    applyNeedsToEmotion(this.agent, context?.env || null);
   }
 }
 

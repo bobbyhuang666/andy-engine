@@ -10,7 +10,7 @@
     "nodeVersion": "26",
     "nativeMode": "disabled",
     "generationCommand": "npm run golden:regen",
-    "generatedAt": "2026-07-04T12:13:08.835Z"
+    "generatedAt": "2026-07-08T07:41:40.084Z"
   },
   "schemaVersion": "0.1.0",
   "worldId": "golden-campus-v1",
@@ -4690,7 +4690,7 @@
               },
               "semanticCategory": "美食享受",
               "appraisal": {
-                "valence": 0.07136015508738924,
+                "valence": 0.07160145943521533,
                 "suddenness": 0.3885,
                 "goalRelevance": 0.575,
                 "copingPotential": 0.7652814525493234,
@@ -4726,7 +4726,7 @@
               },
               "semanticCategory": "社交互动",
               "appraisal": {
-                "valence": 0.07000149583025911,
+                "valence": 0.07009801756938955,
                 "suddenness": 0.3885,
                 "goalRelevance": 0.575,
                 "copingPotential": 0.7388454986408296,
@@ -4762,7 +4762,7 @@
               },
               "semanticCategory": "身体感受",
               "appraisal": {
-                "valence": 0.039514065018950655,
+                "valence": 0.039369282410255,
                 "suddenness": 0.3885,
                 "goalRelevance": 0.575,
                 "copingPotential": 0.7333174902955137,
@@ -4798,7 +4798,7 @@
               },
               "semanticCategory": "自然风光",
               "appraisal": {
-                "valence": 0.07364937954052561,
+                "valence": 0.07379416214922126,
                 "suddenness": 0.3885,
                 "goalRelevance": 0.575,
                 "copingPotential": 0.7243483458125143,
@@ -4834,7 +4834,7 @@
               },
               "semanticCategory": "内心反思",
               "appraisal": {
-                "valence": 0.017928790604789004,
+                "valence": 0.017784007996093355,
                 "suddenness": 0.3885,
                 "goalRelevance": 0.575,
                 "copingPotential": 0.7175914088692793,
@@ -4870,7 +4870,7 @@
               },
               "semanticCategory": "社交互动",
               "appraisal": {
-                "valence": 0.011154958129795788,
+                "valence": 0.01072061030370883,
                 "suddenness": 0.3885,
                 "goalRelevance": 0.575,
                 "copingPotential": 0.7066255264215581,
@@ -4906,7 +4906,7 @@
               },
               "semanticCategory": "学习成长",
               "appraisal": {
-                "valence": 0.06464967023237979,
+                "valence": 0.06489097458020587,
                 "suddenness": 0.3885,
                 "goalRelevance": 0.575,
                 "copingPotential": 0.700883005584757,
@@ -4942,7 +4942,7 @@
               },
               "semanticCategory": "社交互动",
               "appraisal": {
-                "valence": 0.008108773510904912,
+                "valence": 0.00796399090220926,
                 "suddenness": 0.3885,
                 "goalRelevance": 0.575,
                 "copingPotential": 0.7012559227208696,
@@ -6218,7 +6218,7 @@
             "hope": 0.07750000000000001,
             "loneliness": 0.0625
           },
-          "stress": 1.9635305531642897,
+          "stress": 2.0127015790074396,
           "_pinkNoiseState": [
             0.009635339167434722,
             0.01238316828617826,
@@ -6349,7 +6349,7 @@
               },
               "semanticCategory": "社交互动",
               "appraisal": {
-                "valence": -0.0016207667411713839,
+                "valence": -0.0017694623933452967,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.8177669720976992,
@@ -6385,7 +6385,7 @@
               },
               "semanticCategory": "偏离常规",
               "appraisal": {
-                "valence": -0.00020358436696044438,
+                "valence": -0.0006496713234821865,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.8218900816137245,
@@ -6421,7 +6421,7 @@
               },
               "semanticCategory": "社交互动",
               "appraisal": {
-                "valence": 0.038765860328240406,
+                "valence": 0.038666729893457805,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.830470923601901,
@@ -6457,7 +6457,7 @@
               },
               "semanticCategory": "社交互动",
               "appraisal": {
-                "valence": 0.010019148462634306,
+                "valence": 0.009771322375677785,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.7995940040992471,
@@ -6493,7 +6493,7 @@
               },
               "semanticCategory": "社交互动",
               "appraisal": {
-                "valence": 0.004955275681398464,
+                "valence": 0.004509188724876722,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.7858626880777195,
@@ -6529,7 +6529,7 @@
               },
               "semanticCategory": "社交互动",
               "appraisal": {
-                "valence": 0.008903294695856276,
+                "valence": 0.008655468608899753,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.7741267919867336,
@@ -6565,7 +6565,7 @@
               },
               "semanticCategory": "内心反思",
               "appraisal": {
-                "valence": 0.008491363381236322,
+                "valence": 0.00834266772906241,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.7724587189950891,
@@ -6601,7 +6601,7 @@
               },
               "semanticCategory": "社交互动",
               "appraisal": {
-                "valence": 0.067023108063635,
+                "valence": 0.06717180371580891,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.7593455776598201,
@@ -6637,7 +6637,7 @@
               },
               "semanticCategory": "美食享受",
               "appraisal": {
-                "valence": 0.05672571433361602,
+                "valence": 0.05697354042057255,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.7562241728398102,
@@ -6673,7 +6673,7 @@
               },
               "semanticCategory": "学习成长",
               "appraisal": {
-                "valence": 0.056529675455695996,
+                "valence": 0.056777501542652514,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.7518203314248513,
@@ -6709,7 +6709,7 @@
               },
               "semanticCategory": "身体感受",
               "appraisal": {
-                "valence": 0.011349932748125683,
+                "valence": 0.011250802313343074,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.7475207934511445,
@@ -6745,7 +6745,7 @@
               },
               "semanticCategory": "学习成长",
               "appraisal": {
-                "valence": 0.05414032300048727,
+                "valence": 0.05428901865266118,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.7389506109570252,
@@ -6781,7 +6781,7 @@
               },
               "semanticCategory": "居家生活",
               "appraisal": {
-                "valence": 0.00022276055048804297,
+                "valence": -0.000025065536468478478,
                 "suddenness": 0.3815,
                 "goalRelevance": 0.55,
                 "copingPotential": 0.7403888703286274,
@@ -8025,7 +8025,8 @@
               "type": "emotion",
               "delta": {
                 "boredom": 0.03
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -8184,7 +8185,8 @@
                 "sadness": 0.04,
                 "loneliness": 0.03,
                 "boredom": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -8620,7 +8622,8 @@
               "delta": {
                 "nervousness": 0.02,
                 "sympathy": 0.03
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -8685,7 +8688,8 @@
                 "sadness": 0.04,
                 "loneliness": 0.03,
                 "boredom": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -8723,7 +8727,8 @@
               "delta": {
                 "joy": 0.03,
                 "calm": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -8747,7 +8752,8 @@
               "delta": {
                 "frustration": 0.03,
                 "boredom": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -8811,7 +8817,8 @@
               "delta": {
                 "joy": 0.03,
                 "contentment": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -8836,7 +8843,8 @@
                 "sadness": 0.04,
                 "loneliness": 0.03,
                 "boredom": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -8887,7 +8895,8 @@
               "delta": {
                 "joy": 0.03,
                 "calm": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -8911,7 +8920,8 @@
               "delta": {
                 "sadness": 0.03,
                 "nervousness": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -8935,7 +8945,8 @@
               "delta": {
                 "shame": 0.03,
                 "embarrassment": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -8987,7 +8998,8 @@
                 "sadness": 0.04,
                 "loneliness": 0.03,
                 "boredom": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9011,7 +9023,8 @@
               "delta": {
                 "interest": 0.03,
                 "calm": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9035,7 +9048,8 @@
               "delta": {
                 "frustration": 0.03,
                 "surprise": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9059,7 +9073,8 @@
               "delta": {
                 "interest": 0.04,
                 "calm": 0.03
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9097,7 +9112,8 @@
               "delta": {
                 "joy": 0.03,
                 "contentment": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9121,7 +9137,8 @@
               "delta": {
                 "calm": 0.03,
                 "awe": 0.03
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9158,7 +9175,8 @@
               "delta": {
                 "joy": 0.03,
                 "calm": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9195,7 +9213,8 @@
               "delta": {
                 "shame": 0.03,
                 "embarrassment": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9218,7 +9237,8 @@
               "type": "emotion",
               "delta": {
                 "frustration": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9243,7 +9263,8 @@
                 "sadness": 0.04,
                 "loneliness": 0.03,
                 "boredom": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9281,7 +9302,8 @@
               "delta": {
                 "excitement": 0.03,
                 "interest": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9345,7 +9367,8 @@
               "delta": {
                 "joy": 0.03,
                 "calm": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9410,7 +9433,8 @@
               "type": "emotion",
               "delta": {
                 "boredom": 0.03
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,
@@ -9487,7 +9511,8 @@
               "delta": {
                 "sadness": 0.03,
                 "nervousness": 0.02
-              }
+              },
+              "_committedByEncounterEffects": true
             }
           ],
           "cause": null,

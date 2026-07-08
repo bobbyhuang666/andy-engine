@@ -6,6 +6,8 @@
  */
 
 const { DIM_ACTIVITY, DIM_SOCIALITY } = require('../psychology/BehaviorLabeler');
+const { EffectResult } = require('../../effects/EffectResult');
+const { EmotionDelta } = require('../../effects/EmotionDelta');
 
 function safeNeedValue(needs, key, fallback = 0.5) {
   return Number.isFinite(needs?.[key]) ? needs[key] : fallback;
@@ -15,11 +17,24 @@ function safeHours(hoursElapsed) {
   return Number.isFinite(hoursElapsed) && hoursElapsed > 0 ? hoursElapsed : 0;
 }
 
+function commitEmotion(agent, changes, env = null) {
+  const committer = env?.effectCommitter || null;
+  if (committer && typeof committer.commit === 'function') {
+    committer.commit(new EffectResult({
+      event: {},
+      deltas: [new EmotionDelta(agent.id, changes)],
+      reasonTrace: {},
+    }));
+    return;
+  }
+  agent.emotion.applyEffect(changes);
+}
+
 /**
  * Needs-to-emotion coupling.
  * @param {Object} agent
  */
-function applyNeedsToEmotion(agent) {
+function applyNeedsToEmotion(agent, env = null) {
   const needs = agent.needs.needs;
   // R120-001: guard against NaN needs values (defense-in-depth;
   // NeedsSystem tick guards prevent this, but direct mutation could bypass).
@@ -34,53 +49,53 @@ function applyNeedsToEmotion(agent) {
   // Hunger (< 0.3) → frustration + anger
   if (safeNeeds.hunger < 0.3) {
     const hungerDeficit = 0.3 - safeNeeds.hunger;
-    agent.emotion.applyEffect({
+    commitEmotion(agent, {
       frustration: hungerDeficit * 0.10,
       anger: hungerDeficit * 0.04,
       calm: -hungerDeficit * 0.06,
       joy: -hungerDeficit * 0.04,
-    });
+    }, env);
   }
 
   // Fatigue (< 0.25) → sadness + frustration
   if (safeNeeds.energy < 0.25) {
     const energyDeficit = 0.25 - safeNeeds.energy;
-    agent.emotion.applyEffect({
+    commitEmotion(agent, {
       sadness: energyDeficit * 0.10,
       frustration: energyDeficit * 0.05,
       calm: -energyDeficit * 0.06,
       joy: -energyDeficit * 0.05,
-    });
+    }, env);
   }
 
   // Social deficit (< 0.2) → loneliness + sadness
   if (safeNeeds.social < 0.2) {
     const socialDeficit = 0.2 - safeNeeds.social;
-    agent.emotion.applyEffect({
+    commitEmotion(agent, {
       loneliness: socialDeficit * 0.12,
       sadness: socialDeficit * 0.05,
       joy: -socialDeficit * 0.04,
-    });
+    }, env);
   }
 
   // Comfort deficit (< 0.2) → nervousness + frustration
   if (safeNeeds.comfort < 0.2) {
     const comfortDeficit = 0.2 - safeNeeds.comfort;
-    agent.emotion.applyEffect({
+    commitEmotion(agent, {
       nervousness: comfortDeficit * 0.08,
       frustration: comfortDeficit * 0.04,
       contentment: -comfortDeficit * 0.06,
-    });
+    }, env);
   }
 
   // Stimulation deficit (< 0.15) → boredom + frustration
   if (safeNeeds.stimulation < 0.15) {
     const stimDeficit = 0.15 - safeNeeds.stimulation;
-    agent.emotion.applyEffect({
+    commitEmotion(agent, {
       boredom: stimDeficit * 0.12,
       frustration: stimDeficit * 0.04,
       joy: -stimDeficit * 0.03,
-    });
+    }, env);
   }
 }
 
@@ -173,10 +188,10 @@ function updateHealth(agent, hoursElapsed, env) {
   // Sick event generation — domain-agnostic: use activity level instead of
   // hardcoded state names to detect "already resting / on leave"
   if (agent.health < 0.35 && activity > 0.15) {
-    agent.emotion.applyEffect({
+    commitEmotion(agent, {
       frustration: 0.02,
       calm: -0.03,
-    });
+    }, env);
   }
 }
 

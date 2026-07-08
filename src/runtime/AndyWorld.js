@@ -780,12 +780,15 @@ class AndyWorld {
             }));
           }
         } else if (effect.type === 'emotion' && effect.delta) {
-          // R136: tag encounter emotion effects for next-tick perception verification
-          // If agent is removed before perception, these effects are lost
-          // PerceptionRuntime.perceiveEvents (Phase 4, next tick) already applies
-          // encounter emotion effects with proper cognitive appraisal modulation.
-          // Producing EmotionDelta here causes double application (raw + appraised).
-          // Skip — let PerceptionRuntime handle emotion via the appraisal path.
+          // Apply encounter emotions in the same commit pass as relationship and
+          // memory effects. Relying on next-tick perception makes the effect
+          // dependent on the recent-event window and can permanently drop it
+          // when many events are dispatched after the encounter.
+          const safeTarget = typeof effect.target === 'string' ? effect.target : null;
+          if (safeTarget && this.agents.has(safeTarget)) {
+            deltas.push(new EmotionDelta(safeTarget, effect.delta));
+            effect._committedByEncounterEffects = true;
+          }
         } else if (effect.type === 'memory' && effect.delta) {
           const d = effect.delta;
           if (d.kind === 'candidate') {

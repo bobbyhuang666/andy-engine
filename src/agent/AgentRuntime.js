@@ -196,7 +196,7 @@ class AgentRuntime {
     }
 
     // ─── 8. 需求→情绪耦合 ───
-    this.handlers.needsEmotion.tick();
+    this.handlers.needsEmotion.tick(context);
 
     // ─── 9. 健康系统更新 ───
     this.handlers.health.tick(context);

@@ -961,8 +961,8 @@ const DIRECT_EMOTION_WRITE_ALLOWLIST = {
     reason: 'authorized emotion delta owner',
   },
   'src/agent/runtime/PhysiologyRuntime.js': {
-    count: 6,
-    reason: 'owned continuous needs/health-to-emotion dynamics',
+    count: 1,
+    reason: 'legacy fallback when no EffectCommitter is available',
   },
   'src/sdk/AndyBridge.js': {
     count: 2,

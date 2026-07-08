@@ -121,6 +121,32 @@ describe('PerceptionHandler', () => {
     expect(setStress).toHaveBeenCalled();
   });
 
+  it('skips encounter emotion effects already committed by AndyWorld', () => {
+    const applyEffect = vi.spyOn(agent.emotion, 'applyEffect');
+    const world = { time: new Date('2026-07-02T10:00:00+08:00') };
+    world.effectCommitter = new EffectCommitter({ world, agents: new Map([[agent.id, agent]]) });
+    const event = {
+      id: 'encounter-emotion-already-committed',
+      type: 'social',
+      scope: 'local',
+      content: '',
+      effects: [{
+        target: 'test',
+        type: 'emotion',
+        delta: { joy: 0.2 },
+        _committedByEncounterEffects: true,
+      }],
+      participants: ['test'],
+    };
+
+    handler.tick({
+      safeEvents: [event],
+      env: { simTime: world.time, effectCommitter: world.effectCommitter, effectWorld: world },
+    });
+
+    expect(applyEffect).not.toHaveBeenCalled();
+  });
+
   it('PerceptionRuntime does not directly mutate emotion, stress, or appraisal bias', () => {
     const file = path.join(import.meta.dirname, '../../../src/agent/runtime/PerceptionRuntime.js');
     const source = fs.readFileSync(file, 'utf8')
