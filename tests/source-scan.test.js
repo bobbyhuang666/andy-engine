@@ -34,7 +34,6 @@ const ALLOWED_PATHS = [
   'src/config/defaults.js',
   'src/domain/DomainRegistry.js',
   'src/narrative/FactConsistencyChecker.js',
-  'src/narrative/StoryGenerator.js',
   'tests/',
   'docs/',
   'README.md',

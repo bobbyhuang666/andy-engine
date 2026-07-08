@@ -322,6 +322,19 @@ function validateDomain(domain, options = {}) {
       if (profile.defaultSemanticCategories !== undefined && typeof profile.defaultSemanticCategories !== 'object') {
         addError('semanticProfile.defaultSemanticCategories', '必须是对象');
       }
+
+      // locationNames: region key → 显示名映射（StoryGenerator 用），可选对象。
+      if (profile.locationNames !== undefined) {
+        if (typeof profile.locationNames !== 'object' || profile.locationNames === null) {
+          addError('semanticProfile.locationNames', '必须是对象');
+        } else {
+          for (const [region, name] of Object.entries(profile.locationNames)) {
+            if (typeof name !== 'string') {
+              addError(`semanticProfile.locationNames.${region}`, '必须是字符串');
+            }
+          }
+        }
+      }
     }
   }
 

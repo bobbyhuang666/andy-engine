@@ -40,7 +40,11 @@ class AndyBridge {
 
     // 核心模块
     this.signalBuffer = new EmotionSignalBuffer({ rng: this._rng });
-    this.storyGenerator = new StoryGenerator();
+    // StoryGenerator 地点显示名走 domain-driven：从引擎 domain 的 semanticProfile
+    // 取 locationNames；缺失时 StoryGenerator 直出原始 location（无 profile 不崩）。
+    const bridgeDomain = this.andy?.domain || this.andy?.world?.domain;
+    const locationNames = bridgeDomain?.semanticProfile?.locationNames;
+    this.storyGenerator = new StoryGenerator({ locationNames });
 
     // 支持内存存储
     const storeType = options.persistence?.type || 'auto';

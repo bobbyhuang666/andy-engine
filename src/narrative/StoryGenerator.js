@@ -83,35 +83,21 @@ const STATE_NAMES = {
   cooking: '做饭',
 };
 
-// 地点中文映射（中性，不依赖 campus）
-const LOCATION_NAMES = {
-  // Campus/Tavern domain — Chinese region names
-  '宿舍': '宿舍',
-  '食堂': '食堂',
-  '便利店': '便利店',
-  '教室': '教室',
-  '图书馆': '图书馆',
-  '咖啡店': '咖啡店',
-  '公园': '公园',
-  '健身房': '健身房',
-  '家里': '家里',
-  '街上': '街上',
-  '校园广场': '校园广场',
-  '网吧': '网吧',
-  '操场': '操场',
-  // English fallbacks for other domains
-  home: '家',
-  office: '工作地',
-  library: '阅览处',
-  cafe: '咖啡馆',
-  park: '公园',
-  gym: '健身房',
-  restaurant: '餐厅',
-  street: '街上',
-  school: '学堂',
-};
+// 地点显示名映射由 domain.semanticProfile.locationNames 提供（domain-driven）。
+// core 不再硬编码 campus/tavern/Oak Town 等具体世界地点词；
+// 未提供 profile 时直出原始 location（见 _socialStory）。
 
 class StoryGenerator {
+  /**
+   * @param {Object} [options]
+   * @param {Object<string, string>} [options.locationNames]
+   *   region key → 显示名映射，来自 domain.semanticProfile.locationNames。
+   *   缺省时社交故事直出 interaction.location 原值。
+   */
+  constructor(options = {}) {
+    this._locationNames = options.locationNames || {};
+  }
+
   /**
    * 从 tick 结果生成故事
    *
@@ -251,7 +237,9 @@ class StoryGenerator {
 
   _socialStory(interaction, tickResult, rng) {
     const name = interaction.otherAgentName || interaction.otherAgent || '某个人';
-    const location = LOCATION_NAMES[interaction.location] || '';
+    // Domain-driven: 优先用 semanticProfile.locationNames 映射显示名，
+    // 没有映射时直出原始 location；location 缺失才退回无地点短语。
+    const location = this._locationNames[interaction.location] || interaction.location || '';
 
     let content;
     if (location) {
