@@ -2,7 +2,7 @@
 
 > 状态:**Open(待澄清)** · 优先级:P1/契约一致性 · 不阻塞当前硬化
 > 关联:P1 Persistence trust · `docs/WORLD_SCHEMA.md` §4.7 / §5.2
-> 架构师:本文档由架构师 AI 撰写,记录构建 persistence-trust 测试时发现的契约与实现张力。
+> 说明:记录构建 persistence-trust 测试时发现的契约与实现张力。
 
 ---
 

@@ -77,7 +77,7 @@ The LLM is a rendering layer, not the source of truth.
 | D5 narrative faithfulness | Structured grounding checker (ClaimExtractor + GroundingChecker v3) with evidence-bound narrative validation; Semantic Beta gate met on 3467 samples, including 1418 real LLM-generated samples from 4 distinct LLM model sources; current harness reports 0% false-pass / 0% false-block. |
 | Seeded RNG | Core runtime paths support seeded simulation baseline |
 | Perf-check | Benchmark / contagion profile regression checks exit 0 in 3-run median mode |
-| Character continuity evaluation | Internal evaluations show stronger character continuity and presence compared with prompt-only baselines |
+| Character continuity evaluation | Evaluations show stronger character continuity and presence compared with prompt-only baselines |
 
 ## AffectCompiler
 
@@ -501,7 +501,7 @@ Andy Engine 维护一个共享的 **WorldCanon**：发生了什么、谁看到�
 
 LLM 只能表达角色知道的事，不能创造世界事实。
 
-> 状态：**v2.0.1** — 已通过本地 Internal Beta 门控的持久世界运行时。
+> 状态：**v2.0.1** — 持久世界运行时。
 
 ---
 

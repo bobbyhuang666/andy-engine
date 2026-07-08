@@ -1,7 +1,7 @@
 /**
- * Andy Engine v5 独立审计测试套件
+ * Andy Engine v5 deep audit test suite
  *
- * 全新编写，不依赖任何已有测试。每项测试验证一个具体的代码级问题。
+ * Each case verifies a concrete code-level reliability issue.
  */
 
 import { describe, it, expect } from 'vitest';

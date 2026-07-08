@@ -1,7 +1,7 @@
 /**
  * SP-1 回归测试 — continuous spatial + schedule 路径 move 不被同 tick 回滚
  *
- * 根因 (R40 审计子 AI SP-1, 已逐行复核):
+ * 根因:
  *   ScheduleHandler.tick() 设 agent.position = newRegion 并置 result.regionChanged=true,
  *   但不调用 env._setRegionChanged / spatial.setCoords。AndyWorld Phase 4 的
  *   regionChanged 分支只调 regions.place,不同步 SpatialEngine._coords。Phase 5

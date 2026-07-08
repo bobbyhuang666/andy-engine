@@ -1,7 +1,7 @@
 /**
  * B1 回归测试 — continuous spatial + active actionSelection 下 move 不被同 tick 回滚
  *
- * 根因（R39 子 AI 调查，已逐行复核）:
+ * 根因:
  *   active writeback 在 ActionSelectionRuntime.applyActionStateDeltas 里把
  *   agent.position 跳到目标区域，并通过 env._setRegionChanged 同步 RegionGrid，
  *   但不同步 SpatialEngine._coords（连续坐标）。随后 Phase 5 调 SpatialEngine.tick()

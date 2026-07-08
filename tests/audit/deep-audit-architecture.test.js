@@ -1,5 +1,5 @@
 /**
- * 独立审计深度测试 — 架构违规检测
+ * Deep audit coverage — architecture boundary checks
  * 
  * 验证 AGENTS.md 中声明的所有架构规则是否在代码中被实际遵守。
  */

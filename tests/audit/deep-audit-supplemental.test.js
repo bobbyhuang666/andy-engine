@@ -1,10 +1,8 @@
 /**
- * 独立审计补充深度测试
+ * Supplemental deep audit coverage
  *
- * 覆盖原始审计测试未覆盖的领域，验证极端边界条件、跨模块一致性、
- * 以及生产级引擎必须满足的可靠性标准。
- *
- * 对标基准: Linux/macOS/Minecraft 级别
+ * Covers extreme boundary conditions, cross-module consistency, and runtime
+ * reliability expectations not covered by the first audit suite.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';

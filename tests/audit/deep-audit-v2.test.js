@@ -1,10 +1,8 @@
 /**
- * 独立审计深度测试 v2 — 全新审计周期
+ * Deep audit regression coverage v2
  *
- * 本轮测试从零编写，验证之前审计发现是否已修复，
- * 同时探索新发现的潜在问题领域。
- *
- * 对标基准: Linux/macOS/Minecraft 级别
+ * Verifies prior audit findings and expands coverage for adjacent reliability
+ * risks.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';

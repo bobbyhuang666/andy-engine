@@ -1,9 +1,9 @@
-# AGENTS.md — AI Coding Agent Notes
+# AGENTS.md — Contributor Guardrails
 
-This file contains repository-specific guardrails for AI coding agents and other
-automation-assisted contributors. Human readers should start with `README.md`;
-coding agents should also read `AI_README.md`, `docs/archive/CLEAN_ARCHITECTURE_FINAL_AUDIT.md`,
-and `docs/PUBLIC_API_CONTRACT.md` before making changes.
+This file contains repository-specific guardrails for automation-assisted
+contributors. Human readers should start with `README.md`; automated coding
+agents should also read `docs/archive/CLEAN_ARCHITECTURE_FINAL_AUDIT.md` and
+`docs/PUBLIC_API_CONTRACT.md` before making changes.
 
 ---
 
@@ -290,8 +290,8 @@ docs/WORLD_SCHEMA.md
 
 Historical planning notes, completed phase reports, and temporary execution
 cards are not part of the public repository. Current engineering judgment should
-come from source code, tests, `README.md`, `AI_README.md`, `AGENTS.md`, and the
-public docs under `docs/`.
+come from source code, tests, `README.md`, `AGENTS.md`, and the public docs under
+`docs/`.
 
 ---
 

@@ -403,8 +403,8 @@ describe('Architecture: boundary docs and script exist', () => {
     expect(existsSync(path.join(ROOT, 'docs', 'archive', 'CLEAN_ARCHITECTURE_FINAL_AUDIT.md'))).toBe(true);
   });
 
-  it('docs/archive/LEGACY_REMOVAL_REPORT.md exists', () => {
-    expect(existsSync(path.join(ROOT, 'docs', 'archive', 'LEGACY_REMOVAL_REPORT.md'))).toBe(true);
+  it('docs/LEGACY_REMOVAL_REPORT.md exists', () => {
+    expect(existsSync(path.join(ROOT, 'docs', 'LEGACY_REMOVAL_REPORT.md'))).toBe(true);
   });
 
   it('scripts/check-boundaries.js exists', () => {

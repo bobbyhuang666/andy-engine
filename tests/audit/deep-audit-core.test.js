@@ -1,8 +1,8 @@
 /**
- * 独立审计深度测试 — 核心机制验证
+ * Deep audit coverage — core runtime mechanisms
  * 
- * 这些测试不是原有测试套件的一部分，而是独立审计师
- * 从零编写的验证性测试，对标生产级引擎标准。
+ * These tests verify core runtime invariants and regression risks that are not
+ * fully covered by narrower unit suites.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';

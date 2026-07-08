@@ -1,7 +1,8 @@
 /**
- * 独立审计深度测试 v3 — 全新审计周期 (2026-06-29)
+ * Deep audit regression coverage v3 (2026-06-29)
  *
- * 不依赖此前任何测试。每项测试都从零验证当前代码状态。
+ * Each case independently verifies current behavior for previously identified
+ * reliability risks.
  */
 
 import { describe, it, expect } from 'vitest';

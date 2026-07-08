@@ -9,7 +9,7 @@ temporary planning notes stay out of the public tree.
 
 ## Start Here
 
-- `../AGENTS.md` — repository guardrails for AI coding agents.
+- `../AGENTS.md` — repository guardrails for automation-assisted contributors.
 - `PUBLIC_API_CONTRACT.md` — public API contract.
 - `SERIALIZATION_CONTRACT.md` — persistence and serialization contract.
 - `WORLD_SCHEMA.md` — world schema documentation.
