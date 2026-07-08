@@ -73,6 +73,7 @@ describe('ClaimExtractor — 所有 claim 类型', () => {
     const stateClaims = claims.filter(c => c.type === 'state');
     expect(stateClaims.length).toBeGreaterThan(0);
     expect(stateClaims[0].stateType).toBe('emotion');
+    expect(stateClaims[0].evidenceRequired).toBe('observed');
   });
 
   it('提取 state claim (needs): "Bob饿了"', () => {
@@ -81,6 +82,7 @@ describe('ClaimExtractor — 所有 claim 类型', () => {
     const stateClaims = claims.filter(c => c.type === 'state');
     expect(stateClaims.length).toBeGreaterThan(0);
     expect(stateClaims[0].stateType).toBe('needs');
+    expect(stateClaims[0].evidenceRequired).toBe('observed');
   });
 
   it('提取 state claim (activity): "Bob正在看书"', () => {

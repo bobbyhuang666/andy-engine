@@ -9,6 +9,7 @@
 
 const { FactType, FactScope } = require('../canon/FactSchema');
 const GroundingChecker = require('./GroundingChecker');
+const FactProvider = require('./FactProvider');
 
 class FactConsistencyChecker {
   /**
@@ -88,7 +89,7 @@ class FactConsistencyChecker {
    * 附加可选字段：claims, checkerVersion: 'v2-structured', groundingVersion: 'v3-semantic-alpha'
    *
    * @param {string} llmOutput - LLM 生成的文本
-   * @param {Object} grounding - 角色的 grounding package
+   * @param {Object|string} grounding - 角色的 grounding package；旧调用可传 agentId string
    * @param {Object} [options={}] - 可选参数（如 structuredClaims）
    * @returns {Object} { valid, violations, severity, suggestion, claims?, checkerVersion?, groundingVersion? }
    */
@@ -97,21 +98,26 @@ class FactConsistencyChecker {
       return { valid: true, violations: [], severity: 'pass', suggestion: null };
     }
 
+    const normalizedGrounding = this._normalizeGroundingArg(grounding, options);
+    if (!normalizedGrounding) {
+      return { valid: true, violations: [], severity: 'pass', suggestion: null };
+    }
+
     // v2 structured checker — primary path
     const v2Checker = new GroundingChecker(this.store, this.domain);
-    const v2Result = v2Checker.check(llmOutput, grounding, options);
+    const v2Result = v2Checker.check(llmOutput, normalizedGrounding, options);
 
     // v1 regex fallback — for patterns not yet covered by structured claims
     const regexViolations = [];
-    regexViolations.push(...this._checkCharacterNames(llmOutput, grounding));
-    regexViolations.push(...this._checkLocationNames(llmOutput, grounding));
-    regexViolations.push(...this._checkEventKnowledge(llmOutput, grounding));
-    regexViolations.push(...this._checkTimeConflicts(llmOutput, grounding));
-    regexViolations.push(...this._checkNewContent(llmOutput, grounding));
-    regexViolations.push(...this._checkAgentLocationClaims(llmOutput, grounding));
-    regexViolations.push(...this._checkMissingSourceAttribution(llmOutput, grounding));
-    regexViolations.push(...this._checkAgentStateLeak(llmOutput, grounding));
-    regexViolations.push(...this._checkLocalScopeLeak(llmOutput, grounding));
+    regexViolations.push(...this._checkCharacterNames(llmOutput, normalizedGrounding));
+    regexViolations.push(...this._checkLocationNames(llmOutput, normalizedGrounding));
+    regexViolations.push(...this._checkEventKnowledge(llmOutput, normalizedGrounding));
+    regexViolations.push(...this._checkTimeConflicts(llmOutput, normalizedGrounding));
+    regexViolations.push(...this._checkNewContent(llmOutput, normalizedGrounding));
+    regexViolations.push(...this._checkAgentLocationClaims(llmOutput, normalizedGrounding));
+    regexViolations.push(...this._checkMissingSourceAttribution(llmOutput, normalizedGrounding));
+    regexViolations.push(...this._checkAgentStateLeak(llmOutput, normalizedGrounding));
+    regexViolations.push(...this._checkLocalScopeLeak(llmOutput, normalizedGrounding));
 
     // Merge: v2 blocking violations first, then regex-only violations (no duplicates)
     const merged = [...v2Result.violations];
@@ -139,6 +145,34 @@ class FactConsistencyChecker {
       ...(v2Result.coreferenceNotes !== undefined ? { coreferenceNotes: v2Result.coreferenceNotes } : {}),
       ...(v2Result.verifierDecisions !== undefined ? { verifierDecisions: v2Result.verifierDecisions } : {}),
     };
+  }
+
+  /**
+   * Keep the historical direct checker signature working:
+   *   check(text, agentId, options)
+   *
+   * Public engine.checkConsistency(text, agentId) already builds grounding before
+   * calling this class, but external users may instantiate FactConsistencyChecker
+   * directly from `andy-engine/facts`.
+   *
+   * @param {Object|string} groundingOrAgentId
+   * @param {Object} options
+   * @returns {Object|null}
+   * @private
+   */
+  _normalizeGroundingArg(groundingOrAgentId, options = {}) {
+    if (groundingOrAgentId && typeof groundingOrAgentId === 'object') {
+      return groundingOrAgentId;
+    }
+    if (typeof groundingOrAgentId !== 'string') return null;
+    if (!this.store || typeof this.store.getFactsForAgent !== 'function') return null;
+
+    try {
+      const provider = new FactProvider(this.store, null, new Map());
+      return provider.getGroundingPackage(groundingOrAgentId, options);
+    } catch (_err) {
+      return null;
+    }
   }
 
   /**

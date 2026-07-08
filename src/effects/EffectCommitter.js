@@ -123,12 +123,13 @@ class EffectCommitter {
    */
   _applyEmotionDelta(delta) {
     const agent = this.agents?.get?.(delta.agentId);
-    if (!agent || !agent.emotion || typeof agent.emotion.applyEffect !== 'function') return false;
+    if (!agent || !agent.emotion) return false;
 
     let emotionApplied = false;
     let stressApplied = false;
 
-    if (delta.changes && Object.keys(delta.changes).length > 0) {
+    if (typeof agent.emotion.applyEffect === 'function' &&
+      delta.changes && Object.keys(delta.changes).length > 0) {
       const multiplier = Number.isFinite(delta.multiplier) ? delta.multiplier : 1;
       const appraisalModifiers = delta.appraisalModifiers && typeof delta.appraisalModifiers === 'object'
         ? { ...delta.appraisalModifiers }

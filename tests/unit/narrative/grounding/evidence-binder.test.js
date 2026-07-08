@@ -471,6 +471,53 @@ describe('EvidenceBinder', () => {
       expect(result.bindings[0].support).toBe(SUPPORT.SUPPORTS);
     });
 
+    test('{kind, id, raw} location object → 正常工作', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = [
+        makeEventFact({
+          description: '鲍勃在图书馆',
+          location: '图书馆',
+          participants: [bobId],
+        }),
+      ];
+      const claims = [
+        makeClaim({
+          type: 'location',
+          subject: { kind: 'agent', id: bobId, raw: '鲍勃' },
+          object: { kind: 'location', id: 'library', raw: '图书馆' },
+        }),
+      ];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings.length).toBe(1);
+      expect(result.bindings[0].support).toBe(SUPPORT.SUPPORTS);
+    });
+
+    test('{kind, id, raw} event object does not throw and matches raw text', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = [
+        makeEventFact({
+          description: '鲍勃在图书馆学习',
+          location: '图书馆',
+          participants: [bobId],
+        }),
+      ];
+      const claims = [
+        makeClaim({
+          type: 'event',
+          subject: { kind: 'agent', id: bobId, raw: '鲍勃' },
+          predicate: 'refers_to',
+          object: { kind: 'event', id: 'evt1', raw: '图书馆学习' },
+        }),
+      ];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings.length).toBe(1);
+      expect(result.bindings[0].support).toBe(SUPPORT.SUPPORTS);
+    });
+
     test('string subject for relationship', () => {
       const binder = new EvidenceBinder({ selfId });
       const allowedFacts = [

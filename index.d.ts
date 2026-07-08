@@ -207,14 +207,62 @@ interface VerifierDecision {
   [key: string]: any;
 }
 
+type StructuredClaimType = 'location' | 'event' | 'relationship' | 'state' | 'source_attribution' | 'time';
+type StructuredClaimPolarity = 'affirmative' | 'negative' | 'uncertain';
+type StructuredClaimEvidenceRequirement = 'self' | 'observed' | 'told' | 'inferred' | 'any';
+
+interface StructuredClaimEntity {
+  kind: 'agent' | 'location' | 'event' | 'relationship' | 'state' | string;
+  id?: string;
+  raw?: string;
+  [key: string]: any;
+}
+
+interface StructuredClaimSpan {
+  start?: number;
+  end?: number;
+  raw?: string;
+}
+
+interface StructuredClaim {
+  id?: string;
+  type: StructuredClaimType;
+  subject?: string | StructuredClaimEntity;
+  rawSubject?: string;
+  predicate?: string;
+  object?: string | StructuredClaimEntity;
+  polarity?: StructuredClaimPolarity;
+  evidenceRequired?: StructuredClaimEvidenceRequirement;
+  confidence?: number;
+  stateType?: 'emotion' | 'needs' | 'activity' | string;
+  sourceSpan?: StructuredClaimSpan;
+  [key: string]: any;
+}
+
+interface StructuredClaimsSidecar {
+  claims: StructuredClaim[];
+  [key: string]: any;
+}
+
+interface SemanticVerifier {
+  verify?(input: {
+    llmOutput: string;
+    claims: StructuredClaim[];
+    evidenceTrace?: EvidenceTraceEntry[];
+    grounding?: GroundingPackage;
+    strictness?: ConsistencyCheckOptions['strictness'];
+  }): VerifierDecision[] | Promise<VerifierDecision[]>;
+  [key: string]: any;
+}
+
 /** v3 sidecar options passed to checkConsistency / FactConsistencyChecker.check */
 interface ConsistencyCheckOptions {
   /** structured claim sidecar for v3 evidence-bound path */
-  structuredClaims?: object;
+  structuredClaims?: StructuredClaim[] | StructuredClaimsSidecar;
   /** location alias map (alias → canonical) for diagnostic trace */
   locationAliases?: Record<string, string[]>;
   /** optional semantic verifier adapter */
-  verifier?: object;
+  verifier?: SemanticVerifier;
   /** strictness level */
   strictness?: 'normal' | 'strict' | 'semantic_review';
 }

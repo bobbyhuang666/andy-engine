@@ -256,6 +256,44 @@ class EvidenceBinder {
     return null;
   }
 
+  /**
+   * Extract a comparable string from v2 string objects or v3 {kind,id,raw} objects.
+   *
+   * @private
+   */
+  _objectValue(claim, preferred = 'id') {
+    const object = claim?.object;
+    if (object == null) return '';
+    if (typeof object === 'string') return object;
+    if (typeof object === 'object') {
+      return object[preferred] || object.id || object.raw || '';
+    }
+    return String(object);
+  }
+
+  /**
+   * Extract all comparable string candidates from claim.object.
+   *
+   * @private
+   */
+  _objectValues(claim, preferred = 'id') {
+    const values = [];
+    const add = (value) => {
+      if (value == null) return;
+      const str = String(value);
+      if (str && !values.includes(str)) values.push(str);
+    };
+    const object = claim?.object;
+    if (object && typeof object === 'object' && !Array.isArray(object)) {
+      add(object[preferred]);
+      add(object.id);
+      add(object.raw);
+    } else {
+      add(this._objectValue(claim, preferred));
+    }
+    return values;
+  }
+
   // ═══════════════════════════════════════════
   // Alias index building (M3-R3 paraphrase support)
   // ═══════════════════════════════════════════
@@ -356,19 +394,21 @@ class EvidenceBinder {
     const agentKnownLocations = index.agentKnownLocations;
     const subjectId = this._subjectId(claim);
     const isSelf = subjectId === selfId;
-    const location = claim.object;
+    const locationCandidates = this._objectValues(claim, 'id');
+    const location = locationCandidates[0] || '';
     const confidence = claim.confidence || 0.7;
 
     if (isSelf) {
       // Self location: 查 selfAgentStateLocations
-      if (selfAgentStateLocations.has(location)) {
+      const matchedLocation = locationCandidates.find(loc => selfAgentStateLocations.has(loc));
+      if (matchedLocation) {
         bindings.push({
           claimId: claim.id || 'unknown',
           factId: null, // self state 可能对应多个 fact
           support: SUPPORT.SUPPORTS,
           evidenceSource: 'self_agent_state',
           confidence,
-          reason: `self location matched in selfAgentStateLocations index for "${location}"`,
+          reason: `self location matched in selfAgentStateLocations index for "${matchedLocation}"`,
         });
       } else {
         // 严格未命中 → 尝试 alias 旁路
@@ -398,14 +438,17 @@ class EvidenceBinder {
     } else {
       // Other-agent location: 查 agentKnownLocations
       const knownLocs = agentKnownLocations.get(subjectId);
-      if (knownLocs && knownLocs.has(location)) {
+      const matchedLocation = knownLocs
+        ? locationCandidates.find(loc => knownLocs.has(loc))
+        : null;
+      if (matchedLocation) {
         bindings.push({
           claimId: claim.id || 'unknown',
           factId: null,
           support: SUPPORT.SUPPORTS,
           evidenceSource: 'agent_known_locations',
           confidence,
-          reason: `agent "${subjectId}" location "${location}" matched in agentKnownLocations index`,
+          reason: `agent "${subjectId}" location "${matchedLocation}" matched in agentKnownLocations index`,
         });
       } else {
         // 严格未命中 → 尝试 alias 旁路
@@ -448,7 +491,8 @@ class EvidenceBinder {
     const bindings = [];
     const knownEventDescriptions = index.knownEventDescriptions;
     const confidence = claim.confidence || 0.7;
-    const object = claim.object || '';
+    const objectCandidates = this._objectValues(claim, 'raw');
+    const object = objectCandidates[0] || '';
 
     // predicate 'did' — 新事件创建，永远 unsupported（由上层 policy 拒绝）
     if (claim.predicate === 'did') {
@@ -465,11 +509,11 @@ class EvidenceBinder {
 
     // predicate 'refers_to' — 引用过去事件
     if (claim.predicate === 'refers_to') {
-      const eventRef = object.toLowerCase();
+      const eventRefs = objectCandidates.map(value => String(value).toLowerCase());
       let found = false;
       let matchedDesc = null;
       for (const desc of knownEventDescriptions) {
-        if (desc.includes(eventRef) || eventRef.includes(desc)) {
+        if (eventRefs.some(eventRef => desc.includes(eventRef) || eventRef.includes(desc))) {
           found = true;
           matchedDesc = desc;
           break;
@@ -521,8 +565,6 @@ class EvidenceBinder {
     const knownRelationships = index.knownRelationships;
     const confidence = claim.confidence || 0.7;
     const subjectId = this._subjectId(claim);
-    const object = claim.object; // relationType 或描述
-
     // 获取第二个 agent — relationship claim 需要两个 agent
     // 尝试从 claim.subject 和 claim.object 推断
     const secondAgent = this._extractSecondAgent(claim, subjectId);

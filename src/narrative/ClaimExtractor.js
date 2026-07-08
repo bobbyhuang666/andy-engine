@@ -560,7 +560,7 @@ class ClaimExtractor {
             predicate: 'feels',
             object: emotion,
             polarity: uncertain ? 'uncertain' : (negation ? 'negative' : 'affirmative'),
-            evidenceRequired: isSelf ? 'self' : 'self',
+            evidenceRequired: isSelf ? 'self' : 'observed',
             confidence,
             stateType: 'emotion',
             sourceSpan: {
@@ -595,7 +595,7 @@ class ClaimExtractor {
           predicate: 'needs',
           object: need,
           polarity: uncertain ? 'uncertain' : (negation ? 'negative' : 'affirmative'),
-          evidenceRequired: isSelf ? 'self' : 'self',
+          evidenceRequired: isSelf ? 'self' : 'observed',
           confidence,
           stateType: 'needs',
           sourceSpan: {

@@ -73,6 +73,54 @@ interface VerifierDecision {
   [key: string]: any;
 }
 
+type StructuredClaimType = 'location' | 'event' | 'relationship' | 'state' | 'source_attribution' | 'time';
+type StructuredClaimPolarity = 'affirmative' | 'negative' | 'uncertain';
+type StructuredClaimEvidenceRequirement = 'self' | 'observed' | 'told' | 'inferred' | 'any';
+
+interface StructuredClaimEntity {
+  kind: 'agent' | 'location' | 'event' | 'relationship' | 'state' | string;
+  id?: string;
+  raw?: string;
+  [key: string]: any;
+}
+
+interface StructuredClaimSpan {
+  start?: number;
+  end?: number;
+  raw?: string;
+}
+
+interface StructuredClaim {
+  id?: string;
+  type: StructuredClaimType;
+  subject?: string | StructuredClaimEntity;
+  rawSubject?: string;
+  predicate?: string;
+  object?: string | StructuredClaimEntity;
+  polarity?: StructuredClaimPolarity;
+  evidenceRequired?: StructuredClaimEvidenceRequirement;
+  confidence?: number;
+  stateType?: 'emotion' | 'needs' | 'activity' | string;
+  sourceSpan?: StructuredClaimSpan;
+  [key: string]: any;
+}
+
+interface StructuredClaimsSidecar {
+  claims: StructuredClaim[];
+  [key: string]: any;
+}
+
+interface SemanticVerifier {
+  verify?(input: {
+    llmOutput: string;
+    claims: StructuredClaim[];
+    evidenceTrace?: EvidenceTraceEntry[];
+    grounding?: GroundingPackage;
+    strictness?: 'normal' | 'strict' | 'semantic_review';
+  }): VerifierDecision[] | Promise<VerifierDecision[]>;
+  [key: string]: any;
+}
+
 interface GroundingPackage {
   allowedFacts: WorldFact[];
   inferredFacts: WorldFact[];
@@ -138,7 +186,7 @@ declare class FactProvider {
 
 declare class FactConsistencyChecker {
   constructor(worldFactStore: WorldFactStore, domain?: any);
-  check(llmOutput: string, grounding: object, options?: { structuredClaims?: object; locationAliases?: Record<string, string[]>; verifier?: object; strictness?: 'normal' | 'strict' | 'semantic_review' }): ConsistencyCheckResult;
+  check(llmOutput: string, grounding: GroundingPackage | string, options?: { structuredClaims?: StructuredClaim[] | StructuredClaimsSidecar; locationAliases?: Record<string, string[]>; verifier?: SemanticVerifier; strictness?: 'normal' | 'strict' | 'semantic_review' }): ConsistencyCheckResult;
 }
 
 declare class FactFormatter {

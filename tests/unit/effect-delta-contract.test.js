@@ -332,6 +332,22 @@ describe('Phase 5: EffectCommitter', () => {
     expect(agents.get('a1').emotion.setStress).toHaveBeenCalledWith(6.4);
   });
 
+  it('commit applies stress even when emotion.applyEffect is unavailable', () => {
+    const agents = makeMockAgents();
+    delete agents.get('a1').emotion.applyEffect;
+    const world = makeMockWorld();
+    const committer = new EffectCommitter({ world, agents });
+
+    const result = committer.commit(new EffectResult({
+      event: {},
+      deltas: [new EmotionDelta('a1', { calm: 0.1 }, { stress: 4.2 })],
+      reasonTrace: {},
+    }));
+
+    expect(agents.get('a1').emotion.setStress).toHaveBeenCalledWith(4.2);
+    expect(result.applied).toHaveLength(1);
+  });
+
   it('commit applies memory deltas via addExperience', () => {
     const agents = makeMockAgents();
     const world = makeMockWorld();

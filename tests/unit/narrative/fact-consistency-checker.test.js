@@ -36,6 +36,20 @@ describe('FactConsistencyChecker.check — entry', () => {
     expect(c.check(null, makeGrounding()).valid).toBe(true);
     expect(c.check('text', null).valid).toBe(true);
   });
+  it('keeps legacy check(text, agentId) signature by building grounding from store', () => {
+    const store = {
+      getFactsForAgent: () => [
+        { id: 'f1', type: FactType.AGENT_STATE, agentId: 'alice', position: '图书馆' },
+      ],
+      getAllFacts: () => [],
+    };
+    const c = new FactConsistencyChecker(store, { regions: ['图书馆'] });
+
+    const r = c.check('我在图书馆', 'alice');
+
+    expect(r.valid).toBe(true);
+    expect(r.severity).toBe('pass');
+  });
   it('returns valid:true with no violations for clean text', () => {
     const c = makeChecker();
     const r = c.check('今天天气不错', makeGrounding());
