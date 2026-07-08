@@ -23,6 +23,7 @@ import { LocationMeaningDelta } from '../../src/effects/LocationMeaningDelta.js'
 import { FutureTendencyDelta } from '../../src/effects/FutureTendencyDelta.js';
 import { EffectResult } from '../../src/effects/EffectResult.js';
 import { EffectCommitter } from '../../src/effects/EffectCommitter.js';
+import { PositionDelta } from '../../src/effects/PositionDelta.js';
 import { applyActionEffect, computeDeltas, applyEventConsequences } from '../../src/effects/EventEffectPipeline.js';
 
 const TEST_TIME = new Date('2026-09-01T14:00:00Z');
@@ -714,5 +715,92 @@ describe('Phase 5: typed pipeline functions', () => {
     });
     expect(result.deltas).toHaveLength(0);
     expect(result.hasChanges).toBe(false);
+  });
+});
+
+// ─── Phase D: directCommit() ≡ legacy round-trip ──────────────────────────────
+
+describe('Phase D: EffectResult.directCommit() equivalence', () => {
+  function makeAgent() {
+    return {
+      id: 'a1',
+      needs: { needs: { energy: 0.5, hunger: 0.3 } },
+      emotion: { applyEffect: vi.fn(), setStress: vi.fn(), current: {} },
+      memory: { addExperience: vi.fn() },
+      socialGraph: {
+        hasAgent: (id) => id === 'a1' || id === 'a2',
+        getOrCreateRelationship: () => ({ recordInteraction: vi.fn() }),
+      },
+      futureTendency: { updateTendency: vi.fn() },
+      domain: { hasRegion: () => true },
+      position: '宿舍',
+      _effectCommitter: null,
+    };
+  }
+
+  function makeEnv() {
+    return {
+      simTime: TEST_TIME,
+      effectWorld: { time: TEST_TIME },
+      _setRegionChanged: vi.fn(),
+    };
+  }
+
+  function makeWorld() {
+    return {
+      time: TEST_TIME,
+      factStore: { updateLocationMeaning: vi.fn() },
+      regions: { place: vi.fn() },
+    };
+  }
+
+  it('directCommit produces same state mutations as legacy toLegacyFormat → applyActionStateDeltas', () => {
+    const agentLegacy = makeAgent();
+    const agentDirect = makeAgent();
+    const world = makeWorld();
+    const env = {
+      simTime: TEST_TIME,
+      effectWorld: world,
+      _setRegionChanged: vi.fn(),
+    };
+
+    const deltas = [
+      new NeedDelta('a1', { energy: -0.2 }),
+      new EmotionDelta('a1', { joy: 0.3 }),
+      new PositionDelta('a1', { to: '图书馆', from: '宿舍', reason: 'move' }),
+      new LocationMeaningDelta('a1', { location: '图书馆', meaningType: 'visited', weight: 0.5, reason: 'explore', from: '宿舍', to: '图书馆' }),
+      new RelationshipDelta('a1', { targetAgentId: 'a2', interactionType: 'socialize', valence: 0.2, content: 'hi' }),
+    ];
+
+    // Legacy path
+    const legacyResult = new EffectResult({ event: {}, deltas: [...deltas], reasonTrace: {} });
+    const legacyStateDeltas = legacyResult.toLegacyFormat().stateDeltas;
+    const { applyActionStateDeltas } = require('../../src/agent/runtime/ActionSelectionRuntime.js');
+    applyActionStateDeltas(agentLegacy, legacyStateDeltas, { ...env, effectCommitter: new EffectCommitter({ world, agents: new Map([[agentLegacy.id, agentLegacy]]) }) });
+
+    // Direct commit path
+    const directResult = new EffectResult({ event: {}, deltas: [...deltas], reasonTrace: {} });
+    directResult.directCommit(agentDirect, env);
+
+    // Compare final state — both paths produce identical mutations
+    expect(agentDirect.needs.needs.energy).toBeCloseTo(agentLegacy.needs.needs.energy, 5);
+    expect(agentDirect.position).toBe(agentLegacy.position);
+    expect(agentDirect.emotion.applyEffect).toHaveBeenCalledTimes(agentLegacy.emotion.applyEffect.mock.calls.length);
+    expect(agentDirect.memory.addExperience).toHaveBeenCalledTimes(agentLegacy.memory.addExperience.mock.calls.length);
+  });
+
+  it('directCommit returns applied/skipped/errors like EffectCommitter.commit', () => {
+    const agent = makeAgent();
+    const world = makeWorld();
+    const result = new EffectResult({
+      event: {},
+      deltas: [new NeedDelta('a1', { energy: -0.2 })],
+      reasonTrace: {},
+    }).directCommit(agent, { simTime: TEST_TIME, effectWorld: world });
+
+    expect(result).toHaveProperty('applied');
+    expect(result).toHaveProperty('skipped');
+    expect(result).toHaveProperty('errors');
+    expect(Array.isArray(result.applied)).toBe(true);
   });
 });

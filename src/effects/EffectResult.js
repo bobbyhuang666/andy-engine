@@ -58,8 +58,27 @@ class EffectResult {
   }
 
   /**
+   * Commit this EffectResult's typed deltas directly to live state,
+   * skipping the legacy toLegacyFormat() → applyActionStateDeltas() round-trip.
+   *
+   * Phase D-1: canonical commit path for ActionSelectionRuntime active mode.
+   *
+   * @param {Object} agent — the agent whose state should be mutated
+   * @param {Object} env — environment (for time, world ref)
+   * @returns {{ applied: Array, skipped: Array, errors: Array }}
+   */
+  directCommit(agent, env) {
+    const { getEffectCommitter } = require('../agent/runtime/EffectCommitterResolver');
+    const committer = getEffectCommitter(agent, env);
+    return committer.commit(this);
+  }
+
+  /**
    * Convert to the legacy { event, stateDeltas, updatedReasonTrace } shape
    * for backward compatibility with callers that haven't migrated yet.
+   *
+   * @deprecated Phase D-3: use directCommit() instead. This method is retained
+   *   only for tests and any callers not yet migrated.
    */
   toLegacyFormat() {
     const stateDeltas = {

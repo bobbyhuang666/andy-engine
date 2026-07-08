@@ -201,14 +201,21 @@ function runShadowActionSelection(agent, env) {
         reasonTrace: trace,
         simTime: env.simTime,
       });
-      stateDeltas = pipelineResult.toLegacyFormat().stateDeltas;
-      // Attach stateDeltas to trace
-      trace.stateDeltas = stateDeltas;
+      // Phase D-2: Keep legacy stateDeltas on trace for backward compat
+      trace.stateDeltas = pipelineResult.toLegacyFormat().stateDeltas;
+      stateDeltas = trace.stateDeltas;
     }
 
-    // 6. Active writeback: apply allowed deltas to live state
+    // 6. Active writeback: commit typed deltas directly (skip legacy round-trip)
     if (actionCfg.mode === 'active' && stateDeltas) {
-      applyActionStateDeltas(agent, stateDeltas, env);
+      const agentSnapshot = buildActionContext(agent, env);
+      const pipelineResult = applyActionEffect({
+        agentSnapshot,
+        selectedCandidate: selected,
+        reasonTrace: trace,
+        simTime: env.simTime,
+      });
+      pipelineResult.directCommit(agent, env);
     }
 
     // 7. Record trace
@@ -266,14 +273,15 @@ function buildActionSelectedEvent(agent, trace, env, stateDeltas = null) {
 }
 
 /**
- * Apply action stateDeltas to live state via EffectCommitter (active mode only).
- *
- * Builds typed deltas from legacy stateDeltas and commits through EffectCommitter.
- * This replaces direct agent state mutation with the canonical delta pipeline.
+ * @deprecated Phase D-3: Use EffectResult.directCommit(agent, env) instead.
+ *   This function is retained for tests only. The legacy typed→legacy→typed
+ *   round-trip has been replaced by direct typed-delta commit in
+ *   runShadowActionSelection().
  *
  * @param {Object} agent
  * @param {Object} stateDeltas
  * @param {Object} env
+ * @returns {void}
  */
 function applyActionStateDeltas(agent, stateDeltas, env) {
   if (!stateDeltas) return;
@@ -365,6 +373,6 @@ module.exports = {
   buildActionContext,
   runShadowActionSelection,
   buildActionSelectedEvent,
-  applyActionStateDeltas,
+  applyActionStateDeltas, // @deprecated Phase D-3 — use EffectResult.directCommit() instead
   validateActionSelectionConfig,
 };
