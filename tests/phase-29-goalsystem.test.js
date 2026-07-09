@@ -15,7 +15,7 @@ import {
   toJSON,
   fromJSON,
   getActiveGoals,
-} from '../src/action/GoalSystem.js';
+} from '../experimental/action/GoalSystem.js';
 import { scoreCandidate } from '../src/action/UtilityScorer.js';
 import { ActionCandidate } from '../src/action/ActionCandidate.js';
 import AndyEngine from '../index.js';

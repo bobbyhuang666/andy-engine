@@ -19,7 +19,6 @@ describe('Phase 11: Directory Migration', () => {
   describe('src/ directory structure exists', () => {
     const requiredDirs = [
       'src/shared',
-      'src/shared/schemas',
       'src/domain',
       'src/spatial',
       'src/social',
@@ -41,11 +40,6 @@ describe('Phase 11: Directory Migration', () => {
       'src/shared/errors.js',
       'src/shared/rng.js',
       'src/shared/index.js',
-      'src/shared/schemas/CanonEvent.schema.js',
-      'src/shared/schemas/WorldFact.schema.js',
-      'src/shared/schemas/KnowledgeFact.schema.js',
-      'src/shared/schemas/StateDelta.schema.js',
-      'src/shared/schemas/GroundingPackage.schema.js',
       'src/domain/DomainRegistry.js',
       'src/domain/validateDomain.js',
       'src/domain/ForbiddenTerms.js',

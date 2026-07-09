@@ -66,11 +66,11 @@ describe('module-guard: src/runtime barrel 导出契约', () => {
 
 // ─── Schemas: 验证校验契约 ───
 
-const { validateCanonEvent } = require('../../src/shared/schemas/CanonEvent.schema');
-const { validateGroundingPackage } = require('../../src/shared/schemas/GroundingPackage.schema');
-const { validateKnowledgeFact } = require('../../src/shared/schemas/KnowledgeFact.schema');
-const { validateStateDelta } = require('../../src/shared/schemas/StateDelta.schema');
-const { validateWorldFact } = require('../../src/shared/schemas/WorldFact.schema');
+const { validateCanonEvent } = require('../contracts/schemas/CanonEvent.schema');
+const { validateGroundingPackage } = require('../contracts/schemas/GroundingPackage.schema');
+const { validateKnowledgeFact } = require('../contracts/schemas/KnowledgeFact.schema');
+const { validateStateDelta } = require('../contracts/schemas/StateDelta.schema');
+const { validateWorldFact } = require('../contracts/schemas/WorldFact.schema');
 
 describe('module-guard: CanonEvent schema 校验', () => {
   it('缺少 type/content 报错，完整对象通过', () => {

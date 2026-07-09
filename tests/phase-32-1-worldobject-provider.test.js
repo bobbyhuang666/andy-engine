@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createWorldObject, WorldObjectManager } from '../src/action/WorldObject.js';
+import { createWorldObject, WorldObjectManager } from '../experimental/action/WorldObject.js';
 
 function makeObject(id, region, affordances) {
   return createWorldObject({

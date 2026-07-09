@@ -17,7 +17,7 @@ import {
   release,
   useObject,
   WorldObjectManager,
-} from '../src/action/WorldObject.js';
+} from '../experimental/action/WorldObject.js';
 
 function bread(overrides = {}) {
   return createWorldObject({

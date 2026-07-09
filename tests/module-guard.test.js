@@ -8,16 +8,14 @@
  * 工具刚落地，先观察稳定性，不立即作为可执行 release blocker 调用。
  *
  * 已知 Gap 白名单（未守护但有记录原因，待后续波次处理）：
- *   - src/sdk/AndyTownAdapter.js: Andy Town (localhost:3457) 外部服务适配层，
- *     非 Engine 逻辑；AGENTS.md 明确"不做 Andy Town 逻辑到 Engine Core"。
- *     文件未被任何 export/import 使用，属清理候选；本波次不动（超出写入边界）。
+ *   （当前为空。src/sdk/AndyTownAdapter.js 已移至 experimental/，不再属于 src/。）
  */
 
 import { describe, it, expect } from 'vitest';
 import { scanModuleGuard } from '../scripts/module-guard-scan.js';
 
 const KNOWN_GAPS = new Set([
-  'src/sdk/AndyTownAdapter.js',
+  // 暂无已知 Gap；AndyTownAdapter 已移至 experimental/（未接入 core 的外部适配器）。
 ]);
 
 describe('Module Guard (R5 主判定)', () => {

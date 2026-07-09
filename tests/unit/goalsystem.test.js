@@ -9,7 +9,7 @@ import {
   getActiveGoals,
   toJSON,
   fromJSON,
-} from '../../src/action/GoalSystem.js';
+} from '../../experimental/action/GoalSystem.js';
 import { scoreCandidate } from '../../src/action/UtilityScorer.js';
 import { ActionCandidate } from '../../src/action/ActionCandidate.js';
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import * as WorldObjectModule from '../../src/action/WorldObject.js';
+import * as WorldObjectModule from '../../experimental/action/WorldObject.js';
 
 const { createWorldObject } = WorldObjectModule;
 
