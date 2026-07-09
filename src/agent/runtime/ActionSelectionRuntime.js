@@ -192,10 +192,11 @@ function runShadowActionSelection(agent, env) {
       rng: shadowRng,
     });
     // 5. Compute stateDeltas for dryRunEffects/active modes (pure computation)
+    let pipelineResult = null;
     let stateDeltas = null;
     if ((actionCfg.mode === 'dryRunEffects' || actionCfg.mode === 'active') && selected) {
       const agentSnapshot = buildActionContext(agent, env);
-      const pipelineResult = applyActionEffect({
+      pipelineResult = applyActionEffect({
         agentSnapshot,
         selectedCandidate: selected,
         reasonTrace: trace,
@@ -206,15 +207,8 @@ function runShadowActionSelection(agent, env) {
       stateDeltas = trace.stateDeltas;
     }
 
-    // 6. Active writeback: commit typed deltas directly (skip legacy round-trip)
-    if (actionCfg.mode === 'active' && stateDeltas) {
-      const agentSnapshot = buildActionContext(agent, env);
-      const pipelineResult = applyActionEffect({
-        agentSnapshot,
-        selectedCandidate: selected,
-        reasonTrace: trace,
-        simTime: env.simTime,
-      });
+    // 6. Active writeback: commit typed deltas directly (reuse Step 5 pipelineResult, skip redundant applyActionEffect)
+    if (actionCfg.mode === 'active' && pipelineResult) {
       pipelineResult.directCommit(agent, env);
     }
 
