@@ -386,20 +386,20 @@ class AndyWorld {
   // ═══════════════════════════════════════════
 
   /**
-   * 执行一个完整的模拟步（6 阶段管线）
+   * Execute a full simulation step (6-stage pipeline).
    *
-   * 流程：
-   *   1. TIME_ADVANCE     — 推进全局时钟
-   *   2. ENVIRONMENT_SYNC — 同步环境状态 + 概率天气变化
-   *   3. FACT_SNAPSHOT    — 发射 tick 开始时的事实快照（可选）
-   *   4. AGENT_THINK      — 每个 Agent 独立思考（含社交传染）
-   *   5. INTERACTION      — 位置匹配，评估交互
-   *   6. SOCIAL_DECAY     — 社交关系衰减
-   *   7. EVENT_DISPATCH   — 处理延迟事件 + 分发所有事件
-   *   8. CANON_PIPELINE   — 事实管线 + 事件后果（可选）
-   *   9. FACT_EMISSION    — 观察事实 + 关系事实（可选）
+   * Flow:
+   *   1. TIME_ADVANCE     — advance global clock
+   *   2. ENVIRONMENT_SYNC — sync environment state + probabilistic weather
+   *   3. FACT_SNAPSHOT    — emit tick-start fact snapshot (optional)
+   *   4. AGENT_THINK      — each Agent thinks independently (with social contagion)
+   *   5. INTERACTION      — position-matched interactions
+   *   6. SOCIAL_DECAY     — social relationship decay
+   *   7. EVENT_DISPATCH   — process scheduled events + dispatch all events
+   *   8. CANON_PIPELINE   — fact pipeline + event consequences (optional)
+   *   9. FACT_EMISSION    — observation facts + relationship facts (optional)
    *
-   * @returns {Object} tick 结果摘要
+   * @returns {Object} tick result summary
    */
   step() {
     const tickStart = Date.now();
@@ -410,12 +410,7 @@ class AndyWorld {
     };
 
     // ─── Phase 1: TIME_ADVANCE ───
-    this.clock.advance(minutesElapsed);
-    // Must set simTime early so Phase 2 weather changes (setWeather → createEvent)
-    // use the current tick's simulation time, not the previous tick's stale value.
-    this.eventDispatcher.setSimTime(this.clock.time);
-    result.tickNumber = this.clock.tickCount;
-    result.phase.timeAdvance = { minutesElapsed, newTime: this.clock.toISOString() };
+    this._advanceClock(minutesElapsed, result);
 
     // ─── Phase 2: ENVIRONMENT_SYNC ───
     this._syncEnvironment();
@@ -429,16 +424,7 @@ class AndyWorld {
     };
 
     // ─── Phase 3: FACT_SNAPSHOT ───
-    if (this.factEmitter) {
-      this.factEmitter.setSimTime(this.clock.time);
-      this.factEmitter.emitStaticFacts(this.domain);
-      this.factEmitter.emitAgentStateFacts(this.agents);
-    }
-    
-    // Sync simTime to factStore
-    if (this.factStore) {
-      this.factStore.setSimTime(this.clock.time);
-    }
+    this._emitSnapshotFacts(result);
 
     // ─── Phase 4: AGENT_THINK ───
     const context = new RuntimeContext({
@@ -449,8 +435,84 @@ class AndyWorld {
       rng: this.rng,
     });
     const env = context.buildAgentEnv(minutesElapsed);
-    const agentResults = {};
     const allNewEvents = [];
+    this._tickAgents(minutesElapsed, env, allNewEvents, result);
+
+    // ─── Phase 5: INTERACTION ───
+    let interactionEvents;
+    if (this.spatial) {
+      interactionEvents = this._evaluateSpatialInteractions(env);
+    } else {
+      interactionEvents = this._evaluateInteractions(env);
+    }
+    allNewEvents.push(...interactionEvents);
+    result.phase.interaction = { eventCount: interactionEvents.length };
+
+    // ─── Phase 6: SOCIAL_DECAY ───
+    this._runSocialDecay(minutesElapsed);
+
+    // ─── Phase 7: EVENT_DISPATCH ───
+    let dispatched = this._dispatchEvents(allNewEvents, result);
+
+    // ─── Phase 8: CANON_PIPELINE ───
+    this._runCanonPipeline(dispatched, result);
+
+    // ─── Phase 8b: ENCOUNTER_EFFECTS ───
+    const encounterEffectCount = this._applyEncounterEffects(dispatched);
+    if (encounterEffectCount > 0) {
+      result.phase.encounterEffects = { applied: encounterEffectCount };
+    }
+
+    // ─── Phase 9: FACT_EMISSION ───
+    this._emitObservationFacts(interactionEvents, result);
+
+    // ─── 回调 + 统计 ───
+    for (const cb of this._tickCallbacks) {
+      try { cb(result); } catch (e) { diagnostics.warn(`onTick callback error: ${e.message}`); }
+    }
+    result.durationMs = Date.now() - tickStart;
+    this._lastTickTime = result.durationMs;
+
+    return result;
+  }
+
+  /**
+   * Phase 1: TIME_ADVANCE — advance the global clock and update simTime.
+   * @private
+   */
+  _advanceClock(minutesElapsed, result) {
+    this.clock.advance(minutesElapsed);
+    // Must set simTime early so Phase 2 weather changes (setWeather → createEvent)
+    // use the current tick's simulation time, not the previous tick's stale value.
+    this.eventDispatcher.setSimTime(this.clock.time);
+    result.tickNumber = this.clock.tickCount;
+    result.phase.timeAdvance = { minutesElapsed, newTime: this.clock.toISOString() };
+  }
+
+  /**
+   * Phase 3: FACT_SNAPSHOT — emit static and agent-state facts at tick start.
+   * @private
+   */
+  _emitSnapshotFacts(result) {
+    if (this.factEmitter) {
+      this.factEmitter.setSimTime(this.clock.time);
+      this.factEmitter.emitStaticFacts(this.domain);
+      this.factEmitter.emitAgentStateFacts(this.agents);
+    }
+    
+    // Sync simTime to factStore
+    if (this.factStore) {
+      this.factStore.setSimTime(this.clock.time);
+    }
+  }
+
+  /**
+   * Phase 4: AGENT_THINK — each agent ticks independently.
+   * Mutates allNewEvents (pushes agent-generated events).
+   * @private
+   */
+  _tickAgents(minutesElapsed, env, allNewEvents, result) {
+    const agentResults = {};
 
     // 预计算 blended emotion cache（per-tick snapshot semantics）
     const emotionBlendCache = this._buildEmotionBlendCache();
@@ -511,24 +573,26 @@ class AndyWorld {
       }
     }
     result.phase.agentThink = { agentCount: this.agents.size, results: agentResults };
+  }
 
-    // ─── Phase 5: INTERACTION ───
-    let interactionEvents;
-    if (this.spatial) {
-      interactionEvents = this._evaluateSpatialInteractions(env);
-    } else {
-      interactionEvents = this._evaluateInteractions(env);
-    }
-    allNewEvents.push(...interactionEvents);
-    result.phase.interaction = { eventCount: interactionEvents.length };
-
-    // ─── Phase 6: SOCIAL_DECAY ───
+  /**
+   * Phase 6: SOCIAL_DECAY — apply social relationship decay.
+   * @private
+   */
+  _runSocialDecay(minutesElapsed) {
     this.socialGraph.tick(minutesElapsed / 60);
+  }
 
-    // ─── Phase 7: EVENT_DISPATCH ───
-    // Tick-generated events (encounter, random, environment, scheduled) are
-    // created only here. External world APIs (setWeather) may enqueue
-    // immediate events outside this phase.
+  /**
+   * Phase 7: EVENT_DISPATCH — process scheduled events and dispatch all pending events.
+   * Tick-generated events (encounter, random, environment, scheduled) are
+   * created only here. External world APIs (setWeather) may enqueue
+   * immediate events outside this phase.
+   * @param {Object[]} allNewEvents - mutable array, mutated in-place with scheduled events
+   * @returns {Object[]} dispatched events
+   * @private
+   */
+  _dispatchEvents(allNewEvents, result) {
     const scheduledNow = this._processScheduledEvents();
     allNewEvents.push(...scheduledNow);
 
@@ -553,8 +617,14 @@ class AndyWorld {
       diagnostics.warn(`EventDispatcher.dispatch failed: ${err.message}`);
     }
     result.phase.eventDispatch = { eventCount: dispatched.length };
+    return dispatched;
+  }
 
-    // ─── Phase 8: CANON_PIPELINE ───
+  /**
+   * Phase 8: CANON_PIPELINE — process dispatched events through the canon pipeline.
+   * @private
+   */
+  _runCanonPipeline(dispatched, result) {
     if (this.canonEventPipeline && dispatched.length > 0) {
       let pipelineResults = [];
       let pipelineError = null;
@@ -603,32 +673,19 @@ class AndyWorld {
         pipelineError: pipelineError || undefined,
       };
     }
+  }
 
-    // ─── Phase 8b: ENCOUNTER_EFFECTS ───
-    // Apply encounter relationship and memory effects through EffectCommitter.
-    // This replaces the direct recordInteraction/addExperience calls that were
-    // previously in EventDispatcher.generateEncounterEvent.
-    const encounterEffectCount = this._applyEncounterEffects(dispatched);
-    if (encounterEffectCount > 0) {
-      result.phase.encounterEffects = { applied: encounterEffectCount };
-    }
-
-    // ─── Phase 9: FACT_EMISSION ───
+  /**
+   * Phase 9: FACT_EMISSION — emit observation and relationship facts.
+   * @private
+   */
+  _emitObservationFacts(interactionEvents, result) {
     if (this.factEmitter) {
       this.factEmitter.setSimTime(this.clock.time);
       this.factEmitter.emitObservationFacts(interactionEvents);
       this.factEmitter.emitRelationshipFacts(this.socialGraph);
       result.phase.factEmission = this.factStore.getStats();
     }
-
-    // ─── 回调 + 统计 ───
-    for (const cb of this._tickCallbacks) {
-      try { cb(result); } catch (e) { diagnostics.warn(`onTick callback error: ${e.message}`); }
-    }
-    result.durationMs = Date.now() - tickStart;
-    this._lastTickTime = result.durationMs;
-
-    return result;
   }
 
   // ═══════════════════════════════════════════
