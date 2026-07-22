@@ -69,8 +69,8 @@ describe('UtilityScorer', () => {
         constraints: { timeRange: [9, 18] },
       });
 
-      // 使用 local time 2 AM（确保不在 9-18 范围内）
-      const nightContext = { ...baseContext, world: { time: new Date(2026, 8, 1, 2, 0, 0).toISOString() } };
+      // 使用 UTC 2 AM（scoreConstraint 按 UTC 评估，确保不在 9-18 范围内）
+      const nightContext = { ...baseContext, world: { time: '2026-09-01T02:00:00Z' } };
       const score = scoreCandidate(cand, nightContext);
       expect(score.constraint).toBeLessThan(0);
     });
