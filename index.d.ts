@@ -285,6 +285,15 @@ interface AgentSnapshot {
   [key: string]: any;
 }
 
+/** Live agent handles returned by the runtime facade (not serialized snapshots). */
+interface AgentHandle {
+  id: string;
+  name: string;
+  position: string;
+  tick(...args: any[]): any;
+  [key: string]: any;
+}
+
 // ═══════════════════════════════════════════
 // Action / Effect types (beta.1)
 // ═══════════════════════════════════════════
@@ -493,7 +502,7 @@ declare class AndyEngine {
   addAgent(config: AgentConfig): object;
   addAgents(configs: AgentConfig[]): object[];
   getAgent(agentId: string): object | undefined;
-  getAllAgents(): AgentSnapshot[];
+  getAllAgents(): AgentHandle[];
   getNarrative(agentId: string, options?: { userText?: string; relationship?: number }): string;
   getWorldContext(agentId: string): WorldContext | null;
   getGroundingPackage(agentId: string, options?: object): GroundingPackage | null;

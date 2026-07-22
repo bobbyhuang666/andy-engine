@@ -67,4 +67,43 @@ describe('B1: continuous spatial + active move 不被同 tick 回滚', () => {
     // 最终 agent.position 必须停留在目标区域，不被同 tick 回滚
     expect(agent.position).toBe('图书馆');
   });
+
+  it('真实 engine.tick() active path 应保持动作目标区域', () => {
+    const engine = new AndyEngine({
+      startTime: new Date('2025-06-01T10:00:00'),
+      seed: 42,
+      spatial: 'continuous',
+      actionSelection: {
+        enabled: true,
+        mode: 'active',
+        temperature: 0,
+        recordTraces: true,
+        maxTraceHistory: 10,
+      },
+    });
+
+    engine.createCharacter({
+      id: 'alice', name: 'Alice', mbti: 'ENFJ',
+      schedule: { entries: [] }, initialPosition: '宿舍',
+    });
+
+    const world = engine.world;
+    const agent = world.getAgent('alice');
+    agent.runtime.handlers.schedule.tick = () => {};
+    agent._candidateProviderManager = {
+      generateAll() {
+        return [{
+          id: 'move', type: 'move', source: 'test', target: '图书馆', label: 'move',
+          constraints: {}, metadata: {},
+        }];
+      },
+    };
+
+    const result = engine.tick();
+
+    expect(agent._actionTraceHistory.at(-1).selectedAction).toBe('move');
+    expect(result.phase.agentThink.results.alice.regionChanged).toBe(false);
+    expect(agent.position).toBe('图书馆');
+    expect(world.spatial.worldMap.pointToRegion(world.spatial.getCoords('alice').x, world.spatial.getCoords('alice').y)).toBe('图书馆');
+  });
 });

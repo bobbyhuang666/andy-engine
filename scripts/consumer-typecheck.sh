@@ -10,6 +10,13 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 TMPDIR="/tmp/andy-consumer-typecheck-$$"
 
+cleanup() {
+  cd / 2>/dev/null || true
+  if [ -n "${TMPDIR:-}" ]; then rm -rf "$TMPDIR"; fi
+  if [ -n "${TARBALL:-}" ]; then rm -f "$ROOT_DIR/$TARBALL"; fi
+}
+trap cleanup EXIT
+
 echo "=== Andy Engine Consumer Typecheck ==="
 echo ""
 
@@ -54,8 +61,8 @@ const agents = engine.getAllAgents();
 const snap = engine.snapshot();
 const worldState = store.toWorldState(engine, 'consumer-world');
 const restored = store.fromWorldState(worldState, { enableFacts: true }, AndyEngine);
-const serialized = store.Serialization.serializeWorldState(worldState);
-const deserialized = store.Serialization.deserializeWorldState(serialized);
+const serialized = store.Serialization.serialize(engine);
+const deserialized = store.Serialization.deserialize(serialized);
 const memory = new store.MemoryStore();
 memory.saveSnapshot(1, Date.now(), new Uint8Array([1, 2, 3]));
 const latest = memory.loadLatest();
@@ -131,7 +138,16 @@ const vd: any[] | undefined = result.verifierDecisions;
 const FactChecker = facts.FactConsistencyChecker;
 const factStore = new facts.WorldFactStore();
 const factChecker = new FactChecker(factStore);
-const factResult: any = factChecker.check('hello world', { allowedFacts: [] }, { structuredClaims: [] });
+const grounding = {
+  allowedFacts: [],
+  inferredFacts: [],
+  forbiddenFacts: [],
+  metadata: {
+    agentId: 'a', currentTime: null,
+    factCount: { allowed: 0, inferred: 0, forbidden: 0 },
+  },
+};
+const factResult: any = factChecker.check('hello world', grounding, { structuredClaims: [] });
 if (factResult.valid === undefined) throw new Error('facts FactConsistencyChecker 3-param failed');
 const factEt: any[] | undefined = factResult.evidenceTrace;
 const factCn: any[] | undefined = factResult.coreferenceNotes;
@@ -157,8 +173,11 @@ TSC_EOF
 
 # 6. Run tsc
 echo "5. Running tsc --noEmit..."
-npx tsc --noEmit 2>&1
-TSC_EXIT=$?
+if npx tsc --noEmit 2>&1; then
+  TSC_EXIT=0
+else
+  TSC_EXIT=$?
+fi
 
 if [ $TSC_EXIT -eq 0 ]; then
   echo "   ✓ Consumer typecheck passed"
@@ -166,12 +185,9 @@ else
   echo "   ✗ Consumer typecheck failed (exit $TSC_EXIT)"
 fi
 
-# 7. Cleanup
+# 7. Cleanup is registered with trap so it also runs on typecheck failure.
 echo ""
 echo "6. Cleanup..."
-cd /
-rm -rf "$TMPDIR"
-rm -f "$ROOT_DIR/$TARBALL"
 
 echo ""
 echo "=== Consumer Typecheck Complete ==="

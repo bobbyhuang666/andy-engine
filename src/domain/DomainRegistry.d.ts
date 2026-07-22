@@ -1,2 +1,2 @@
-export { DomainRegistry } from '../../domain';
+export { DomainRegistry, getDefaultDomain } from '../../domain';
 export type { DomainConfig, DomainRegistryOptions } from '../../domain';

@@ -209,7 +209,18 @@ function runShadowActionSelection(agent, env) {
 
     // 6. Active writeback: commit typed deltas directly (reuse Step 5 pipelineResult, skip redundant applyActionEffect)
     if (actionCfg.mode === 'active' && pipelineResult) {
+      const positionBeforeCommit = agent.position;
       pipelineResult.directCommit(agent, env);
+      // Keep the continuous spatial index in lockstep with the canonical
+      // position delta. SpatialEngine.tick() derives region ownership from
+      // coordinates; without this sync it can immediately emit a compensating
+      // move back to the stale region in the same tick.
+      if (
+        agent.position !== positionBeforeCommit &&
+        typeof env?._setRegionChanged === 'function'
+      ) {
+        env._setRegionChanged(agent.id, agent.position);
+      }
     }
 
     // 7. Record trace

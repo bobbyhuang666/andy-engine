@@ -71,7 +71,7 @@ The LLM is a rendering layer, not the source of truth.
 
 | Area | Status |
 |---|---|
-| Unit / integration / domain / source-scan tests | 3882 tests passing / 28 skipped in the latest local quality gate |
+| Unit / integration / domain / source-scan tests | 3774 tests passing / 28 skipped in the latest local quality gate |
 | Custom domain | Tavern preset passes domain-agnostic validation |
 | Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
 | D5 narrative faithfulness | Structured grounding checker (ClaimExtractor + GroundingChecker v3) with evidence-bound narrative validation; Semantic Beta gate met on 3467 samples, including 1418 real LLM-generated samples from 4 distinct LLM model sources; current harness reports 0% false-pass / 0% false-block. |
@@ -138,7 +138,7 @@ AndyEngine
 - Continuous 4D BehaviorField as the core behavior dynamics layer
 - Seeded RNG baseline for reproducible core runtime paths
 - Performance benchmark / profiling / perf-check baseline
-- 3882 tests passing / 28 skipped in the latest local quality gate across unit, integration, domain, compatibility, and source-scan suites
+- 3774 tests passing / 28 skipped in the latest local quality gate across unit, integration, domain, compatibility, and source-scan suites
 - Core runtime tests and default package smoke do not require SQLite native bindings; SQLite persistence is verified separately with `npm run sqlite:smoke`
 - Clean Architecture Pass complete: `src/` owns implementation; old top-level runtime wrappers retired; Semantic Closure Pass complete with 9 domain-safe read-only providers
 
@@ -576,7 +576,7 @@ B = (活跃度, 社交性, 专注度, 表达欲) ∈ [0,1]⁴
 - 连续 4D BehaviorField 作为核心行为动力学层
 - 可播种 RNG 基线，支持核心运行时路径的可复现模拟
 - 性能基准 / Profiling / perf-check 基线
-- 最新本地质量门控：3882 tests passing / 28 skipped（单元、集成、domain、兼容性、source-scan）
+- 最新本地质量门控：3774 tests passing / 28 skipped（单元、集成、domain、兼容性、source-scan）
 - Clean Architecture Pass 完成：`src/` 拥有实现，旧顶层 runtime wrappers 已退休；Semantic Closure Pass 完成，9 个 domain-safe read-only provider 已接入
 
 ### 正在推进
@@ -666,7 +666,7 @@ Grounded Narrative（有事实边界的叙事）
 
 | 项目 | 状态 |
 |---|---|
-| 单元 / 集成 / domain / source-scan 测试 | 最新本地质量门控：3882 tests passing / 28 skipped |
+| 单元 / 集成 / domain / source-scan 测试 | 最新本地质量门控：3774 tests passing / 28 skipped |
 | custom domain | tavern preset 通过 domain-agnostic 验证 |
 | facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
 | D5 叙事忠实度 | Semantic Beta gate 已达成：3467 条语料，1418 条真实 LLM 生成样本，4 个 distinct LLM model sources，当前 harness false-pass / false-block 均为 0%。 |

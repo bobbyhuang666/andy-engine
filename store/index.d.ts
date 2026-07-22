@@ -27,18 +27,12 @@ interface SnapshotData {
 interface WorldState {
   schemaVersion: string;
   worldId: string;
-  tickCount: number;
-  virtualTime: number;
-  environment: {
-    weather: string;
-    weatherChangedAt: number;
-    timeOfDay: string;
-    season: string;
-  };
-  agents: Record<string, any>;
-  regions: Record<string, any>;
-  socialGraph: any;
-  eventLog: any[];
+  domainRef: string;
+  worldClock: { time: string; tickCount: number };
+  characters: Array<{ id: string; name: string; position?: string }>;
+  relationships: any[];
+  events: any[];
+  runtimeSnapshot: object;
   [key: string]: any;
 }
 
@@ -49,8 +43,9 @@ interface WorldSpec {
 }
 
 declare class Serialization {
-  static serializeWorldState(state: WorldState): BinaryData;
-  static deserializeWorldState(data: BinaryData): WorldState;
+  static serialize(world: any): object;
+  static deserialize(envelope: object, config?: any): object;
+  static getVersion(): string;
 }
 
 declare const ENVELOPE_VERSION: string;
@@ -159,10 +154,12 @@ declare class SimulationStore {
 }
 
 declare class StoryStore {
-  save(tick: number, agentId: string, story: string): void;
-  loadByAgent(agentId: string): Array<{ tick: number; story: string }>;
-  loadLatest(agentId: string, count?: number): Array<{ tick: number; story: string }>;
-  close(): void;
+  saveStories(stories: any[]): Promise<number>;
+  getRecent(agentId: string, hours?: number, limit?: number, now?: number): Promise<any[]>;
+  getByEmotion(agentId: string, emotionTag: string, hours?: number, limit?: number, now?: number): Promise<any[]>;
+  decay(decayFactor?: number, minImportance?: number, maxAgeDays?: number, now?: number): Promise<{ decayed: number; deleted: number }>;
+  stats(agentId: string, now?: number): Promise<{ total: number; recentDay: number; recentWeek: number }>;
+  close(): Promise<void>;
 }
 
 declare function createStore(options?: StoreOptions): SimulationStore;
@@ -172,7 +169,7 @@ declare function fromWorldState(worldState: WorldState, config?: any, EngineCons
 declare function validateWorldSpec(spec: WorldSpec): { valid: boolean; errors: string[] };
 declare function validateWorldState(state: WorldState): { valid: boolean; errors: string[] };
 declare function compile(spec: WorldSpec, domainConfig?: any, EngineConstructor?: any): any;
-declare function migrateWorldState(oldState: WorldState): WorldState;
+declare function migrateWorldState(oldState: WorldState): { state: WorldState; migrated: boolean };
 
 declare const CURRENT_SCHEMA_VERSION: string;
 

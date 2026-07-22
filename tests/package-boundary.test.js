@@ -199,6 +199,26 @@ describe('Package Boundary', () => {
       expect(mod.createMemoryStore).toBeDefined();
     });
 
+    it('public store/facts declarations map to runtime methods', async () => {
+      const { Serialization } = await import('../src/store/Serialization.js');
+      expect(typeof Serialization.serialize).toBe('function');
+      expect(typeof Serialization.deserialize).toBe('function');
+      expect(typeof Serialization.getVersion).toBe('function');
+      expect(Serialization.serializeWorldState).toBeUndefined();
+      expect(Serialization.deserializeWorldState).toBeUndefined();
+
+      const facts = await import('../facts/index.js');
+      const factStore = new facts.WorldFactStore();
+      const knowledge = new facts.KnowledgeStore(factStore);
+      expect(typeof knowledge.addKnowledgeBatch).toBe('function');
+      expect(() => knowledge.addKnowledgeBatch('agent', [])).not.toThrow();
+      expect(typeof facts.FactFormatter.toNaturalLanguage).toBe('function');
+      expect(typeof facts.FactFormatter.toJSON).toBe('function');
+      expect(facts.FactFormatter.prototype.formatFacts).toBeUndefined();
+      expect(factStore.getFactsByType).toBeUndefined();
+      expect(typeof factStore.getEventFacts).toBe('function');
+    });
+
     it('require("andy-engine/config/defaults") works', async () => {
       const mod = await import('../src/config/defaults.js');
       expect(mod.ANDY_DEFAULTS).toBeDefined();

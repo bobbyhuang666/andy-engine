@@ -148,9 +148,12 @@ declare class WorldFactStore {
   getActiveFacts(types?: string[]): WorldFact[];
   getFactsForAgent(agentId: string, options?: { types?: string[]; limit?: number }): WorldFact[];
   getFactsSince(timestamp: Date, types?: string[]): WorldFact[];
-  getFactsByType(type: FactType): WorldFact[];
-  getPublicFacts(): WorldFact[];
+  getStaticFacts(): WorldFact[];
+  getAgentStateFacts(): WorldFact[];
+  getRelationshipFacts(): WorldFact[];
   getEventFacts(limit?: number, since?: Date): WorldFact[];
+  getObservationFacts(): WorldFact[];
+  getMemoryFacts(): WorldFact[];
   updateFact(id: string, updates: Partial<WorldFact>): WorldFact;
   removeFact(id: string): boolean;
   invalidateFact(factId: string, reason: string, supersededBy?: string): WorldFact;
@@ -172,7 +175,7 @@ declare class FactEmitter {
   emitAgentStateFacts(agents: Map<string, any>): WorldFact[];
   emitRelationshipFacts(socialGraph: any): WorldFact[];
   emitEventFacts(event: any): WorldFact[];
-  emitObservationFacts(observer: string, event: any): WorldFact[];
+  emitObservationFacts(interactionEvents: any[]): WorldFact[];
   propagateEventKnowledge(eventFact: WorldFact, agents: Map<string, any>): void;
   setSimTime(time: Date): void;
   toJSON(): object;
@@ -180,7 +183,7 @@ declare class FactEmitter {
 }
 
 declare class FactProvider {
-  constructor(worldFactStore: WorldFactStore, knowledgeStore: any);
+  constructor(worldFactStore: WorldFactStore, socialGraph: any, personalMemories?: Map<string, any>, knowledgeStore?: any);
   getGroundingPackage(agentId: string, options?: object): GroundingPackage | null;
 }
 
@@ -190,7 +193,10 @@ declare class FactConsistencyChecker {
 }
 
 declare class FactFormatter {
-  formatFacts(facts: WorldFact[], options?: { maxLength?: number }): string;
+  static toNaturalLanguage(fact: WorldFact): string;
+  static toJSON(fact: WorldFact): object;
+  static batchToNaturalLanguage(facts: WorldFact[]): string[];
+  static toNaturalLanguageWithSource(fact: WorldFact): string;
 }
 
 declare class KnowledgeStore {
@@ -201,7 +207,7 @@ declare class KnowledgeStore {
   getKnownFactIds(agentId: string): Set<string>;
   getSource(agentId: string, factId: string): string | undefined;
   getEvidence(agentId: string, factId: string): object | null;
-  addKnowledgeBatch(entries: Array<{ agentId: string; factId: string; evidence?: object }>): void;
+  addKnowledgeBatch(agentId: string, factIds: string[], sourceOrEvidence?: string | object): void;
   removeKnowledge(agentId: string, factId: string): void;
   purgeEvictedFacts(factIds: Iterable<string>): void;
   purgeInactiveFacts(): number;
@@ -215,7 +221,7 @@ declare class CanonEventPipeline {
   processEvent(event: any, agents?: Map<string, any>): { fact: object | null; knowledgeUpdates: any[] };
   processEvents(events: any[], agents: Map<string, any>): Array<{ fact: object | null; knowledgeUpdates: any[] }>;
   toJSON(): object;
-  static fromJSON(data: object): CanonEventPipeline;
+  fromJSON(data: object): void;
 }
 
 // Fact enums

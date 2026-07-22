@@ -31,6 +31,7 @@ describe('Type Safety Smoke', () => {
       'CanonEvent',
       'WorldFact',
       'AgentSnapshot',
+      'AgentHandle',
       'WorldSnapshot',
     ];
     for (const iface of expectedInterfaces) {
@@ -41,7 +42,7 @@ describe('Type Safety Smoke', () => {
   it('getAllAgents returns an array, not a Map', () => {
     const dtsPath = path.resolve(process.cwd(), 'index.d.ts');
     const content = readFileSync(dtsPath, 'utf-8');
-    expect(content).toContain('getAllAgents(): AgentSnapshot[]');
+    expect(content).toContain('getAllAgents(): AgentHandle[]');
     expect(content).not.toMatch(/getAllAgents\(\):\s*Map</);
   });
 
