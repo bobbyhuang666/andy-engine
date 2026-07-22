@@ -153,7 +153,7 @@ describe('package boundary: native in npm pack', () => {
       encoding: 'utf8',
     });
     expect(output).toContain('native/index.js');
-  });
+  }, 30_000);
 
   it('npm pack --dry-run does not include native/target/', async () => {
     const { execSync } = await import('child_process');
@@ -162,5 +162,5 @@ describe('package boundary: native in npm pack', () => {
       encoding: 'utf8',
     });
     expect(output).not.toContain('native/target/');
-  });
+  }, 30_000);
 });

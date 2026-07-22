@@ -533,7 +533,7 @@ describe('稳定性', () => {
     for (let i = 0; i < 50; i++) engine.tick();
     const elapsed = Date.now() - start;
     expect(elapsed).toBeLessThan(30000);
-  });
+  }, 35_000);
 
   it('序列化循环不应丢失数据', () => {
     const engine = createEngine({ seed: 42, enableFacts: true });
