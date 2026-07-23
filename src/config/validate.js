@@ -21,6 +21,8 @@ function validateConfig(config) {
 
   const errors = [];
 
+  collectBooleanConfigErrors(config, errors);
+
   // ─── startTime 类型验证 ───
   if (config.startTime !== undefined) {
     const st = config.startTime;
@@ -428,4 +430,22 @@ function checkRange(value, min, max, path, errors) {
   }
 }
 
-module.exports = { validateConfig, validateAgentConfig };
+function collectBooleanConfigErrors(config, errors) {
+  checkBoolean(config.enableFacts, 'enableFacts', errors);
+
+  const actionSelection = config.actionSelection;
+  if (!actionSelection || typeof actionSelection !== 'object' || Array.isArray(actionSelection)) {
+    return;
+  }
+
+  checkBoolean(actionSelection.enabled, 'actionSelection.enabled', errors);
+  checkBoolean(actionSelection.recordTraces, 'actionSelection.recordTraces', errors);
+}
+
+function checkBoolean(value, path, errors) {
+  if (value !== undefined && typeof value !== 'boolean') {
+    errors.push(`${path} must be a boolean, got ${value === null ? 'null' : typeof value}`);
+  }
+}
+
+module.exports = { validateConfig, validateAgentConfig, collectBooleanConfigErrors };

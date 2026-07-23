@@ -83,6 +83,8 @@ describe('SimulationStore — init restore path', () => {
     });
 
     expect(result.hasSnapshot).toBe(true);
+    expect(result.restoreFailed).toBe(true);
+    expect(result.error).toEqual({ code: 'RESTORE_FAILED', message: 'restore boom' });
     expect(diagnostics.getCollected()).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: 'restore_failed', error: 'restore boom' }),
@@ -90,6 +92,61 @@ describe('SimulationStore — init restore path', () => {
     );
     expect(warnSpy).toHaveBeenCalledWith('SimulationStore restore failed: restore boom');
 
+    await reader.shutdown();
+    warnSpy.mockRestore();
+  });
+
+  it('awaits asynchronous restore callbacks before init resolves', async () => {
+    const dbPath = makeTempDbPath('async-restore');
+    const writer = makeStore({ dbPath });
+    await writer.init({ onSnapshot: () => Buffer.from('snap') });
+    writer.tickCount = 5;
+    writer.virtualTime = new Date(MS);
+    writer._saveSnapshot();
+    await writer.shutdown();
+
+    let restored = false;
+    const reader = makeStore({ dbPath });
+    const result = await reader.init({
+      onRestore: async data => {
+        await Promise.resolve();
+        expect(data.toString()).toBe('snap');
+        restored = true;
+      },
+    });
+
+    expect(restored).toBe(true);
+    expect(result.hasSnapshot).toBe(true);
+    expect(result.restoreFailed).toBe(false);
+    expect(result.error).toBeNull();
+    await reader.shutdown();
+  });
+
+  it('captures asynchronous restore rejection without hiding the snapshot', async () => {
+    diagnostics.clear();
+    const warnSpy = vi.spyOn(diagnostics, 'warn').mockImplementation(() => {});
+    const dbPath = makeTempDbPath('async-restore-failure');
+    const writer = makeStore({ dbPath });
+    await writer.init({ onSnapshot: () => Buffer.from('snap') });
+    writer.tickCount = 5;
+    writer.virtualTime = new Date(MS);
+    writer._saveSnapshot();
+    await writer.shutdown();
+
+    const reader = makeStore({ dbPath });
+    const result = await reader.init({
+      onRestore: async () => {
+        await Promise.resolve();
+        throw new Error('async restore boom');
+      },
+    });
+
+    expect(result.hasSnapshot).toBe(true);
+    expect(result.restoreFailed).toBe(true);
+    expect(result.error).toEqual({
+      code: 'RESTORE_FAILED',
+      message: 'async restore boom',
+    });
     await reader.shutdown();
     warnSpy.mockRestore();
   });

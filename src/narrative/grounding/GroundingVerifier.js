@@ -197,9 +197,11 @@ class GroundingVerifierAdapter {
     try {
       verifierResult = await this._verifier.verify({
         text,
+        llmOutput: text,
         claims,
         grounding,
         evidenceBindings,
+        strictness,
         options,
       });
     } catch (err) {
@@ -212,6 +214,10 @@ class GroundingVerifierAdapter {
           note: 'verifier threw; degraded to deterministic result',
         },
       };
+    }
+
+    if (Array.isArray(verifierResult)) {
+      verifierResult = { decisions: verifierResult };
     }
 
     // 容错：verifier 返回 null 或非对象
@@ -258,17 +264,42 @@ class GroundingVerifierAdapter {
       if (typeof this._verifier.verifySync === 'function') {
         verifierResult = this._verifier.verifySync({
           text,
+          llmOutput: text,
           claims,
           grounding,
           evidenceBindings,
+          strictness,
           options,
         });
+      } else if (typeof this._verifier.verify === 'function') {
+        verifierResult = this._verifier.verify({
+          text,
+          llmOutput: text,
+          claims,
+          grounding,
+          evidenceBindings,
+          strictness,
+          options,
+        });
+        if (verifierResult && typeof verifierResult.then === 'function') {
+          return {
+            decisions: [],
+            meta: {
+              source: 'fallback',
+              note: 'verifier returned a Promise on the synchronous checkConsistency path',
+            },
+          };
+        }
       } else {
         // verifier 没有 verifySync → fallback NoOp 行为
         return {
           decisions: [],
           meta: { source: 'fallback', note: 'verifier not sync-capable (no verifySync)' },
         };
+      }
+
+      if (Array.isArray(verifierResult)) {
+        verifierResult = { decisions: verifierResult };
       }
 
       // 容错：verifier 返回 null 或非对象
@@ -411,7 +442,10 @@ class GroundingVerifierAdapter {
  */
 function createGroundingVerifierAdapter(verifierImplOrConfig) {
   // 直接传 verifier 实例
-  if (verifierImplOrConfig instanceof GroundingVerifier) {
+  if (
+    verifierImplOrConfig instanceof GroundingVerifier ||
+    isStructuralVerifier(verifierImplOrConfig)
+  ) {
     return new GroundingVerifierAdapter(verifierImplOrConfig);
   }
 
@@ -424,7 +458,7 @@ function createGroundingVerifierAdapter(verifierImplOrConfig) {
     }
 
     if (type === 'custom' || type === 'rule') {
-      if (impl instanceof GroundingVerifier) {
+      if (impl instanceof GroundingVerifier || isStructuralVerifier(impl)) {
         return new GroundingVerifierAdapter(impl);
       }
       // 非 GroundingVerifier 实例 → fallback NoOp
@@ -437,6 +471,14 @@ function createGroundingVerifierAdapter(verifierImplOrConfig) {
 
   // null/undefined/其他 → 默认 NoOp
   return new GroundingVerifierAdapter(new NoOpVerifier());
+}
+
+function isStructuralVerifier(value) {
+  return Boolean(
+    value &&
+    typeof value === 'object' &&
+    (typeof value.verifySync === 'function' || typeof value.verify === 'function')
+  );
 }
 
 // ─── Exports ─────────────────────────────────────────────────────────────────

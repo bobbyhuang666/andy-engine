@@ -424,8 +424,8 @@ The Rust SoA f32 engine achieves **5.92x speedup** over JS at 50K agents, with p
 const AndyEngine = require('andy-engine');
 const { createStore } = require('andy-engine/store');
 
-// Create store with SQLite backend
-const store = createStore({ dbPath: './data/andy.db' });
+// Explicit SQLite mode: initialization fails if SQLite cannot be opened.
+const store = createStore({ type: 'sqlite', dbPath: './data/andy.db' });
 
 // Initialize with serialization functions
 await store.init({
@@ -443,7 +443,7 @@ await store.init({
 await store.shutdown();
 ```
 
-**Note:** Andy Engine's package baseline is Node.js 20+. SQLite persistence uses the optional `better-sqlite3` dependency, which also requires Node.js 20+ in the current 12.x line. If it is not installed, skipped by npm, or its native binding is not built, the store facade still loads; only constructing a `SQLiteStore` instance will throw a clear optional-dependency error. The default `smoke:pack` does not require SQLite; use `npm run sqlite:smoke` to verify SQLite persistence when `better-sqlite3` is available. Install it with:
+**Note:** Andy Engine's package baseline is Node.js 20+. SQLite persistence uses the optional `better-sqlite3` dependency, which also requires Node.js 20+ in the current 12.x line. The store facade always loads. `createStore()` defaults to `type: 'auto'`, which falls back to `MemoryStore` only when the native SQLite binding is unavailable; `type: 'sqlite'` fails closed instead of silently losing persistence. Database path, permission, and corruption errors never fall back to memory. The default `smoke:pack` does not require SQLite; use `npm run sqlite:smoke` to verify SQLite persistence when `better-sqlite3` is available. Install it with:
 
 ```bash
 npm install better-sqlite3
@@ -849,7 +849,7 @@ const reply = await maya.chat("我今天好累");
 ```javascript
 const { createStore } = require('andy-engine/store');
 
-const store = createStore({ dbPath: './data/andy.db' });
+const store = createStore({ type: 'sqlite', dbPath: './data/andy.db' });
 
 // 启动时初始化(自动从存档恢复,注册快照序列化回调)
 await store.init({
@@ -864,7 +864,7 @@ engine.onTick((result) => store.onTick(result, []));
 await store.shutdown();
 ```
 
-持久化层使用 SQLite（WAL 模式），支持故事存储、世界快照和元数据。`SimulationStore` 管理 snapshot/story/meta 三层;`createStore()` 是便捷工厂。详见 `store/` 目录与 `docs/SERIALIZATION_CONTRACT.md`。
+持久化层支持 SQLite（WAL 模式）和内存降级，覆盖故事存储、世界快照和元数据。`SimulationStore` 管理 snapshot/story/meta 三层；`createStore()` 默认是 `auto`，仅在 SQLite 原生绑定不可用时降级。要求持久化时应显式使用 `type: 'sqlite'`，初始化失败会直接报错。详见 `store/` 目录与 `docs/SERIALIZATION_CONTRACT.md`。
 
 ---
 

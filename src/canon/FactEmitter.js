@@ -293,12 +293,13 @@ class FactEmitter {
         const pairKey = agentId < otherId ? `${agentId}|${otherId}` : `${otherId}|${agentId}`;
         const existing = pairIndex.get(pairKey);
 
-        if (existing) {
+        if (existing && this.store._hasActiveFact(existing.id)) {
           const updated = this.store.updateFact(existing.id, {
             relationType: rel.type || 'stranger',
             strength: Number.isFinite(rel.strength) ? rel.strength : 0,
             timestamp: now,
           });
+          if (updated) pairIndex.set(pairKey, updated);
           facts.push(updated || fact);
         } else {
           const added = this.store.addFact(fact);

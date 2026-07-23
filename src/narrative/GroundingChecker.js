@@ -867,12 +867,17 @@ class GroundingChecker {
     if (violations.length === 0) return 'pass';
 
     // reject: new_event, new_relationship
-    if (violations.some(v => v.type === 'new_event' || v.type === 'new_relationship')) {
+    if (violations.some(v =>
+      v.severity === 'reject' ||
+      v.type === 'new_event' ||
+      v.type === 'new_relationship'
+    )) {
       return 'reject';
     }
 
     // rewrite: unsupported_claim, agent_state_leak, local_scope_leak, unknown_character, unknown_location
     if (violations.some(v =>
+      v.severity === 'rewrite' ||
       v.type === 'unsupported_claim' ||
       v.type === 'agent_state_leak' ||
       v.type === 'local_scope_leak' ||
@@ -883,7 +888,10 @@ class GroundingChecker {
     }
 
     // warning: missing_source_attribution
-    if (violations.some(v => v.type === 'missing_source_attribution')) {
+    if (violations.some(v =>
+      v.severity === 'warning' ||
+      v.type === 'missing_source_attribution'
+    )) {
       return 'warning';
     }
 

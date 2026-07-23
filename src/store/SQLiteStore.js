@@ -28,11 +28,29 @@ function sqliteUnavailableError(originalError) {
   const suffix = originalError && originalError.message
     ? ` Original error: ${originalError.message}`
     : '';
-  return new Error(
+  const error = new Error(
     'SQLite persistence requires a working optional dependency better-sqlite3. ' +
     'Install or rebuild it with: npm install better-sqlite3 or npm rebuild better-sqlite3.' +
     suffix
   );
+  error.code = 'SQLITE_BINDING_UNAVAILABLE';
+  if (originalError) error.cause = originalError;
+  return error;
+}
+
+function sqliteOpenError(dbPath, originalError) {
+  const error = new Error(
+    `Unable to open SQLite database at ${dbPath}: ${originalError?.message || String(originalError)}`
+  );
+  error.code = 'SQLITE_OPEN_FAILED';
+  error.cause = originalError;
+  return error;
+}
+
+function isNativeBindingError(error) {
+  const message = error?.message || '';
+  if (error?.code === 'ERR_DLOPEN_FAILED') return true;
+  return /native binding|could not locate.*binding|bindings? file|NODE_MODULE_VERSION|invalid ELF|wrong ELF class|incompatible architecture|mach-o.*architecture|not a valid Win32 application|exec format error|undefined symbol|symbol not found/i.test(message);
 }
 
 class SQLiteStore {
@@ -56,7 +74,8 @@ class SQLiteStore {
     try {
       this.db = new Database(dbPath);
     } catch (err) {
-      throw sqliteUnavailableError(err);
+      if (isNativeBindingError(err)) throw sqliteUnavailableError(err);
+      throw sqliteOpenError(dbPath, err);
     }
     this.db.pragma('journal_mode = WAL');      // 写入性能优化
     this.db.pragma('synchronous = NORMAL');     // 平衡安全和性能

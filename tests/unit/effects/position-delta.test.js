@@ -7,7 +7,7 @@
  * 纯逻辑,hermetic。
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { PositionDelta } from '../../../src/effects/PositionDelta.js';
 
 describe('PositionDelta', () => {
@@ -48,5 +48,69 @@ describe('PositionDelta', () => {
   it('extends StateDelta (inheritance)', () => {
     const { StateDelta } = require('../../../src/effects/StateDelta.js');
     expect(new PositionDelta('a', { to: 'x' })).toBeInstanceOf(StateDelta);
+  });
+});
+
+describe('EffectCommitter position atomicity', () => {
+  const { EffectCommitter } = require('../../../src/effects/EffectCommitter.js');
+
+  function setup({ placeResult = true, withGrid = true, domainAllows = true } = {}) {
+    const agent = {
+      id: 'alice',
+      position: '宿舍',
+      domain: { hasRegion: () => domainAllows },
+    };
+    const place = vi.fn(() => placeResult);
+    const world = withGrid ? { regions: { place } } : {};
+    const committer = new EffectCommitter({
+      world,
+      agents: new Map([[agent.id, agent]]),
+    });
+    return { agent, place, committer };
+  }
+
+  it('keeps agent position unchanged when RegionGrid rejects placement', () => {
+    const { agent, place, committer } = setup({ placeResult: false });
+    const delta = new PositionDelta('alice', { from: '宿舍', to: '食堂' });
+
+    const result = committer.commit({ deltas: [delta] });
+
+    expect(place).toHaveBeenCalledWith('alice', '食堂');
+    expect(agent.position).toBe('宿舍');
+    expect(result.applied).toHaveLength(0);
+    expect(result.skipped).toHaveLength(1);
+  });
+
+  it('updates RegionGrid before committing the agent position', () => {
+    const { agent, place, committer } = setup();
+    const delta = new PositionDelta('alice', { from: '宿舍', to: '食堂' });
+
+    const result = committer.commit({ deltas: [delta] });
+
+    expect(place).toHaveBeenCalledWith('alice', '食堂');
+    expect(agent.position).toBe('食堂');
+    expect(result.applied).toHaveLength(1);
+    expect(result.skipped).toHaveLength(0);
+  });
+
+  it('skips a domain-rejected position without touching RegionGrid', () => {
+    const { agent, place, committer } = setup({ domainAllows: false });
+    const delta = new PositionDelta('alice', { from: '宿舍', to: '未知区域' });
+
+    const result = committer.commit({ deltas: [delta] });
+
+    expect(place).not.toHaveBeenCalled();
+    expect(agent.position).toBe('宿舍');
+    expect(result.skipped).toHaveLength(1);
+  });
+
+  it('remains compatible with worlds that do not expose RegionGrid', () => {
+    const { agent, committer } = setup({ withGrid: false });
+    const delta = new PositionDelta('alice', { from: '宿舍', to: '食堂' });
+
+    const result = committer.commit({ deltas: [delta] });
+
+    expect(agent.position).toBe('食堂');
+    expect(result.applied).toHaveLength(1);
   });
 });

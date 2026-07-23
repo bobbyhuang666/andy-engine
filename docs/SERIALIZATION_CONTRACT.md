@@ -303,8 +303,8 @@ state and the explicit-dependency restore path for psychology subsystems.
 | `SQLiteStore` | class | SQLite implementation of StoryStore + SnapshotStore + MetaStore |
 | `SimulationStore` | class | High-level simulation persistence manager |
 | `StoryStore` | class (interface) | Abstract story store interface |
-| `createStore(options?)` | function | Create SimulationStore (SQLite) |
-| `createMemoryStore()` | function | Create in-memory SQLiteStore (for testing) |
+| `createStore(options?)` | function | Create SimulationStore (`auto`, explicit `sqlite`, or `memory`) |
+| `createMemoryStore()` | function | Create in-memory SQLiteStore, with MemoryStore fallback if bindings are unavailable |
 | `toWorldState(engine, worldId)` | function | Export engine to Stable World Envelope (`WorldStateAdapter`) |
 | `fromWorldState(state, config, ctor)` | function | Restore engine from Stable World Envelope (`WorldStateAdapter`) |
 | `validateWorldSpec(spec)` | function | Validate a full world spec (compile-time authoring) |
@@ -361,12 +361,18 @@ Two version numbers coexist in the persistence layer. They are **layered, not co
 
 ## SQLite Optional Path
 
-`better-sqlite3` is declared as `optionalDependencies` in `package.json`. The persistence layer degrades gracefully:
+`better-sqlite3` is declared as `optionalDependencies` in `package.json`. Auto
+mode degrades only when the native binding is unavailable; explicit SQLite mode
+fails closed. Database open errors such as invalid paths, permissions, or
+corruption are never converted into an in-memory fallback.
 
 | Scenario | Behavior |
 |----------|----------|
 | `require('andy-engine/store')` without `better-sqlite3` | Loads without error. `SQLiteStore` class is exported. |
-| `new SQLiteStore(':memory:')` without `better-sqlite3` | Throws: `"SQLite persistence requires optional dependency better-sqlite3. Install it with: npm install better-sqlite3"` |
+| `new SQLiteStore(':memory:')` without `better-sqlite3` | Throws an error with code `SQLITE_BINDING_UNAVAILABLE`. |
+| `createStore({ type: 'auto' }).init()` without a working binding | Falls back to `MemoryStore` and reports `degraded: true`. |
+| `createStore({ type: 'sqlite' }).init()` without a working binding | Rejects with `SQLITE_BINDING_UNAVAILABLE`; no fallback. |
+| SQLite path/permission/open failure | Rejects with `SQLITE_OPEN_FAILED`; no fallback. |
 | `new SQLiteStore(':memory:')` with `better-sqlite3` | Works. Smoke test: `npm run sqlite:smoke` |
 | `require('andy-engine')` (engine only, no store) | No SQLite dependency needed. |
 

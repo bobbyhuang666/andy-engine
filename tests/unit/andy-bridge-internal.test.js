@@ -49,6 +49,18 @@ describe('AndyBridge constructor — memory persistence branch', () => {
     expect(bridge.signalBuffer).toBeDefined();
     expect(bridge.storyGenerator).toBeDefined();
   });
+
+  it('preserves explicit sqlite versus auto persistence modes', () => {
+    const sqliteBridge = new AndyBridge({
+      persistence: { type: 'sqlite', path: ':memory:' },
+    });
+    const autoBridge = new AndyBridge({
+      persistence: { type: 'auto', path: ':memory:' },
+    });
+
+    expect(sqliteBridge.store.storeType).toBe('sqlite');
+    expect(autoBridge.store.storeType).toBe('auto');
+  });
 });
 
 describe('AndyBridge.onTick', () => {

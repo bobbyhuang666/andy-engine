@@ -37,19 +37,19 @@ function createStore(options = {}) {
   }
 
   if (type === 'sqlite') {
-    return new SimulationStore({ ...rest, dbPath: rest.dbPath || ':memory:' });
+    return new SimulationStore({
+      ...rest,
+      dbPath: rest.dbPath || ':memory:',
+      storeType: 'sqlite',
+    });
   }
 
-  // auto: 尝试 SQLite，失败则使用 MemoryStore
-  try {
-    return new SimulationStore({ ...rest, dbPath: rest.dbPath || ':memory:' });
-  } catch (e) {
-    if (e.message && e.message.includes('better-sqlite3')) {
-      console.warn('SQLite not available, using memory store');
-      return new SimulationStore({ ...rest, storeType: 'memory' });
-    }
-    throw e;
-  }
+  // auto: init() 尝试 SQLite，仅在 native binding 不可用时回退。
+  return new SimulationStore({
+    ...rest,
+    dbPath: rest.dbPath || ':memory:',
+    storeType: 'auto',
+  });
 }
 
 /**
@@ -60,7 +60,7 @@ function createMemoryStore() {
   try {
     return new SQLiteStore(':memory:');
   } catch (e) {
-    if (e.message && e.message.includes('better-sqlite3')) {
+    if (e?.code === 'SQLITE_BINDING_UNAVAILABLE') {
       console.warn('SQLite not available, using memory store');
       return new MemoryStore();
     }

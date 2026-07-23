@@ -12,6 +12,16 @@ All notable changes to Andy Engine will be documented in this file.
 
 - Replaced the checked-in full narrative evaluation corpus with a small synthetic public grounding smoke matrix. Extended evaluation assets are maintained outside the public repository.
 - Refreshed public quality reports and clarified which documentation is bundled with the npm package.
+- Clarified persistence modes: `auto` may degrade only for unavailable SQLite bindings, while explicit `sqlite` fails closed.
+
+### Fixed
+
+- Routed invalid-region recovery through `PositionDelta` and made RegionGrid placement atomic with agent position updates.
+- Made asynchronous snapshot restoration observable and awaited before store initialization completes.
+- Aligned the public synchronous semantic-verifier type with runtime behavior and accepted structural verifier objects.
+- Preserved warning severity for malformed non-blocking structured-claim sidecars.
+- Prevented invalidated relationship facts from blocking creation of their active replacements.
+- Rejected non-boolean runtime feature switches instead of treating truthy strings as enabled.
 
 ### Removed
 

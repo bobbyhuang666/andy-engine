@@ -1139,10 +1139,6 @@ const DIRECT_POSITION_WRITE_ALLOWLIST = {
     count: 1,
     reason: 'authorized PositionDelta owner',
   },
-  'src/runtime/AndyWorld.js': {
-    count: 2,
-    reason: 'P3 system fallback when RegionGrid placement rejects an invalid region',
-  },
   'src/sdk/AndyBridge.js': {
     count: 1,
     reason: 'snapshot restore exception with RegionGrid/spatial sync',

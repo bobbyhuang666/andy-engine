@@ -260,8 +260,12 @@ class AndyWorld {
     if (!placed) {
       const fallback = this.domain ? this.domain.fallback.defaultRegion : null;
       if (fallback) {
-        agent.position = fallback;
-        this.regions.place(agent.id, fallback);
+        const delta = new PositionDelta(agent.id, {
+          to: fallback,
+          from: agent.position,
+          reason: 'fallback_region_placement',
+        });
+        this.effectCommitter.commit({ deltas: [delta] });
       }
       // If still unplaced after fallback, agent is a ghost — invisible, no encounters.
       if (!this.regions.getRegion(agent.id)) {
@@ -549,8 +553,12 @@ class AndyWorld {
         if (!placed) {
           const fallback = this.domain ? this.domain.fallback.defaultRegion : null;
           if (fallback && fallback !== agent.position) {
-            agent.position = fallback;
-            this.regions.place(agentId, fallback);
+            const delta = new PositionDelta(agentId, {
+              to: fallback,
+              from: agent.position,
+              reason: 'fallback_region_placement',
+            });
+            this.effectCommitter.commit({ deltas: [delta] });
           }
         }
         // R40/SP-1 fix: continuous spatial 模式下,schedule/need/IM 路径设 agent.position
@@ -750,8 +758,6 @@ class AndyWorld {
             diagnostics.warn(`PositionDelta error: ${error.message}`);
           }
         }
-        // RegionGrid still needs explicit update (EffectCommitter doesn't know about it)
-        this.regions.place(change.agentId, change.to);
       }
     }
 

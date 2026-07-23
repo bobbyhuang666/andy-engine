@@ -62,23 +62,11 @@ class AndyBridge {
       });
       this.store.db = new MemoryStore();
     } else {
-      // 尝试使用 SQLite，如果失败则回退到 MemoryStore
-      try {
-        this.store = new SimulationStore({
-          dbPath: storePath,
-          snapshotInterval: options.snapshotInterval ?? 12,
-        });
-      } catch (e) {
-        if (e.message && e.message.includes('better-sqlite3')) {
-          console.warn('SQLite not available, using memory store');
-          this.store = new SimulationStore({
-            storeType: 'memory',
-            snapshotInterval: options.snapshotInterval ?? 12,
-          });
-        } else {
-          throw e;
-        }
-      }
+      this.store = new SimulationStore({
+        dbPath: storePath,
+        storeType,
+        snapshotInterval: options.snapshotInterval ?? 12,
+      });
     }
 
     this._initialized = false;

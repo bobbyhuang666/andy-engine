@@ -138,11 +138,20 @@ declare class MemoryStore {
 }
 
 declare class SimulationStore {
-  constructor(options?: StoreOptions & { storeType?: 'sqlite' | 'memory' });
-  init(callbacks: {
-    onSnapshot: () => BinaryData;
-    onRestore: (data: BinaryData) => void;
-  }): Promise<{ restoredTick: number; restoredTime: Date | null; hasSnapshot: boolean }>;
+  constructor(options?: StoreOptions & { storeType?: 'auto' | 'sqlite' | 'memory' });
+  init(callbacks?: {
+    onSnapshot?: () => BinaryData;
+    onRestore?: (data: BinaryData) => void | Promise<void>;
+  }): Promise<{
+    requestedStoreType: 'auto' | 'memory' | 'sqlite';
+    actualStoreType: 'memory' | 'sqlite';
+    degraded: boolean;
+    restoredTick: number;
+    restoredTime: Date | null;
+    hasSnapshot: boolean;
+    restoreFailed: boolean;
+    error: null | { code: string; message: string };
+  }>;
   onTick(result: any, stories: any[]): void;
   getStoriesForAgent(agentId?: string, hours?: number, limit?: number): any[];
   getStoriesForBobby(agentId?: string, hours?: number, limit?: number): any[];

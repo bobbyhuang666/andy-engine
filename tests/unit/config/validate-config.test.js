@@ -9,6 +9,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { validateConfig, validateAgentConfig } from '../../../src/config/validate.js';
+import RuntimeConfig from '../../../src/runtime/RuntimeConfig.js';
 
 // ═══════════════════════════════════════════
 // validateConfig — 输入守卫
@@ -23,6 +24,31 @@ describe('validateConfig — input guard', () => {
   });
   it('passes for empty object', () => {
     expect(() => validateConfig({})).not.toThrow();
+  });
+});
+
+describe('validateConfig — boolean feature switches', () => {
+  it('accepts explicit true and false values', () => {
+    expect(() => validateConfig({
+      enableFacts: false,
+      actionSelection: { enabled: true, recordTraces: false },
+    })).not.toThrow();
+  });
+
+  it.each([
+    [{ enableFacts: 'false' }, /enableFacts must be a boolean/],
+    [{ enableFacts: null }, /enableFacts must be a boolean/],
+    [{ actionSelection: { enabled: 1 } }, /actionSelection\.enabled must be a boolean/],
+    [{ actionSelection: { recordTraces: 'yes' } }, /actionSelection\.recordTraces must be a boolean/],
+  ])('rejects non-boolean switches', (config, pattern) => {
+    expect(() => validateConfig(config)).toThrow(pattern);
+  });
+
+  it('applies the same validation to direct RuntimeConfig construction', () => {
+    expect(() => new RuntimeConfig({ enableFacts: 'false' })).toThrow(/enableFacts must be a boolean/);
+    expect(() => new RuntimeConfig({
+      actionSelection: { enabled: 'false' },
+    })).toThrow(/actionSelection\.enabled must be a boolean/);
   });
 });
 

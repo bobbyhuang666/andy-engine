@@ -6,6 +6,7 @@
  */
 
 const { ANDY_DEFAULTS } = require('../config/defaults');
+const { collectBooleanConfigErrors } = require('../config/validate');
 
 /**
  * R41 A4 fix: deep-merge season probability overrides so that specifying
@@ -25,6 +26,14 @@ class RuntimeConfig {
    * @param {Object} [config] - 用户配置（覆盖 defaults）
    */
   constructor(config = {}) {
+    const booleanErrors = [];
+    collectBooleanConfigErrors(config, booleanErrors);
+    if (booleanErrors.length > 0) {
+      throw new Error(
+        `Andy Engine configuration validation failed:\n${booleanErrors.map(error => `  - ${error}`).join('\n')}`
+      );
+    }
+
     const tickMinutes = config.tickMinutes ?? ANDY_DEFAULTS.tick.intervalMinutes;
     if (typeof tickMinutes !== 'number' || !Number.isFinite(tickMinutes) || tickMinutes <= 0) {
       throw new Error(

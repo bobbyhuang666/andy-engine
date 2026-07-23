@@ -244,14 +244,36 @@ interface StructuredClaimsSidecar {
   [key: string]: any;
 }
 
+interface SemanticVerifierEvidenceBinding {
+  claimId: string;
+  support: 'supports' | 'contradicts' | 'unsupported' | string;
+  factId?: string | null;
+  confidence?: number;
+  reason?: string;
+  [key: string]: any;
+}
+
 interface SemanticVerifier {
-  verify?(input: {
+  /** Preferred synchronous callback for AndyEngine.checkConsistency(). */
+  verifySync?(input: {
+    text?: string;
     llmOutput: string;
     claims: StructuredClaim[];
-    evidenceTrace?: EvidenceTraceEntry[];
     grounding?: GroundingPackage;
+    evidenceBindings?: SemanticVerifierEvidenceBinding[];
     strictness?: ConsistencyCheckOptions['strictness'];
-  }): VerifierDecision[] | Promise<VerifierDecision[]>;
+    options?: { strictness?: ConsistencyCheckOptions['strictness']; [key: string]: any };
+  }): VerifierDecision[] | { decisions: VerifierDecision[]; meta?: object };
+  /** Synchronous callback; Promise results are not used by checkConsistency(). */
+  verify?(input: {
+    text?: string;
+    llmOutput: string;
+    claims: StructuredClaim[];
+    grounding?: GroundingPackage;
+    evidenceBindings?: SemanticVerifierEvidenceBinding[];
+    strictness?: ConsistencyCheckOptions['strictness'];
+    options?: { strictness?: ConsistencyCheckOptions['strictness']; [key: string]: any };
+  }): VerifierDecision[] | { decisions: VerifierDecision[]; meta?: object };
   [key: string]: any;
 }
 

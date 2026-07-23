@@ -285,6 +285,10 @@ The following are explicitly NOT part of the public API and must NOT appear in `
 
 D5 v3 sidecar options (`structuredClaims`, `locationAliases`, `verifier`, `strictness`) 通过 `checkConsistency` 的第三参 `options` 传入，与 `GroundingChecker` v3 evidence-bound path 对齐。`ConsistencyCheckResult` 附带可选字段 `evidenceTrace`、`coreferenceNotes`、`verifierDecisions` 供 TS 消费者消费诊断旁路数据。
 
+`checkConsistency` 是同步 API，因此 `verifier` 必须提供同步 `verifySync(input)`
+或同步 `verify(input)`；返回 Promise 的实现会安全降级为 deterministic-only
+结果。实现可以是普通结构化对象，无需继承内部 `GroundingVerifier` 类。
+
 Domain semantic configuration is public through `andy-engine/domain` and
 `andy-engine/domain/registry`: `semanticProfile`, `getSemanticProfile()`, and
 `mergeSemanticProfile(defaults)` are supported read APIs for domain-driven

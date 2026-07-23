@@ -169,3 +169,33 @@ describe('FactEmitter agent state performance guards', () => {
     expect(getAgentStateFactsSpy).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('FactEmitter relationship fact lifecycle', () => {
+  it('creates a fresh relationship fact after the previous fact is invalidated', () => {
+    const store = new WorldFactStore();
+    const emitter = new FactEmitter(store);
+    const relationship = {
+      type: 'friend',
+      strength: 0.7,
+      getOther: agentId => agentId === 'alice' ? 'bob' : 'alice',
+    };
+    const socialGraph = {
+      getAllAgentIds: () => ['alice', 'bob'],
+      getRelationships: () => [relationship],
+    };
+
+    const [first] = emitter.emitRelationshipFacts(socialGraph);
+    store.invalidateFact(first.id, 'relationship snapshot superseded');
+    relationship.strength = 0.8;
+
+    const [replacement] = emitter.emitRelationshipFacts(socialGraph);
+    const activeRelationships = store
+      .getActiveFacts()
+      .filter(fact => fact.type === 'relationship');
+
+    expect(replacement.id).not.toBe(first.id);
+    expect(replacement.strength).toBe(0.8);
+    expect(activeRelationships).toHaveLength(1);
+    expect(activeRelationships[0].id).toBe(replacement.id);
+  });
+});

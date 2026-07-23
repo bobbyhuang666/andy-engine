@@ -563,8 +563,8 @@ describe('sidecar — sidecar_validation_warning', () => {
     };
     const r = c.check('我在图书馆', g, { structuredClaims: sidecar });
     expect(r.violations.some(v => v.type === 'sidecar_validation_warning')).toBe(true);
-    // 合法 claim 被支持 → severity 不应因 warning 上升
-    expect(r.severity).not.toBe('reject');
+    // 合法 claim 被支持；sidecar validation issue remains a warning.
+    expect(r.severity).toBe('warning');
   });
 });
 

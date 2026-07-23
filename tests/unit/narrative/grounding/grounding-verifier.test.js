@@ -85,6 +85,68 @@ const baseParams = {
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe('GroundingVerifier', () => {
+  test('accepts a public plain-object synchronous verifier', () => {
+    const verify = vi.fn(({ llmOutput, strictness }) => [{
+      claimId: 'claim_001',
+      result: VERIFIER_RESULT.SUPPORTS,
+      explanation: `${llmOutput}:${strictness}`,
+    }]);
+    const adapter = createGroundingVerifierAdapter({ verify });
+
+    const result = adapter.runSync({
+      ...baseParams,
+      text: 'hello',
+      evidenceBindings: [makeBinding('claim_001', 'supports')],
+      options: { strictness: 'strict' },
+    });
+
+    expect(verify).toHaveBeenCalledWith(expect.objectContaining({
+      text: 'hello',
+      llmOutput: 'hello',
+      strictness: 'strict',
+    }));
+    expect(result.decisions[0]).toMatchObject({
+      claimId: 'claim_001',
+      result: VERIFIER_RESULT.SUPPORTS,
+      explanation: 'hello:strict',
+    });
+  });
+
+  test('accepts verifySync and object-shaped results in custom config', () => {
+    const impl = {
+      verifySync: () => ({
+        decisions: [{
+          claimId: 'claim_001',
+          result: VERIFIER_RESULT.CONTRADICTS,
+        }],
+        meta: { source: 'plain-sync' },
+      }),
+    };
+    const adapter = createGroundingVerifierAdapter({ type: 'custom', impl });
+
+    const result = adapter.runSync({
+      ...baseParams,
+      evidenceBindings: [makeBinding('claim_001', 'supports')],
+    });
+
+    expect(result.meta.source).toBe('plain-sync');
+    expect(result.decisions[0].result).toBe(VERIFIER_RESULT.CONTRADICTS);
+  });
+
+  test('degrades safely when a verifier returns a Promise on the sync path', () => {
+    const adapter = createGroundingVerifierAdapter({
+      verify: async () => [{
+        claimId: 'claim_001',
+        result: VERIFIER_RESULT.SUPPORTS,
+      }],
+    });
+
+    const result = adapter.runSync(baseParams);
+
+    expect(result.decisions).toEqual([]);
+    expect(result.meta).toMatchObject({ source: 'fallback' });
+  });
+
   // ── 1. NoOpVerifier.verify 返回空 decisions ──
 
   describe('NoOpVerifier', () => {

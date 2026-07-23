@@ -26,7 +26,8 @@ class SimulationStore {
   /**
    * @param {Object} options
    * @param {string} options.dbPath - SQLite 文件路径，':memory:' for in-memory
-   * @param {string} [options.storeType] - 'memory' for pure MemoryStore, 'sqlite' or omitted for SQLiteStore
+   * @param {string} [options.storeType] - 'memory', explicit fail-closed 'sqlite',
+   *   or omitted/'auto' for SQLite with MemoryStore fallback when bindings are unavailable
    * @param {number} options.snapshotInterval - 每多少 tick 保存一次快照 (default: 12)
    * @param {number} options.storyFlushInterval - 每多少 tick 刷出故事缓冲 (default: 1)
    * @param {number} options.maxStoryBuffer - 内存中最多缓存多少条故事 (default: 200)
@@ -35,7 +36,7 @@ class SimulationStore {
    */
   constructor(options = {}) {
     this.dbPath = options.dbPath || ':memory:';
-    this.storeType = options.storeType || 'sqlite';
+    this.storeType = options.storeType ?? 'auto';
     this.snapshotInterval = SimulationStore._positiveInterval(options.snapshotInterval, 12);
     this.storyFlushInterval = SimulationStore._positiveInterval(options.storyFlushInterval, 1);
     this.maxStoryBuffer = options.maxStoryBuffer ?? 200;
@@ -51,6 +52,8 @@ class SimulationStore {
     this.storyBuffer = [];       // 待写入的故事
     this._snapshotFn = null;     // 外部提供的序列化函数
     this._restoreFn = null;      // 外部提供的反序列化函数
+    this._requestedStoreType = this.storeType;
+    this._actualStoreType = 'memory';
   }
 
   static _positiveInterval(value, fallback) {
@@ -81,13 +84,16 @@ class SimulationStore {
     // when user explicitly requests in-memory storage without SQLite dependency.
     if (this.storeType === 'memory') {
       this.db = new MemoryStore();
+      this._actualStoreType = 'memory';
     } else {
       try {
         this.db = new SQLiteStore(this.dbPath);
+        this._actualStoreType = 'sqlite';
       } catch (e) {
-        if (e.message && e.message.includes('better-sqlite3')) {
+        if (e?.code === 'SQLITE_BINDING_UNAVAILABLE' && this.storeType === 'auto') {
           diagnostics.warn('SQLite not available, falling back to MemoryStore');
           this.db = new MemoryStore();
+          this._actualStoreType = 'memory';
         } else {
           throw e;
         }
@@ -109,11 +115,15 @@ class SimulationStore {
     }
 
     // 尝试恢复最近快照
+    let restoreFailed = false;
+    let error = null;
     const snapshot = this.db.loadLatest();
     if (snapshot && onRestore) {
-      try { onRestore(snapshot.data); }
+      try { await onRestore(snapshot.data); }
       catch (err) {
+        restoreFailed = true;
         const message = err && err.message ? err.message : String(err);
+        error = { code: 'RESTORE_FAILED', message };
         diagnostics.collect({ type: 'restore_failed', error: message });
         diagnostics.warn(`SimulationStore restore failed: ${message}`);
       }
@@ -124,9 +134,14 @@ class SimulationStore {
 ; // 重启后从空缓冲开始，历史故事从DB按需查询
 
     return {
+      requestedStoreType: this._requestedStoreType,
+      actualStoreType: this._actualStoreType,
+      degraded: this._requestedStoreType === 'auto' && this._actualStoreType === 'memory',
       restoredTick: this.tickCount,
       restoredTime: this.virtualTime,
       hasSnapshot: !!snapshot,
+      restoreFailed,
+      error,
     };
   }
 
