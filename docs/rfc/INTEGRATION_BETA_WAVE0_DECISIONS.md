@@ -24,6 +24,18 @@ ADR-IB-002 remains evidence-gated: P2 records gaps, W1 gathers Host evidence,
 and W4 may consider narrow additive commands. Internals such as dispatcher and
 regions are never proposed as public surfaces.
 
+The following ADRs are also evidence-gated and are recorded here so the Wave 0
+ledger is complete. None authorizes a Core change, a public API, or a real
+provider call in P2 or W1:
+
+| ADR | Disposition | Earliest wave |
+|---|---|---|
+| ADR-IB-014 | Movement and external-event-intent commands are recorded as W1 gaps; narrow typed commands may be proposed only after the API decision test and W4 evidence | W1 / W4 |
+| ADR-IB-015 | Public read model leans toward immutable projections; `getAgent()` compatibility is retained until evidence supports a public change | W1 / W4 |
+| ADR-IB-016 | Streaming keeps buffered validate-before-exposure; incremental safe protocol is deferred unless measured latency blocks Beta | W3 |
+
+These rows restate the provisional positions below and do not supersede them.
+
 ## Provider decision boundary
 
 The evaluation compares an OpenAI family and an Anthropic family because those
