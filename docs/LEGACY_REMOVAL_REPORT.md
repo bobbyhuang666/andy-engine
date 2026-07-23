@@ -1,7 +1,7 @@
 # Legacy Removal Report
 
-> Status: no-debt gate refreshed after R64.
-> Date: 2026-07-02.
+> Status: no-debt gate (Stage 23).
+> Date: 2026-07-23.
 > Purpose: verify zero removable debt remains.
 
 ---
@@ -10,17 +10,13 @@
 
 | Metric | Count |
 |--------|-------|
-| Total classified files | 85 |
-| Already removed (not on disk) | 79 |
+| Total classified files | 82 |
+| Already removed (not on disk) | 76 |
 | Existing files analyzed | 6 |
 | **Can remove now (existing)** | **0** |
 | Blocked (existing) | 6 |
 | Standalone tooling outside src | 0 |
 | Unclassified old files | 0 |
-
-> R64 update: the remaining repo-local `agent/action/*` implementations were
-> removed after legacy phase tests were migrated to canonical `src/action`.
-> The npm package whitelist now publishes only `agent/Agent.js` from `agent/`.
 
 ### Gate Check
 
@@ -37,7 +33,6 @@
 |---------------|-----------|---------|
 | public-facade | 0 | 5 |
 | public-approved-adapter | 0 | 1 |
-| legacy-implementation | 0 | 0 |
 
 ---
 
@@ -89,9 +84,6 @@ These files appear in the classification list but no longer exist on disk.
 | `agent/action/providers/BehaviorFieldCandidateProvider.js` | deprecated-wrapper |
 | `agent/action/providers/ExploreCandidateProvider.js` | deprecated-wrapper |
 | `agent/action/providers/SocializeCandidateProvider.js` | deprecated-wrapper |
-| `agent/action/ReasonTrace.js` | legacy-implementation |
-| `agent/action/providers/ReflectCandidateProvider.js` | legacy-implementation |
-| `agent/action/providers/WorldObjectCandidateProvider.js` | legacy-implementation |
 | `core/World.js` | deprecated-wrapper |
 | `core/Simulator.js` | deprecated-wrapper |
 | `core/EventDispatcher.js` | deprecated-wrapper |

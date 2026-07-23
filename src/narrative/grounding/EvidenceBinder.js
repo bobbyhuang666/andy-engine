@@ -14,8 +14,7 @@
  *   - _evidence.propagatedFrom 仅作来源元数据（"谁告诉了我"），
  *     绝不能当作 agent 在场的物理证据。索引构建时只读 participants / observers 字段。
  *
- * Part of the D5 Semantic Beta grounding design. See
- * docs/quality/d5-semantic-beta-report.md for the checked-in benchmark.
+ * Evidence binding for the structured grounding pipeline.
  */
 
 const { FactType } = require('../../canon/FactSchema');

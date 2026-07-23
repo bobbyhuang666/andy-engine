@@ -7,24 +7,26 @@ For the main project overview, start at [`../README.md`](../README.md).
 This directory is organized so public engineering references are easy to find while
 temporary planning notes stay out of the public tree.
 
+## npm Package Note
+
+The npm package includes this index and `DOMAIN.md`. The broader engineering
+documentation is maintained in the public source repository and is not bundled
+into the runtime package. Use the
+[GitHub docs directory](https://github.com/bobbyhuang666/andy-engine/tree/main/docs)
+for the complete document set.
+
 ## Start Here
 
-- `../AGENTS.md` — repository guardrails for automation-assisted contributors.
-- `PUBLIC_API_CONTRACT.md` — public API contract.
-- `SERIALIZATION_CONTRACT.md` — persistence and serialization contract.
-- `WORLD_SCHEMA.md` — world schema documentation.
-- `DOMAIN.md` — domain system documentation.
-- `TESTING_ARCHITECTURE.md` — testing architecture.
-- `quality/d5-semantic-beta-report.md` — current D5 semantic grounding benchmark report.
-- `current/` — narrower contracts and active engineering reference notes.
-- `rfc/` — open or foundational design RFCs.
+- `DOMAIN.md` — domain system documentation bundled with npm.
+- The GitHub source repository contains contributor guardrails, API and
+  serialization contracts, testing architecture, active engineering notes, and RFCs.
 
 ## Main Directories
 
 - `current/` — active contracts and engineering reference notes.
 - `rfc/` — open or foundational RFCs.
-- `quality/` — generated quality reports and manifests. Some reports are dated
-  snapshots; prefer the newest report for current status.
+- `quality/` — generated public quality reports and manifests. These are source-repository
+  artifacts and are not bundled with npm.
 - `archive/` — retained architecture evidence documents referenced by tests and
   agent guardrails.
 

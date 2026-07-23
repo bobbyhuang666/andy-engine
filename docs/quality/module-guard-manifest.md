@@ -1,7 +1,7 @@
 # Module Guard Manifest
 
 > R5 "未守护模块"判定 (QUALITY_GATE_RFC v0.3 §6 主判定)。由 `scripts/module-guard-scan.js` 生成。
-> 生成日期: 2026-07-08 | 模块总数: 156 | 守护(直接): 136 | 守护(间接): 19 | 弱守护: 0 | 未守护: 1
+> 生成日期: 2026-07-23 | 模块总数: 146 | 守护(直接): 127 | 守护(间接): 19 | 弱守护: 0 | 未守护: 0
 > coverage 辅助判定: 不可用（未跑 test:coverage）
 
 ## 守护状态汇总
@@ -9,11 +9,10 @@
 - **guarded-direct**: 有测试直接 import（最稳）
 - **guarded-indirect**: 经上游/facade 可达，无直接测试入口
 - **weak**: 可达但 coverage 0%（warning，需关注是否需补直接测试）
-- **unguarded**: 不可达 → Release blocker 候选。当前 1（已知 Gap 白名单见 tests/module-guard.test.js KNOWN_GAPS）。
+- **unguarded**: 不可达 → Release blocker 候选。当前为 0。
 
 | 模块路径 | 状态 |
 |---|---|
-| src/sdk/AndyTownAdapter.js | unguarded |
 | src/action/providers/CandidateProvider.js | guarded-indirect |
 | src/action/SelectedAction.js | guarded-indirect |
 | src/agent/facade/AgentNarrative.js | guarded-indirect |
@@ -34,7 +33,6 @@
 | src/sdk/EmotionEffectClassifier.js | guarded-indirect |
 | src/store/SaveLoad.js | guarded-indirect |
 | src/action/ActionCandidate.js | guarded-direct |
-| src/action/GoalSystem.js | guarded-direct |
 | src/action/index.js | guarded-direct |
 | src/action/providers/BehaviorFieldCandidateProvider.js | guarded-direct |
 | src/action/providers/CandidateProviderManager.js | guarded-direct |
@@ -49,7 +47,6 @@
 | src/action/ReasonTrace.js | guarded-direct |
 | src/action/UtilityScorer.js | guarded-direct |
 | src/action/UtilitySelector.js | guarded-direct |
-| src/action/WorldObject.js | guarded-direct |
 | src/agent/AgentRuntime.js | guarded-direct |
 | src/agent/handlers/ActionSelectionHandler.js | guarded-direct |
 | src/agent/handlers/HealthHandler.js | guarded-direct |
@@ -134,19 +131,12 @@
 | src/sdk/index.js | guarded-direct |
 | src/sdk/LLMAdapter.js | guarded-direct |
 | src/sdk/NarrativeBuilder.js | guarded-direct |
-| src/shared/AffectFrame.js | guarded-direct |
-| src/shared/BasicAffectFrame.js | guarded-direct |
 | src/shared/Diagnostics.js | guarded-direct |
 | src/shared/errors.js | guarded-direct |
 | src/shared/ids.js | guarded-direct |
 | src/shared/index.js | guarded-direct |
 | src/shared/nativeLoader.js | guarded-direct |
 | src/shared/rng.js | guarded-direct |
-| src/shared/schemas/CanonEvent.schema.js | guarded-direct |
-| src/shared/schemas/GroundingPackage.schema.js | guarded-direct |
-| src/shared/schemas/KnowledgeFact.schema.js | guarded-direct |
-| src/shared/schemas/StateDelta.schema.js | guarded-direct |
-| src/shared/schemas/WorldFact.schema.js | guarded-direct |
 | src/shared/time.js | guarded-direct |
 | src/social/index.js | guarded-direct |
 | src/social/Relationship.js | guarded-direct |

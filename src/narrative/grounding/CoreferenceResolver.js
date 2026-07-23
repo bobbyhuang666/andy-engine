@@ -14,7 +14,7 @@
  *   - 不改 evidence bindings（那是 EvidenceBinder 的事）
  *   - CommonJS require + JSDoc，与 src/narrative/grounding/ 现有风格一致
  *
- * Part of the D5 Semantic Beta grounding design.
+ * Coreference resolution for the structured grounding pipeline.
  */
 
 'use strict';

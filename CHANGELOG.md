@@ -6,6 +6,17 @@ All notable changes to Andy Engine will be documented in this file.
 
 ---
 
+## Unreleased
+
+### Changed
+
+- Replaced the checked-in full narrative evaluation corpus with a small synthetic public grounding smoke matrix. Extended evaluation assets are maintained outside the public repository.
+- Refreshed public quality reports and clarified which documentation is bundled with the npm package.
+
+### Removed
+
+- Removed obsolete migration notes, stale semantic benchmark reports, and public corpus-generation tooling.
+
 ## v2.6 — Social Emergence (2026-06-27)
 
 **D6 Multi-Agent Social Emergence: Warning → Pass**

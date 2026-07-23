@@ -28,7 +28,7 @@
  *   24. NoOpVerifier 单例可复用
  *   25. 文档注释：Verifier cannot promote a claim to pass if deterministic evidence is absent
  *
- * Covers the optional verifier policy guard used by D5 Semantic Beta grounding.
+ * Covers the optional verifier policy guard used by evidence-bound grounding.
  */
 
 const fs = require('fs');

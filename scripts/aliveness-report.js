@@ -13,7 +13,7 @@
  */
 
 const { spawnSync } = require('child_process');
-const { writeFileSync, existsSync } = require('fs');
+const { writeFileSync } = require('fs');
 const path = require('path');
 
 const ROOT = path.resolve(__dirname, '..');
@@ -55,11 +55,9 @@ const DIMENSIONS = [
   {
     id: 'D5',
     name: 'Grounded Narrative Faithfulness',
-    standard: 'D5 Semantic Beta grounding corpus + structured evidence-bound narrative validation.',
-    entry: 'tests/unit/narrative/semantic-corpus-beta.test.js + docs/quality/d5-semantic-beta-report.md',
+    standard: '公开 grounding smoke matrix + structured evidence-bound narrative validation。',
+    entry: 'tests/unit/narrative/grounding-smoke.test.js + tests/unit/narrative/grounding/',
     owner: 'narrative 层',
-    special: 'Semantic Beta Pass',
-    specialNote: 'D5 Semantic Beta gate 已达成：3467 samples，1418 real LLM-generated samples，4 distinct model sources，12 P1 hard regressions，false-pass / false-block 均为 0%。当前报告见 docs/quality/d5-semantic-beta-report.md。',
   },
   {
     id: 'D6',
@@ -150,9 +148,10 @@ function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult)
   if (dim.special === 'Pass (v2.2-W1 L4 修复)') return 'Pass';
 
   if (dim.id === 'D5') {
-    const reportExists = existsSync(path.join(ROOT, 'docs', 'quality', 'd5-semantic-beta-report.md'));
-    if (testParsed.testsLine && reportExists) return 'Pass';
-    return 'Gap';
+    const smokeStatus = findFileStatus(testParsed, 'grounding-smoke');
+    if (smokeStatus === 'pass') return 'Pass';
+    if (smokeStatus === 'fail') return 'Gap';
+    return 'Warning';
   }
 
   // D7: domain gate
@@ -259,8 +258,8 @@ function renderReport(dimensions, testParsed, domainResult, perfResult, replayRe
     if (dim.id === 'D7') {
       lines.push(`- **测试输出引用**: test:domain exit ${domainResult.status}`);
     } else if (dim.id === 'D5') {
-      const reportExists = existsSync(path.join(ROOT, 'docs', 'quality', 'd5-semantic-beta-report.md'));
-      lines.push(`- **测试输出引用**: npm test exit 0 / d5-semantic-beta-report checked-in ${reportExists ? 'yes' : 'no'}`);
+      const smokeStatus = findFileStatus(testParsed, 'grounding-smoke');
+      lines.push(`- **测试输出引用**: grounding-smoke ${smokeStatus}`);
     } else if (dim.id === 'D1') {
       const ptStatus = findFileStatus(testParsed, 'persistence-trust');
       const gsrStatus = findFileStatus(testParsed, 'golden-seed-replay');
@@ -296,7 +295,6 @@ function renderReport(dimensions, testParsed, domainResult, perfResult, replayRe
   lines.push('## Sanity check');
   lines.push('');
   lines.push(`- **500 tick 不单调发散**: golden-seed-replay 100 ticks 稳定（${findFileStatus(testParsed, 'golden-seed-replay') === 'pass' ? '通过' : '未确认'}）+ perf:check exit ${perfResult.status}`);
-  lines.push('');
 
   return lines.join('\n') + '\n';
 }

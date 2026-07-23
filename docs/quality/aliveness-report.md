@@ -1,15 +1,15 @@
 # Aliveness Report
 
-> 生成时间: 2026-07-08T08:06:53.611Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
+> 生成时间: 2026-07-23T02:38:00.583Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
 > ALIVENESS_BENCHMARK_RFC v0.3 §3 报告制度。每次 release 重新生成。
 
 ## 测试命令快照
 
 | 命令 | 退出码 | 关键输出 |
 |---|---|---|
-| npm test | 0 | Test Files  211 passed \| 1 skipped (212) / Tests  3882 passed \| 28 skipped (3910) |
+| npm test | 0 | Test Files  204 passed \| 1 skipped (205) / Tests  3741 passed \| 28 skipped (3769) |
 | npm run test:domain | 0 |  Test Files  5 passed (5) /       Tests  82 passed (82) |
-| npm run perf:check | 0 | 100 agents avg/tick                18.96     25.52   0.74x   ✓ PASS / 300 agents avg/tick               113.11    202.48   0.56x   ✓ PASS / fixed-clustered gather (ms)        38.01     33.87   1.12x   ✓ PASS / fixed-clustered cache (ms)          7.61      7.33   1.04x   ✓ PASS / runtime-clustered gather (ms)      28.27     34.85   0.81x   ✓ PASS / ✓ All performance checks passed |
+| npm run perf:check | 0 | 100 agents avg/tick                17.94     25.52    0.7x   ✓ PASS / 300 agents avg/tick               112.37    202.48   0.55x   ✓ PASS / fixed-clustered gather (ms)        41.54     33.87   1.23x   ✓ PASS / fixed-clustered cache (ms)         10.96      7.33    1.5x   ✓ PASS / runtime-clustered gather (ms)      29.87     34.85   0.86x   ✓ PASS / ✓ All performance checks passed |
 | npm run replay:diff | 0 | ticks: 100 \| matched: 100 \| mismatched: 0 |
 
 ## 七维度状态
@@ -45,11 +45,10 @@
 
 ### D5 Grounded Narrative Faithfulness — Pass
 
-- **标准**: D5 Semantic Beta grounding corpus + structured evidence-bound narrative validation.
-- **测试入口**: tests/unit/narrative/semantic-corpus-beta.test.js + docs/quality/d5-semantic-beta-report.md
+- **标准**: 公开 grounding smoke matrix + structured evidence-bound narrative validation。
+- **测试入口**: tests/unit/narrative/grounding-smoke.test.js + tests/unit/narrative/grounding/
 - **Owner**: narrative 层
-- **特殊说明**: Semantic Beta Pass — D5 Semantic Beta gate 已达成：3467 samples，1418 real LLM-generated samples，4 distinct model sources，12 P1 hard regressions，false-pass / false-block 均为 0%。当前报告见 docs/quality/d5-semantic-beta-report.md。
-- **测试输出引用**: npm test exit 0 / d5-semantic-beta-report checked-in yes
+- **测试输出引用**: grounding-smoke pass
 
 ### D6 Multi-Agent Social Emergence — Pass
 

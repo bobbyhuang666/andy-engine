@@ -60,11 +60,11 @@
 ### D5 Grounded Narrative Faithfulness
 
 - 标准：
-  - D5 Semantic Beta grounding corpus + structured evidence-bound narrative validation。
+  - 公开 synthetic grounding smoke matrix + structured evidence-bound narrative validation。
   - `FactConsistencyChecker` 作为兼容 facade，主路径委托 ClaimExtractor / GroundingChecker / EvidenceBinder，regex checks 仅作为 fallback。
-- 测试入口：`tests/unit/narrative/semantic-corpus-beta.test.js` + `docs/quality/d5-semantic-beta-report.md`
+- 测试入口：`tests/unit/narrative/grounding-smoke.test.js` + `tests/unit/narrative/grounding/`
 - Owner：narrative 层
-- **当前落地状态**：D5 Semantic Beta gate 已达成。当前 checked-in report 覆盖 3467 samples、1418 real LLM-generated samples、4 distinct model sources、12 P1 hard regressions，false-pass / false-block 均为 0%。
+- **当前落地状态**：公开仓库仅保留 synthetic smoke matrix 和针对性 grounding 测试；扩展评测资产在公开仓库外维护。
 
 ### D6 Multi-Agent Social Emergence
 
@@ -107,7 +107,7 @@
 
 ## 6. 审计裁定记录
 
-- **B3（已 superseded）**：早期 D5 Warning 判定已被 Semantic Beta corpus/report gate 取代。
+- **B3（已 superseded）**：早期 D5 Warning 判定已被公开 grounding smoke 与针对性单元测试取代。
 - **S6（已采纳）**：§0 明确性能归入 Quality Gate release blocker，不单列第八维。
 - **S7（裁定）**：corpus ≥10 启动可接受，受 B3 修正约束（误报率不再触发降级）。
 - **S8（已采纳）**：§5 增加 D2 中间态（3 Pass + 1 Warning = D2 Warning）。

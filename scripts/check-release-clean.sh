@@ -39,7 +39,24 @@ else
 fi
 echo ""
 
-# 2. Check for macOS metadata files
+# 2. Check that private evaluation assets are not tracked
+echo "Checking public evaluation boundary..."
+PRIVATE_EVAL_FILES=$(git ls-files \
+  'tests/fixtures/narrative-semantic-corpus/**' \
+  'tests/unit/narrative/semantic-corpus*.test.js' \
+  'scripts/d5-generate-*.js' \
+  'docs/quality/d5-semantic-beta-report.md' \
+  'tests/MIGRATION_COMPLETE.md')
+if [ -z "$PRIVATE_EVAL_FILES" ]; then
+  echo "✓ No private evaluation assets are tracked"
+else
+  echo "✗ Private evaluation assets are tracked:"
+  echo "$PRIVATE_EVAL_FILES"
+  FAILURES+=("Private evaluation assets are tracked")
+fi
+echo ""
+
+# 3. Check for macOS metadata files
 echo "Checking for macOS metadata files..."
 METADATA_FILES=$(find . \( -name '._*' -o -name '.DS_Store' \) 2>/dev/null)
 if [ -z "$METADATA_FILES" ]; then
@@ -51,7 +68,7 @@ else
 fi
 echo ""
 
-# 3. Check for Windows Thumbs.db
+# 4. Check for Windows Thumbs.db
 echo "Checking for Windows Thumbs.db..."
 THUMBS_FILES=$(find . -name 'Thumbs.db' 2>/dev/null)
 if [ -z "$THUMBS_FILES" ]; then
@@ -63,7 +80,7 @@ else
 fi
 echo ""
 
-# 4. Check for temporary files
+# 5. Check for temporary files
 echo "Checking for temporary files..."
 TEMP_FILES=$(find . \( -name '*.tmp' -o -name '*.temp' -o -name '*.swp' -o -name '*.swo' \) 2>/dev/null)
 if [ -z "$TEMP_FILES" ]; then

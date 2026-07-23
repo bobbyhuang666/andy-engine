@@ -9,7 +9,7 @@
  *     提升为 'supports'（P1 Risk Register 红线）。
  *   - 工厂函数 createGroundingVerifierAdapter 方便构造。
  *
- * Part of the D5 Semantic Beta grounding design. The verifier is optional and
+ * Part of the evidence-bound grounding design. The verifier is optional and
  * disabled by default.
  *
  * 设计原则：
@@ -166,7 +166,6 @@ class NoOpVerifier extends GroundingVerifier {
  *   - 永远不允许 verifier 把 deterministic unsupported/contradicts 直接变 'supports'。
  *     最高只能降级到 'review'（即使 strictness === 'semantic_review'）。
  *
- * @see docs/quality/d5-semantic-beta-report.md
  */
 class GroundingVerifierAdapter {
   /**
