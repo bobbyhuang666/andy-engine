@@ -11,6 +11,7 @@ All notable changes to Andy Engine will be documented in this file.
 ### Changed
 
 - Replaced the checked-in full narrative evaluation corpus with a small synthetic public grounding smoke matrix. Extended evaluation assets are maintained outside the public repository.
+- Split D5 reporting into a public synthetic-checker status and a real-LLM outcome status; a synthetic Pass no longer upgrades the unevaluated real-LLM result.
 - Refreshed public quality reports and clarified which documentation is bundled with the npm package.
 - Clarified persistence modes: `auto` may degrade only for unavailable SQLite bindings, while explicit `sqlite` fails closed.
 

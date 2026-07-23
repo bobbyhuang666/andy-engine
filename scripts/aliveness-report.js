@@ -55,7 +55,7 @@ const DIMENSIONS = [
   {
     id: 'D5',
     name: 'Grounded Narrative Faithfulness',
-    standard: '公开 grounding smoke matrix + structured evidence-bound narrative validation。',
+    standard: '公开 synthetic checker 与真实 LLM outcome 分层报告；synthetic pass 不得升级 real-LLM 状态。',
     entry: 'tests/unit/narrative/grounding-smoke.test.js + tests/unit/narrative/grounding/',
     owner: 'narrative 层',
   },
@@ -149,8 +149,9 @@ function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult)
 
   if (dim.id === 'D5') {
     const smokeStatus = findFileStatus(testParsed, 'grounding-smoke');
-    if (smokeStatus === 'pass') return 'Pass';
     if (smokeStatus === 'fail') return 'Gap';
+    // Public synthetic coverage cannot establish real-LLM faithfulness.
+    // D5 remains Warning until the private held-out evaluation is complete.
     return 'Warning';
   }
 
@@ -259,7 +260,13 @@ function renderReport(dimensions, testParsed, domainResult, perfResult, replayRe
       lines.push(`- **测试输出引用**: test:domain exit ${domainResult.status}`);
     } else if (dim.id === 'D5') {
       const smokeStatus = findFileStatus(testParsed, 'grounding-smoke');
-      lines.push(`- **测试输出引用**: grounding-smoke ${smokeStatus}`);
+      const syntheticStatus = smokeStatus === 'pass'
+        ? 'Pass'
+        : smokeStatus === 'fail'
+          ? 'Gap'
+          : 'Not verified';
+      lines.push(`- **公开 synthetic checker**: ${syntheticStatus}（grounding-smoke ${smokeStatus}）`);
+      lines.push('- **真实 LLM outcome**: Warning / not evaluated（尚未完成私有 held-out 双 provider 评测）');
     } else if (dim.id === 'D1') {
       const ptStatus = findFileStatus(testParsed, 'persistence-trust');
       const gsrStatus = findFileStatus(testParsed, 'golden-seed-replay');

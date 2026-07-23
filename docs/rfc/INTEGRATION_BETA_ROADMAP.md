@@ -1,6 +1,6 @@
 # Integration Beta Roadmap
 
-> **Status:** Draft for architecture review; baseline recalibrated 2026-07-23
+> **Status:** Wave 0 calibration complete; owner ADR decisions pending
 > **Current baseline:** Foundation Alpha / internal phase line v2.6, consolidated at `a8ac88b` (`package.json` remains `2.0.1`)
 > **Target:** Integration Beta
 > **Scope:** Architecture and verification plan only; this document is not an execution card.
@@ -103,10 +103,10 @@ The current evidence is mostly subsystem and controlled-test evidence:
 5. The public D5 smoke test
    (`tests/unit/narrative/grounding-smoke.test.js`) proves a small structured
    checker matrix, not behavior over representative real-model output. The
-   generated `docs/quality/aliveness-report.md` currently labels D5 “Pass,”
-   while `CHANGELOG.md` still describes v2.6 D5 as “Warning.” Integration Beta
-   must resolve this terminology: a public synthetic-checker pass must not be
-   presented as a real-LLM outcome pass.
+   generated `docs/quality/aliveness-report.md` previously labeled D5 “Pass,”
+   while `CHANGELOG.md` described v2.6 D5 as “Warning.” Wave 0 resolves the
+   terminology by reporting the public synthetic checker separately from the
+   real-LLM outcome: a synthetic-checker pass is not a real-LLM outcome pass.
 6. `docs/current/ALIVENESS_METRICS_v0_1.md` is an appropriate seed metric set,
    but it explicitly describes itself as small-scale, partially manual, and
    domain-specific. It is not yet a versioned Beta evaluation protocol.
@@ -144,7 +144,7 @@ The architecture handoff starts from the following verified state:
 - `a8ac88b` consolidated only the Desktop line's current-architecture
   hardening; the old Desktop repository is no longer an active implementation
   source;
-- `npm run release:gate` passes from a clean worktree, including 3,766 passing
+- `npm run release:gate` passes from a clean worktree with 3,770 passing
   tests, type checks, fresh packed consumers, domain tests, architecture
   boundaries, package smoke, performance checks, legacy-removal analysis, and
   SQLite smoke;
@@ -153,6 +153,13 @@ The architecture handoff starts from the following verified state:
   execution report;
 - complete historical/private Desktop material remains outside the canonical
   repository and must not be restored into Git or the npm package.
+
+Current effect observability is narrower than effect correctness. Of the five
+`EffectCommitter.commit()` call sites in `src/runtime/AndyWorld.js`, three
+capture the result and inspect errors internally, while two fallback paths
+discard the return value. None exposes committed results through the public
+tick/API result. Integration Beta therefore tracks this as an evidence and
+observability gap, not as a claim that canonical writeback is absent.
 
 The following are baseline constraints, not open Integration Beta work items:
 
@@ -568,11 +575,21 @@ No calendar dates are promised. A wave exits only when its gate is evidenced.
 
 Deliver:
 
-- freeze the consolidated Foundation Alpha evidence snapshot at `a8ac88b`;
-- reconcile D5 “public synthetic pass” vs “real-LLM warning” terminology;
+- freeze the consolidated Foundation Alpha evidence snapshot at `a8ac88b`
+  (**complete**);
+- reconcile D5 “public synthetic pass” vs “real-LLM warning” terminology
+  (**complete**: synthetic Pass, real-LLM Warning / not evaluated);
+- calibrate the public test baseline (**complete**: 3,770 passing / 28 skipped);
 - accept the run/evidence manifest schemas;
 - decide Reference Host placement and data-retention authority;
 - decide the provisional thresholds in Section 12.
+
+P0 repository mapping and P1 gap validation are complete. Their findings are
+decision material, not approval to modify Core or freeze a new public API.
+Wave 0 remains open until the owner resolves the Host location/ownership,
+primary and second domains, provider families, private-corpus authority and
+retention, aggregate D5 publication authority, host scheduling model, and
+pre-unblinding thresholds.
 
 **Gate W0:** architecture committee approves ADR-IB-001 through ADR-IB-006, and
 all baseline claims cite a current path/test.
@@ -849,9 +866,9 @@ The architecture committee should decide these before the named wave:
 
 | ADR | Decision | Options / recommended default | Due |
 |---|---|---|---|
-| ADR-IB-001 | Reference Host location | separate repo; workspace; in-repo unpacked example. **Recommend separate external-style host** | W0 |
+| ADR-IB-001 | Reference Host location | separate repo; workspace; in-repo unpacked example. **Recommend in-repo `reference-host/` workspace for Beta, then a separate repo before Production Candidate** | W0 |
 | ADR-IB-002 | Public operation gaps | keep internal; add narrow typed public commands; expose internals. **Recommend narrow typed commands only when evidenced** | W1/W4 |
-| ADR-IB-003 | D5 status vocabulary | one Pass; split synthetic-checker and real-LLM outcome. **Recommend split** | W0 |
+| ADR-IB-003 | D5 status vocabulary | **Split implemented:** public synthetic checker and real-LLM outcome are reported separately; formal W0 ratification remains pending | W0 |
 | ADR-IB-004 | Private evaluation authority and retention | owner, location, reviewer access, retention/deletion | W0 |
 | ADR-IB-005 | Facts in Reference Slice | remain opt-in; change default. **Recommend explicit opt-in and unchanged default** | W0 |
 | ADR-IB-006 | Provisional Beta metric thresholds | accept or revise Section 12 before unblinding | W0 |
@@ -952,6 +969,9 @@ claim-to-evidence index.
 participant.
 **Inputs:** task packets, diffs, commands, evidence bundles, private evaluation
 summary.
+The verifier input bundle must include Section 1.3 of this roadmap verbatim;
+completed baseline constraints must not become `NOT_VERIFIED` merely because
+the orchestrator omitted their evidence from the packet.
 **Output:** PASS/FAIL, blocking findings, command evidence, criterion-by-
 criterion acceptance matrix.
 **Rule:** unavailable evidence is `NOT_VERIFIED`, never PASS.
@@ -1048,10 +1068,10 @@ or full-path deterministic replay.
 
 ## 20. Definition of roadmap completion
 
-This roadmap is ready to become execution cards only after:
+This roadmap is ready to become implementation execution cards only after:
 
 - P0 and P1 confirm the `a8ac88b` baseline without reopening completed
-  consolidation work;
+  consolidation work (**complete**);
 - the architecture committee resolves Wave 0 ADRs;
 - each workstream has an accountable owner;
 - the metric protocol is frozen before held-out data is unblinded;

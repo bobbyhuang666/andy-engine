@@ -1,15 +1,15 @@
 # Aliveness Report
 
-> 生成时间: 2026-07-23T02:38:00.583Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
+> 生成时间: 2026-07-23T06:36:21.416Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
 > ALIVENESS_BENCHMARK_RFC v0.3 §3 报告制度。每次 release 重新生成。
 
 ## 测试命令快照
 
 | 命令 | 退出码 | 关键输出 |
 |---|---|---|
-| npm test | 0 | Test Files  204 passed \| 1 skipped (205) / Tests  3741 passed \| 28 skipped (3769) |
+| npm test | 0 | Test Files  206 passed \| 1 skipped (207) / Tests  3770 passed \| 28 skipped (3798) |
 | npm run test:domain | 0 |  Test Files  5 passed (5) /       Tests  82 passed (82) |
-| npm run perf:check | 0 | 100 agents avg/tick                17.94     25.52    0.7x   ✓ PASS / 300 agents avg/tick               112.37    202.48   0.55x   ✓ PASS / fixed-clustered gather (ms)        41.54     33.87   1.23x   ✓ PASS / fixed-clustered cache (ms)         10.96      7.33    1.5x   ✓ PASS / runtime-clustered gather (ms)      29.87     34.85   0.86x   ✓ PASS / ✓ All performance checks passed |
+| npm run perf:check | 0 | 100 agents avg/tick                16.48     25.52   0.65x   ✓ PASS / 300 agents avg/tick               106.95    202.48   0.53x   ✓ PASS / fixed-clustered gather (ms)        36.29     33.87   1.07x   ✓ PASS / fixed-clustered cache (ms)          7.17      7.33   0.98x   ✓ PASS / runtime-clustered gather (ms)      28.63     34.85   0.82x   ✓ PASS / ✓ All performance checks passed |
 | npm run replay:diff | 0 | ticks: 100 \| matched: 100 \| mismatched: 0 |
 
 ## 七维度状态
@@ -43,12 +43,13 @@
 - **Owner**: effects 层
 - **测试输出引用**: tests/unit/effects/ 1/1 文件 pass
 
-### D5 Grounded Narrative Faithfulness — Pass
+### D5 Grounded Narrative Faithfulness — Warning
 
-- **标准**: 公开 grounding smoke matrix + structured evidence-bound narrative validation。
+- **标准**: 公开 synthetic checker 与真实 LLM outcome 分层报告；synthetic pass 不得升级 real-LLM 状态。
 - **测试入口**: tests/unit/narrative/grounding-smoke.test.js + tests/unit/narrative/grounding/
 - **Owner**: narrative 层
-- **测试输出引用**: grounding-smoke pass
+- **公开 synthetic checker**: Pass（grounding-smoke pass）
+- **真实 LLM outcome**: Warning / not evaluated（尚未完成私有 held-out 双 provider 评测）
 
 ### D6 Multi-Agent Social Emergence — Pass
 
