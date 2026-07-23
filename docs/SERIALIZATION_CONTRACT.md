@@ -79,7 +79,8 @@ The envelope is the cross-version-safe persistence format:
 
 ```js
 {
-  version: string,           // ENVELOPE_VERSION ('0.2.0')
+  version: string,           // legacy version key, '0.1.0'
+  schemaVersion: string,     // canonical schema key, '0.1.0'
   timestamp: string,         // ISO 8601
   runtimeSnapshot: object,   // Opaque Payload — not parsed by envelope layer
 }
@@ -88,7 +89,9 @@ The envelope is the cross-version-safe persistence format:
 **Rules**:
 - `Serialization.serialize(world)` creates the envelope from an AndyWorld instance.
 - `Serialization.deserialize(envelope)` extracts the opaque runtime snapshot.
-- The envelope has exactly 3 fields: `version`, `timestamp`, `runtimeSnapshot`.
+- The current envelope has exactly 4 fields: `version`, `schemaVersion`,
+  `timestamp`, `runtimeSnapshot`.
+- `version` is retained for compatibility; `schemaVersion` is canonical.
 - `runtimeSnapshot` is opaque — `Serialization` does NOT parse or validate its internal structure.
 - Version changes require explicit migration logic.
 
@@ -296,7 +299,7 @@ state and the explicit-dependency restore path for psychology subsystems.
 | Export | Type | Purpose |
 |--------|------|---------|
 | `Serialization` | class | Stable World Envelope serialize/deserialize |
-| `ENVELOPE_VERSION` | string | Current envelope version (`'0.2.0'`) |
+| `ENVELOPE_VERSION` | string | Current envelope version (`'0.1.0'`) |
 | `SaveLoad` | class | Unified save/load interface (uses Serialization + store) |
 | `SnapshotStore` | class (interface) | Abstract snapshot store interface |
 | `MetaStore` | class (interface) | Abstract key-value metadata store interface |
@@ -335,9 +338,12 @@ Two version numbers coexist in the persistence layer. They are **layered, not co
 | Version | Owner | Scope |
 |---------|-------|-------|
 | `schemaVersion` (`'0.1.0'`) | `validator.js` / `migration.js` | Stable World Envelope schema version. Drives migration pipeline. Part of the `WorldStateAdapter` envelope. |
-| `ENVELOPE_VERSION` (`'0.2.0'`) | `Serialization.js` | Serialization envelope version. Wraps the runtime snapshot in `{ version, timestamp, runtimeSnapshot }`. Independent of schema version. |
+| `ENVELOPE_VERSION` (`'0.1.0'`) | `Serialization.js` | Backward-compatible alias of `CURRENT_SCHEMA_VERSION`. The transport envelope emits both `version` and canonical `schemaVersion`. |
 
-**Layering**: `Serialization` envelope (transport) wraps `WorldStateAdapter` envelope (semantic contract). The transport envelope has 3 fields. The semantic envelope has 7+ fields plus the opaque runtime snapshot.
+**Layering**: `Serialization` envelope (transport) wraps the opaque runtime
+snapshot and has 4 fields. The `WorldStateAdapter` semantic envelope has 7+
+fields plus the opaque runtime snapshot. Both version keys currently resolve to
+`0.1.0`; this does not merge the ownership of the two envelope shapes.
 
 ---
 

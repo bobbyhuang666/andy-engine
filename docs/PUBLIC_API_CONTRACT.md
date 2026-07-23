@@ -162,7 +162,9 @@ require('andy-engine/presets/tavern') → presets/tavern/index.js
   - `createStore(options?)` — function
   - `createMemoryStore()` — function
   - `toWorldState(engine, worldId)` — function
-  - `fromWorldState(worldState, config?, engineConstructor?)` — function
+  - `fromWorldState(worldState, config?, engineConstructor?)` — function; the
+    legacy type keeps the constructor optional, but the current runtime requires
+    callers to pass the public `AndyEngine` constructor explicitly
   - `validateWorldSpec(spec)` — function
   - `validateWorldState(state)` — function
   - `CURRENT_SCHEMA_VERSION` — string (`'0.1.0'`)
@@ -179,7 +181,14 @@ require('andy-engine/presets/tavern') → presets/tavern/index.js
 - **File**: `src/config/defaults.js`
 - **Status**: stable (migrated from wrapper)
 - **Canonical src**: `src/config/defaults.js`
-- **Main exports**: `ANDY_DEFAULTS` (object, all tunable engine parameters)
+- **Main exports**:
+  - `ANDY_DEFAULTS`
+  - `DEFAULT_DOMAIN_ID`
+  - `EMOTION_DIMENSIONS`
+  - `CO_ACTIVATION`
+  - `EMOTION_OPPOSITES`
+  - `personalityToBehavior`
+  - `SEMANTIC_EVENT_CATEGORIES`
 - **Allowed consumers**: external apps, config tests
 - **Breaking-change policy**: major version bump only. Structure may grow (additive) but existing keys must not change. Now points directly to `src/config/defaults.js`.
 - **Smoke test coverage**: `scripts/smoke-pack.sh` — `require('andy-engine/config/defaults')` checks `ANDY_DEFAULTS`

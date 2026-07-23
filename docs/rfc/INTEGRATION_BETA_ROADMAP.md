@@ -1,7 +1,7 @@
 # Integration Beta Roadmap
 
-> **Status:** Wave 0 calibration complete; owner ADR decisions pending
-> **Current baseline:** Foundation Alpha / internal phase line v2.6, consolidated at `a8ac88b` (`package.json` remains `2.0.1`)
+> **Status:** Wave 0 planning decisions recorded; P2 architecture package in progress
+> **Current baseline:** Foundation Alpha / internal phase line v2.6, calibrated at `b0b5116` (`package.json` remains `2.0.1`)
 > **Target:** Integration Beta
 > **Scope:** Architecture and verification plan only; this document is not an execution card.
 > **Canonical repository:** `/Users/huangweijie/Documents/andy-engine`
@@ -580,19 +580,22 @@ Deliver:
 - reconcile D5 “public synthetic pass” vs “real-LLM warning” terminology
   (**complete**: synthetic Pass, real-LLM Warning / not evaluated);
 - calibrate the public test baseline (**complete**: 3,770 passing / 28 skipped);
-- accept the run/evidence manifest schemas;
-- decide Reference Host placement and data-retention authority;
-- decide the provisional thresholds in Section 12.
+- accept the run/evidence manifest schemas (**P2 draft produced; independent
+  verification pending**);
+- decide Reference Host placement and data-retention authority (**complete for
+  P2 planning; see `INTEGRATION_BETA_WAVE0_DECISIONS.md`**);
+- decide the provisional thresholds in Section 12 (**complete; frozen before
+  unblinding unless explicitly superseded**).
 
-P0 repository mapping and P1 gap validation are complete. Their findings are
-decision material, not approval to modify Core or freeze a new public API.
-Wave 0 remains open until the owner resolves the Host location/ownership,
-primary and second domains, provider families, private-corpus authority and
-retention, aggregate D5 publication authority, host scheduling model, and
-pre-unblinding thresholds.
+P0 repository mapping and P1 gap validation are complete. The owner has accepted
+conservative planning defaults for Host location, domains, family-level provider
+comparison, private-corpus governance, scheduling, and thresholds. P2 has a zero
+provider-spend budget and may not collect real LLM output. Exact model IDs,
+provider terms, W3 spend, and a reviewer allowlist remain mandatory operational
+approvals before collection.
 
-**Gate W0:** architecture committee approves ADR-IB-001 through ADR-IB-006, and
-all baseline claims cite a current path/test.
+**Gate W0:** passed for P2 architecture planning. This is not authorization for
+Core/API implementation or W3 data collection.
 
 ### Wave 1 — Public-boundary diagnostic slice
 
@@ -866,19 +869,19 @@ The architecture committee should decide these before the named wave:
 
 | ADR | Decision | Options / recommended default | Due |
 |---|---|---|---|
-| ADR-IB-001 | Reference Host location | separate repo; workspace; in-repo unpacked example. **Recommend in-repo `reference-host/` workspace for Beta, then a separate repo before Production Candidate** | W0 |
+| ADR-IB-001 | Reference Host location | **Accepted for P2:** in-repo `reference-host/` workspace for Beta, then a separate repo before Production Candidate | W0 |
 | ADR-IB-002 | Public operation gaps | keep internal; add narrow typed public commands; expose internals. **Recommend narrow typed commands only when evidenced** | W1/W4 |
-| ADR-IB-003 | D5 status vocabulary | **Split implemented:** public synthetic checker and real-LLM outcome are reported separately; formal W0 ratification remains pending | W0 |
-| ADR-IB-004 | Private evaluation authority and retention | owner, location, reviewer access, retention/deletion | W0 |
-| ADR-IB-005 | Facts in Reference Slice | remain opt-in; change default. **Recommend explicit opt-in and unchanged default** | W0 |
-| ADR-IB-006 | Provisional Beta metric thresholds | accept or revise Section 12 before unblinding | W0 |
+| ADR-IB-003 | D5 status vocabulary | **Accepted and implemented:** public synthetic checker and real-LLM outcome are reported separately | W0 |
+| ADR-IB-004 | Private evaluation authority and retention | **Accepted for P2:** external reserved root, owner-only default, 30-day raw / 180-day label maximum; W3 reviewer allowlist still required | W0 |
+| ADR-IB-005 | Facts in Reference Slice | **Accepted:** explicit opt-in and unchanged default | W0 |
+| ADR-IB-006 | Provisional Beta metric thresholds | **Accepted provisionally:** Section 12 and Wilson method freeze before unblinding | W0 |
 | ADR-IB-007 | WorldObject integration | integrate; defer; remove model. **Recommend defer unless the slice demonstrates a blocking need** | W2 |
 | ADR-IB-008 | Determinism boundary | existing engine-path promise; full host/SDK/LLM replay. **Recommend retain existing boundary** | W2 |
 | ADR-IB-009 | Experimental SDK promotion | promote all; promote evidence-backed subset; retain experimental. **Recommend evidence-backed subset only** | W4 |
 | ADR-IB-010 | Fact/Knowledge public stability | freeze current shape; freeze projection; keep experimental. **Recommend freeze only the public projection needed by grounding** | W4 |
 | ADR-IB-011 | LLM retry/idempotency ownership | Engine Core; host adapter. **Recommend host adapter** | W1 |
-| ADR-IB-012 | Primary scenario and second-domain diagnostic | select domain manifests without embedding semantics in core | W0 |
-| ADR-IB-013 | Host scheduling model | continuous worker; job queue; explicit catch-up. Select one and define clock/idempotency semantics | W0 |
+| ADR-IB-012 | Primary scenario and second-domain diagnostic | **Accepted:** tavern primary, campus secondary; semantics remain Host data | W0 |
+| ADR-IB-013 | Host scheduling model | **Accepted:** explicit catch-up with Host-owned clock mapping, retry ledger, and idempotency | W0 |
 | ADR-IB-014 | Public world-command seam | internal access; narrow move/event-intent commands. **Recommend narrow commands only after W1 gap evidence** | W1/W4 |
 | ADR-IB-015 | Public read model | return live Agent; add immutable projections. **Recommend immutable projections for Beta evidence** | W1/W4 |
 | ADR-IB-016 | Streaming semantics | buffered validation; incremental safe protocol. **Recommend retain buffered validation unless latency is a proven blocker** | W3 |
@@ -1034,37 +1037,41 @@ This later graduation requires evidence not demanded for Integration Beta:
 Production Candidate does not automatically require StoryArc, UI, WorldObject,
 or full-path deterministic replay.
 
-## 19. Questions requiring owner or architecture-committee decision
+## 19. Decision status and remaining approvals
 
-1. Where will the Reference Host live, and who owns it after Beta?
-2. Which fictional domain is the primary seven-day scenario, and which is the
-   second-domain portability diagnostic?
-3. Are the Section 12 sample sizes and thresholds acceptable before evaluation
-   results are visible?
-4. Which two provider/model families may be used, under what cost and data
-   retention policies?
-5. Where will the private corpus live, who may review it, and when is raw text
-   deleted?
-6. Is the existing “safe silence” behavior acceptable for Beta, or must a
-   constrained rewrite path exist before W3 exit?
-7. Which host operations are legitimate candidates for narrow public APIs?
-8. Which Fact/Knowledge projection, if any, should become stable at Beta?
-9. Does the seven-day run require real-time conversational interactions, or is
-   a fixed set of evaluated checkpoints sufficient?
-10. What snapshot/event/memory growth budget should block Beta after Wave 2
-    measurements establish a baseline?
-11. Should the old longitudinal demo be rewritten, archived, or retained with a
-    Foundation Alpha disclaimer?
-12. Who has final authority to approve aggregate public D5 results without
-    exposing full evaluation samples?
-13. Is the host expected to run continuously, use a job queue, or catch up only
-    when a user returns?
-14. Should `getAgent()` remain the primary stable read surface even though it
-    returns a live object, or should the slice depend on immutable projections?
-15. Which narrow public command, if any, should express character placement and
-    externally initiated world events?
-16. Is true token streaming a Beta requirement, given that current
-    `Character.chatStream()` buffers the complete response before validation?
+The original question numbers are retained for audit continuity.
+
+1. **Resolved for P2:** Reference Host lives in `reference-host/`; migrate it to
+   a separately owned repository before Production Candidate.
+2. **Resolved for P2:** tavern is primary; campus is the portability diagnostic.
+3. **Resolved provisionally:** Section 12 thresholds and Wilson method freeze
+   before unblinding.
+4. **Partially resolved:** compare OpenAI and Anthropic families. Exact model
+   IDs, spend, request limits, and then-current provider retention terms require
+   approval before W3 collection.
+5. **Partially resolved:** the external private root, owner-only default,
+   30-day raw limit, and 180-day label limit are set. The reviewer allowlist
+   requires approval before W3 collection.
+6. **P2 position:** retain safe silence; revisit only if W3 utility evidence
+   justifies constrained rewrite.
+7. **Open until W1 evidence:** identify legitimate narrow public operations
+   through the API gap ledger.
+8. **Open until W4 evidence:** decide the minimal stable Fact/Knowledge
+   projection required by grounding consumers.
+9. **P2 position:** fixed evaluated checkpoints are sufficient; real-time
+   conversation is not required for the seven-day run.
+10. **Open until W2 measurement:** set snapshot/event/memory growth budgets.
+11. **Open until W1 Host evidence:** rewrite, archive, or disclaim the old
+    longitudinal demo.
+12. **Resolved for P2:** the repository owner is the aggregate D5 publication
+    authority until explicitly delegated.
+13. **Resolved:** use explicit catch-up scheduling.
+14. **P2 position:** the slice uses immutable snapshots/projections and does not
+    treat live `getAgent()` handles as evidence surfaces.
+15. **Open until W1 evidence:** consider narrow movement/event-intent commands
+    only after the API decision test.
+16. **P2 position:** buffered validate-before-exposure is sufficient; true token
+    streaming is not a Beta requirement absent blocker evidence.
 
 ## 20. Definition of roadmap completion
 
@@ -1072,7 +1079,8 @@ This roadmap is ready to become implementation execution cards only after:
 
 - P0 and P1 confirm the `a8ac88b` baseline without reopening completed
   consolidation work (**complete**);
-- the architecture committee resolves Wave 0 ADRs;
+- the architecture committee resolves Wave 0 ADRs (**complete for P2 planning;
+  operational W3 approvals remain**);
 - each workstream has an accountable owner;
 - the metric protocol is frozen before held-out data is unblinded;
 - public/private storage locations are identified;
