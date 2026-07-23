@@ -1,5 +1,12 @@
 # Longitudinal Life Demo
 
+> **⚠️ DEPRECATED / SUPERSEDED** — This demo accesses engine internals
+> (`engine.world.regions.place()`, `engine.world.socialGraph`,
+> `engine.world.clock`) which are NOT part of the public API. The
+> Integration Beta Reference Host (`reference-host/`) demonstrates the
+> same capabilities using ONLY public exports. See
+> `docs/rfc/IB_CHARACTERIZATION_INVENTORY.md` for the full classification.
+
 This demo demonstrates Andy Engine's "persistent life" capability.
 
 ## What It Shows

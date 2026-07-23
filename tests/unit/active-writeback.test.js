@@ -62,6 +62,7 @@ const MOVE_CANDIDATE = { id: 'cand_move_1', type: 'move', source: 'test', target
 // ═══════════════════════════════════════════
 
 describe('Phase 36: Minimal Active Writeback Gate', () => {
+  // @characterization — direct state injection; not Beta evidence
 
   // ─── 1. Rest active vs dry-run: same stateDeltas, active energy/calm/joy > dryRun ───
   it('rest: active and dryRun produce identical stateDeltas; active energy, calm, joy all > dryRun', () => {

@@ -70,6 +70,7 @@ const CAMPUS_TERMS = ['宿舍', '教学楼', '图书馆', '食堂', '便利店',
 // ═══════════════════════════════════════════
 
 describe('Shadow mode integration', () => {
+  // @characterization — direct state injection; not Beta evidence
   it('records trace but emits no action_selected event', () => {
     const engine = createEngine('shadow-integ', SHADOW);
     for (let i = 0; i < 5; i++) engine.tick();

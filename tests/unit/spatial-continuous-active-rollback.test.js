@@ -19,6 +19,7 @@ import RuntimeContext from '../../src/runtime/RuntimeContext.js';
 import { applyActionStateDeltas } from '../../src/agent/runtime/ActionSelectionRuntime.js';
 
 describe('B1: continuous spatial + active move 不被同 tick 回滚', () => {
+  // @characterization — direct state injection; not Beta evidence
   it('active writeback 后 agent.position 应停留在目标区域', () => {
     const engine = new AndyEngine({
       startTime: new Date('2025-06-01T10:00:00'),

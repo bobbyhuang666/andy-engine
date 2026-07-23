@@ -51,6 +51,7 @@ function createMockAgent(id, position, socialGraph) {
 }
 
 describe('Event Lifecycle Dedup (P0-1)', () => {
+  // @characterization — direct state injection; not Beta evidence
   describe('perception event-id dedup', () => {
     it('applies emotion and memory effects once for the same perceived event id', () => {
       const engine = new AndyEngine({

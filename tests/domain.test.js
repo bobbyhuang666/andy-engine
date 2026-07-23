@@ -25,6 +25,7 @@ function containsCampusWords(text) {
 }
 
 describe('Domain-Agnostic 架构', () => {
+  // @characterization — direct state injection; not Beta evidence
   describe('DomainRegistry', () => {
     it('默认使用 campus preset', () => {
       const campusDomain = require('../presets/campus');

@@ -50,3 +50,7 @@ benchmarks/baselines/local.json
 # Private evaluation assets are maintained outside the public repository.
 tests/fixtures/narrative-semantic-corpus/
 docs/quality/d5-semantic-beta-report.md
+
+# Reference Host generated artifacts (never commit run outputs)
+reference-host/artifacts/
+reference-host/node_modules/

@@ -19,6 +19,7 @@ function createAgent(overrides = {}) {
 }
 
 describe('SocialHandler', () => {
+  // @characterization — direct state injection; not Beta evidence
   let agent;
   let handler;
 

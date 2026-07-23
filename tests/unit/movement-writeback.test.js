@@ -47,6 +47,7 @@ const CONTINUE_CANDIDATE = { id: 'cand_continue_1', type: 'continue', source: 'b
 // ═══════════════════════════════════════════
 
 describe('Phase 37: Minimal Movement Writeback Gate', () => {
+  // @characterization — direct state injection; not Beta evidence
 
   // ─── 1. Active move with valid target changes position ───
   it('active move: valid target changes position, event has location delta with target', () => {

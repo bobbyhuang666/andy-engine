@@ -37,6 +37,7 @@ function checkTextForCampusWords(text, fieldName) {
 }
 
 describe('Domain-Agnostic 深度测试', () => {
+  // @characterization — direct state injection; not Beta evidence
   describe('tavern domain 内部状态验证', () => {
     it('behaviorField.label 必须属于 tavern states', () => {
       const engine = new AndyEngine({ domain: tavernDomain });

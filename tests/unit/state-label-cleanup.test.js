@@ -32,6 +32,7 @@ function setBehaviorState(agent, stateCenters, stateName) {
 }
 
 describe('PhysiologyRuntime sick gating — domain-agnostic', () => {
+  // @characterization — direct state injection; not Beta evidence
   it('tavern agent with low health + high activity gets frustration effect', () => {
     const engine = new AndyEngine({ domain: tavernDomain });
     const agent = engine.createCharacter({

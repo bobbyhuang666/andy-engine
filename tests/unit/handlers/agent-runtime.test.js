@@ -36,6 +36,7 @@ function makeEnv(overrides = {}) {
 }
 
 describe('AgentRuntime', () => {
+  // @characterization — direct state injection; not Beta evidence
   let agent;
   let runtime;
 

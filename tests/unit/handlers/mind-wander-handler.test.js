@@ -23,6 +23,7 @@ function createAgent(overrides = {}) {
 }
 
 describe('MindWanderHandler', () => {
+  // @characterization — direct state injection; not Beta evidence
   let agent;
   let handler;
 

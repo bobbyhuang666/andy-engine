@@ -10,6 +10,7 @@ const AndyEngine = require('../../index.js');
 const campusDomain = require('../../presets/campus/index.js');
 
 describe('position fallback uses the canonical effect pipeline', () => {
+  // @characterization — direct state injection; not Beta evidence
   it('repairs an invalid initial position through EffectCommitter', () => {
     const engine = new AndyEngine({
       startTime: new Date('2026-01-15T08:00:00'),

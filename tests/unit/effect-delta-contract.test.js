@@ -31,6 +31,7 @@ const TEST_TIME = new Date('2026-09-01T14:00:00Z');
 // ─── StateDelta types ───
 
 describe('Phase 5: StateDelta type hierarchy', () => {
+  // @characterization — direct state injection; not Beta evidence
   it('StateDelta is the base class', () => {
     const d = new StateDelta('test', 'agent', 'a1');
     expect(d.type).toBe('test');

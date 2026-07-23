@@ -1,6 +1,23 @@
 /**
  * Longitudinal Life Demo
  *
+ * **DEPRECATED / SUPERSEDED by Integration Beta Reference Host.**
+ *
+ * This demo accesses engine internals (`engine.world.regions.place()`,
+ * `engine.world.socialGraph`, `engine.world.clock`) which are NOT part
+ * of the public API. The Integration Beta Reference Host
+ * (`reference-host/`) demonstrates the same capabilities using ONLY
+ * public exports from the packed artifact, with fresh-process resume
+ * and a seven-day tavern diagnostic.
+ *
+ * This file is retained for backward compatibility but MUST NOT be
+ * cited as Integration Beta evidence. See:
+ * - `reference-host/` for the public-API-only diagnostic
+ * - `reference-host/test/no-internal-access.js` for the guard that
+ *   detects the internal-access patterns used below
+ * - `docs/rfc/IB_CHARACTERIZATION_INVENTORY.md` for the full
+ *   characterization classification
+ *
  * Demonstrates Andy Engine's "persistent life" capability:
  * - User leaves for 24 hours
  * - Character continues living in the background
@@ -9,6 +26,8 @@
  *
  * Usage:
  *   node examples/longitudinal-life-demo/demo.js
+ *
+ * @deprecated Use reference-host/ for public-API-only integration.
  */
 
 const AndyEngine = require('andy-engine');

@@ -37,6 +37,7 @@ function makeAgent(overrides = {}) {
 }
 
 describe('PhysiologyRuntime NaN guards', () => {
+  // @characterization — direct state injection; not Beta evidence
   it('applyNeedsToEmotion ignores NaN need values instead of emitting NaN emotion deltas', () => {
     const agent = makeAgent({
       needs: {

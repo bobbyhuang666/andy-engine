@@ -23,6 +23,7 @@ function createMockAgent(overrides = {}) {
 }
 
 describe('buildNarrative 情绪安全', () => {
+  // @characterization — direct state injection; not Beta evidence
   let agent;
 
   beforeEach(() => {

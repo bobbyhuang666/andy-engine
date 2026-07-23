@@ -66,6 +66,7 @@ function expectSameState(a, b) {
 // ═══════════════════════════════════════════
 
 describe('EventEffectPipeline: pure function contract', () => {
+  // @characterization — direct state injection; not Beta evidence
   it('rest candidate produces need/emotion deltas', () => {
     const result = applyActionEffect({
       agentSnapshot: { id: 'test', needs: { energy: 0.3 }, emotion: { calm: 0.1 } },

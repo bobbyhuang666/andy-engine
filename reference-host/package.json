@@ -1,0 +1,20 @@
+{
+  "name": "andy-engine-reference-host",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Integration Beta Reference Host — diagnostic consumer of the Andy Engine packed artifact",
+  "scripts": {
+    "install:engine": "npm pack --pack-destination ../reference-host ../ && npm install ../andy-engine-*.tgz && rm -f ../andy-engine-*.tgz reference-host/andy-engine-*.tgz",
+    "diagnose:tavern": "node src/tavern-diagnostic.js",
+    "diagnose:campus": "node src/campus-diagnostic.js",
+    "diagnose:all": "node src/tavern-diagnostic.js && node src/campus-diagnostic.js",
+    "test": "vitest run",
+    "test:guard": "node test/no-internal-access.js"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.7"
+  },
+  "dependencies": {
+    "andy-engine": "file:andy-engine-2.0.1.tgz"
+  }
+}

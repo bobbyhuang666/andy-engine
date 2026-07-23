@@ -1,0 +1,92 @@
+# API Gap Ledger — Integration Beta W1
+
+> **Status:** W1 evidence collection
+> **Source:** `reference-host/` diagnostic runs against packed artifact
+> **Scope:** Gaps discovered when consuming Andy Engine through its public
+> exports only. No internal access permitted.
+
+## Gap numbering
+
+Gaps are prefixed `A` (observability/architecture) to distinguish from the
+roadmap §1.2 `G`-series gaps. Numbers continue from the P0 mapping
+(A1–A4).
+
+---
+
+## A1 — EffectCommitter.commit() return value not publicly observable
+
+- **Severity:** Observability gap (not a writeback defect)
+- **Discovered:** P0 mapping, confirmed P2 Caliper
+- **Evidence (W1):**
+  - `host-runner.js` runs `engine.runTicks(count)` and inspects `TickResult`
+  - `TickResult` contains phase keys but does NOT expose committed
+    `EffectResult` or delta summaries
+  - In `src/runtime/AndyWorld.js`, 5 `EffectCommitter.commit()` call sites:
+    3 capture+inspect errors internally (L660, L755, L873),
+    2 fallback paths discard the return (L268, L561)
+  - None expose committed results through the public tick/API result
+- **Host evidence record:** `segmentRecords[].effectObservability = 'not_observable_via_public_api'`
+- **Impact:** Integration Host cannot verify which typed deltas were
+  committed in a given tick. Must rely on post-hoc state comparison.
+- **Proposal target:** W4 (additive API proposal via §14.3 decision test)
+- **W1 action:** Record gap, do NOT implement TickResult extension
+
+## A2 — No public immutable projection of world state
+
+- **Severity:** Observability gap
+- **Discovered:** P0 mapping
+- **Evidence (W1):**
+  - `engine.snapshot()` returns a lightweight mutable snapshot
+  - `engine.toJSON()` returns full mutable state
+  - Neither provides a versioned, content-hashed, immutable projection
+  - `toWorldState()` wraps `toJSON()` output in an envelope but the
+    `runtimeSnapshot` remains mutable and not content-hashed
+- **Impact:** Host cannot produce a content-addressable evidence chain
+  without computing its own hash of the full snapshot
+- **Proposal target:** W4 (ADR-IB-015 evidence-gated: W1/W4)
+- **W1 action:** Record gap, compute ad-hoc hash in Host artifacts
+
+## A3 — No public move/relocation command
+
+- **Severity:** API gap (positions set internally by EffectCommitter only)
+- **Discovered:** P0 mapping
+- **Evidence (W1):**
+  - Host cannot instruct an agent to move to a specific region via public API
+  - Position changes occur only through the EffectPipeline → EffectCommitter path
+  - The old longitudinal demo used `engine.world.regions.place()` (internal)
+  - No public equivalent exists
+- **Impact:** Host cannot drive intentional relocation events for scenario
+  design; must rely on natural simulation dynamics
+- **Proposal target:** W4 (ADR-IB-014 evidence-gated: W1/W4)
+- **W1 action:** Record gap, accept natural position dynamics
+
+## A4 — No public event-intent injection
+
+- **Severity:** API gap
+- **Discovered:** P0 mapping
+- **Evidence (W1):**
+  - Host cannot inject a specific event intent (e.g., "Alice observes Bob
+    at the tavern") through public API
+  - Events are produced only through the internal CanonEventPipeline
+  - `engine.getNarrative()` produces narrative text but does not create events
+- **Impact:** Host cannot force specific event sequences for controlled
+  epistemic testing; must rely on natural simulation dynamics
+- **Proposal target:** W4 (ADR-IB-014 evidence-gated: W1/W4)
+- **W1 action:** Record gap, accept natural event dynamics
+
+---
+
+## Decision test (§14.3) pre-assessment
+
+For each gap, the §14.3 decision test asks:
+
+1. Does the gap block a Beta exit criterion? → A1 borderline (D4 causality
+   writeback), A2–A4 no (observational only)
+2. Is there a public-API workaround? → A1: post-hoc snapshot comparison;
+   A2: ad-hoc hashing; A3–A4: rely on natural dynamics
+3. Does closing the gap freeze a previously unstable surface? → All: no,
+   these are additive-only proposals
+4. Is the gap evidence-gated? → A1: W1 evidence → W4 proposal; A2–A4:
+   already gated per ADR-IB-014/015
+
+No W1 action beyond recording. All additive API proposals deferred to W4.

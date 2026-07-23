@@ -51,6 +51,7 @@ function makeAgent(overrides = {}) {
 }
 
 describe('ScheduleHandler.tick — EffectCommitter writeback', () => {
+  // @characterization — direct state injection; not Beta evidence
   it('moves via PositionDelta and signals regionChanged', () => {
     const agent = makeAgent({
       position: '宿舍',

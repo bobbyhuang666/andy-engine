@@ -41,6 +41,7 @@ function fakeAndy(agentMap) {
 }
 
 describe('AndyBridge constructor — memory persistence branch', () => {
+  // @characterization — direct state injection; not Beta evidence
   it('persistence.type=memory sets store.db to a MemoryStore and avoids SQLite', () => {
     const bridge = makeBridge();
     expect(bridge.store).toBeDefined();
