@@ -1,9 +1,10 @@
 # Integration Beta Roadmap
 
-> **Status:** Draft for architecture review
-> **Current baseline:** Foundation Alpha / internal phase line v2.6 (`package.json` remains `2.0.1`)
+> **Status:** Draft for architecture review; baseline recalibrated 2026-07-23
+> **Current baseline:** Foundation Alpha / internal phase line v2.6, consolidated at `a8ac88b` (`package.json` remains `2.0.1`)
 > **Target:** Integration Beta
 > **Scope:** Architecture and verification plan only; this document is not an execution card.
+> **Canonical repository:** `/Users/huangweijie/Documents/andy-engine`
 
 ## 0. Executive decision
 
@@ -55,6 +56,16 @@ The Foundation Alpha baseline already has:
   `tests/unit/persistence-trust.test.js`,
   `tests/unit/replay-trust-l4.test.js`,
   `scripts/replay-diff.js`);
+- consolidated runtime and contract hardening that keeps invalid-region repair
+  on the typed-delta path, makes RegionGrid/agent position updates atomic,
+  distinguishes fail-open `auto` persistence from fail-closed explicit
+  `sqlite`, awaits asynchronous restore, validates runtime feature switches,
+  and aligns the public synchronous `SemanticVerifier` contract
+  (`src/runtime/AndyWorld.js`, `src/effects/EffectCommitter.js`,
+  `src/store/SimulationStore.js`, `src/store/SQLiteStore.js`,
+  `src/narrative/grounding/GroundingVerifier.js`,
+  `tests/unit/position-bypass-regression.test.js`,
+  `tests/store/sqlite-optional.test.js`);
 - social-emergence and domain-portability evidence
   (`tests/e2e/social-emergence.test.js`,
   `tests/e2e/gossip-propagation.test.js`,
@@ -124,6 +135,46 @@ The current evidence is mostly subsystem and controlled-test evidence:
 **Stage judgment:** Foundation Alpha is technically credible; Integration Beta
 requires integration evidence, longitudinal evidence, real-LLM D5 evidence, and
 contract feedback from the Reference Vertical Slice.
+
+### 1.3 Recalibrated execution baseline
+
+The architecture handoff starts from the following verified state:
+
+- `62f815c` introduced this roadmap and its active RFC index entry;
+- `a8ac88b` consolidated only the Desktop line's current-architecture
+  hardening; the old Desktop repository is no longer an active implementation
+  source;
+- `npm run release:gate` passes from a clean worktree, including 3,766 passing
+  tests, type checks, fresh packed consumers, domain tests, architecture
+  boundaries, package smoke, performance checks, legacy-removal analysis, and
+  SQLite smoke;
+- the npm dry-run contains 195 files and no full semantic corpus, real-LLM
+  output, holdout assignment, reviewer material, stale D5 report, or Phase 3
+  execution report;
+- complete historical/private Desktop material remains outside the canonical
+  repository and must not be restored into Git or the npm package.
+
+The following are baseline constraints, not open Integration Beta work items:
+
+- invalid position fallback remains `PositionDelta → EffectCommitter`;
+- RegionGrid placement and `agent.position` commit remain atomic;
+- `createStore()` auto mode may degrade only for unavailable SQLite native
+  bindings, while explicit `sqlite` fails closed;
+- asynchronous restore completes before `SimulationStore.init()` resolves and
+  restore failure remains observable without hiding snapshot existence;
+- `enableFacts`, `actionSelection.enabled`, and
+  `actionSelection.recordTraces` require actual booleans;
+- `checkConsistency()` remains synchronous; structural semantic verifiers may
+  implement synchronous `verifySync()` or `verify()`, and Promise results
+  degrade to deterministic-only checking;
+- invalidated relationship facts cannot block creation of their active
+  replacement;
+- full evaluation corpora, raw provider output, human labels, adjudication, and
+  review manifests remain private.
+
+Any proposal to revisit one of these constraints requires new regression
+evidence or an explicit ADR. It must not be reopened merely because an older
+Desktop commit implemented a different design.
 
 ## 2. Beta outcome and non-goals
 
@@ -517,7 +568,7 @@ No calendar dates are promised. A wave exits only when its gate is evidenced.
 
 Deliver:
 
-- freeze the Foundation Alpha evidence snapshot;
+- freeze the consolidated Foundation Alpha evidence snapshot at `a8ac88b`;
 - reconcile D5 “public synthetic pass” vs “real-LLM warning” terminology;
 - accept the run/evidence manifest schemas;
 - decide Reference Host placement and data-retention authority;
@@ -823,10 +874,17 @@ outputs, not permission to implement outside the packet.
 ### Packet P0 — Atlas baseline map
 
 **Role:** Atlas repository mapper (read-only).
-**Inputs:** current source, contracts, examples, tests.
+**Inputs:** only the canonical repository at
+`/Users/huangweijie/Documents/andy-engine`, starting from `a8ac88b`; current
+source, contracts, examples, tests, and the recalibrated baseline in Section
+1.3.
 **Output:** public entry points, internal accesses in existing demos, event/effect
 trace map, persistence/grounding test map, confirmed unknowns.
-**Done when:** every baseline claim has an exact path/symbol/test.
+**Constraints:** do not inspect, restore, merge, or treat the retired Desktop
+repository, Trash copy, private bundle, shadow/soak line, or full evaluation
+corpus as implementation input.
+**Done when:** every baseline claim has an exact current path/symbol/test and
+every claimed gap is absent from the completed-constraint list in Section 1.3.
 
 ### Packet P1 — Audit gap validation
 
@@ -834,7 +892,9 @@ trace map, persistence/grounding test map, confirmed unknowns.
 **Inputs:** P0 map and proposed Beta gaps.
 **Output:** validity/severity/recommendation for each gap; reject speculative
 work.
-**Done when:** priorities in Waves 0–2 contain no unsupported gap.
+**Done when:** priorities in Waves 0–2 contain no unsupported gap and no
+completed consolidation item has been reopened without regression evidence or
+an explicit ADR.
 
 ### Packet P2 — Reference Host architecture
 
@@ -850,6 +910,8 @@ model, task decomposition.
 **Inputs:** public persistence contracts, replay boundary, P2 scenario.
 **Output:** checkpoint protocol, invariants, growth metrics, resume test matrix,
 determinism non-claims.
+**Constraints:** preserve explicit `auto`/`sqlite`/`memory` semantics and test
+fresh-process restoration through the packed public store surface.
 
 ### Packet P4 — Grounded LLM/D5 protocol
 
@@ -858,7 +920,9 @@ adapter-boundary planning.
 **Inputs:** current grounding pipeline, private-asset policy, Section 12.3.
 **Output:** provider-neutral envelope, strata, rubrics, disposition matrix,
 held-out protocol.
-**Constraints:** no provider/product routing in core; no public full corpus.
+**Constraints:** no provider/product routing in core; no public full corpus;
+do not redesign the synchronous verifier contract unless W1/W3 evidence proves
+it blocks the Reference Host.
 
 ### Packet P5 — Observability schema
 
@@ -986,6 +1050,8 @@ or full-path deterministic replay.
 
 This roadmap is ready to become execution cards only after:
 
+- P0 and P1 confirm the `a8ac88b` baseline without reopening completed
+  consolidation work;
 - the architecture committee resolves Wave 0 ADRs;
 - each workstream has an accountable owner;
 - the metric protocol is frozen before held-out data is unblinded;
