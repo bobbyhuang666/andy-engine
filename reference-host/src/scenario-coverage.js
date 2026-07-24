@@ -1,9 +1,15 @@
 #!/usr/bin/env node
 /**
- * Scenario Coverage Verification — Integration Beta W1
+ * Scenario Coverage Verification — Integration Beta W2 (W2-F hardened)
  *
  * Runs a fresh tavern diagnostic and independently verifies the 5 scenario
  * coverage items from REFERENCE_HOST_ARCHITECTURE.md using ONLY public API.
+ *
+ * W2-F hardening:
+ *   - Uses engine.snapshot() for world-level reads
+ *   - Uses toWorldState().relationships instead of engine.getSocialGraph().toJSON()
+ *   - Deep-clones all evidence immediately via JSON.parse(JSON.stringify(data))
+ *   - Never holds live object references for evidence collection
  *
  * Coverage items:
  *   1. observed event — agent directly observes an event happening
@@ -17,9 +23,9 @@
  *   - engine.snapshot()
  *   - engine.getAllAgents()
  *   - agent.getStatus()
- *   - engine.getSocialGraph()
  *   - engine.getGroundingPackage()
  *   - engine.getNarrative()
+ *   - toWorldState(engine, worldId)
  *
  * NEVER accesses engine.world, engine.world.regions, engine.world.socialGraph.
  * NEVER directly writes to agent state.
@@ -33,6 +39,15 @@ const { fromWorldState, Serialization } = require('andy-engine/store');
 
 const AndyEngine = require('andy-engine');
 const tavernPreset = require('andy-engine/presets/tavern');
+
+// ─── W2-F: Hardened read helpers ────────────────────────────────────────
+
+/**
+ * Deep-clone a value via JSON round-trip for read-only evidence.
+ */
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
 
 // ─── Constants ──────────────────────────────────────────────────────────
 
@@ -85,31 +100,37 @@ function runFreshTavern() {
 
 /**
  * Capture a snapshot of all observable positions from agents.
+ * W2-F: Uses engine.snapshot() + deep-clone for read-only evidence.
  */
 function capturePositions(engine) {
-  const agents = engine.getAllAgents();
+  // W2-F: Use snapshot instead of live agent handles
+  const snap = deepClone(engine.snapshot());
   const map = {};
-  for (const agent of agents) {
-    map[agent.id] = agent.position;
+  if (snap && snap.agents) {
+    for (const [id, status] of Object.entries(snap.agents)) {
+      map[id] = status.position;
+    }
   }
   return map;
 }
 
 /**
  * Capture social graph edges (strengths) before/after comparison.
+ * W2-F: Uses toWorldState output's relationships array instead of
+ * engine.getSocialGraph().toJSON() (live handle).
  */
 function captureSocialEdges(engine) {
-  const graph = engine.getSocialGraph();
-  const data = graph.toJSON();
+  // W2-F: Use toWorldState for the stable envelope projection
+  const ws = deepClone(require('andy-engine/store').toWorldState(engine, 'temp'));
   const edges = {};
-  if (data && Array.isArray(data.edges)) {
-    for (const edge of data.edges) {
-      const key = [edge.agentA, edge.agentB].sort().join('::');
+  if (ws && Array.isArray(ws.relationships)) {
+    for (const rel of ws.relationships) {
+      const key = [rel.from, rel.to].sort().join('::');
       edges[key] = {
-        agentA: edge.agentA,
-        agentB: edge.agentB,
-        strength: edge.strength,
-        type: edge.type,
+        agentA: rel.from,
+        agentB: rel.to,
+        strength: rel.strength,
+        type: rel.type,
       };
     }
   }
@@ -118,13 +139,15 @@ function captureSocialEdges(engine) {
 
 /**
  * Capture grounding packages for all agents.
+ * W2-F: Immediately deep-clone after collection for read-only evidence.
  */
 function captureGroundingPackages(engine) {
+  // W2-F: Evidence uses serialized/read-only projections, not live object identity
   const agents = engine.getAllAgents();
   const result = {};
   for (const agent of agents) {
     const gp = engine.getGroundingPackage(agent.id);
-    result[agent.id] = gp || {};
+    result[agent.id] = deepClone(gp || {});
   }
   return result;
 }
@@ -353,7 +376,7 @@ function main() {
   const runId = `coverage-${Date.now()}`;
   const tickCount = SEVEN_DAYS_TICKS;
 
-  // --- Pre-run snapshots ---
+  // --- Pre-run snapshots (W2-F: snapshot-based, immediately serialized) ---
   const engine = runFreshTavern();
   const prePositions = capturePositions(engine);
   const preEdges = captureSocialEdges(engine);
@@ -363,7 +386,10 @@ function main() {
   const tickResults = engine.runTicks(tickCount);
   console.log(`Done. Final tick count: ${engine.getStats().tickCount}\n`);
 
-  // --- Post-run snapshots ---
+  // W2-F: Immediately deep-clone tickResults for read-only evidence
+  const serializedTickResults = deepClone(tickResults);
+
+  // --- Post-run snapshots (W2-F: from toWorldState relationships + snapshot) ---
   const postPositions = capturePositions(engine);
   const postEdges = captureSocialEdges(engine);
   const postGrounding = captureGroundingPackages(engine);
@@ -372,7 +398,7 @@ function main() {
   const results = [];
 
   // Item 1: observed event
-  const obs = verifyObservedEvent(engine, tickResults);
+  const obs = verifyObservedEvent(engine, serializedTickResults);
   results.push({
     itemId: 'observed_event',
     description: 'An agent directly observes an event happening',
@@ -408,7 +434,7 @@ function main() {
     runId,
     tick: tickCount,
     agent: 'any',
-    publicApiSource: 'getSocialGraph().toJSON()',
+    publicApiSource: 'toWorldState().relationships (W2-F hardened)',
     redactedEvidenceRef: rel.evidence.substring(0, 200),
     pass: rel.pass,
     criteria: 'At least one social graph edge strength changed between pre/post run',
@@ -422,7 +448,7 @@ function main() {
     runId,
     tick: tickCount,
     agent: 'any',
-    publicApiSource: 'getAllAgents[].position',
+    publicApiSource: 'engine.snapshot().agents (W2-F hardened)',
     redactedEvidenceRef: loc.evidence.substring(0, 200),
     pass: loc.pass,
     criteria: 'At least one agent position differs between pre/post run',

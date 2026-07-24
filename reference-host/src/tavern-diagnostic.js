@@ -104,6 +104,17 @@ function main() {
     allPass = false;
   }
 
+  // G6b: W2-F hardened evidence fields present (snapshotEvidence + worldStateEvidence)
+  const hasHardenedEvidence = lastRecord.snapshotEvidence !== undefined &&
+    lastRecord.worldStateEvidence !== undefined &&
+    Array.isArray(lastRecord.worldStateEvidence.relationships);
+  if (hasHardenedEvidence) {
+    console.log('✓ W2-F hardened evidence: snapshotEvidence + worldStateEvidence present');
+  } else {
+    console.log('✗ W2-F hardened evidence: missing snapshot/worldState evidence fields');
+    allPass = false;
+  }
+
   // G7: All gaps recorded honestly per segment
   const hasGapRecord = segmentRecords.every(r =>
     Array.isArray(r.gaps) &&

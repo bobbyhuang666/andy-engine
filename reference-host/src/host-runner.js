@@ -27,6 +27,50 @@ const AndyEngine = require('andy-engine');
 const campusPreset = require('andy-engine/presets/campus');
 const tavernPreset = require('andy-engine/presets/tavern');
 
+// ─── W2-F: Hardened read helpers (serialize immediately, no live references) ──
+
+/**
+ * Deep-clone a value via JSON round-trip for read-only evidence.
+ */
+function deepClone(value) {
+  return JSON.parse(JSON.stringify(value));
+}
+
+/**
+ * Extract agent summaries from a snapshot (W2-F hardened).
+ * Replaces live agent handle reads with serialized snapshot data.
+ */
+function extractAgentSummariesFromSnapshot(snapshot) {
+  if (!snapshot || !snapshot.agents) return [];
+  const agents = snapshot.agents;
+  return Object.entries(agents).map(([id, status]) => ({
+    id,
+    name: status.name,
+    position: status.position,
+    state: status.state,
+    behavior: status.behavior ? status.behavior.vector : undefined,
+    emotion: status.emotion,
+  }));
+}
+
+/**
+ * Extract social edge count from toWorldState output (W2-F hardened).
+ * Replaces engine.getSocialGraph().toJSON() with envelope-based read.
+ */
+function extractEdgeCountFromWorldState(worldState) {
+  if (!worldState || !Array.isArray(worldState.relationships)) return 0;
+  return worldState.relationships.length;
+}
+
+/**
+ * Extract fact count from grounding package (public API, already read-only).
+ */
+function extractFactCount(engine, agentId) {
+  if (!engine.getGroundingPackage) return undefined;
+  const gp = engine.getGroundingPackage(agentId);
+  return gp ? (gp.allowedFacts || []).length : 0;
+}
+
 // ─── Domain resolution (only uses public preset exports) ────────────────
 
 function resolveDomain(domainId) {
@@ -81,8 +125,30 @@ function runSegment(scenario, segment, options = {}, worldState = null) {
   // Persist via Stable World Envelope
   const savedState = toWorldState(engine, runId || scenario.id);
 
-  // Build segment record (redacted evidence — no raw LLM output, no internals)
-  const agents = engine.getAllAgents();
+  // ─── W2-F: Hardened read patterns ────────────────────────────────────
+  // Use snapshot() for world-level reads, toWorldState() for projections.
+  // Immediately serialize to JSON + deep-clone for read-only evidence.
+
+  const snapshot = engine.snapshot();
+  const serializedSnapshot = deepClone(snapshot);
+
+  const worldStateForEvidence = savedState;
+  const serializedWorldState = deepClone(worldStateForEvidence);
+
+  // Extract agent summaries from snapshot (not live handles)
+  const agentSummaries = extractAgentSummariesFromSnapshot(serializedSnapshot);
+
+  // Extract social edge count from toWorldState relationships (not live graph)
+  const socialEdgeCount = extractEdgeCountFromWorldState(serializedWorldState);
+
+  // Facts: use getGroundingPackage (already a public read-only API)
+  const firstAgentId = serializedSnapshot.agents
+    ? Object.keys(serializedSnapshot.agents)[0]
+    : undefined;
+  const factCount = scenario.enableFacts && firstAgentId
+    ? extractFactCount(engine, firstAgentId)
+    : undefined;
+
   const segmentRecord = {
     runId: runId || scenario.id,
     scenarioId: scenario.id,
@@ -95,27 +161,16 @@ function runSegment(scenario, segment, options = {}, worldState = null) {
     envelopeVersion: ENVELOPE_VERSION,
     engineVersion: getEngineVersion(),
     seed: scenario.seed,
-    // Observable agent summaries (public API only)
-    agentSummaries: agents.map(a => {
-      const status = a.getStatus ? a.getStatus() : {};
-      return {
-        id: a.id,
-        name: a.name,
-        position: a.position,
-        state: status.state,
-        // Behavior vector is observable via getStatus()
-        behavior: status.behavior ? status.behavior.vector : undefined,
-        // Emotion summary is observable via getStatus()
-        emotion: status.emotion,
-      };
-    }),
-    // Social graph is observable via public API
-    socialEdgeCount: engine.getSocialGraph().toJSON().edges.length,
+    // W2-F: Evidence uses serialized/read-only projections, not live object identity
+    snapshotEvidence: serializedSnapshot,
+    worldStateEvidence: serializedWorldState,
+    // Observable agent summaries from snapshot (public API only)
+    agentSummaries,
+    // Social graph edge count from toWorldState relationships (W2-F hardened)
+    socialEdgeCount,
     // Facts system status — only observable if enableFacts
     factsEnabled: scenario.enableFacts,
-    factCount: scenario.enableFacts && engine.getGroundingPackage
-      ? (engine.getGroundingPackage(agents[0]?.id) || {}).facts?.length
-      : undefined,
+    factCount,
     // Tick result phase keys (observability of effect pipeline output)
     tickResultPhases: tickResults.length > 0
       ? Object.keys(tickResults[tickResults.length - 1] || {})

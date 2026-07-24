@@ -80,6 +80,17 @@ function main() {
     allPass = false;
   }
 
+  // C5: W2-F hardened evidence fields present
+  const hasHardenedEvidence = record.snapshotEvidence !== undefined &&
+    record.worldStateEvidence !== undefined &&
+    Array.isArray(record.worldStateEvidence.relationships);
+  if (hasHardenedEvidence) {
+    console.log('✓ W2-F hardened evidence: snapshotEvidence + worldStateEvidence present');
+  } else {
+    console.log('✗ W2-F hardened evidence: missing snapshot/worldState evidence fields');
+    allPass = false;
+  }
+
   // ─── Save artifacts ───────────────────────────────────────────────
 
   fs.writeFileSync(
