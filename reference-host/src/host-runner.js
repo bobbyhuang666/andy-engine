@@ -120,10 +120,14 @@ function runSegment(scenario, segment, options = {}, worldState = null) {
     tickResultPhases: tickResults.length > 0
       ? Object.keys(tickResults[tickResults.length - 1] || {})
       : [],
-    // Gap observations: committed effects are NOT publicly observable
-    // in TickResult (A1 observability gap)
-    effectObservability: 'not_observable_via_public_api',
-    gapId: 'A1',
+    // Gap observations: all public observability gaps recorded per segment
+    gaps: [
+      { id: 'A1', label: 'effect/trace observability', status: 'not_observable_via_public_api' },
+      { id: 'A2', label: 'live Agent/read-model risk', status: 'not_observable' },
+      { id: 'A3', label: 'movement/external-event command gap', status: 'not_observable' },
+      { id: 'A4', label: 'evaluation-bundle capability gap', status: 'not_observable' },
+      { id: 'A5', label: 'buffered streaming limitation', status: 'not_observable' },
+    ],
     timestamp: new Date().toISOString(),
   };
 

@@ -9,11 +9,11 @@
 
 Gaps are prefixed `A` (observability/architecture) to distinguish from the
 roadmap §1.2 `G`-series gaps. Numbers continue from the P0 mapping
-(A1–A4).
+(A1–A5).
 
 ---
 
-## A1 — EffectCommitter.commit() return value not publicly observable
+## A1 — effect/trace observability gap
 
 - **Severity:** Observability gap (not a writeback defect)
 - **Discovered:** P0 mapping, confirmed P2 Caliper
@@ -25,13 +25,15 @@ roadmap §1.2 `G`-series gaps. Numbers continue from the P0 mapping
     3 capture+inspect errors internally (L660, L755, L873),
     2 fallback paths discard the return (L268, L561)
   - None expose committed results through the public tick/API result
-- **Host evidence record:** `segmentRecords[].effectObservability = 'not_observable_via_public_api'`
+- **Host evidence record:** `segmentRecords[].gaps[].id = 'A1'` with status `not_observable_via_public_api`
 - **Impact:** Integration Host cannot verify which typed deltas were
   committed in a given tick. Must rely on post-hoc state comparison.
 - **Proposal target:** W4 (additive API proposal via §14.3 decision test)
 - **W1 action:** Record gap, do NOT implement TickResult extension
 
-## A2 — No public immutable projection of world state
+---
+
+## A2 — live Agent/read-model risk
 
 - **Severity:** Observability gap
 - **Discovered:** P0 mapping
@@ -46,7 +48,9 @@ roadmap §1.2 `G`-series gaps. Numbers continue from the P0 mapping
 - **Proposal target:** W4 (ADR-IB-015 evidence-gated: W1/W4)
 - **W1 action:** Record gap, compute ad-hoc hash in Host artifacts
 
-## A3 — No public move/relocation command
+---
+
+## A3 — movement/external-event command gap
 
 - **Severity:** API gap (positions set internally by EffectCommitter only)
 - **Discovered:** P0 mapping
@@ -60,7 +64,9 @@ roadmap §1.2 `G`-series gaps. Numbers continue from the P0 mapping
 - **Proposal target:** W4 (ADR-IB-014 evidence-gated: W1/W4)
 - **W1 action:** Record gap, accept natural position dynamics
 
-## A4 — No public event-intent injection
+---
+
+## A4 — evaluation-bundle capability gap
 
 - **Severity:** API gap
 - **Discovered:** P0 mapping
@@ -76,17 +82,38 @@ roadmap §1.2 `G`-series gaps. Numbers continue from the P0 mapping
 
 ---
 
+## A5 — buffered streaming limitation
+
+- **Severity:** Latency / UX limitation
+- **Discovered:** W1 diagnostic run
+- **Evidence (W1):**
+  - `engine.runTicks(count)` blocks until all `count` ticks complete
+  - `engine.tick()` returns a single tick result, but there is no streaming
+    or buffering mechanism to deliver partial results mid-tick
+  - The engine produces complete tick results only after all phases complete
+  - There is no mechanism for a Host to receive partial/streaming results
+    during a tick (e.g., after agent think but before effects commit)
+- **Host evidence record:** `segmentRecords[].gaps[].id = 'A5'` with status `not_observable`
+- **Impact:** This limits the Host's ability to implement responsive UI or
+  time-boxed observation. A Host cannot display intermediate agent states
+  (e.g., "agent is thinking…") without external async coordination.
+- **Proposal target:** W4 (additive streaming API proposal via §14.3 decision test)
+- **W1 action:** Record gap, do NOT implement streaming infrastructure
+
+---
+
 ## Decision test (§14.3) pre-assessment
 
 For each gap, the §14.3 decision test asks:
 
 1. Does the gap block a Beta exit criterion? → A1 borderline (D4 causality
-   writeback), A2–A4 no (observational only)
+   writeback), A2–A5 no (observational / latency only)
 2. Is there a public-API workaround? → A1: post-hoc snapshot comparison;
-   A2: ad-hoc hashing; A3–A4: rely on natural dynamics
+   A2: ad-hoc hashing; A3–A4: rely on natural dynamics; A5: batch ticks
+   and poll between runs
 3. Does closing the gap freeze a previously unstable surface? → All: no,
    these are additive-only proposals
-4. Is the gap evidence-gated? → A1: W1 evidence → W4 proposal; A2–A4:
+4. Is the gap evidence-gated? → A1: W1 evidence → W4 proposal; A2–A5:
    already gated per ADR-IB-014/015
 
 No W1 action beyond recording. All additive API proposals deferred to W4.

@@ -22,10 +22,11 @@ explicitly marked with `not_observable` and their gap ID:
 
 | Field | Gap ID | Status | Notes |
 |---|---|---|---|
-| Committed effect deltas per tick | A1 | `not_observable_via_public_api` | 5 commit() sites, 0 public exposures |
-| Immutable content-hashed projection | A2 | `not_observable` | No public immutable snapshot API |
-| Intentional agent relocation | A3 | `not_observable` | No public move/relocate command |
-| Event intent injection | A4 | `not_observable` | No public event-inject API |
+| Committed effect deltas per tick | A1 | `not_observable_via_public_api` | effect/trace observability gap |
+| Live Agent read-model projection | A2 | `not_observable` | live Agent/read-model risk |
+| Movement / external-event command | A3 | `not_observable` | movement/external-event command gap |
+| Evaluation bundle capability | A4 | `not_observable` | evaluation-bundle capability gap |
+| Buffered streaming | A5 | `not_observable` | buffered streaming limitation |
 
 ## Private data boundary
 

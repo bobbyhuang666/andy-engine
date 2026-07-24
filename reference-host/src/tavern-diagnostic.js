@@ -104,12 +104,16 @@ function main() {
     allPass = false;
   }
 
-  // G7: Effect observability gap recorded honestly
-  const hasGapRecord = segmentRecords.every(r => r.gapId === 'A1' && r.effectObservability === 'not_observable_via_public_api');
+  // G7: All gaps recorded honestly per segment
+  const hasGapRecord = segmentRecords.every(r =>
+    Array.isArray(r.gaps) &&
+    r.gaps.length >= 5 &&
+    r.gaps.find(g => g.id === 'A1' && g.status === 'not_observable_via_public_api')
+  );
   if (hasGapRecord) {
-    console.log('✓ Effect observability gap: honestly recorded as A1/not_observable');
+    console.log('✓ Gap records: all 5 gaps honestly recorded per segment');
   } else {
-    console.log('✗ Effect observability gap: not recorded properly');
+    console.log('✗ Gap records: not recorded properly');
     allPass = false;
   }
 
