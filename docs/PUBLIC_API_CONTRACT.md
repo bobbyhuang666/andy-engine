@@ -43,7 +43,7 @@ require('andy-engine/presets/tavern') → presets/tavern/index.js
   - `getWorldContext(id)` — stable
   - `getGroundingPackage(id, options?)` — stable
   - `checkConsistency(llmOutput, id, options?) — stable`
-  - `tick()` — stable
+  - `tick()` — stable; returns `TickResult` with optional `phase.effectSummary`
   - `runTicks(count)` — stable
   - `advanceTo(targetTime, maxTicks?)` — stable
   - `snapshot()` — stable
@@ -303,6 +303,59 @@ Domain semantic configuration is public through `andy-engine/domain` and
 `mergeSemanticProfile(defaults)` are supported read APIs for domain-driven
 language, grounding, and narrative semantics. Core runtime code must prefer this
 profile over hard-coded world vocabulary.
+
+---
+
+## TickResult.phase.effectSummary — Additive Contract (W4)
+
+**Added**: Integration Beta W4 (contract hardening).
+**Status**: additive, optional, stable.
+**Gap**: A1 — effect/trace observability.
+
+### Type
+
+```ts
+type DeltaType = 'need' | 'emotion' | 'memory' | 'relationship' |
+  'position' | 'locationMeaning' | 'futureTendency';
+
+interface TickEffectSummary {
+  counts: {
+    applied: number;
+    skipped: number;
+    errored: number;
+  };
+  byType: Partial<Record<DeltaType, {
+    applied: number;
+    skipped: number;
+  }>>;
+}
+```
+
+### Population rules
+
+1. `effectSummary` is added to `TickResult.phase` as an **optional** field.
+2. Present only when `counts.applied + counts.skipped + counts.errored > 0`
+   (zero-effect ticks omit it entirely).
+3. **Counts only** — no raw `StateDelta` objects, no live references, no
+   `EffectCommitter.commit()` return values.
+4. Aggregated across all `effectCommitter.commit()` call sites within `step()`,
+   including the `directCommit` path used by active action-selection mode.
+5. `byType` is partial: only delta types with `applied > 0` or `skipped > 0`
+   appear.
+6. Deterministic: same seed + same world state → identical `effectSummary`.
+
+### Stability commitment
+
+- **Stable (contractual)**: `counts` shape, `byType` per-type shape,
+  `DeltaType` union, field name `effectSummary`.
+- **Unstable (implementation detail)**: distribution of deltas across internal
+  commit call sites, `errored` per-type breakdown.
+- **Not committed**: per-event/per-agent delta traces, raw delta shapes.
+
+### Migration
+
+No migration required. The field is additive and optional. Existing consumers
+are unaffected.
 
 ---
 

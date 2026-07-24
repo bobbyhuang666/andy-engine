@@ -22,11 +22,22 @@ explicitly marked with `not_observable` and their gap ID:
 
 | Field | Gap ID | Status | Notes |
 |---|---|---|---|
-| Committed effect deltas per tick | A1 | `not_observable_via_public_api` | effect/trace observability gap |
-| Live Agent read-model projection | A2 | `not_observable` | live Agent/read-model risk |
-| Movement / external-event command | A3 | `not_observable` | movement/external-event command gap |
-| Evaluation bundle capability | A4 | `not_observable` | evaluation-bundle capability gap |
-| Buffered streaming | A5 | `not_observable` | buffered streaming limitation |
+| Committed effect deltas per tick | A1 | `observable` (W4) | effectSummary in TickResult.phase (counts only) |
+| Live Agent read-model projection | A2 | `not_observable` | live Agent/read-model risk (DEFER) |
+| Movement / external-event command | A3 | `not_observable` | movement/external-event command gap (DEFER) |
+| Evaluation bundle capability | A4 | `observable` (W4) | Host-owned evaluation-bundle.js |
+| Buffered streaming | A5 | `not_observable` | buffered streaming limitation (DEFER) |
+
+### A1 resolution (W4)
+
+`TickResult.phase.effectSummary` now provides committed-delta counts per tick.
+See `docs/rfc/IB_PUBLIC_EVIDENCE_CONTRACT.md` for the contract specification.
+
+### A4 resolution (W4)
+
+`reference-host/src/evaluation-bundle.js` provides Host-owned blinded bundle
+assembly consuming only public API outputs. See
+`docs/rfc/IB_EVALUATION_BUNDLE_CONTRACT.md` for the contract specification.
 
 ## Private data boundary
 

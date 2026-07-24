@@ -8,6 +8,11 @@ All notable changes to Andy Engine will be documented in this file.
 
 ## Unreleased
 
+### Added
+
+- **TickEffectSummary** (`TickResult.phase.effectSummary`) — additive, optional field providing committed-delta counts per tick (A1 effect/trace observability gap). Counts only; no raw delta objects or live references. See `docs/PUBLIC_API_CONTRACT.md` for the full contract.
+- **Evaluation bundle** (`reference-host/src/evaluation-bundle.js`) — Host-owned blinded bundle assembly consuming only public API outputs (A4 evaluation-bundle capability gap). Not part of the npm package.
+
 ### Changed
 
 - Replaced the checked-in full narrative evaluation corpus with a small synthetic public grounding smoke matrix. Extended evaluation assets are maintained outside the public repository.

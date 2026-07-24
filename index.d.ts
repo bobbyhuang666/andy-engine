@@ -52,6 +52,20 @@ interface AgentConfig {
   [key: string]: any;
 }
 
+type DeltaType = 'need' | 'emotion' | 'memory' | 'relationship' | 'position' | 'locationMeaning' | 'futureTendency';
+
+interface TickEffectSummary {
+  counts: {
+    applied: number;
+    skipped: number;
+    errored: number;
+  };
+  byType: Partial<Record<DeltaType, {
+    applied: number;
+    skipped: number;
+  }>>;
+}
+
 interface TickResult {
   time: string;
   tickNumber: number;
@@ -64,6 +78,7 @@ interface TickResult {
     canonEventPipeline?: { processed: number; knowledgeUpdates: number; memoryUpdates: number; locationMeaningUpdates: number };
     encounterEffects?: { applied: number };
     factEmission?: Record<string, any>;
+    effectSummary?: TickEffectSummary;
   };
   durationMs: number;
   [key: string]: any;

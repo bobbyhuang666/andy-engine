@@ -413,6 +413,34 @@ class AndyWorld {
       phase: {},
     };
 
+    // ─── A1: Effect observability accumulator ───
+    // Wrap effectCommitter.commit for this tick to capture
+    // applied/skipped/errored counts across all call sites.
+    // try/finally ensures the committer is always restored, even if a
+    // phase throws (robustness, not correctness — all phases have own catch).
+    const _effectAcc = { applied: 0, skipped: 0, errored: 0, byType: {} };
+    const _originalCommit = this.effectCommitter.commit.bind(this.effectCommitter);
+    this.effectCommitter.commit = function _instrumentedCommit(effectResult) {
+      const cr = _originalCommit(effectResult);
+      _effectAcc.applied += cr.applied.length;
+      _effectAcc.skipped += cr.skipped.length;
+      _effectAcc.errored += cr.errors.length;
+      for (const d of cr.applied) {
+        if (d.type) {
+          _effectAcc.byType[d.type] = _effectAcc.byType[d.type] || { applied: 0, skipped: 0 };
+          _effectAcc.byType[d.type].applied++;
+        }
+      }
+      for (const d of cr.skipped) {
+        if (d.type) {
+          _effectAcc.byType[d.type] = _effectAcc.byType[d.type] || { applied: 0, skipped: 0 };
+          _effectAcc.byType[d.type].skipped++;
+        }
+      }
+      return cr;
+    };
+
+    try {
     // ─── Phase 1: TIME_ADVANCE ───
     this._advanceClock(minutesElapsed, result);
 
@@ -474,6 +502,23 @@ class AndyWorld {
     for (const cb of this._tickCallbacks) {
       try { cb(result); } catch (e) { diagnostics.warn(`onTick callback error: ${e.message}`); }
     }
+
+    } finally {
+    // ─── A1: Restore committer + populate effectSummary ───
+    this.effectCommitter.commit = _originalCommit;
+    const totalEffects = _effectAcc.applied + _effectAcc.skipped + _effectAcc.errored;
+    if (totalEffects > 0) {
+      result.phase.effectSummary = {
+        counts: {
+          applied: _effectAcc.applied,
+          skipped: _effectAcc.skipped,
+          errored: _effectAcc.errored,
+        },
+        byType: _effectAcc.byType,
+      };
+    }
+    }
+
     result.durationMs = Date.now() - tickStart;
     this._lastTickTime = result.durationMs;
 

@@ -88,7 +88,18 @@ import tavern = require('andy-engine/presets/tavern');
 
 const engine = new AndyEngine({ seed: 'test' });
 const agent = engine.createCharacter({ id: 'test', name: 'Test', mbti: 'INFP' });
-engine.tick();
+const tickResult = engine.tick();
+// W4 A1: verify TickResult.phase.effectSummary type is available
+const effectSummary = tickResult.phase.effectSummary;
+if (effectSummary) {
+  const applied: number = effectSummary.counts.applied;
+  const skipped: number = effectSummary.counts.skipped;
+  const errored: number = effectSummary.counts.errored;
+  const byType = effectSummary.byType;
+  if (byType && byType.need) {
+    const needApplied: number = byType.need.applied;
+  }
+}
 const agents = engine.getAllAgents();
 const grounding = engine.getGroundingPackage('test');
 const memory = new store.MemoryStore();
