@@ -6,6 +6,16 @@
 
 type BinaryData = Uint8Array;
 
+interface ValidationError {
+  path: string;
+  message: string;
+}
+
+interface ValidationResult {
+  valid: boolean;
+  errors: ValidationError[];
+}
+
 interface StoreOptions {
   type?: 'auto' | 'sqlite' | 'memory';
   dbPath?: string;
@@ -32,7 +42,7 @@ interface WorldState {
   characters: Array<{ id: string; name: string; position?: string }>;
   relationships: any[];
   events: any[];
-  runtimeSnapshot: object;
+  runtimeSnapshot: Record<string, unknown>;
   [key: string]: any;
 }
 
@@ -173,10 +183,10 @@ declare class StoryStore {
 
 declare function createStore(options?: StoreOptions): SimulationStore;
 declare function createMemoryStore(): SQLiteStore | MemoryStore;
-declare function toWorldState(engine: any, worldId?: string): WorldState;
+declare function toWorldState(engine: any, worldId: string): WorldState;
 declare function fromWorldState(worldState: WorldState, config?: any, EngineConstructor?: any): any;
-declare function validateWorldSpec(spec: WorldSpec): { valid: boolean; errors: string[] };
-declare function validateWorldState(state: WorldState): { valid: boolean; errors: string[] };
+declare function validateWorldSpec(spec: WorldSpec): ValidationResult;
+declare function validateWorldState(state: WorldState): ValidationResult;
 declare function compile(spec: WorldSpec, domainConfig?: any, EngineConstructor?: any): any;
 declare function migrateWorldState(oldState: WorldState): { state: WorldState; migrated: boolean };
 

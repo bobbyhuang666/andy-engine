@@ -133,24 +133,23 @@ async function runAllTests() {
   }
 
   // ═══════════════════════════════════════════════════════════════════════
-  // TEST 3: Checkpoint write failure (simulated — worldId not validated)
+  // TEST 3: Checkpoint write validation
   // ═══════════════════════════════════════════════════════════════════════
   {
     console.log('\n--- TEST 3: checkpoint_write_failure_simulated ---');
-    const expected = 'toWorldState accepts null worldId without error; valid worldId save/restore works';
+    const expected = 'toWorldState rejects a null worldId; valid worldId save/restore works';
 
     const engine1 = new AndyEngine({ domain: tavernPreset, seed: 'pfm-test3', enableFacts: false });
     engine1.createCharacter({ id: 'bob', name: '鲍勃', mbti: 'ENFP', background: ['酒馆老板'] });
     engine1.runTicks(100);
 
-    // Attempt to save with invalid worldId (null) — should NOT throw
-    let nullWorldIdOk = false;
+    // A missing identity must fail before a caller could write an invalid
+    // envelope over a good checkpoint.
+    let nullWorldIdRejected = false;
     try {
-      const wsNull = toWorldState(engine1, null);
-      nullWorldIdOk = wsNull.worldId === null;
+      toWorldState(engine1, null);
     } catch (e) {
-      nullWorldIdOk = false;
-      console.log(`    WARNING: toWorldState(null) threw: ${e.message}`);
+      nullWorldIdRejected = /non-empty worldId/.test(e.message);
     }
 
     // Save with valid worldId
@@ -161,15 +160,15 @@ async function runAllTests() {
     const stats = engine2.getStats();
     const agents = engine2.getAllAgents();
 
-    const actual = `nullWorldIdAccepted=${nullWorldIdOk}, validRestore_tickCount=${stats.tickCount}, agents=${agents.length}`;
+    const actual = `nullWorldIdRejected=${nullWorldIdRejected}, validRestore_tickCount=${stats.tickCount}, agents=${agents.length}`;
     const evidence = {
-      nullWorldIdAccepted: nullWorldIdOk,
+      nullWorldIdRejected,
       validWorldId: wsValid.worldId,
       restoredTickCount: stats.tickCount,
       agentCount: agents.length,
     };
 
-    const pass3 = nullWorldIdOk && stats.tickCount === 100 && agents.length === 1;
+    const pass3 = nullWorldIdRejected && stats.tickCount === 100 && agents.length === 1;
     results.push(pass3 ? ok('checkpoint_write_failure_simulated', expected, actual, evidence) : pass('checkpoint_write_failure_simulated', expected, actual, evidence));
   }
 

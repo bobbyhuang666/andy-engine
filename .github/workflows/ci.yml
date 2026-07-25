@@ -83,7 +83,6 @@ jobs:
     
     - name: Run perf check
       run: npm run perf:check -- --runs=3
-      continue-on-error: true
   
   release-clean:
     runs-on: ubuntu-latest

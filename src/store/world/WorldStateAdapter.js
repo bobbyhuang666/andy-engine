@@ -22,6 +22,9 @@ const { DEFAULT_DOMAIN_ID } = require('../../config/defaults');
  * @returns {Object} 符合 v0.1.0 Stable Envelope 的 World State
  */
 function toWorldState(engine, worldId) {
+  if (typeof worldId !== 'string' || worldId.length === 0) {
+    throw new TypeError('toWorldState() requires a non-empty worldId string');
+  }
   // 获取引擎原始快照（Opaque Payload）
   const originalSnapshot = engine.toJSON();
 

@@ -55,6 +55,13 @@ describe('WorldStateAdapter.toWorldState', () => {
     expect(result.errors).toHaveLength(0);
   });
 
+  it('在构造 Envelope 前拒绝缺失的 worldId', () => {
+    const engine = createTestEngine();
+
+    expect(() => toWorldState(engine, null)).toThrow(/non-empty worldId/);
+    expect(() => toWorldState(engine, '')).toThrow(/non-empty worldId/);
+  });
+
   it('Stable Envelope 包含正确的公共字段', () => {
     const engine = createTestEngine();
     engine.tick();
