@@ -521,9 +521,12 @@ class AndyWorld {
     result.committedAt = this.clock.toISOString();
     result.time = result.committedAt;
 
-    // ─── 回调 + 统计 ───
-    for (const cb of this._tickCallbacks) {
-      try { cb(result); } catch (e) { diagnostics.warn(`onTick callback error: ${e.message}`); }
+    // A degraded tick is about to be rolled back by the public Engine facade.
+    // Do not expose its transient partial state through callbacks.
+    if (result.status === 'committed' || !this.runtimeConfig.atomicTicks) {
+      for (const cb of this._tickCallbacks) {
+        try { cb(result); } catch (e) { diagnostics.warn(`onTick callback error: ${e.message}`); }
+      }
     }
 
     } finally {

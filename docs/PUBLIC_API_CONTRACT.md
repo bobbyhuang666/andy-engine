@@ -43,7 +43,10 @@ require('andy-engine/presets/tavern') → presets/tavern/index.js
   - `getWorldContext(id)` — stable
   - `getGroundingPackage(id, options?)` — stable
   - `checkConsistency(llmOutput, id, options?) — stable`
-  - `tick()` — stable; returns `TickResult` with optional `phase.effectSummary`
+  - `tick()` — stable; returns `TickResult` with optional `phase.effectSummary`.
+    In the default fault-isolation mode, degraded ticks are not durable. With
+    `atomicTicks: true`, a degraded tick is restored to its pre-tick serialized
+    state and returned as `status: 'aborted'`.
   - `runTicks(count)` — stable
   - `advanceTo(targetTime, maxTicks?)` — stable
   - `snapshot()` — stable

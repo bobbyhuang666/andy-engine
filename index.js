@@ -23,6 +23,7 @@
  */
 
 const AndyWorld = require('./src/runtime/AndyWorld');
+const { capturePreTick, rollbackAbortedTick } = require('./src/runtime/AtomicTickRecovery');
 const Agent = require('./agent/Agent');
 const { ANDY_DEFAULTS } = require('./src/config/defaults');
 const { validateConfig, validateAgentConfig } = require('./src/config/validate');
@@ -464,7 +465,24 @@ class AndyEngine {
    * @returns {Object} tick 结果
    */
   tick() {
-    return this.world.step();
+    const atomicTicks = this.world.runtimeConfig.atomicTicks;
+    const captured = atomicTicks ? capturePreTick(this) : null;
+    try {
+      const result = this.world.step();
+      return atomicTicks && (result.status === 'degraded' || result.status === 'aborted')
+        ? rollbackAbortedTick(this, captured, result)
+        : result;
+    } catch (error) {
+      if (atomicTicks) rollbackAbortedTick(this, captured, {
+        time: captured.state.time,
+        startedAt: captured.state.time,
+        status: 'aborted',
+        tickNumber: captured.state.tickCount,
+        phase: {},
+        errors: [{ phase: 'engineTick', message: error.message }],
+      });
+      throw error;
+    }
   }
 
   /**

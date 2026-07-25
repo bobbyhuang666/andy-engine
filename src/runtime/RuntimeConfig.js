@@ -42,6 +42,7 @@ class RuntimeConfig {
     }
     this.tickMinutes = tickMinutes;
     this.enableFacts = config.enableFacts ?? false;
+    this.atomicTicks = config.atomicTicks === true;
 
     // R134-A2-001: deep-merge object config sections so partial user overrides
     // (e.g. { mode: 'normal' }) do not drop default keys (temperature, etc.).

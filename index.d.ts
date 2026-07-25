@@ -11,6 +11,8 @@ interface AndyEngineConfig {
   seed?: number | string;
   rng?: object;
   enableFacts?: boolean;
+  /** Opt in to full pre-tick serialization rollback on a failed tick. */
+  atomicTicks?: boolean;
   spatial?: 'continuous';
   tickMinutes?: number;
   actionSelection?: {
@@ -71,7 +73,7 @@ interface TickResult {
   time: string;
   /** Simulation time before this tick advanced the world clock. */
   startedAt?: string;
-  /** Simulation time after a committed/degraded tick completed its phases. */
+  /** Simulation time after a committed tick completed its phases. */
   committedAt?: string;
   /** Degraded ticks are deliberately excluded from durable persistence. */
   status?: 'committed' | 'degraded' | 'aborted';
@@ -87,6 +89,7 @@ interface TickResult {
     encounterEffects?: { applied: number };
     factEmission?: Record<string, any>;
     effectSummary?: TickEffectSummary;
+    rollback?: { restoredTo: string; tickCount: number };
   };
   durationMs: number;
   [key: string]: any;

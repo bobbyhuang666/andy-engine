@@ -432,6 +432,7 @@ function checkRange(value, min, max, path, errors) {
 
 function collectBooleanConfigErrors(config, errors) {
   checkBoolean(config.enableFacts, 'enableFacts', errors);
+  checkBoolean(config.atomicTicks, 'atomicTicks', errors);
 
   const actionSelection = config.actionSelection;
   if (!actionSelection || typeof actionSelection !== 'object' || Array.isArray(actionSelection)) {
