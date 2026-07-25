@@ -45,7 +45,7 @@ function baseGrounding(overrides = {}) {
       // 用中午 12:00 本地时间确保 checker 走白天分支（6-18），
       // 避免 UTC 转 local 时区导致 hour 落在夜晚分支。
       // checker 用 getHours()（本地时区），故用本地中午。
-      currentTime: new Date(2026, 8, 1, 12, 0, 0), // 2026-09-01 12:00 local
+      currentTime: new Date('2026-09-01T12:00:00Z'), // 2026-09-01 12:00 UTC
     },
     ...overrides,
   };

@@ -398,26 +398,14 @@ const reply = await maya.chat("I'm so tired today");
 - Multi-character mode with `Andy` class
 
 See `examples/` for working demos.
-## Rust Native Acceleration
+## Rust Native Experiment
 
-For large-scale simulations, an optional Rust native module is available.
-
-**Default (unset):** Pure JavaScript, no native dependency required.
-
-**Environment modes:**
-
-| `ANDY_USE_NATIVE` | Behavior |
-|---|---|
-| `unset` | Pure JS, no warning |
-| `1` or `true` | Required mode — throws if native binding is missing |
-| `optional` | Loads native if available, warns and falls back to JS if not |
-
-```bash
-cd native && npm install && npm run build
-ANDY_USE_NATIVE=1 node your_script.js
-```
-
-The Rust SoA f32 engine achieves **5.92x speedup** over JS at 50K agents, with precision error < 1e-8.
+The repository contains an experimental Rust prototype. It is **not shipped as
+a supported npm binary**, is outside the Beta/replay guarantee, and must not be
+used as a production acceleration path. Andy Engine currently runs in pure
+JavaScript by default. Native support will be reconsidered only after a
+reproducible build pipeline, platform CI, seed/state round-trip tests, and
+JS/native parity tests are in place.
 
 ---
 
@@ -874,24 +862,10 @@ await store.shutdown();
 
 ## Rust Native / 性能
 
-大规模模拟可选用 Rust Native 模块。
-
-**默认（未设置）：** 纯 JavaScript，无 native 依赖。
-
-**环境变量模式：**
-
-| `ANDY_USE_NATIVE` | 行为 |
-|---|---|
-| `unset` | 纯 JS，无警告 |
-| `1` 或 `true` | 必需模式 — 缺少 native binding 时抛出错误 |
-| `optional` | 有则加载，无则警告并回退到 JS |
-
-```bash
-cd native && npm install && npm run build
-ANDY_USE_NATIVE=1 node your_script.js
-```
-
-Rust SoA f32 引擎在 50K agents 时比 JS 快 **5.92x**，精度误差 < 1e-8。
+仓库中保留 Rust native 原型供研究；它**不是受支持的 npm 二进制**，不属于
+Beta 或 deterministic replay 承诺，也不应作为生产加速路径。当前受支持的运行
+模式是纯 JavaScript。只有建立可复现构建、跨平台 CI、seed/state 往返和 JS/Rust
+parity 测试后，native 才会重新进入支持面。
 
 | 指标 | 值 |
 |------|-----|

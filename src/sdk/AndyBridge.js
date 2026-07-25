@@ -150,8 +150,9 @@ class AndyBridge {
   onTick(tickResult) {
     this._requireInit('onTick');
     const stories = [];
-    const simTime = tickResult?.time
-      ? new Date(tickResult.time)
+    const committedTime = tickResult?.committedAt ?? tickResult?.time;
+    const simTime = committedTime
+      ? new Date(committedTime)
       : (this.store.virtualTime ? new Date(this.store.virtualTime) : undefined);
     const options = { rng: this._rng, simTime };
     const currentTick = tickResult?.tickNumber ?? this.store.tickCount + 1;

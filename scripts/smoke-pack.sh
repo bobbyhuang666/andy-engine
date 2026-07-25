@@ -193,11 +193,11 @@ check('invalid domain throws', () => {
 
 // ── Native smoke checks ──
 
-// S1: native directory included
-check('native/index.js present in package', () => {
+// S1: experimental native source is deliberately not part of the npm package.
+check('native/index.js excluded from package', () => {
   const pkgRoot = path.dirname(require.resolve('andy-engine'));
-  if (!fs.existsSync(path.join(pkgRoot, 'native', 'index.js'))) {
-    throw new Error('native/index.js missing from package');
+  if (fs.existsSync(path.join(pkgRoot, 'native', 'index.js'))) {
+    throw new Error('native/index.js must not be shipped as a supported binary');
   }
 });
 

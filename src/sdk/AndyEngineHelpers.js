@@ -198,8 +198,8 @@ function buildWorldContext(engine, agent, agentId, affectFrame) {
 
   return {
     time: engine.world.time.toISOString(),
-    hour: engine.world.time.getHours(),
-    dayOfWeek: engine.world.time.getDay(),
+    hour: engine.world.time.getUTCHours(),
+    dayOfWeek: engine.world.time.getUTCDay(),
     weather: engine.world.environment.weather,
     timeOfDay: engine.world.environment.timeOfDay,
     season: engine.world.environment.season,

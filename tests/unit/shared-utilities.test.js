@@ -166,8 +166,8 @@ describe('shared/time — time conversion helpers', () => {
 
   it('formatSimTime formats Date as HH:MM with zero-padding', () => {
     expect(formatSimTime(new Date('2026-09-01T08:00:00Z'))).toMatch(/^\d{2}:\d{2}$/);
-    // 用本地时间构造确保 0 填充:9:05 → "09:05"
-    const d = new Date(2026, 8, 1, 9, 5);
+    // UTC simulation time: 9:05 → "09:05"
+    const d = new Date(Date.UTC(2026, 8, 1, 9, 5));
     expect(formatSimTime(d)).toBe('09:05');
   });
 

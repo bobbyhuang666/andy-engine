@@ -35,7 +35,7 @@ describe('WorldClock', () => {
   });
 
   it('advance() 推进指定分钟数并递增 tickCount', () => {
-    const clock = new WorldClock(new Date('2024-06-15T10:00:00'));
+    const clock = new WorldClock(new Date('2024-06-15T10:00:00Z'));
     const result = clock.advance(5);
     expect(result.getMinutes()).toBe(5);
     expect(clock.tickCount).toBe(1);
@@ -45,19 +45,19 @@ describe('WorldClock', () => {
   });
 
   it('advance() 默认推进 5 分钟', () => {
-    const clock = new WorldClock(new Date('2024-06-15T10:00:00'));
+    const clock = new WorldClock(new Date('2024-06-15T10:00:00Z'));
     clock.advance();
     expect(clock.time.getMinutes()).toBe(5);
   });
 
   it('hour getter 返回当前小时', () => {
-    const clock = new WorldClock(new Date('2024-06-15T14:30:00'));
+    const clock = new WorldClock(new Date('2024-06-15T14:30:00Z'));
     expect(clock.hour).toBe(14);
   });
 
   it('dayOfWeek getter 返回星期几', () => {
     // 2024-06-15 是星期六 (6)
-    const clock = new WorldClock(new Date('2024-06-15T10:00:00'));
+    const clock = new WorldClock(new Date('2024-06-15T10:00:00Z'));
     expect(clock.dayOfWeek).toBe(6);
   });
 
@@ -125,7 +125,7 @@ describe('RuntimeContext', () => {
   let world;
 
   beforeEach(() => {
-    world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
+    world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00Z') }, null, campusDomain);
   });
 
   it('聚合 world/clock/config/domain/rng', () => {
@@ -191,15 +191,15 @@ describe('RuntimeContext', () => {
 describe('AndyWorld (runtime)', () => {
   describe('构造函数', () => {
     it('初始化时钟', () => {
-      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00') }, null, campusDomain);
+      const world = new AndyWorld({ startTime: new Date('2024-06-15T10:00:00Z') }, null, campusDomain);
       expect(world.clock.advance).toBeDefined();
-      expect(world.clock.time.getHours()).toBe(10);
+      expect(world.clock.time.getUTCHours()).toBe(10);
       expect(world.clock.tickCount).toBe(0);
     });
 
     it('初始化环境', () => {
       const world = new AndyWorld({
-        startTime: new Date('2024-06-15T10:00:00'),
+        startTime: new Date('2024-06-15T10:00:00Z'),
         weather: 'rain',
       }, null, campusDomain);
       expect(world.environment.weather).toBe('rain');
@@ -231,7 +231,7 @@ describe('AndyWorld (runtime)', () => {
 
     beforeEach(() => {
       world = new AndyWorld({
-        startTime: new Date('2024-06-15T10:00:00'),
+        startTime: new Date('2024-06-15T10:00:00Z'),
         seed: 42,
       }, null, campusDomain);
     });
@@ -242,9 +242,15 @@ describe('AndyWorld (runtime)', () => {
       expect(world.clock.time.getMinutes()).toBe(5);
     });
 
-    it('返回结果包含 time 和 phase', () => {
+    it('返回结果包含提交后的 time、startedAt 和 phase', () => {
+      const startedAt = world.clock.toISOString();
       const result = world.step();
       expect(result.time).toBeDefined();
+      expect(result.startedAt).toBe(startedAt);
+      expect(result.committedAt).toBe(world.clock.toISOString());
+      expect(result.time).toBe(result.committedAt);
+      expect(result.time).toBe(world.clock.toISOString());
+      expect(result.status).toBe('committed');
       expect(result.phase).toBeDefined();
       expect(result.phase.timeAdvance).toBeDefined();
       expect(result.phase.environmentSync).toBeDefined();
@@ -266,7 +272,7 @@ describe('AndyWorld (runtime)', () => {
       expect(world.environment.timeOfDay).toBe('morning');
       // 推进到 14:00
       world = new AndyWorld({
-        startTime: new Date('2024-06-15T13:55:00'),
+        startTime: new Date('2024-06-15T13:55:00Z'),
       }, null, campusDomain);
       world.step(); // 14:00
       expect(world.environment.timeOfDay).toBe('afternoon');

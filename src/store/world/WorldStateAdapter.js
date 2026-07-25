@@ -11,7 +11,7 @@
  *   - 适配器只做字段提取和封装，不做数据转换
  */
 
-const { CURRENT_SCHEMA_VERSION } = require('./validator');
+const { CURRENT_SCHEMA_VERSION, validateWorldState } = require('./validator');
 const { DEFAULT_DOMAIN_ID } = require('../../config/defaults');
 
 /**
@@ -81,6 +81,14 @@ function fromWorldState(worldState, config = {}, engineConstructor = null) {
   // R7 fix: guard against null/undefined worldState
   if (!worldState || typeof worldState !== 'object') {
     throw new Error('fromWorldState() requires a valid worldState object, received: ' + String(worldState));
+  }
+
+  // A restore is fail-closed. Passing an absent or structurally invalid
+  // payload to AndyEngine would otherwise construct a fresh empty world.
+  const validation = validateWorldState(worldState);
+  if (!validation.valid) {
+    const details = validation.errors.map(({ path, message }) => `${path}: ${message}`).join('; ');
+    throw new Error(`fromWorldState() rejected invalid worldState: ${details}`);
   }
 
   // 恢复安全性校验：domainRef 一致性

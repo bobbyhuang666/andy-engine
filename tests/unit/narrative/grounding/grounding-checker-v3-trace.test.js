@@ -404,7 +404,7 @@ describe('v3 trace — v2 行为对比（corpus 全量）', () => {
     expect(c.check('鲍勃在食堂', g).severity).toBe('rewrite');
     // warning: time_conflict
     const timeG = baseGrounding({
-      metadata: { agentId: 'alice', currentTime: new Date(2026, 8, 1, 12, 0, 0) },
+      metadata: { agentId: 'alice', currentTime: new Date('2026-09-01T12:00:00Z') },
     });
     expect(c.check('深夜的时候', timeG).severity).toBe('degrade_to_template');
     // pass

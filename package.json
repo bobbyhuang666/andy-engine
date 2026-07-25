@@ -47,7 +47,6 @@
     "domain/",
     "presets/",
     "src/",
-    "native/",
     "examples/",
     "docs/DOMAIN.md",
     "CHANGELOG.md",

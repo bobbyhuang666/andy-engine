@@ -140,19 +140,19 @@ describe('nativeLoader', () => {
   });
 });
 
-describe('package boundary: native in npm pack', () => {
-  it('package.json.files includes native/', async () => {
+describe('package boundary: experimental native is not shipped in npm pack', () => {
+  it('package.json.files excludes native/', async () => {
     const pkg = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'package.json'), 'utf8'));
-    expect(pkg.files).toContain('native/');
+    expect(pkg.files).not.toContain('native/');
   });
 
-  it('npm pack --dry-run includes native/index.js', async () => {
+  it('npm pack --dry-run excludes native/index.js', async () => {
     const { execSync } = await import('child_process');
     const output = execSync('npm pack --dry-run 2>&1', {
       cwd: path.resolve(__dirname, '..'),
       encoding: 'utf8',
     });
-    expect(output).toContain('native/index.js');
+    expect(output).not.toContain('native/index.js');
   }, 30_000);
 
   it('npm pack --dry-run does not include native/target/', async () => {

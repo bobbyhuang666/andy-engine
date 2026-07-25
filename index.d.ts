@@ -67,7 +67,15 @@ interface TickEffectSummary {
 }
 
 interface TickResult {
+  /** Compatibility field: simulation time of the resulting world state. */
   time: string;
+  /** Simulation time before this tick advanced the world clock. */
+  startedAt?: string;
+  /** Simulation time after a committed/degraded tick completed its phases. */
+  committedAt?: string;
+  /** Degraded ticks are deliberately excluded from durable persistence. */
+  status?: 'committed' | 'degraded' | 'aborted';
+  errors?: Array<{ phase: string; agentId?: string; message: string }>;
   tickNumber: number;
   phase: {
     timeAdvance: { minutesElapsed: number; newTime: string };

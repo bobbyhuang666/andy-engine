@@ -348,7 +348,7 @@ class FactConsistencyChecker {
     const currentTime = grounding.metadata?.currentTime;
     if (!currentTime) return violations;
 
-    const hour = currentTime.getHours ? currentTime.getHours() : 12;
+    const hour = currentTime.getUTCHours ? currentTime.getUTCHours() : 12;
 
     // 检查时间描述冲突
     if (hour >= 6 && hour < 18) {

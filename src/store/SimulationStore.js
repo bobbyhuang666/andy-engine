@@ -157,10 +157,22 @@ class SimulationStore {
   onTick(tickResult, newStories = []) {
     if (!tickResult) return;
 
+    // A degraded/aborted tick can contain legacy in-memory partial writes.
+    // Never advance durable metadata or create a checkpoint from it. Older
+    // TickResult values without a status retain the compatibility path below.
+    if (tickResult.status === 'degraded' || tickResult.status === 'aborted') {
+      diagnostics.warn('SimulationStore skipped non-committed tick', {
+        status: tickResult.status,
+        tickNumber: tickResult.tickNumber,
+      });
+      return;
+    }
+
     // R24 P1 fix: use ?? instead of || to correctly handle tickNumber=0.
     // 0 || expr evaluates to expr; 0 ?? expr evaluates to 0.
     this.tickCount = SimulationStore._tickCount(tickResult.tickNumber, this.tickCount + 1);
-    this.virtualTime = tickResult.time ? new Date(tickResult.time) : this.virtualTime;
+    const committedTime = tickResult.committedAt ?? tickResult.time;
+    this.virtualTime = committedTime ? new Date(committedTime) : this.virtualTime;
 
     // 追加故事到缓冲
     if (newStories.length > 0) {

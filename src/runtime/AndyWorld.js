@@ -409,7 +409,11 @@ class AndyWorld {
     const tickStart = Date.now();
     const minutesElapsed = this.runtimeConfig.tickMinutes;
     const result = {
+      // `time` remains the compatibility field for the time of the resulting
+      // world state. `startedAt` preserves the pre-advance value explicitly.
       time: this.clock.toISOString(),
+      startedAt: this.clock.toISOString(),
+      status: 'committed',
       phase: {},
     };
 
@@ -497,6 +501,25 @@ class AndyWorld {
 
     // ─── Phase 9: FACT_EMISSION ───
     this._emitObservationFacts(interactionEvents, result);
+
+    const errors = [];
+    for (const [agentId, agentResult] of Object.entries(result.phase.agentThink?.results || {})) {
+      if (agentResult?._errored) {
+        errors.push({ phase: 'agentThink', agentId, message: agentResult.error || 'Agent tick failed' });
+      }
+    }
+    if (_effectAcc.errored > 0) {
+      errors.push({ phase: 'effectCommit', message: `${_effectAcc.errored} effect delta(s) failed to apply` });
+    }
+    if (errors.length > 0) {
+      result.status = 'degraded';
+      result.errors = errors;
+    }
+
+    // The clock has advanced and all simulation phases have completed. Do not
+    // expose the stale tick-start time as the time of this resulting state.
+    result.committedAt = this.clock.toISOString();
+    result.time = result.committedAt;
 
     // ─── 回调 + 统计 ───
     for (const cb of this._tickCallbacks) {

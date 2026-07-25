@@ -1499,7 +1499,27 @@ const CORE_UTC_TIME_PATTERN = /\b(getUTC\w*|setUTC\w*|Date\.UTC|toUTCString)\s*\
 const CORE_UTC_TIME_ALLOWLIST = {
   'src/action/UtilityScorer.js': {
     count: 2,
-    reason: 'environment.hour fallback only; RuntimeContext supplies local hour in active runtime',
+    reason: 'environment.hour fallback only; RuntimeContext supplies UTC hour in active runtime',
+  },
+  'src/runtime/RuntimeContext.js': {
+    count: 2,
+    reason: 'core simulation environment is explicitly UTC',
+  },
+  'src/runtime/WorldClock.js': {
+    count: 2,
+    reason: 'core simulation clock is explicitly UTC',
+  },
+  'src/pressure/WorldPressure.js': {
+    count: 1,
+    reason: 'world-time fallback must preserve UTC simulation semantics',
+  },
+  'src/narrative/FactConsistencyChecker.js': {
+    count: 1,
+    reason: 'grounding time claims use UTC simulation time',
+  },
+  'src/narrative/GroundingChecker.js': {
+    count: 1,
+    reason: 'grounding time claims use UTC simulation time',
   },
 };
 

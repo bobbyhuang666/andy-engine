@@ -35,12 +35,12 @@ class RuntimeContext {
    */
   buildAgentEnv(minutesElapsed) {
     const env = {
-      hour: this.clock.time.getHours() + this.clock.time.getMinutes() / 60,
+      hour: this.clock.time.getUTCHours() + this.clock.time.getUTCMinutes() / 60,
       dayOfWeek: this.clock.dayOfWeek,
       weather: this.world.environment.weather,
       minutesElapsed,
       simTime: this.clock.time,
-      simDate: this.clock.time.toDateString(),
+      simDate: this.clock.time.toISOString().slice(0, 10),
       effectCommitter: this.world.effectCommitter,
       effectWorld: this.world,
     };

@@ -246,12 +246,17 @@ function validateWorldState(state) {
       }
     }
 
-  // runtimeSnapshot — Opaque Payload，只做 typeof 校验
-  if (state.runtimeSnapshot !== undefined && state.runtimeSnapshot !== null) {
-    if (typeof state.runtimeSnapshot !== 'object' || Array.isArray(state.runtimeSnapshot)) {
-      errors.push({ path: 'runtimeSnapshot', message: '必须是对象（Opaque Payload）' });
-    }
-    // 不解析内部细节——由 Runtime 版本决定
+  // runtimeSnapshot — required opaque payload.
+  // The envelope layer deliberately does not validate every runtime field, but
+  // allowing an absent payload lets restore construct a fresh empty world and
+  // turns corruption into silent data loss.
+  if (!state.runtimeSnapshot || typeof state.runtimeSnapshot !== 'object' || Array.isArray(state.runtimeSnapshot)) {
+    errors.push({ path: 'runtimeSnapshot', message: '必须是对象（Opaque Payload）' });
+  } else if (!state.runtimeSnapshot.agents || typeof state.runtimeSnapshot.agents !== 'object' || Array.isArray(state.runtimeSnapshot.agents)) {
+    // `agents` is the minimum structural witness that this is an AndyWorld
+    // snapshot rather than an arbitrary object. Do not inspect agent internals
+    // here: they remain owned by the runtime restore path.
+    errors.push({ path: 'runtimeSnapshot.agents', message: '必须是对象' });
   }
 
   return { valid: errors.length === 0, errors };

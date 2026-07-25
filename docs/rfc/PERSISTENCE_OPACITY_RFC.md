@@ -1,12 +1,18 @@
 # RFC: Migration v0→v1 与 runtimeSnapshot Opacity 契约的张力
 
-> 状态:**Open(待澄清)** · 优先级:P1/契约一致性 · 不阻塞当前硬化
+> 状态:**Superseded in part** · 优先级:P1/契约一致性
 > 关联:P1 Persistence trust · `docs/WORLD_SCHEMA.md` §4.7 / §5.2
 > 说明:记录构建 persistence-trust 测试时发现的契约与实现张力。
 
 ---
 
 ## 0. 摘要
+
+> W5 trust hardening supersession: opacity no longer permits an absent or
+> structurally empty payload. `fromWorldState()` now validates the envelope and
+> requires `runtimeSnapshot.agents` before it forwards the remaining runtime
+> payload opaquely. The historical discussion below still applies to v0→v1
+> migration and to the ownership of agent internals.
 
 `docs/WORLD_SCHEMA.md` 声明 migration「不定义 runtimeSnapshot internals」(§4.7/§5.2),
 但 `src/store/world/migration.js` 的 v0→v1 迁移**必须**构造 runtimeSnapshot(因 v0 是

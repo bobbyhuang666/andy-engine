@@ -20,7 +20,7 @@ function validState() {
     characters: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }],
     relationships: [{ from: 'a', to: 'b', type: 'friend', strength: 0.5 }],
     events: [{ id: 'e1', time: '2026-09-01T08:00:00Z', type: 'social' }],
-    runtimeSnapshot: { opaque: true },
+    runtimeSnapshot: { agents: {} },
   };
 }
 
@@ -179,13 +179,15 @@ describe('validateWorldState — events branches', () => {
 // validateWorldState — runtimeSnapshot 边界
 // ═══════════════════════════════════════════
 describe('validateWorldState — runtimeSnapshot branches', () => {
-  it('accepts undefined runtimeSnapshot', () => {
+  it('rejects missing runtimeSnapshot', () => {
     const s = validState(); delete s.runtimeSnapshot;
-    expect(validateWorldState(s).valid).toBe(true);
+    const r = validateWorldState(s);
+    expect(r.errors.some(e => e.path === 'runtimeSnapshot')).toBe(true);
   });
-  it('accepts null runtimeSnapshot', () => {
+  it('rejects null runtimeSnapshot', () => {
     const s = validState(); s.runtimeSnapshot = null;
-    expect(validateWorldState(s).valid).toBe(true);
+    const r = validateWorldState(s);
+    expect(r.errors.some(e => e.path === 'runtimeSnapshot')).toBe(true);
   });
   it('rejects array runtimeSnapshot', () => {
     const s = validState(); s.runtimeSnapshot = [1, 2, 3];
@@ -196,5 +198,10 @@ describe('validateWorldState — runtimeSnapshot branches', () => {
     const s = validState(); s.runtimeSnapshot = 'nope';
     const r = validateWorldState(s);
     expect(r.errors.some(e => e.path === 'runtimeSnapshot')).toBe(true);
+  });
+  it('rejects runtimeSnapshot without an agents object', () => {
+    const s = validState(); s.runtimeSnapshot = {};
+    const r = validateWorldState(s);
+    expect(r.errors.some(e => e.path === 'runtimeSnapshot.agents')).toBe(true);
   });
 });

@@ -100,7 +100,7 @@ describe('Schedule._maybeRegenerateVariations — probability skip', () => {
   it('uses epoch sentinel when simDate omitted (deterministic fallback)', () => {
     const s = makeSchedule();
     s.getCurrentActivity(9, 1); // no simDate
-    expect(s._lastVariationDate).toBe('Thu Jan 01 1970');
+    expect(s._lastVariationDate).toBe('1970-01-01');
   });
 });
 

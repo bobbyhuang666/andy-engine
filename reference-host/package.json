@@ -4,7 +4,7 @@
   "private": true,
   "description": "Integration Beta Reference Host — diagnostic consumer of the Andy Engine packed artifact",
   "scripts": {
-    "install:engine": "npm pack --pack-destination ../reference-host ../ && npm install ../andy-engine-*.tgz && rm -f ../andy-engine-*.tgz reference-host/andy-engine-*.tgz",
+    "install:engine": "npm pack --pack-destination . .. && npm install ./andy-engine-*.tgz && rm -f andy-engine-*.tgz",
     "diagnose:tavern": "node src/tavern-diagnostic.js",
     "diagnose:campus": "node src/campus-diagnostic.js",
     "diagnose:all": "node src/tavern-diagnostic.js && node src/campus-diagnostic.js",

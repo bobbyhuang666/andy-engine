@@ -120,7 +120,7 @@ describe('WorldviewConstraints & Pollution Prevention', () => {
   describe('Nighttime sleep narrative in tavern domain', () => {
     it('should not place sleeping agents in public spaces like square/street', () => {
       const engine = new AndyEngine({
-        startTime: new Date('2025-06-01T02:00:00'), // 2 AM
+        startTime: new Date('2025-06-01T02:00:00Z'), // 2 AM UTC simulation time
         domain: tavern,
       });
 

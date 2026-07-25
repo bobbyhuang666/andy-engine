@@ -178,7 +178,7 @@ async function runAllTests() {
   // ═══════════════════════════════════════════════════════════════════════
   {
     console.log('\n--- TEST 4: restore_input_corruption ---');
-    const expected = 'Missing runtimeSnapshot silently restores 0-agent engine; null agents also creates 0-agent engine';
+    const expected = 'Missing runtimeSnapshot and corrupt runtimeSnapshot.agents both fail closed';
 
     const engine1 = new AndyEngine({ domain: tavernPreset, seed: 'pfm-test4', enableFacts: false });
     engine1.createCharacter({ id: 'bob', name: '鲍勃', mbti: 'ENFP', background: ['酒馆老板'] });
@@ -224,10 +224,9 @@ async function runAllTests() {
       nullAgentsAgentCount: corrupt2Agents,
     };
 
-    // Both corruptions produce a 0-agent engine (silent corruption — documented behavior).
-    // The test passes if both paths are consistent: missing runtimeSnapshot -> 0 agents,
-    // null agents -> 0 agents. Neither throws, which is the observed behavior of the engine.
-    const pass4 = corrupt1Agents === 0 && corrupt2Agents === 0;
+    // A corrupted save must never be treated as a new empty world. Both inputs
+    // must be rejected before the constructor receives the runtime payload.
+    const pass4 = corrupt1Throws && corrupt2Behavior.startsWith('threw:');
     results.push(pass4 ? ok('restore_input_corruption', expected, actual, evidence) : pass('restore_input_corruption', expected, actual, evidence));
   }
 

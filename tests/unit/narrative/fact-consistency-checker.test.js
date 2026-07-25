@@ -133,13 +133,13 @@ describe('_checkTimeConflicts', () => {
   it('flags 深夜 mentioned during daytime (hour 10)', () => {
     const c = makeChecker();
     // 用本地时间构造避免 UTC 时区偏移影响 getHours()
-    const grounding = makeGrounding({ metadata: { agentId: 'a', currentTime: new Date(2026, 8, 1, 10, 0, 0) } });
+    const grounding = makeGrounding({ metadata: { agentId: 'a', currentTime: new Date('2026-09-01T10:00:00Z') } });
     const r = c.check('现在是深夜', grounding);
     expect(r.violations.some(v => v.type === 'time_conflict')).toBe(true);
   });
   it('flags 中午 mentioned during night (hour 22)', () => {
     const c = makeChecker();
-    const grounding = makeGrounding({ metadata: { agentId: 'a', currentTime: new Date(2026, 8, 1, 22, 0, 0) } });
+    const grounding = makeGrounding({ metadata: { agentId: 'a', currentTime: new Date('2026-09-01T22:00:00Z') } });
     const r = c.check('现在是中午', grounding);
     expect(r.violations.some(v => v.type === 'time_conflict')).toBe(true);
   });
@@ -217,7 +217,7 @@ describe('_computeSeverity', () => {
   });
   it('degrade_to_template for time_conflict only', () => {
     const c = makeChecker();
-    const grounding = makeGrounding({ metadata: { agentId: 'a', currentTime: new Date(2026, 8, 1, 10, 0, 0) } });
+    const grounding = makeGrounding({ metadata: { agentId: 'a', currentTime: new Date('2026-09-01T10:00:00Z') } });
     const r = c.check('深夜', grounding);
     // time_conflict → degrade (unless other violations present)
     expect(['degrade_to_template', 'rewrite']).toContain(r.severity);

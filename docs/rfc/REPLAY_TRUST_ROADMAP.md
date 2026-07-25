@@ -20,6 +20,7 @@
 相同 runtime version（package.json version）
 相同 Node major version
 相同 native mode（native 绑定开关状态）
+相同 UTC simulation-time semantics（核心模拟不读取宿主本地时区）
 ```
 
 任一前提变化，回放结果可能合法漂移，不视为 bug。前提列表写入每份 golden fixture 的 metadata。

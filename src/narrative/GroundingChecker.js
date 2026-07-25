@@ -788,7 +788,7 @@ class GroundingChecker {
     if (!currentTime) return [];
 
     const violations = [];
-    const hour = currentTime.getHours ? currentTime.getHours() : 12;
+    const hour = currentTime.getUTCHours ? currentTime.getUTCHours() : 12;
     const timeWord = claim.object;
 
     // 白天(6-18)提到深夜/凌晨

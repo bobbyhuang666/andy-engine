@@ -30,7 +30,7 @@ function makeGrounding(overrides = {}) {
     metadata: {
       agentId: 'alice',
       agentNames: { alice: '爱丽丝', bob: '鲍勃' },
-      currentTime: new Date(2026, 8, 1, 12, 0, 0), // 中午 12:00 local
+      currentTime: new Date('2026-09-01T12:00:00Z'), // 中午 12:00 UTC
     },
     ...overrides,
   };
@@ -380,7 +380,7 @@ describe('GroundingChecker v2 — time claim', () => {
   it('白天提到深夜 → time_conflict', () => {
     const c = makeChecker();
     const g = makeGrounding({
-      metadata: { agentId: 'alice', currentTime: new Date(2026, 8, 1, 12, 0, 0) },
+      metadata: { agentId: 'alice', currentTime: new Date('2026-09-01T12:00:00Z') },
     });
     const r = c.check('深夜的时候我还在学习', g);
     expect(r.violations.some(v => v.type === 'time_conflict')).toBe(true);
@@ -389,7 +389,7 @@ describe('GroundingChecker v2 — time claim', () => {
   it('夜晚提到中午 → time_conflict', () => {
     const c = makeChecker();
     const g = makeGrounding({
-      metadata: { agentId: 'alice', currentTime: new Date(2026, 8, 1, 22, 0, 0) },
+      metadata: { agentId: 'alice', currentTime: new Date('2026-09-01T22:00:00Z') },
     });
     const r = c.check('现在是中午', g);
     expect(r.violations.some(v => v.type === 'time_conflict')).toBe(true);
@@ -612,7 +612,7 @@ describe('GroundingChecker v2 — severity computation', () => {
   it('degrade_to_template: time_conflict only', () => {
     const c = makeChecker();
     const g = makeGrounding({
-      metadata: { agentId: 'alice', currentTime: new Date(2026, 8, 1, 12, 0, 0) },
+      metadata: { agentId: 'alice', currentTime: new Date('2026-09-01T12:00:00Z') },
     });
     const r = c.check('深夜的时候', g);
     expect(r.severity).toBe('degrade_to_template');
@@ -761,7 +761,7 @@ describe('GroundingChecker v2 — regex fallback merge', () => {
     const c = makeChecker();
     // "深夜" triggers time_conflict via time claim
     const g = makeGrounding({
-      metadata: { agentId: 'alice', currentTime: new Date(2026, 8, 1, 12, 0, 0) },
+      metadata: { agentId: 'alice', currentTime: new Date('2026-09-01T12:00:00Z') },
     });
     const r = c.check('深夜的时候', g);
     expect(r.violations.some(v => v.type === 'time_conflict')).toBe(true);

@@ -339,19 +339,21 @@ describe('validateWorldState', () => {
     expect(result.errors.some(e => e.path.includes('events') && e.path.includes('time'))).toBe(true);
   });
 
-  // runtimeSnapshot — Opaque Payload 测试
+  // runtimeSnapshot — required opaque payload tests
 
-  it('接受没有 runtimeSnapshot 的 State', () => {
+  it('拒绝没有 runtimeSnapshot 的 State', () => {
     const state = { ...validState };
     delete state.runtimeSnapshot;
     const result = validateWorldState(state);
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.path === 'runtimeSnapshot')).toBe(true);
   });
 
-  it('接受 runtimeSnapshot 为 null', () => {
+  it('拒绝 runtimeSnapshot 为 null', () => {
     const state = { ...validState, runtimeSnapshot: null };
     const result = validateWorldState(state);
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some(e => e.path === 'runtimeSnapshot')).toBe(true);
   });
 
   it('接受 runtimeSnapshot 为任意对象（Opaque Payload）', () => {

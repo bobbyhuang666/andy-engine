@@ -2,7 +2,8 @@
  * Persistence Trust — P1 持久化信任基线
  *
  * 锁定 Stable World Envelope 的关键不变量，防止退化：
- *   G1. fromWorldState 不深入解析 runtimeSnapshot，原样转发给 engine ctor (opacity)。
+ *   G1. fromWorldState validates the required envelope boundary, then forwards
+ *       the valid runtimeSnapshot opaquely to the engine constructor.
  *   G2. Envelope 在零 tick 下幂等：toWorldState → fromWorldState → toWorldState deep-equal。
  *   G3. 未知未来 schemaVersion 行为锁定（migrateWorldState pass-through + validateWorldState 拒绝）。
  *   G6. schemaVersion / ENVELOPE_VERSION 是冻结常量，防止意外 bump。
@@ -30,9 +31,9 @@ function buildEngine() {
 }
 
 // ═══════════════════════════════════════════
-// G1: fromWorldState opacity forwarding
+// G1: fromWorldState validates envelope then forwards opaque payload
 // ═══════════════════════════════════════════
-describe('G1: fromWorldState forwards runtimeSnapshot opaquely', () => {
+describe('G1: fromWorldState validates then forwards runtimeSnapshot opaquely', () => {
   it('passes runtimeSnapshot by reference to the engine constructor (no introspection)', () => {
     const engine = buildEngine();
     const state = toWorldState(engine, 'opacity-test');
@@ -46,6 +47,22 @@ describe('G1: fromWorldState forwards runtimeSnapshot opaquely', () => {
 
     fromWorldState(state, {}, SpyCtor);
     expect(received).toBe(state.runtimeSnapshot);
+  });
+
+  it('fails closed instead of restoring an empty world when runtimeSnapshot is absent', () => {
+    const state = toWorldState(buildEngine(), 'missing-payload');
+    delete state.runtimeSnapshot;
+
+    expect(() => fromWorldState(state, {}, AndyEngine))
+      .toThrow(/rejected invalid worldState.*runtimeSnapshot/);
+  });
+
+  it('fails closed when the runtime agent table is corrupt', () => {
+    const state = toWorldState(buildEngine(), 'corrupt-agents');
+    state.runtimeSnapshot.agents = null;
+
+    expect(() => fromWorldState(state, {}, AndyEngine))
+      .toThrow(/rejected invalid worldState.*runtimeSnapshot\.agents/);
   });
 });
 

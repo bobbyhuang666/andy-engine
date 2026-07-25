@@ -92,7 +92,12 @@ The envelope is the cross-version-safe persistence format:
 - The current envelope has exactly 4 fields: `version`, `schemaVersion`,
   `timestamp`, `runtimeSnapshot`.
 - `version` is retained for compatibility; `schemaVersion` is canonical.
-- `runtimeSnapshot` is opaque — `Serialization` does NOT parse or validate its internal structure.
+- `runtimeSnapshot` is opaque to `Serialization`; it does not parse or validate
+  its internal structure.
+- `WorldStateAdapter.fromWorldState()` is fail-closed: it validates the stable
+  envelope and requires a runtime payload with an agent table before handing
+  the payload to the runtime. It intentionally does not validate individual
+  agent internals, which remain runtime-owned.
 - Version changes require explicit migration logic.
 
 ---

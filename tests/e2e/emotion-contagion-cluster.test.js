@@ -43,7 +43,7 @@ describe('Emotion Contagion Cluster E2E', () => {
   it('3 co-located agents with extreme emotions converge via contagion within 100 ticks', () => {
     const engine = new AndyEngine({
       seed: 'd6-contagion-convergence',
-      startTime: new Date('2024-01-15T08:00:00'),
+      startTime: new Date('2024-01-15T08:00:00Z'),
     });
 
     // Create 3 agents in same region with empty schedules

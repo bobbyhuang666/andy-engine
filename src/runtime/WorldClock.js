@@ -31,11 +31,11 @@ class WorldClock {
     return this.time;
   }
 
-  /** @returns {number} 当前小时（0-23） */
-  get hour() { return this.time.getHours(); }
+  /** @returns {number} 当前模拟小时（UTC，0-23） */
+  get hour() { return this.time.getUTCHours(); }
 
-  /** @returns {number} 星期几（0=周日） */
-  get dayOfWeek() { return this.time.getDay(); }
+  /** @returns {number} 当前模拟星期（UTC，0=周日） */
+  get dayOfWeek() { return this.time.getUTCDay(); }
 
   /**
    * ISO 字符串表示

@@ -41,7 +41,7 @@ function baseGrounding(overrides = {}) {
     metadata: {
       agentId: 'alice',
       agentNames: { alice: '爱丽丝', bob: '鲍勃' },
-      currentTime: new Date(2026, 8, 1, 12, 0, 0),
+      currentTime: new Date('2026-09-01T12:00:00Z'),
     },
     ...overrides,
   };

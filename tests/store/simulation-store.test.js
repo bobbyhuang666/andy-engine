@@ -182,6 +182,23 @@ describe('SimulationStore — onTick branches', () => {
     expect(store.virtualTime.getTime()).toBe(MS);
   });
 
+  it('onTick prefers committedAt over the compatibility time field', async () => {
+    const store = makeStore();
+    await store.init();
+    store.onTick({ tickNumber: 1, time: ISO, committedAt: '2026-09-15T14:35:00.000Z' });
+    expect(store.virtualTime.toISOString()).toBe('2026-09-15T14:35:00.000Z');
+  });
+
+  it('does not persist durable metadata for a degraded tick', async () => {
+    const store = makeStore();
+    await store.init();
+    store.tickCount = 3;
+    store.virtualTime = new Date(MS);
+    store.onTick({ tickNumber: 4, time: '2026-09-15T14:35:00.000Z', status: 'degraded' });
+    expect(store.tickCount).toBe(3);
+    expect(store.virtualTime.getTime()).toBe(MS);
+  });
+
   it('onTick pushes stories and flushes at storyFlushInterval', async () => {
     const store = makeStore({ storyFlushInterval: 1 });
     await store.init();

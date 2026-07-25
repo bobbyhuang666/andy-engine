@@ -44,7 +44,7 @@ function makeGrounding(overrides = {}) {
     metadata: {
       agentId: SELF_ID,
       agentNames: AGENT_NAMES,
-      currentTime: new Date(2026, 8, 1, 12, 0, 0),
+      currentTime: new Date('2026-09-01T12:00:00Z'),
     },
     ...overrides,
   };
@@ -164,7 +164,7 @@ describe('GroundingChecker text-only 零回归', () => {
   it('v2 被 warning 的输入，加 includePronouns 后仍 warning', () => {
     const checker = makeChecker();
     const g = makeGrounding({
-      metadata: { agentId: 'alice', currentTime: new Date(2026, 8, 1, 12, 0, 0) },
+      metadata: { agentId: 'alice', currentTime: new Date('2026-09-01T12:00:00Z') },
     });
     const r = checker.check('深夜的时候', g);
     expect(r.severity).toBe('degrade_to_template');
