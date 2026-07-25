@@ -21,8 +21,7 @@
  * Public API only:
  *   - engine.getStats()
  *   - engine.snapshot()
- *   - engine.getAllAgents()
- *   - agent.getStatus()
+ *   - engine.getAgentsSnapshot()
  *   - engine.getGroundingPackage()
  *   - engine.getNarrative()
  *   - toWorldState(engine, worldId)
@@ -143,7 +142,7 @@ function captureSocialEdges(engine) {
  */
 function captureGroundingPackages(engine) {
   // W2-F: Evidence uses serialized/read-only projections, not live object identity
-  const agents = engine.getAllAgents();
+  const agents = engine.getAgentsSnapshot();
   const result = {};
   for (const agent of agents) {
     const gp = engine.getGroundingPackage(agent.id);
@@ -176,7 +175,7 @@ function hasToldOrOverheardFact(gp) {
  * or agent's memory count increases after ticks with events.
  */
 function verifyObservedEvent(engine, tickResults) {
-  const agents = engine.getAllAgents();
+  const agents = engine.getAgentsSnapshot();
   let pass = false;
   let evidence = '';
 
@@ -208,7 +207,7 @@ function verifyObservedEvent(engine, tickResults) {
     } else {
       // Check agent status for memory count increase
       for (const agent of agents) {
-        const status = agent.getStatus();
+        const status = agent;
         if (status && status.behavior) {
           pass = true;
           evidence = `Agent ${agent.name} has non-trivial behavior vector (memory active)`;
@@ -229,7 +228,7 @@ function verifyObservedEvent(engine, tickResults) {
  * Without real LLM, this is expected to be "not_yet_observed_in_run".
  */
 function verifyToldOverheardEvent(engine) {
-  const agents = engine.getAllAgents();
+  const agents = engine.getAgentsSnapshot();
   let found = false;
   let evidence = '';
 
@@ -316,7 +315,7 @@ function verifyLocationChange(engine, prePositions) {
  * agents' internal states (emotion, needs, personality details) as facts.
  */
 function verifyNegativeEpistemicControl(engine) {
-  const agents = engine.getAllAgents();
+  const agents = engine.getAgentsSnapshot();
   let pass = true;
   let evidence = '';
 
@@ -343,7 +342,7 @@ function verifyNegativeEpistemicControl(engine) {
     for (let j = 0; j < agents.length; j++) {
       if (i === j) continue;
       const agentB = agents[j];
-      const statusB = agentB.getStatus();
+      const statusB = agentB;
 
       // Check that no fact in A's grounding directly states B's internal state values
       const privateFields = ['valence', 'arousal', 'needs', 'personality', 'intrinsicMotivation'];

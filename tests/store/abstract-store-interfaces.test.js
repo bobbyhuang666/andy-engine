@@ -45,7 +45,7 @@ describe('MetaStore abstract interface', () => {
   it('close() throws Not implemented', async () => {
     await expect(new MetaStore().close()).rejects.toThrow(NOT_IMPL);
   });
-  it('interface shape: prototype has exactly the 6 contract methods', () => {
+  it('interface shape: prototype has exactly the 7 contract methods', () => {
     const methods = Object.getOwnPropertyNames(MetaStore.prototype).filter(n => n !== 'constructor');
     expect(methods.sort()).toEqual(['close', 'delete', 'get', 'getAll', 'set', 'setMany']);
   });
@@ -64,6 +64,9 @@ describe('SnapshotStore abstract interface', () => {
   it('loadLatest() throws Not implemented', async () => {
     await expect(new SnapshotStore().loadLatest()).rejects.toThrow(NOT_IMPL);
   });
+  it('loadRecent() throws Not implemented (limit default exercised)', async () => {
+    await expect(new SnapshotStore().loadRecent()).rejects.toThrow(NOT_IMPL);
+  });
   it('loadAt(tick) throws Not implemented', async () => {
     await expect(new SnapshotStore().loadAt(5)).rejects.toThrow(NOT_IMPL);
   });
@@ -79,9 +82,9 @@ describe('SnapshotStore abstract interface', () => {
   it('close() throws Not implemented', async () => {
     await expect(new SnapshotStore().close()).rejects.toThrow(NOT_IMPL);
   });
-  it('interface shape: prototype has exactly the 6 contract methods', () => {
+  it('interface shape: prototype has exactly the 7 contract methods', () => {
     const methods = Object.getOwnPropertyNames(SnapshotStore.prototype).filter(n => n !== 'constructor');
-    expect(methods.sort()).toEqual(['close', 'list', 'loadAt', 'loadLatest', 'prune', 'saveSnapshot']);
+    expect(methods.sort()).toEqual(['close', 'list', 'loadAt', 'loadLatest', 'loadRecent', 'prune', 'saveSnapshot']);
   });
 });
 

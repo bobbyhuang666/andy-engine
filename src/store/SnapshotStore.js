@@ -30,6 +30,16 @@ class SnapshotStore {
   }
 
   /**
+   * Load recent checkpoints newest-first. Recovery may use this to skip a
+   * corrupt newest record only after verifying each checkpoint's integrity.
+   * @param {number} limit
+   * @returns {Snapshot[]}
+   */
+  async loadRecent(limit = 720) {
+    throw new Error('Not implemented');
+  }
+
+  /**
    * 加载指定 tick 的快照
    * @param {number} tick
    * @returns {Snapshot|null}

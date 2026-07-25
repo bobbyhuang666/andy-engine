@@ -549,7 +549,9 @@ declare class AndyEngine {
   createCharacter(config: AgentConfig): object;
   addAgent(config: AgentConfig): object;
   addAgents(configs: AgentConfig[]): object[];
+  /** @deprecated Legacy live compatibility handle. Use getAgentSnapshot(). */
   getAgent(agentId: string): object | undefined;
+  /** @deprecated Legacy live compatibility handles. Use getAgentsSnapshot(). */
   getAllAgents(): AgentHandle[];
   getAgentSnapshot(agentId: string): Readonly<AgentSnapshot> | undefined;
   getAgentsSnapshot(): ReadonlyArray<Readonly<AgentSnapshot>>;
@@ -564,6 +566,7 @@ declare class AndyEngine {
   getStats(): object;
   onTick(callback: (tickResult: TickResult) => void): void;
   setWeather(weather: string): void;
+  /** @deprecated Legacy live compatibility handle. Use getSocialGraphSnapshot(). */
   getSocialGraph(): object;
   getSocialGraphSnapshot(): Readonly<object>;
   toJSON(): object;

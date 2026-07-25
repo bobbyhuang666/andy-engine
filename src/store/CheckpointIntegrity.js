@@ -20,7 +20,8 @@ function createMeta(tick, virtualTime, data) {
 
 function verify(snapshot) {
   const checkpoint = snapshot?.meta?.checkpoint;
-  if (!checkpoint || checkpoint.algorithm !== 'sha256' || typeof checkpoint.digest !== 'string') return false;
+  if (!checkpoint || checkpoint.algorithm !== 'sha256' ||
+      typeof checkpoint.digest !== 'string' || !/^[a-f0-9]{64}$/i.test(checkpoint.digest)) return false;
   if (checkpoint.tick !== snapshot.tick || checkpoint.virtualTime !== snapshot.virtualTime) return false;
   try {
     return crypto.timingSafeEqual(Buffer.from(checkpoint.digest, 'hex'), Buffer.from(digest(snapshot.data), 'hex'));

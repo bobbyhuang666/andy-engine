@@ -22,7 +22,7 @@ Phase 17 将架构边界落地为两层物理划分的 Schema 草案：
 1. **公共契约最小化**：只暴露跨版本稳定的字段
 2. **运行时状态不透明**：子系统内部状态封装为 Opaque Payload
 3. **版本隔离**：Runtime 升级不影响 Stable World Envelope
-4. **确定性校验**：Validator 只校验 Stable 层，不解析 Opaque Payload
+4. **确定性校验**：Validator 校验 Stable 层，并对账 opaque payload 的角色 ID 与时钟 witness
 
 ---
 
@@ -183,7 +183,7 @@ Stable World Envelope 是跨版本稳定的公共契约。Migration Pipeline 和
 
 **关键约束：**
 - `runtimeSnapshot` 的内部结构**不是公共契约**
-- Validator **只做 `typeof === 'object'` 校验**，不解析内部细节
+- Validator 不解析 agent 内部细节，但要求 `agents` 的 ID 集、`time` 与 `tickCount` 分别和 Stable Envelope 一致
 - **v1+ 迁移**(已有 Stable Envelope 的版本间):runtimeSnapshot 是 opaque payload,migration 只深拷贝、不解析、不重写内部结构。Runtime snapshot compatibility/migration is a future engine-owned concern outside core tick runtime.
 - **v0→v1 迁移例外**(无 Envelope → 有 Envelope):v0 是 pre-envelope 的扁平 `AndyEngine.toJSON()` 输出,无结构化 runtimeSnapshot。`migrateV0ToV1` 必须从 v0 扁平字段(time/tickCount/environment/agents/socialGraph/events)重组并补齐 v1 runtimeSnapshot 的 engine 期望字段(含 events 的 participants/observers/effects 等)。这是「无结构 → 有结构」的构造,非 opacity 违规。
 - `runtimeSnapshot` 的格式由生成它的 Runtime 版本决定
@@ -270,7 +270,7 @@ Migration Pipeline 转换后，应调用 `validateWorldState(state)` 验证输�
 - `characters` 是数组，每个元素包含 `id`（唯一）和 `name`
 - `relationships` 是数组，每个元素的 `from` 和 `to` 在 characters 中存在
 - `events` 是数组，每个元素包含 `id`、`time`、`type`
-- 如果 `runtimeSnapshot` 存在，只做 `typeof === 'object'` 校验
+- `runtimeSnapshot.agents` 的 ID 集必须与 `characters` 精确一致，且其 `time` / `tickCount` 必须和 `worldClock` 一致
 
 ---
 
@@ -339,7 +339,7 @@ Each field in the world state is classified into one of four stability tiers:
 | `events[].time` | `string` (ISO 8601) | Event timestamp |
 | `events[].type` | `string` | Event type (`social`/`random`/`weather`/`state_change`) |
 | `events[].content` | `string` | Event content description |
-| `runtimeSnapshot` | `object` | Opaque payload — only `typeof === 'object'` validated |
+| `runtimeSnapshot` | `object` | Opaque payload — identity/time witnesses are reconciled with the Stable Envelope |
 
 ### 10.2 Opaque Runtime Snapshot Fields
 
@@ -385,6 +385,6 @@ Two version numbers coexist:
 | Version | Owner | Scope |
 |---------|-------|-------|
 | `schemaVersion` (`'0.1.0'`) | `validator.js` / `migration.js` | Stable World Envelope schema version. Drives migration pipeline. |
-| `ENVELOPE_VERSION` (`'0.2.0'`) | `Serialization.js` | Serialization envelope version. Wraps the runtime snapshot. Independent of schema version. |
+| `ENVELOPE_VERSION` (`'0.1.0'`) | `Serialization.js` | Serialization envelope version. Currently equal to, but separately owned from, schemaVersion. |
 
 The `Serialization` envelope (`{ version, timestamp, runtimeSnapshot }`) is a transport wrapper. The `WorldStateAdapter` envelope (`{ schemaVersion, worldId, domainRef, worldClock, characters, relationships, events, runtimeSnapshot }`) is the semantic persistence contract. They are layered, not competing.

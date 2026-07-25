@@ -37,28 +37,31 @@ run_check "typecheck:consumer" "npm run typecheck:consumer"
 # 4. test:domain
 run_check "test:domain" "npm run test:domain"
 
-# 5. check:boundaries
+# 5. replay fixture
+run_check "replay:diff" "npm run replay:diff"
+
+# 6. check:boundaries
 run_check "check:boundaries" "npm run check:boundaries"
 
-# 6. smoke:pack
+# 7. smoke:pack
 run_check "smoke:pack" "npm run smoke:pack"
 
-# 7. fresh:consumer
+# 8. fresh:consumer
 run_check "fresh:consumer" "npm run fresh:consumer"
 
-# 8. release:check
+# 9. release:check
 run_check "release:check" "npm run release:check"
 
-# 9. perf:check
+# 10. perf:check
 run_check "perf:check" "npm run perf:check -- --runs=3"
 
-# 10. legacy-removal-dry-run
+# 11. legacy-removal-dry-run
 run_check "legacy-removal-dry-run" "node scripts/legacy-removal-dry-run.js"
 
-# 11. git diff --check
+# 12. git diff --check
 run_check "git diff --check" "git diff --check"
 
-# 12. sqlite:smoke (optional)
+# 13. sqlite:smoke (optional)
 echo "Checking for better-sqlite3..."
 if node -e "try { require('better-sqlite3'); console.log('available'); } catch(e) { process.exit(1); }" > /dev/null 2>&1; then
   run_check "sqlite:smoke" "npm run sqlite:smoke"

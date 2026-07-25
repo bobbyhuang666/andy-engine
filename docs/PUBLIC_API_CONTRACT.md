@@ -45,7 +45,9 @@ require('andy-engine/presets/tavern') → presets/tavern/index.js
   - `getGroundingPackage(id, options?)` — stable
   - `checkConsistency(llmOutput, id, options?) — stable`
   - `tick()` — stable; returns `TickResult` with optional `phase.effectSummary`.
-    In the default fault-isolation mode, degraded ticks are not durable. With
+    In the default fault-isolation mode, a degraded tick faults the engine:
+    it is not durable and later ticks are refused until the caller restores a
+    known-good checkpoint. With
     `atomicTicks: true`, a degraded tick is restored to its pre-tick serialized
     state and returned as `status: 'aborted'`.
   - `runTicks(count)` — stable

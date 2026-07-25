@@ -150,6 +150,75 @@ describe('SimulationStore — init restore path', () => {
     await reader.shutdown();
     warnSpy.mockRestore();
   });
+
+  it('does not overwrite a checkpoint after integrity verification fails', async () => {
+    const dbPath = makeTempDbPath('integrity-failure-preserves-checkpoint');
+    const writer = makeStore({ dbPath });
+    await writer.init({ onSnapshot: () => Buffer.from('trusted') });
+    writer.tickCount = 5;
+    writer.virtualTime = new Date(MS);
+    writer._saveSnapshot();
+    await writer.shutdown();
+
+    const tamper = makeStore({ dbPath });
+    await tamper.init();
+    const checkpoint = tamper.db.loadLatest();
+    tamper.db.saveSnapshot(checkpoint.tick, checkpoint.virtualTime, Buffer.from('tampered'), checkpoint.meta);
+    tamper.db.close();
+    tamper.db = null;
+
+    const reader = makeStore({ dbPath });
+    const result = await reader.init({ onSnapshot: () => Buffer.from('untrusted replacement') });
+    expect(result.restoreFailed).toBe(true);
+    expect(() => reader.setMeta('tick_count', '999')).toThrow(/closed after a failed restore/);
+    await reader.shutdown();
+
+    const inspector = makeStore({ dbPath });
+    await inspector.init();
+    expect(inspector._closed).toBe(true);
+    expect(inspector.db.loadLatest().data.toString()).toBe('tampered');
+    await inspector.shutdown();
+  });
+
+  it('falls back to the newest earlier integrity-verified checkpoint', async () => {
+    diagnostics.clear();
+    const warnSpy = vi.spyOn(diagnostics, 'warn').mockImplementation(() => {});
+    const dbPath = makeTempDbPath('integrity-fallback');
+    const writer = makeStore({ dbPath });
+    let payload = 'checkpoint-4';
+    await writer.init({ onSnapshot: () => Buffer.from(payload) });
+    writer.tickCount = 4;
+    writer.virtualTime = new Date(MS);
+    writer._saveSnapshot();
+    payload = 'checkpoint-5';
+    writer.tickCount = 5;
+    writer.virtualTime = new Date(MS + 1_000);
+    writer._saveSnapshot();
+    await writer.shutdown();
+
+    const tamper = makeStore({ dbPath });
+    await tamper.init();
+    const latest = tamper.db.loadLatest();
+    tamper.db.saveSnapshot(latest.tick, latest.virtualTime, Buffer.from('corrupted-5'), latest.meta);
+    tamper.db.close();
+    tamper.db = null;
+
+    const restored = [];
+    const reader = makeStore({ dbPath });
+    const result = await reader.init({ onRestore: data => restored.push(data.toString()) });
+    expect(result).toMatchObject({
+      hasSnapshot: true,
+      restoreFailed: false,
+      restoredTick: 4,
+      rejectedCheckpoints: 1,
+    });
+    expect(restored).toEqual(['checkpoint-4']);
+    expect(diagnostics.getCollected()).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'checkpoint-recovery-fallback', restoredTick: 4 }),
+    ]));
+    await reader.shutdown();
+    warnSpy.mockRestore();
+  });
 });
 
 describe('SimulationStore — onTick branches', () => {
@@ -523,7 +592,7 @@ describe('P2: init recovers from corrupt meta (NaN guard)', () => {
     await restored.shutdown();
   });
 
-  it('tickCount falls back to 0 and virtualTime to null when meta is corrupt string', async () => {
+  it('ignores corrupt standalone metadata when no verified checkpoint exists', async () => {
     const dbPath = makeTempDbPath('corrupt-meta-1');
     const store = makeStore({ dbPath });
     await store.init();
@@ -537,9 +606,9 @@ describe('P2: init recovers from corrupt meta (NaN guard)', () => {
     const result = await store2.init();
 
     expect(result.restoredTick).toBe(0);
-    expect(result.restoredTime).toBeInstanceOf(Date);
+    expect(result.restoredTime).toBeNull();
     expect(store2.tickCount).toBe(0);
-    expect(store2.virtualTime).toBeInstanceOf(Date);
+    expect(store2.virtualTime).toBeNull();
     // tickCount must not be NaN
     expect(Number.isNaN(store2.tickCount)).toBe(false);
     await store2.shutdown();
@@ -578,7 +647,7 @@ describe('P2: init recovers from corrupt meta (NaN guard)', () => {
     await store2.init();
 
     expect(store2.tickCount).toBe(0);
-    expect(store2.virtualTime).toBeInstanceOf(Date);
+    expect(store2.virtualTime).toBeNull();
 
     // getStats uses virtualTime?.getTime() || Date.now() — must not throw or return NaN
     const stats = store2.getStats('a');

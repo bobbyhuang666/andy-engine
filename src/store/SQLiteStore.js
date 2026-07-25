@@ -78,7 +78,9 @@ class SQLiteStore {
       throw sqliteOpenError(dbPath, err);
     }
     this.db.pragma('journal_mode = WAL');      // 写入性能优化
-    this.db.pragma('synchronous = NORMAL');     // 平衡安全和性能
+    // A checkpoint is the restart authority. FULL makes WAL commits durable
+    // before acknowledging them, instead of relying on OS write-back timing.
+    this.db.pragma('synchronous = FULL');
     this.db.pragma('cache_size = -64000');      // 64MB 缓存
     this.db.pragma('temp_store = MEMORY');      // 临时表在内存中
 
@@ -283,6 +285,13 @@ class SQLiteStore {
   /** Atomically persist a verified checkpoint, its cursor metadata, and retention. */
   saveCheckpoint(tick, virtualTime, data, meta, keepCount = 720) {
     return this.db.transaction(() => {
+      const latest = this.loadLatest();
+      if (latest && tick < latest.tick) {
+        throw new Error(`checkpoint tick ${tick} is older than durable tick ${latest.tick}`);
+      }
+      if (latest && tick === latest.tick && !Buffer.from(latest.data).equals(Buffer.from(data))) {
+        throw new Error(`checkpoint tick ${tick} conflicts with an existing durable checkpoint`);
+      }
       this.saveSnapshot(tick, virtualTime, data, meta);
       this.prune(keepCount);
       this.setMany({ tick_count: tick, virtual_time: virtualTime });
@@ -309,6 +318,23 @@ class SQLiteStore {
         ? (() => { try { return JSON.parse(row.meta); } catch { return null; } })()
         : null,
     };
+  }
+
+  /** Load recent checkpoints newest-first for integrity-checked recovery. */
+  loadRecent(limit = 720) {
+    const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 720;
+    const stmt = this._prepare('loadRecentSnapshots', `
+      SELECT tick, virtual_time as virtualTime, data, meta, created_at as createdAt
+      FROM snapshots
+      ORDER BY tick DESC
+      LIMIT ?
+    `);
+    return stmt.all(safeLimit).map(row => ({
+      ...row,
+      meta: row.meta
+        ? (() => { try { return JSON.parse(row.meta); } catch { return null; } })()
+        : null,
+    }));
   }
 
   /**

@@ -60,6 +60,11 @@ describe('AndyEngine failed-tick recovery', () => {
 
     expect(result.status).toBe('degraded');
     expect(callbackCount).toBe(0);
+    expect(engine.getStats()).toMatchObject({
+      faulted: true,
+      faultedTick: { tickNumber: result.tickNumber },
+    });
     expect(() => engine.tick()).toThrow(/faulted after a degraded tick/);
+    expect(() => engine.runTicks(1)).toThrow(/faulted after a degraded tick/);
   });
 });

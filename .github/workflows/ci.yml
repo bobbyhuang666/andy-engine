@@ -41,6 +41,9 @@ jobs:
     
     - name: Run domain tests
       run: npm run test:domain
+
+    - name: Verify seeded replay fixture
+      run: npm run replay:diff
     
     - name: Run audit
       run: npm audit --omit=dev

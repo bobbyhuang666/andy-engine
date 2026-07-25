@@ -92,13 +92,28 @@ The envelope is the cross-version-safe persistence format:
 - The current envelope has exactly 4 fields: `version`, `schemaVersion`,
   `timestamp`, `runtimeSnapshot`.
 - `version` is retained for compatibility; `schemaVersion` is canonical.
+- When both keys are present they must be identical. A contradictory pair is
+  rejected rather than selecting one key implicitly.
 - `runtimeSnapshot` is opaque to `Serialization`; it does not parse or validate
   its internal structure.
 - `WorldStateAdapter.fromWorldState()` is fail-closed: it validates the stable
   envelope and requires a runtime payload with an agent table before handing
   the payload to the runtime. It intentionally does not validate individual
   agent internals, which remain runtime-owned.
-- Version changes require explicit migration logic.
+- Version changes require explicit Stable World Envelope migration logic.
+  `Serialization.deserialize()` does not migrate the opaque runtime payload:
+  it rejects a transport envelope with another version rather than treating a
+  runtime snapshot as a semantic world state.
+
+## Durable Simulation Checkpoints
+
+`SimulationStore` writes its restart checkpoint, cursor metadata, and
+retention update as one store-level commit. Every checkpoint contains a SHA-256
+digest over its binary payload plus the tick/time witnesses. Restore verifies
+the digest before invoking application restoration. If the newest checkpoint is
+corrupt, restore may select the newest earlier checkpoint that independently
+verifies; if none verifies, the store remains closed and never writes a
+replacement checkpoint over the evidence.
 
 ---
 

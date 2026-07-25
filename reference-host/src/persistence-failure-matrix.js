@@ -76,7 +76,7 @@ async function runAllTests() {
     engine2.runTicks(100);
 
     const stats = engine2.getStats();
-    const agents = engine2.getAllAgents();
+    const agents = engine2.getAgentsSnapshot();
 
     const actual = `tickCount=${stats.tickCount}, agents=${agents.length}, domainRef=${ws1.domainRef}`;
     const evidence = {
@@ -118,7 +118,7 @@ async function runAllTests() {
     engine2.runTicks(50);
 
     const stats = engine2.getStats();
-    const agents = engine2.getAllAgents();
+    const agents = engine2.getAgentsSnapshot();
     const agentIds = agents.map(a => a.id).sort();
 
     const actual = `tickCount=${stats.tickCount}, agents=[${agentIds.join(', ')}]`;
@@ -158,7 +158,7 @@ async function runAllTests() {
     // Restore and verify
     const engine2 = fromWorldState(wsValid, { domain: tavernPreset, enableFacts: false }, AndyEngine);
     const stats = engine2.getStats();
-    const agents = engine2.getAllAgents();
+    const agents = engine2.getAgentsSnapshot();
 
     const actual = `nullWorldIdRejected=${nullWorldIdRejected}, validRestore_tickCount=${stats.tickCount}, agents=${agents.length}`;
     const evidence = {
@@ -194,7 +194,7 @@ async function runAllTests() {
     let corrupt1Agents = 0;
     try {
       const engine2 = fromWorldState(corruptedNoRuntime, { domain: tavernPreset, enableFacts: false }, AndyEngine);
-      corrupt1Agents = engine2.getAllAgents().length;
+      corrupt1Agents = engine2.getAgentsSnapshot().length;
     } catch (e) {
       corrupt1Throws = true;
       corrupt1Error = e.message;
@@ -208,7 +208,7 @@ async function runAllTests() {
     let corrupt2Agents = 0;
     try {
       const engine2 = fromWorldState(corruptedNullAgents, { domain: tavernPreset, enableFacts: false }, AndyEngine);
-      corrupt2Agents = engine2.getAllAgents().length;
+      corrupt2Agents = engine2.getAgentsSnapshot().length;
       corrupt2Behavior = `restored with ${corrupt2Agents} agents (no throw)`;
     } catch (e) {
       corrupt2Behavior = `threw: ${e.message}`;
@@ -283,14 +283,14 @@ async function runAllTests() {
     const engineA = fromWorldState(wsCheckpoint, { domain: tavernPreset, enableFacts: false }, AndyEngine);
     engineA.runTicks(100);
     const statsA = engineA.getStats();
-    const agentsA = engineA.getAllAgents();
+    const agentsA = engineA.getAgentsSnapshot();
     const positionsA = agentsA.map(a => ({ id: a.id, position: a.position })).sort((x, y) => x.id.localeCompare(y.id));
 
     // Restore from SAME checkpoint AGAIN (second attempt / duplicate retry)
     const engineB = fromWorldState(wsCheckpoint, { domain: tavernPreset, enableFacts: false }, AndyEngine);
     engineB.runTicks(100);
     const statsB = engineB.getStats();
-    const agentsB = engineB.getAllAgents();
+    const agentsB = engineB.getAgentsSnapshot();
     const positionsB = agentsB.map(a => ({ id: a.id, position: a.position })).sort((x, y) => x.id.localeCompare(y.id));
 
     const actual = `attemptA_tickCount=${statsA.tickCount}, attemptB_tickCount=${statsB.tickCount}, positions_match=${JSON.stringify(positionsA) === JSON.stringify(positionsB)}`;

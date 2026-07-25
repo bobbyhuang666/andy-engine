@@ -51,7 +51,7 @@ function checkToldOverheard() {
   engine.runTicks(TICKS);
 
   // Check each agent's grounding package
-  const agents = engine.getAllAgents();
+  const agents = engine.getAgentsSnapshot();
   const foundEvidence = [];
   let foundAny = false;
 

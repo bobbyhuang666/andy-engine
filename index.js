@@ -306,7 +306,8 @@ class AndyEngine {
   }
 
   /**
-   * 获取 Agent
+   * 获取 Agent 的 legacy 兼容 handle。
+   * 新代码请使用 getAgentSnapshot()；不得通过此 handle 修改引擎状态。
    * @param {string} agentId
    * @returns {Agent|undefined}
    */
@@ -315,7 +316,8 @@ class AndyEngine {
   }
 
   /**
-   * 获取所有 Agent
+   * 获取 legacy 兼容 handles。
+   * 新代码请使用 getAgentsSnapshot()；不得通过这些 handle 修改引擎状态。
    * @returns {Agent[]}
    */
   getAllAgents() {
@@ -578,6 +580,8 @@ class AndyEngine {
     const env = this.world.environment;
     return {
       ...this.world.getStats(),
+      faulted: Boolean(this._faultedTick),
+      faultedTick: this._faultedTick ? { ...this._faultedTick } : null,
       worldTime: this.world.time.toISOString(),
       // R12: deep-copy weatherChangedAt to prevent shared Date reference
       environment: {
@@ -606,7 +610,7 @@ class AndyEngine {
   }
 
   /**
-   * 获取社交图谱
+   * 获取社交图谱的 legacy 兼容 handle。新代码请使用 getSocialGraphSnapshot()。
    */
   getSocialGraph() {
     return this.world.socialGraph;

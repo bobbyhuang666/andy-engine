@@ -8,7 +8,7 @@
     "diagnose:tavern": "node src/tavern-diagnostic.js",
     "diagnose:campus": "node src/campus-diagnostic.js",
     "diagnose:all": "node src/tavern-diagnostic.js && node src/campus-diagnostic.js",
-    "test": "vitest run",
+    "test": "node test/no-internal-access.js && node test/evaluation-bundle.test.js",
     "test:guard": "node test/no-internal-access.js"
   },
   "devDependencies": {

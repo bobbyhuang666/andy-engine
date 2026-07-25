@@ -78,7 +78,7 @@ The LLM is a rendering layer, not the source of truth.
 | Facts / grounding | Opt-in (`enableFacts: true`); covers event → fact → knowledge and the agent_state epistemic boundary |
 | D5 narrative faithfulness | Public synthetic checker: Pass. Private held-out collection is complete, but Owner review/adjudication is pending; this is not a real-LLM pass claim. Extended assets remain outside the public repository. |
 | Seeded RNG | Core runtime paths support seeded simulation baseline |
-| Failed tick recovery | Default mode reports a degraded tick and never checkpoints it; `atomicTicks: true` additionally restores the pre-tick serialized world |
+| Failed tick recovery | Default mode reports a degraded tick, refuses further ticks, and never checkpoints it; `atomicTicks: true` additionally restores the pre-tick serialized world |
 | Perf-check | Benchmark / contagion profile regression checks exit 0 in 3-run median mode |
 | Character continuity evaluation | Characterization evidence only; not a public comparative-performance claim |
 
@@ -165,10 +165,15 @@ private held-out collection has completed, but Owner review and adjudication
 remain pending. It is not a real-LLM pass claim. Extended evaluation assets
 remain outside the public repository.
 
-For hosts that require in-memory rollback as well as no-checkpoint behavior,
-construct the engine with `atomicTicks: true`. This strict recovery mode
+The default mode fails closed after a degraded tick: that tick is not durable,
+tick callbacks do not run, and the engine refuses further advancement until
+the host restores a known-good checkpoint. For hosts that also require
+in-memory rollback, construct the engine with `atomicTicks: true`. This strict recovery mode
 serializes before each tick and is intentionally opt-in because it trades
 throughput for full rollback on a failed tick.
+
+Strict recovery reconstructs the engine world. Discard legacy live handles
+obtained before the failed tick and reacquire immutable projections afterwards.
 
 For normal reads, prefer `getAgentSnapshot()`, `getAgentsSnapshot()`, and
 `getSocialGraphSnapshot()`. The older getters return live compatibility
@@ -676,7 +681,7 @@ Grounded Narrative（有事实边界的叙事）
 | facts / grounding | opt-in（`enableFacts: true`）；覆盖 event → fact → knowledge、agent_state 私有边界 |
 | D5 叙事忠实度 | 公开 synthetic checker：Pass；私有 held-out 已完成采集，但 Owner 审核/裁决尚未完成，不能作为真实 LLM pass 声明。扩展评测资产在公开仓库外维护。 |
 | seeded RNG | 核心运行时路径支持 seeded simulation 基线 |
-| 失败 tick 恢复 | 默认模式报告 degraded tick 且绝不将其 checkpoint；`atomicTicks: true` 还会恢复 tick 前的序列化世界 |
+| 失败 tick 恢复 | 默认模式报告 degraded tick、拒绝后续 tick 且绝不将其 checkpoint；`atomicTicks: true` 还会恢复 tick 前的序列化世界 |
 | perf-check | benchmark / contagion profile 回归检查以 3-run median mode exit 0 |
 | 角色连续性评估 | 仅为 characterization evidence，不构成公开的对比性能声明 |
 

@@ -193,6 +193,21 @@ describe('Serialization.deserialize', () => {
     }).toThrow(/runtimeSnapshot/);
   });
 
+  it('拒绝 version 与 schemaVersion 不一致的 envelope', () => {
+    expect(() => Serialization.deserialize({
+      version: '0.0.0',
+      schemaVersion: ENVELOPE_VERSION,
+      runtimeSnapshot: {},
+    })).toThrow(/version and schemaVersion must match/);
+  });
+
+  it('拒绝旧 transport envelope，而不把 opaque runtimeSnapshot 当作 stable state 迁移', () => {
+    expect(() => Serialization.deserialize({
+      version: '0.0.0',
+      runtimeSnapshot: { time: '2026-01-01T00:00:00.000Z', tickCount: 0, agents: {} },
+    })).toThrow(/migrate the Stable World Envelope explicitly/);
+  });
+
   it('拒绝 null envelope', () => {
     expect(() => Serialization.deserialize(null)).toThrow(/对象/);
   });
@@ -421,6 +436,7 @@ describe('SnapshotStore 抽象接口', () => {
 
     await expect(store.saveSnapshot(0, 0, Buffer.alloc(0))).rejects.toThrow(/Not implemented/);
     await expect(store.loadLatest()).rejects.toThrow(/Not implemented/);
+    await expect(store.loadRecent()).rejects.toThrow(/Not implemented/);
     await expect(store.loadAt(0)).rejects.toThrow(/Not implemented/);
     await expect(store.prune()).rejects.toThrow(/Not implemented/);
     await expect(store.list()).rejects.toThrow(/Not implemented/);

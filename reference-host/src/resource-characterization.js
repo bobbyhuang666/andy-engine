@@ -61,7 +61,7 @@ function getEventCount(worldState) {
  * Get fact count from grounding packages (public API).
  */
 function getFactCount(engine) {
-  const agents = engine.getAllAgents();
+  const agents = engine.getAgentsSnapshot();
   let total = 0;
   for (const agent of agents) {
     const gp = engine.getGroundingPackage(agent.id);
@@ -73,14 +73,13 @@ function getFactCount(engine) {
 }
 
 /**
- * Get memory count per agent from getStatus().
+ * Get memory count per agent from immutable public projections.
  */
 function getMemoryCountPerAgent(engine) {
-  const agents = engine.getAllAgents();
+  const agents = engine.getAgentsSnapshot();
   const result = {};
   for (const agent of agents) {
-    const status = agent.getStatus();
-    // Memory count is not directly exposed via getStatus(), mark as not_observable
+    // Memory count is not directly exposed via the read projection, mark as not_observable
     result[agent.id] = 'not_observable/A1';
   }
   return result;

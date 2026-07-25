@@ -182,6 +182,13 @@ class MemoryStore {
 
   /** Process-local equivalent of the checkpoint commit API. */
   saveCheckpoint(tick, virtualTime, data, meta, keepCount = 720) {
+    const latest = this.loadLatest();
+    if (latest && tick < latest.tick) {
+      throw new Error(`checkpoint tick ${tick} is older than durable tick ${latest.tick}`);
+    }
+    if (latest && tick === latest.tick && !Buffer.from(latest.data).equals(Buffer.from(data))) {
+      throw new Error(`checkpoint tick ${tick} conflicts with an existing durable checkpoint`);
+    }
     this.saveSnapshot(tick, virtualTime, data, meta);
     this.prune(keepCount);
     this.setMany({ tick_count: tick, virtual_time: virtualTime });
@@ -209,6 +216,21 @@ class MemoryStore {
       meta: snapshot.meta ? JSON.parse(snapshot.meta) : null,
       createdAt: snapshot.createdAt,
     };
+  }
+
+  /** Load recent checkpoints newest-first for integrity-checked recovery. */
+  loadRecent(limit = 720) {
+    const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 720;
+    return [...this.snapshots]
+      .sort((a, b) => b.tick - a.tick)
+      .slice(0, safeLimit)
+      .map(snapshot => ({
+        tick: snapshot.tick,
+        virtualTime: snapshot.virtualTime,
+        data: Buffer.isBuffer(snapshot.data) ? Buffer.from(snapshot.data) : snapshot.data,
+        meta: snapshot.meta ? JSON.parse(snapshot.meta) : null,
+        createdAt: snapshot.createdAt,
+      }));
   }
 
   /**

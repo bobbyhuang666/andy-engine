@@ -52,6 +52,7 @@ class SimulationStore {
     this.virtualTime = null;
     this.storyBuffer = [];       // 待写入的故事
     this._snapshotFn = null;     // 外部提供的序列化函数
+    this._hasSnapshotWriter = false;
     this._restoreFn = null;      // 外部提供的反序列化函数
     this._requestedStoreType = this.storeType;
     this._actualStoreType = 'memory';
@@ -80,6 +81,7 @@ class SimulationStore {
    */
   async init({ onSnapshot, onRestore } = {}) {
     this._snapshotFn = onSnapshot || (() => Buffer.alloc(0));
+    this._hasSnapshotWriter = typeof onSnapshot === 'function';
     this._restoreFn = onRestore || (() => {});
 
     // 打开数据库
@@ -107,15 +109,35 @@ class SimulationStore {
     // metadata is not trusted because it can be ahead of or behind a snapshot.
     let restoreFailed = false;
     let error = null;
-    const snapshot = this.db.loadLatest();
-    if (snapshot) {
+    const snapshots = typeof this.db.loadRecent === 'function'
+      ? this.db.loadRecent(this.snapshotKeepCount)
+      : [this.db.loadLatest()].filter(Boolean);
+    const latestSnapshot = snapshots[0] || null;
+    let snapshot = null;
+    let rejectedCheckpoints = 0;
+    if (latestSnapshot) {
       try {
-        if (!CheckpointIntegrity.verify(snapshot)) {
-          throw new Error('checkpoint integrity verification failed');
+        for (const candidate of snapshots) {
+          if (CheckpointIntegrity.verify(candidate)) {
+            snapshot = candidate;
+            break;
+          }
+          rejectedCheckpoints++;
+        }
+        if (!snapshot) {
+          throw new Error('no integrity-verified checkpoint is available');
         }
         if (onRestore) await onRestore(snapshot.data);
         this.tickCount = SimulationStore._tickCount(snapshot.tick);
         this.virtualTime = Number.isFinite(snapshot.virtualTime) ? new Date(snapshot.virtualTime) : null;
+        if (rejectedCheckpoints > 0) {
+          diagnostics.collect({
+            type: 'checkpoint-recovery-fallback',
+            rejectedCheckpoints,
+            restoredTick: snapshot.tick,
+          });
+          diagnostics.warn(`SimulationStore skipped ${rejectedCheckpoints} corrupt checkpoint(s) during recovery`);
+        }
       }
       catch (err) {
         restoreFailed = true;
@@ -137,9 +159,10 @@ class SimulationStore {
       degraded: this._requestedStoreType === 'auto' && this._actualStoreType === 'memory',
       restoredTick: this.tickCount,
       restoredTime: this.virtualTime,
-      hasSnapshot: !!snapshot,
+      hasSnapshot: !!latestSnapshot,
       restoreFailed,
       error,
+      rejectedCheckpoints,
     };
   }
 
@@ -271,6 +294,9 @@ class SimulationStore {
   }
 
   setMeta(key, value) {
+    if (this._closed) {
+      throw new Error('SimulationStore is closed after a failed restore and cannot modify metadata');
+    }
     this.db.set(key, value);
   }
 
@@ -283,6 +309,18 @@ class SimulationStore {
    */
   async shutdown() {
     if (!this.db) return;
+
+    // A failed restore means this process has no trustworthy runtime state.
+    // Closing must preserve the forensic checkpoint rather than serializing the
+    // default/partial process state over it.
+    if (this._closed) {
+      try {
+        this.db.close();
+      } finally {
+        this.db = null;
+      }
+      return;
+    }
 
     // P0 fix: _flushStories() 可能 throw，必须确保 db.close() 在 finally 路径执行，
     // 避免连接泄漏。收集首个错误，close 后再 throw，不吞掉 shutdown 应暴露的错误。
@@ -375,7 +413,12 @@ class SimulationStore {
    * @returns {boolean} 是否成功保存
    */
   _saveSnapshot(opts = {}) {
-    if (!this._snapshotFn) return true;
+    if (this._closed) {
+      throw new Error('SimulationStore is closed after a failed restore and cannot save a checkpoint');
+    }
+    // A restore-only store must never manufacture an empty replacement
+    // checkpoint merely because no snapshot writer was supplied.
+    if (!this._hasSnapshotWriter || !this._snapshotFn) return true;
 
     try {
       const data = this._snapshotFn();
