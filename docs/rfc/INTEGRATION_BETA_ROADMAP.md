@@ -705,7 +705,10 @@ characters remain distinguishable over time.
 - freeze prompt-template, checker, domain, engine, provider, and model versions
   before the held-out run;
 - use at least two provider/model families, with at least one pinned model
-  snapshot per family;
+  snapshot per family; **superseded by
+  `IB_W3_CONTROLLED_MODEL_ALIAS_ADR.md` for W3: controlled aliases with
+  frozen configuration, identity fingerprint checks, and epoch isolation
+  replace pinned snapshot requirement;**
 - evaluate at least 300 total generations;
 - use stratified sampling with no fewer than 50 evaluated cases in each
   high-risk family: unsupported event, third-party state/location,
@@ -725,9 +728,14 @@ up to PASS.
 - label claim spans, claim type, required evidence, evidence available,
   validity, severity, final disposition, and reviewer rationale;
 - double-review at least 20% of cases, including every critical case;
+  **superseded by `IB_W3_SINGLE_REVIEWER_PROTOCOL_ADR.md` for W3:**
+  single reviewer 100% initial + 30% delayed blind re-review + 100%
+  critical re-review;
 - adjudicate all reviewer disagreements before computing the final gate;
+  **superseded:** disagreements trigger third reconciliation review;
 - report inter-reviewer agreement without treating agreement alone as
-  correctness;
+  correctness; **superseded:** report intra-rater consistency instead;
+  do not report inter-rater agreement (single reviewer);
 - reviewers must be blind to provider identity when practical.
 
 #### Required metrics
