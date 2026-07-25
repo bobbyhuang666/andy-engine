@@ -24,6 +24,7 @@
 
 const AndyWorld = require('./src/runtime/AndyWorld');
 const { capturePreTick, rollbackAbortedTick } = require('./src/runtime/AtomicTickRecovery');
+const { immutableProjection } = require('./src/runtime/ReadProjection');
 const Agent = require('./agent/Agent');
 const { ANDY_DEFAULTS } = require('./src/config/defaults');
 const { validateConfig, validateAgentConfig } = require('./src/config/validate');
@@ -321,6 +322,17 @@ class AndyEngine {
     return this.world.getAllAgents();
   }
 
+  /** Immutable public projection for read-only consumers. */
+  getAgentSnapshot(agentId) {
+    const agent = this.world.getAgent(agentId);
+    return agent ? immutableProjection(agent.getStatus()) : undefined;
+  }
+
+  /** Immutable public projections for every agent. */
+  getAgentsSnapshot() {
+    return immutableProjection(this.world.getAllAgents().map(agent => agent.getStatus()));
+  }
+
   // ═══════════════════════════════════════════
   // 内心叙事（核心 API）
   // ═══════════════════════════════════════════
@@ -598,6 +610,11 @@ class AndyEngine {
    */
   getSocialGraph() {
     return this.world.socialGraph;
+  }
+
+  /** Immutable public projection of the social graph. */
+  getSocialGraphSnapshot() {
+    return immutableProjection(this.world.socialGraph.snapshot());
   }
 
   /**

@@ -170,6 +170,10 @@ construct the engine with `atomicTicks: true`. This strict recovery mode
 serializes before each tick and is intentionally opt-in because it trades
 throughput for full rollback on a failed tick.
 
+For normal reads, prefer `getAgentSnapshot()`, `getAgentsSnapshot()`, and
+`getSocialGraphSnapshot()`. The older getters return live compatibility
+handles and are not a supported mutation or evidence surface.
+
 ---
 
 ## Continuous Behavior Field

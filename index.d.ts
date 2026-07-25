@@ -551,6 +551,8 @@ declare class AndyEngine {
   addAgents(configs: AgentConfig[]): object[];
   getAgent(agentId: string): object | undefined;
   getAllAgents(): AgentHandle[];
+  getAgentSnapshot(agentId: string): Readonly<AgentSnapshot> | undefined;
+  getAgentsSnapshot(): ReadonlyArray<Readonly<AgentSnapshot>>;
   getNarrative(agentId: string, options?: { userText?: string; relationship?: number }): string;
   getWorldContext(agentId: string): WorldContext | null;
   getGroundingPackage(agentId: string, options?: object): GroundingPackage | null;
@@ -563,6 +565,7 @@ declare class AndyEngine {
   onTick(callback: (tickResult: TickResult) => void): void;
   setWeather(weather: string): void;
   getSocialGraph(): object;
+  getSocialGraphSnapshot(): Readonly<object>;
   toJSON(): object;
 
   static fromJSON(data: object, config?: AndyEngineConfig): AndyEngine;

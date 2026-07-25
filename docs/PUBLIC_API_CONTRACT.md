@@ -37,8 +37,9 @@ require('andy-engine/presets/tavern') → presets/tavern/index.js
   - `createCharacter(config)` — stable
   - `addAgent(config)` — stable
   - `addAgents(configs)` — stable
-  - `getAgent(id)` — stable
-  - `getAllAgents()` — stable
+  - `getAgent(id)` / `getAllAgents()` — legacy live compatibility handles;
+    do not mutate them or use them as an evidence surface
+  - `getAgentSnapshot(id)` / `getAgentsSnapshot()` — stable immutable read projections
   - `getNarrative(id, options?)` — stable
   - `getWorldContext(id)` — stable
   - `getGroundingPackage(id, options?)` — stable
@@ -53,7 +54,8 @@ require('andy-engine/presets/tavern') → presets/tavern/index.js
   - `getStats()` — stable
   - `onTick(callback)` — stable
   - `setWeather(weather)` — stable
-  - `getSocialGraph()` — stable
+  - `getSocialGraph()` — legacy live compatibility handle; do not mutate it
+  - `getSocialGraphSnapshot()` — stable immutable read projection
   - `toJSON()` — legacy compatibility (functional; prefer `snapshot()` + `WorldStateAdapter`)
   - `fromJSON(data, config?)` — legacy compatibility (functional; prefer `WorldStateAdapter.fromWorldState()`)
 - **Allowed consumers**: external apps, SDK, examples, all tests
