@@ -4,13 +4,15 @@
 
 > **Language**: [English](#andy-engine) / [中文](#andy-engine-中文)
 
-Andy Engine maintains a shared **WorldCanon**: what happened, who saw it, and what changed.
+With the opt-in facts layer enabled, Andy Engine maintains a shared
+**WorldCanon**: what happened, who saw it, and what changed.
 
 Each character only knows part of that world, instead of having omniscient memory.
 
 Actions become canonical events that affect memory, relationships, location meaning, and future behavior.
 
-LLMs only express what a character knows; they do not create world facts.
+In that mode, LLMs only express what a character knows; they do not create
+world facts. The default runtime keeps `enableFacts: false` for compatibility.
 
 > **Status**: v2.0.1 — Persistent world runtime.
 
@@ -71,13 +73,13 @@ The LLM is a rendering layer, not the source of truth.
 
 | Area | Status |
 |---|---|
-| Unit / integration / domain / source-scan tests | 3770 tests passing / 28 skipped in the latest local quality gate |
+| Unit / integration / domain / source-scan tests | See the current CI/local quality-gate output; counts are intentionally not treated as a release claim here |
 | Custom domain | Tavern preset passes domain-agnostic validation |
-| Facts / grounding | Covers event → fact → knowledge, agent_state epistemic boundary |
-| D5 narrative faithfulness | Public synthetic checker: Pass. Real-LLM outcome: Warning / not evaluated until the private held-out, dual-provider protocol is complete. Extended evaluation assets remain outside the public repository. |
+| Facts / grounding | Opt-in (`enableFacts: true`); covers event → fact → knowledge and the agent_state epistemic boundary |
+| D5 narrative faithfulness | Public synthetic checker: Pass. Private held-out collection is complete, but Owner review/adjudication is pending; this is not a real-LLM pass claim. Extended assets remain outside the public repository. |
 | Seeded RNG | Core runtime paths support seeded simulation baseline |
 | Perf-check | Benchmark / contagion profile regression checks exit 0 in 3-run median mode |
-| Character continuity evaluation | Evaluations show stronger character continuity and presence compared with prompt-only baselines |
+| Character continuity evaluation | Characterization evidence only; not a public comparative-performance claim |
 
 ## AffectCompiler
 
@@ -158,9 +160,9 @@ layout are ready for early integrators and technical evaluation.
 
 The public D5 synthetic checker is covered by a smoke matrix and focused
 grounding unit tests. This does not establish real-LLM faithfulness: the
-real-LLM outcome remains Warning / not evaluated until the private held-out,
-dual-provider protocol is complete. Extended evaluation assets remain outside
-the public repository.
+private held-out collection has completed, but Owner review and adjudication
+remain pending. It is not a real-LLM pass claim. Extended evaluation assets
+remain outside the public repository.
 
 ---
 
@@ -484,13 +486,13 @@ Commercial licensing is available for proprietary integration, hosted products, 
 
 **AI 角色的持久世界运行时。**
 
-Andy Engine 维护一个共享的 **WorldCanon**：发生了什么、谁看到了、什么改变了。
+启用 opt-in facts 层后，Andy Engine 维护共享的 **WorldCanon**：发生了什么、谁看到了、什么改变了。
 
 每个角色只知道世界的一部分，而不是拥有全知记忆。
 
 行为会变成规范事件，影响记忆、关系、地点意义和未来行为。
 
-LLM 只能表达角色知道的事，不能创造世界事实。
+在该模式下，LLM 只能表达角色知道的事，不能创造世界事实。为兼容性，默认 `enableFacts: false`。
 
 > 状态：**v2.0.1** — 持久世界运行时。
 
@@ -584,8 +586,8 @@ B = (活跃度, 社交性, 专注度, 表达欲) ∈ [0,1]⁴
 领域配置和包结构已可用于早期集成和技术评估。
 
 D5 公开 synthetic checker 由合成 smoke matrix 和针对性单元测试守护，
-当前为 Pass；真实 LLM outcome 在完成私有 held-out 双 provider 评测前保持
-Warning / not evaluated。扩展评测资产不存放在公开仓库中。
+当前为 Pass；私有 held-out 已完成采集，但 Owner 审核与裁决尚未完成，
+不能作为真实 LLM pass 声明。扩展评测资产不存放在公开仓库中。
 
 ---
 
@@ -659,13 +661,13 @@ Grounded Narrative（有事实边界的叙事）
 
 | 项目 | 状态 |
 |---|---|
-| 单元 / 集成 / domain / source-scan 测试 | 最新本地质量门控：3770 tests passing / 28 skipped |
+| 单元 / 集成 / domain / source-scan 测试 | 以当前 CI / 本地质量门控输出为准；此处不将测试数量作为发布声明 |
 | custom domain | tavern preset 通过 domain-agnostic 验证 |
-| facts / grounding | 覆盖 event → fact → knowledge、agent_state 私有边界 |
-| D5 叙事忠实度 | 公开 synthetic checker：Pass；真实 LLM outcome：Warning / not evaluated，直至完成私有 held-out 双 provider 评测。扩展评测资产在公开仓库外维护。 |
+| facts / grounding | opt-in（`enableFacts: true`）；覆盖 event → fact → knowledge、agent_state 私有边界 |
+| D5 叙事忠实度 | 公开 synthetic checker：Pass；私有 held-out 已完成采集，但 Owner 审核/裁决尚未完成，不能作为真实 LLM pass 声明。扩展评测资产在公开仓库外维护。 |
 | seeded RNG | 核心运行时路径支持 seeded simulation 基线 |
 | perf-check | benchmark / contagion profile 回归检查以 3-run median mode exit 0 |
-| 角色连续性评估 | 内部评估显示角色连续性和存在感相比 prompt-only baseline 更强 |
+| 角色连续性评估 | 仅为 characterization evidence，不构成公开的对比性能声明 |
 
 ## AffectCompiler
 
