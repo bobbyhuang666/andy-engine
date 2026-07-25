@@ -49,6 +49,7 @@ class EffectCommitter {
 
     const now = this.world?.time || null;
     const undo = [];
+    const snapshotCache = new Map();
     // The normal runtime path commits one delta at a time. It has no earlier
     // peer write to undo, so constructing deep snapshots there would turn a
     // rare error-recovery path into a per-tick memory/CPU tax. Multi-delta
@@ -59,7 +60,16 @@ class EffectCommitter {
     for (const delta of effectResult.deltas) {
       delta.timestamp = now;
       try {
-        const restore = hasBatchPeers ? this._snapshotForDelta(delta) : null;
+        const snapshotKey = hasBatchPeers ? this._snapshotKey(delta) : null;
+        let restore = null;
+        if (snapshotKey) {
+          restore = snapshotCache.get(snapshotKey);
+          if (!restore) {
+            restore = this._snapshotForDelta(delta);
+            snapshotCache.set(snapshotKey, restore);
+            undo.push({ restore });
+          }
+        }
         const outcome = this._applyDelta(delta);
         if (outcome === 'skipped') {
           result.skipped.push(delta);
@@ -71,29 +81,39 @@ class EffectCommitter {
           });
         } else {
           result.applied.push(delta);
-          if (restore) undo.push({ delta, restore });
         }
       } catch (err) {
         result.errors.push({ delta, error: err });
         for (let i = undo.length - 1; i >= 0; i--) {
           try {
             undo[i].restore();
-            // committedMemory is an internal receipt, never evidence of a
-            // write that was rolled back.
-            if (Object.prototype.hasOwnProperty.call(undo[i].delta, 'committedMemory')) {
-              delete undo[i].delta.committedMemory;
-            }
-            result.rolledBack.push(undo[i].delta);
           } catch (rollbackError) {
-            result.errors.push({ delta: undo[i].delta, error: rollbackError, rollback: true });
+            result.errors.push({ error: rollbackError, rollback: true });
           }
         }
+        for (const applied of result.applied) {
+          // committedMemory is an internal receipt, never evidence of a
+          // write that was rolled back.
+          if (Object.prototype.hasOwnProperty.call(applied, 'committedMemory')) {
+            delete applied.committedMemory;
+          }
+        }
+        result.rolledBack = [...result.applied];
         result.applied = [];
         break;
       }
     }
 
     return result;
+  }
+
+  _snapshotKey(delta) {
+    switch (delta.type) {
+      case 'relationship': return 'relationship-graph';
+      case 'locationMeaning': return 'fact-store';
+      case 'position': return `position:${delta.agentId}`;
+      default: return `${delta.type}:${delta.agentId ?? ''}`;
+    }
   }
 
   /**
@@ -130,14 +150,18 @@ class EffectCommitter {
       }
       case 'memory': {
         const target = agent?.memory;
-        const state = cloneMutable({
-          memories: target?.memories,
-          appraisalBiases: target?.appraisalBiases,
+        // addExperience() only appends/prunes the collection; its existing
+        // memory records are not mutated. A shallow collection copy is enough
+        // for rollback and avoids serializing an agent's complete history for
+        // every multi-delta consequence batch.
+        const state = {
+          memories: target?.memories?.slice(),
+          appraisalBiases: target?.appraisalBiases?.slice(),
           nextMemId: target?._nextMemId,
           tickCache: target?._tickCache,
           tickCacheTick: target?._tickCacheTick,
           reconsolidated: target?._reconsolidatedThisTick,
-        });
+        };
         return () => {
           target.memories = state.memories;
           target.appraisalBiases = state.appraisalBiases;
