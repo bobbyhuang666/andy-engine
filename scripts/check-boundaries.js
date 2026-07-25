@@ -1136,8 +1136,8 @@ const DIRECT_POSITION_WRITE_PATTERN = /\bagent\.position\s*=/g;
 
 const DIRECT_POSITION_WRITE_ALLOWLIST = {
   'src/effects/EffectCommitter.js': {
-    count: 1,
-    reason: 'authorized PositionDelta owner',
+    count: 2,
+    reason: 'authorized PositionDelta owner and transactional rollback',
   },
   'src/sdk/AndyBridge.js': {
     count: 1,

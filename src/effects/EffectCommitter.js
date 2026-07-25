@@ -7,11 +7,20 @@
  *
  * Committer invariants:
  *   - Sets `delta.timestamp` at commit time.
- *   - Never throws; silently skips invalid deltas.
+ *   - Guard-rejected deltas are skipped; unexpected write errors are reported
+ *     and roll back the already-applied typed deltas in that batch.
  *   - All writes are bounded (clamped, guarded).
  */
 
 const { diagnostics } = require('../shared/Diagnostics');
+const SocialGraph = require('../social/SocialGraph');
+
+function cloneMutable(value) {
+  if (typeof globalThis.structuredClone !== 'function') {
+    throw new Error('EffectCommitter requires structuredClone for transactional commits');
+  }
+  return globalThis.structuredClone(value);
+}
 
 class EffectCommitter {
   /**
@@ -28,17 +37,29 @@ class EffectCommitter {
    * Commit all deltas in an EffectResult to live state.
    *
    * @param {import('./EffectResult').EffectResult} effectResult
-   * @returns {{ applied: Array, skipped: Array, errors: Array }}
+   * A thrown write rolls the whole typed-delta batch back. Guard-rejected
+   * deltas retain the legacy `skipped` behavior because callers intentionally
+   * use them for optional consequences rather than transactional failure.
+   *
+   * @returns {{ applied: Array, skipped: Array, errors: Array, rolledBack: Array }}
    */
   commit(effectResult) {
-    const result = { applied: [], skipped: [], errors: [] };
+    const result = { applied: [], skipped: [], errors: [], rolledBack: [] };
     if (!effectResult || !effectResult.deltas) return result;
 
     const now = this.world?.time || null;
+    const undo = [];
+    // The normal runtime path commits one delta at a time. It has no earlier
+    // peer write to undo, so constructing deep snapshots there would turn a
+    // rare error-recovery path into a per-tick memory/CPU tax. Multi-delta
+    // consequence batches use the journal below to preserve all-or-nothing
+    // behavior for the successfully-applied earlier deltas.
+    const hasBatchPeers = effectResult.deltas.length > 1;
 
     for (const delta of effectResult.deltas) {
       delta.timestamp = now;
       try {
+        const restore = hasBatchPeers ? this._snapshotForDelta(delta) : null;
         const outcome = this._applyDelta(delta);
         if (outcome === 'skipped') {
           result.skipped.push(delta);
@@ -50,13 +71,135 @@ class EffectCommitter {
           });
         } else {
           result.applied.push(delta);
+          if (restore) undo.push({ delta, restore });
         }
       } catch (err) {
         result.errors.push({ delta, error: err });
+        for (let i = undo.length - 1; i >= 0; i--) {
+          try {
+            undo[i].restore();
+            // committedMemory is an internal receipt, never evidence of a
+            // write that was rolled back.
+            if (Object.prototype.hasOwnProperty.call(undo[i].delta, 'committedMemory')) {
+              delete undo[i].delta.committedMemory;
+            }
+            result.rolledBack.push(undo[i].delta);
+          } catch (rollbackError) {
+            result.errors.push({ delta: undo[i].delta, error: rollbackError, rollback: true });
+          }
+        }
+        result.applied = [];
+        break;
       }
     }
 
     return result;
+  }
+
+  /**
+   * Capture only the mutable state a delta can touch. The snapshots are kept
+   * local to one commit and are used solely to undo an unexpected write error.
+   * @private
+   */
+  _snapshotForDelta(delta) {
+    const agent = this.agents?.get?.(delta.agentId);
+    switch (delta.type) {
+      case 'need': {
+        const target = agent?.needs;
+        const state = cloneMutable(target?.needs);
+        return () => { target.needs = state; };
+      }
+      case 'emotion': {
+        const target = agent?.emotion;
+        const state = cloneMutable({
+          baseline: target?.baseline,
+          current: target?.current,
+          mood: target?.mood,
+          stress: target?.stress,
+          pinkNoise: target?._pinkNoiseState,
+          preTick: target?._preTickValues,
+        });
+        return () => {
+          target.baseline = state.baseline;
+          target.current = state.current;
+          target.mood = state.mood;
+          target.stress = state.stress;
+          target._pinkNoiseState = state.pinkNoise;
+          target._preTickValues = state.preTick;
+        };
+      }
+      case 'memory': {
+        const target = agent?.memory;
+        const state = cloneMutable({
+          memories: target?.memories,
+          appraisalBiases: target?.appraisalBiases,
+          nextMemId: target?._nextMemId,
+          tickCache: target?._tickCache,
+          tickCacheTick: target?._tickCacheTick,
+          reconsolidated: target?._reconsolidatedThisTick,
+        });
+        return () => {
+          target.memories = state.memories;
+          target.appraisalBiases = state.appraisalBiases;
+          target._nextMemId = state.nextMemId;
+          target._tickCache = state.tickCache;
+          target._tickCacheTick = state.tickCacheTick;
+          target._reconsolidatedThisTick = state.reconsolidated;
+        };
+      }
+      case 'relationship': {
+        const graph = agent?.socialGraph;
+        const state = graph?.toJSON ? cloneMutable(graph.toJSON()) : null;
+        return () => {
+          const restored = SocialGraph.fromJSON(state, graph._cfg);
+          graph._adjacency = restored._adjacency;
+          graph._tickCount = restored._tickCount;
+        };
+      }
+      case 'position': {
+        const regions = this.world?.regions;
+        const state = cloneMutable({
+          position: agent?.position,
+          grid: regions?._grid,
+          agentRegions: regions?._agentRegions,
+        });
+        return () => {
+          agent.position = state.position;
+          if (regions) {
+            regions._grid = state.grid;
+            regions._agentRegions = state.agentRegions;
+          }
+        };
+      }
+      case 'locationMeaning': {
+        const store = this.world?.factStore;
+        const state = cloneMutable({
+          facts: store?._facts,
+          byType: store?._byType,
+          byAgent: store?._byAgent,
+          eventIndex: store?._eventIndex,
+          nextId: store?._nextId,
+        });
+        return () => {
+          store._facts = state.facts;
+          store._byType = state.byType;
+          store._byAgent = state.byAgent;
+          store._eventIndex = state.eventIndex;
+          store._nextId = state.nextId;
+        };
+      }
+      case 'futureTendency': {
+        const target = agent?.futureTendency;
+        const state = cloneMutable({ tendencies: target?._tendencies, decayRate: target?.decayRate, maxTendency: target?.maxTendency });
+        return () => {
+          target._tendencies = state.tendencies;
+          target.decayRate = state.decayRate;
+          target.maxTendency = state.maxTendency;
+        };
+      }
+      default:
+        return () => {};
+    }
   }
 
   /**
