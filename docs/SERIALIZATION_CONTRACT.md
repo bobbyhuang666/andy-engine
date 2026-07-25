@@ -95,7 +95,7 @@ The envelope is the cross-version-safe persistence format:
 - When both keys are present they must be identical. A contradictory pair is
   rejected rather than selecting one key implicitly.
 - `runtimeSnapshot` is opaque to `Serialization`; it does not parse or validate
-  its internal structure.
+  its internal structure, but it must be a non-null, non-array object.
 - `WorldStateAdapter.fromWorldState()` is fail-closed: it validates the stable
   envelope and requires a runtime payload with an agent table before handing
   the payload to the runtime. It intentionally does not validate individual

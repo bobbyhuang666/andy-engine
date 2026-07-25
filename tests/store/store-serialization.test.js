@@ -193,6 +193,14 @@ describe('Serialization.deserialize', () => {
     }).toThrow(/runtimeSnapshot/);
   });
 
+  it.each([null, [], 'not-a-snapshot', 123])('拒绝非对象 runtimeSnapshot: %p', runtimeSnapshot => {
+    expect(() => Serialization.deserialize({
+      version: ENVELOPE_VERSION,
+      schemaVersion: ENVELOPE_VERSION,
+      runtimeSnapshot,
+    })).toThrow(/runtimeSnapshot 必须是非空对象/);
+  });
+
   it('拒绝 version 与 schemaVersion 不一致的 envelope', () => {
     expect(() => Serialization.deserialize({
       version: '0.0.0',

@@ -100,8 +100,8 @@ class Serialization {
       // semantic envelope where AndyWorld expects a runtime snapshot.
       throw new Error(`Serialization.deserialize: envelope 版本 ${ver} 不匹配当前版本 ${CURRENT_SCHEMA_VERSION}; migrate the Stable World Envelope explicitly before loading`);
     }
-    if (!envelope.runtimeSnapshot) {
-      throw new Error('Serialization.deserialize: envelope 缺少 runtimeSnapshot 字段');
+    if (!envelope.runtimeSnapshot || typeof envelope.runtimeSnapshot !== 'object' || Array.isArray(envelope.runtimeSnapshot)) {
+      throw new Error('Serialization.deserialize: runtimeSnapshot 必须是非空对象');
     }
 
     // 运行时快照是不透明的，直接返回。
