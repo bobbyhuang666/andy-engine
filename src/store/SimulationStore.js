@@ -56,6 +56,7 @@ class SimulationStore {
     this._requestedStoreType = this.storeType;
     this._actualStoreType = 'memory';
     this._closed = false;
+    this._lastCheckpointSaved = false;
   }
 
   static _positiveInterval(value, fallback) {
@@ -307,7 +308,7 @@ class SimulationStore {
     // If the final snapshot failed, do not advance tick/time metadata beyond
     // the latest durable snapshot. Otherwise the next init can restore old
     // agent state while believing it is at a newer tick.
-    if (!snapshotError) {
+    if (!snapshotError && !this._lastCheckpointSaved) {
       try {
         this.db.set('tick_count', String(this.tickCount));
         if (this.virtualTime) {
@@ -379,9 +380,14 @@ class SimulationStore {
     try {
       const data = this._snapshotFn();
       const virtualTime = this.virtualTime?.getTime() || Date.now();
-      this.db.saveSnapshot(this.tickCount, virtualTime, data,
-        CheckpointIntegrity.createMeta(this.tickCount, virtualTime, data));
-      this.db.prune(this.snapshotKeepCount);
+      const meta = CheckpointIntegrity.createMeta(this.tickCount, virtualTime, data);
+      if (typeof this.db.saveCheckpoint === 'function') {
+        this.db.saveCheckpoint(this.tickCount, virtualTime, data, meta, this.snapshotKeepCount);
+        this._lastCheckpointSaved = true;
+      } else {
+        this.db.saveSnapshot(this.tickCount, virtualTime, data, meta);
+        this.db.prune(this.snapshotKeepCount);
+      }
       return true;
     } catch (e) {
       diagnostics.collect({ type: 'snapshot-save-failed', error: e.message });

@@ -180,6 +180,13 @@ class MemoryStore {
     });
   }
 
+  /** Process-local equivalent of the checkpoint commit API. */
+  saveCheckpoint(tick, virtualTime, data, meta, keepCount = 720) {
+    this.saveSnapshot(tick, virtualTime, data, meta);
+    this.prune(keepCount);
+    this.setMany({ tick_count: tick, virtual_time: virtualTime });
+  }
+
   /**
    * 加载最新快照
    * @returns {Snapshot|null}

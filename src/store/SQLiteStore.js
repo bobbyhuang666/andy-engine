@@ -280,6 +280,15 @@ class SQLiteStore {
     );
   }
 
+  /** Atomically persist a verified checkpoint, its cursor metadata, and retention. */
+  saveCheckpoint(tick, virtualTime, data, meta, keepCount = 720) {
+    return this.db.transaction(() => {
+      this.saveSnapshot(tick, virtualTime, data, meta);
+      this.prune(keepCount);
+      this.setMany({ tick_count: tick, virtual_time: virtualTime });
+    })();
+  }
+
   /**
    * 加载最新快照
    */
