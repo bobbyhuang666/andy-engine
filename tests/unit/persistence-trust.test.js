@@ -64,6 +64,19 @@ describe('G1: fromWorldState validates then forwards runtimeSnapshot opaquely', 
     expect(() => fromWorldState(state, {}, AndyEngine))
       .toThrow(/rejected invalid worldState.*runtimeSnapshot\.agents/);
   });
+
+  it('fails closed when opaque agent or clock witnesses disagree with the envelope', () => {
+    const agentMismatch = toWorldState(buildEngine(), 'agent-witness-mismatch');
+    agentMismatch.runtimeSnapshot.agents = {};
+    expect(() => fromWorldState(agentMismatch, {}, AndyEngine))
+      .toThrow(/rejected invalid worldState.*角色 ID/);
+
+    const clockMismatch = toWorldState(buildEngine(), 'clock-witness-mismatch');
+    clockMismatch.runtimeSnapshot.time = '2030-01-01T00:00:00.000Z';
+    clockMismatch.runtimeSnapshot.tickCount = 999;
+    expect(() => fromWorldState(clockMismatch, {}, AndyEngine))
+      .toThrow(/rejected invalid worldState.*worldClock/);
+  });
 });
 
 // ═══════════════════════════════════════════

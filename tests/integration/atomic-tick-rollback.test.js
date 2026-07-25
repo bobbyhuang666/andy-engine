@@ -46,4 +46,20 @@ describe('AndyEngine failed-tick recovery', () => {
     expect(next.status).toBe('committed');
     expect(callbackCount).toBe(1);
   });
+
+  it('faults the default engine so it cannot evolve from a degraded tick', () => {
+    const engine = new AndyEngine({ seed: 'fail-stop-default' });
+    engine.createCharacter({ id: 'maya', name: 'Maya', mbti: 'INFP' });
+    let callbackCount = 0;
+    engine.onTick(() => { callbackCount++; });
+    engine.getAgent('maya').behaviorField.tick = () => {
+      throw new Error('injected default failure');
+    };
+
+    const result = engine.tick();
+
+    expect(result.status).toBe('degraded');
+    expect(callbackCount).toBe(0);
+    expect(() => engine.tick()).toThrow(/faulted after a degraded tick/);
+  });
 });

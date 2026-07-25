@@ -126,6 +126,7 @@ class AndyEngine {
       worldConfig.actionSelection = this.config.actionSelection;
     }
     this.world = new AndyWorld(worldConfig, savedState, this.domain, this.rng);
+    this._faultedTick = null;
 
     // 恢复已保存的 Agent
     if (savedState && savedState.agents) {
@@ -465,13 +466,24 @@ class AndyEngine {
    * @returns {Object} tick 结果
    */
   tick() {
+    if (this._faultedTick) {
+      throw new Error(
+        'AndyEngine is faulted after a degraded tick and cannot advance further. ' +
+        'Restore from the last committed checkpoint or construct a new engine. ' +
+        `Failed tick: ${this._faultedTick.tickNumber}.`
+      );
+    }
     const atomicTicks = this.world.runtimeConfig.atomicTicks;
     const captured = atomicTicks ? capturePreTick(this) : null;
     try {
       const result = this.world.step();
-      return atomicTicks && (result.status === 'degraded' || result.status === 'aborted')
-        ? rollbackAbortedTick(this, captured, result)
-        : result;
+      if (atomicTicks && (result.status === 'degraded' || result.status === 'aborted')) {
+        return rollbackAbortedTick(this, captured, result);
+      }
+      if (result.status === 'degraded' || result.status === 'aborted') {
+        this._faultedTick = { tickNumber: result.tickNumber, errors: result.errors || [] };
+      }
+      return result;
     } catch (error) {
       if (atomicTicks) rollbackAbortedTick(this, captured, {
         time: captured.state.time,
@@ -481,6 +493,9 @@ class AndyEngine {
         phase: {},
         errors: [{ phase: 'engineTick', message: error.message }],
       });
+      if (!atomicTicks) {
+        this._faultedTick = { tickNumber: this.world.tickCount, errors: [{ phase: 'engineTick', message: error.message }] };
+      }
       throw error;
     }
   }

@@ -521,9 +521,10 @@ class AndyWorld {
     result.committedAt = this.clock.toISOString();
     result.time = result.committedAt;
 
-    // A degraded tick is about to be rolled back by the public Engine facade.
-    // Do not expose its transient partial state through callbacks.
-    if (result.status === 'committed' || !this.runtimeConfig.atomicTicks) {
+    // A degraded tick may contain partial in-memory writes. The public facade
+    // either rolls it back (atomicTicks) or faults the Engine; never expose it
+    // through callbacks as though it had committed.
+    if (result.status === 'committed') {
       for (const cb of this._tickCallbacks) {
         try { cb(result); } catch (e) { diagnostics.warn(`onTick callback error: ${e.message}`); }
       }

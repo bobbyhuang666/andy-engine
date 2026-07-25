@@ -257,6 +257,26 @@ function validateWorldState(state) {
     // snapshot rather than an arbitrary object. Do not inspect agent internals
     // here: they remain owned by the runtime restore path.
     errors.push({ path: 'runtimeSnapshot.agents', message: '必须是对象' });
+  } else {
+    // The opaque runtime payload remains runtime-owned, but its identity and
+    // clock witnesses must agree with the stable envelope. Otherwise a
+    // damaged payload can pass validation and restore a different world.
+    const envelopeIds = Array.isArray(state.characters)
+      ? state.characters.map(character => character?.id).filter(id => typeof id === 'string').sort()
+      : null;
+    const snapshotIds = Object.keys(state.runtimeSnapshot.agents).sort();
+    if (envelopeIds && (envelopeIds.length !== snapshotIds.length || envelopeIds.some((id, index) => id !== snapshotIds[index]))) {
+      errors.push({ path: 'runtimeSnapshot.agents', message: '角色 ID 必须与 characters 精确一致' });
+    }
+
+    const clockTime = new Date(state.worldClock?.time).getTime();
+    const snapshotTime = new Date(state.runtimeSnapshot.time).getTime();
+    if (!Number.isFinite(snapshotTime) || snapshotTime !== clockTime) {
+      errors.push({ path: 'runtimeSnapshot.time', message: '必须与 worldClock.time 一致' });
+    }
+    if (!Number.isInteger(state.runtimeSnapshot.tickCount) || state.runtimeSnapshot.tickCount !== state.worldClock?.tickCount) {
+      errors.push({ path: 'runtimeSnapshot.tickCount', message: '必须与 worldClock.tickCount 一致' });
+    }
   }
 
   return { valid: errors.length === 0, errors };

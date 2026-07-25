@@ -153,7 +153,9 @@ describe('validateWorldState', () => {
     ],
     runtimeSnapshot: {
       _runtimeVersion: '0.2.0',
-      agents: {},
+      time: '2026-09-15T14:30:00Z',
+      tickCount: 1234,
+      agents: { maya: {}, alice: {} },
     },
   };
 
@@ -356,7 +358,7 @@ describe('validateWorldState', () => {
     expect(result.errors.some(e => e.path === 'runtimeSnapshot')).toBe(true);
   });
 
-  it('接受 runtimeSnapshot 为任意对象（Opaque Payload）', () => {
+  it('接受具有一致身份与时钟 witness 的不透明 runtimeSnapshot', () => {
     const state = {
       ...validState,
       runtimeSnapshot: {
@@ -367,7 +369,10 @@ describe('validateWorldState', () => {
             needs: { hunger: 0.3 },
             behaviorField: { B: [0.5, 0.3, 0.7, 0.2] },
           },
+          alice: {},
         },
+        time: '2026-09-15T14:30:00Z',
+        tickCount: 1234,
         someArbitraryField: [1, 2, 3],
       },
     };
