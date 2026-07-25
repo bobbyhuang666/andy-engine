@@ -21,6 +21,7 @@
 const { SQLiteStore } = require('./SQLiteStore');
 const { MemoryStore } = require('./MemoryStore');
 const { diagnostics } = require('../shared/Diagnostics');
+const CheckpointIntegrity = require('./CheckpointIntegrity');
 
 class SimulationStore {
   /**
@@ -54,6 +55,7 @@ class SimulationStore {
     this._restoreFn = null;      // 外部提供的反序列化函数
     this._requestedStoreType = this.storeType;
     this._actualStoreType = 'memory';
+    this._closed = false;
   }
 
   static _positiveInterval(value, fallback) {
@@ -100,30 +102,25 @@ class SimulationStore {
       }
     }
 
-    // 从元数据恢复状态
-    const savedTick = this.db.get('tick_count');
-    const savedTime = this.db.get('virtual_time');
-
-    // Guard corrupt meta: parseInt non-numeric strings → NaN, fall back to safe defaults
-    if (savedTick != null) {
-      const parsed = parseInt(savedTick, 10);
-      this.tickCount = SimulationStore._tickCount(parsed);
-    }
-    if (savedTime != null) {
-      const parsed = parseInt(savedTime, 10);
-      this.virtualTime = Number.isFinite(parsed) ? new Date(parsed) : null;
-    }
-
-    // 尝试恢复最近快照
+    // The verified checkpoint is the recovery authority. Legacy standalone
+    // metadata is not trusted because it can be ahead of or behind a snapshot.
     let restoreFailed = false;
     let error = null;
     const snapshot = this.db.loadLatest();
-    if (snapshot && onRestore) {
-      try { await onRestore(snapshot.data); }
+    if (snapshot) {
+      try {
+        if (!CheckpointIntegrity.verify(snapshot)) {
+          throw new Error('checkpoint integrity verification failed');
+        }
+        if (onRestore) await onRestore(snapshot.data);
+        this.tickCount = SimulationStore._tickCount(snapshot.tick);
+        this.virtualTime = Number.isFinite(snapshot.virtualTime) ? new Date(snapshot.virtualTime) : null;
+      }
       catch (err) {
         restoreFailed = true;
         const message = err && err.message ? err.message : String(err);
         error = { code: 'RESTORE_FAILED', message };
+        this._closed = true;
         diagnostics.collect({ type: 'restore_failed', error: message });
         diagnostics.warn(`SimulationStore restore failed: ${message}`);
       }
@@ -155,6 +152,9 @@ class SimulationStore {
    * @param {Story[]} newStories - 本 tick 产生的故事
    */
   onTick(tickResult, newStories = []) {
+    if (this._closed) {
+      throw new Error('SimulationStore is closed after a failed restore and cannot accept ticks');
+    }
     if (!tickResult) return;
 
     // A degraded/aborted tick can contain legacy in-memory partial writes.
@@ -378,7 +378,9 @@ class SimulationStore {
 
     try {
       const data = this._snapshotFn();
-      this.db.saveSnapshot(this.tickCount, this.virtualTime?.getTime() || Date.now(), data);
+      const virtualTime = this.virtualTime?.getTime() || Date.now();
+      this.db.saveSnapshot(this.tickCount, virtualTime, data,
+        CheckpointIntegrity.createMeta(this.tickCount, virtualTime, data));
       this.db.prune(this.snapshotKeepCount);
       return true;
     } catch (e) {

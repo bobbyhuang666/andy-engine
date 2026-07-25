@@ -500,6 +500,29 @@ describe('P0: shutdown ensures db.close() when _flushStories throws', () => {
 // P2 regression: init corrupt meta guard
 // ═══════════════════════════════════════════
 describe('P2: init recovers from corrupt meta (NaN guard)', () => {
+  it('fails closed and rejects future ticks when the latest checkpoint digest is invalid', async () => {
+    const dbPath = makeTempDbPath('checkpoint-integrity');
+    const store = makeStore({ dbPath });
+    await store.init({ onSnapshot: () => Buffer.from('trusted') });
+    store.tickCount = 1;
+    store.virtualTime = new Date(MS);
+    await store.shutdown();
+
+    const tampered = makeStore({ dbPath });
+    await tampered.init();
+    const snapshot = tampered.db.loadLatest();
+    tampered.db.saveSnapshot(snapshot.tick, snapshot.virtualTime, Buffer.from('tampered'), snapshot.meta);
+    tampered.db.close();
+    tampered.db = null;
+
+    const restored = makeStore({ dbPath });
+    const result = await restored.init();
+    expect(result.restoreFailed).toBe(true);
+    expect(result.error.message).toMatch(/integrity/);
+    expect(() => restored.onTick({ tickNumber: 2, time: ISO })).toThrow(/closed after a failed restore/);
+    await restored.shutdown();
+  });
+
   it('tickCount falls back to 0 and virtualTime to null when meta is corrupt string', async () => {
     const dbPath = makeTempDbPath('corrupt-meta-1');
     const store = makeStore({ dbPath });
@@ -514,9 +537,9 @@ describe('P2: init recovers from corrupt meta (NaN guard)', () => {
     const result = await store2.init();
 
     expect(result.restoredTick).toBe(0);
-    expect(result.restoredTime).toBeNull();
+    expect(result.restoredTime).toBeInstanceOf(Date);
     expect(store2.tickCount).toBe(0);
-    expect(store2.virtualTime).toBeNull();
+    expect(store2.virtualTime).toBeInstanceOf(Date);
     // tickCount must not be NaN
     expect(Number.isNaN(store2.tickCount)).toBe(false);
     await store2.shutdown();
@@ -555,7 +578,7 @@ describe('P2: init recovers from corrupt meta (NaN guard)', () => {
     await store2.init();
 
     expect(store2.tickCount).toBe(0);
-    expect(store2.virtualTime).toBeNull();
+    expect(store2.virtualTime).toBeInstanceOf(Date);
 
     // getStats uses virtualTime?.getTime() || Date.now() — must not throw or return NaN
     const stats = store2.getStats('a');
