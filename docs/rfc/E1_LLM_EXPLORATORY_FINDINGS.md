@@ -334,4 +334,22 @@ All proposals in §6 are verifier-approved. No unverified proposals are included
 
 ---
 
+## 9. E2 Resolution Status (appended 2026-07-26)
+
+E2 (Grounding Consistency & Checker Correctness Repair) has resolved the following E1 findings:
+
+| E1 Finding | E2 Resolution | Status |
+|------------|---------------|--------|
+| P0: Engine grounding gap (position timing) | E2-1: post-tick AGENT_STATE refresh | **RESOLVED** (commit `c78974a`, verifier 8/8 PASS) |
+| P1: FactConsistencyChecker regex false positives | E2-2: regex tightening + true-positive guards | **RESOLVED** (commit `22212d2`, verifier 7/7 PASS) |
+| P1: GroundingChecker 4-char fragment fallback | E2-2: exact match only | **RESOLVED** (commit `22212d2`) |
+| P1: expectedDisposition design flaw | E2-3: scenarioProperties + expectedCheckerDisposition | **RESOLVED** (private root, verifier 5/5 PASS) |
+| P2: Reviewer protocol hardening | E1-4: already resolved | **RESOLVED** (unchanged) |
+
+Post-fix reanalysis (E2-4): 341 false positives eliminated, 0 new regressions. See `docs/rfc/E2_GROUNDING_CHECKER_REPAIR.md` for full details.
+
+**E1 original conclusions remain unchanged.** This section only appends E2 resolution status.
+
+---
+
 *Architect (Integration Beta lead) | 2026-07-26*
