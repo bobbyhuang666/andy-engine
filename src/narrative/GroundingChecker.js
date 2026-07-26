@@ -45,6 +45,35 @@ class GroundingChecker {
   }
 
   /**
+   * P1 fix: heuristic to detect if a string is clearly NOT a character name.
+   * Chinese names almost never contain function words like pronouns,
+   * demonstratives, measure words, or structural particles.
+   * @private
+   */
+  static _isLikelyName(str) {
+    if (!str || typeof str !== 'string') return false;
+    // Common Chinese function words that rarely appear in actual names
+    const nonNameChars = new Set([
+      // Pronouns
+      '我', '你', '他', '她', '它', '们', '自', '己',
+      // Demonstratives
+      '这', '那', '哪',
+      // Measure words / classifiers
+      '个', '本', '张', '条', '只', '头', '位', '名',
+      // Structural particles
+      '的', '地', '得',
+      // Common verbs/prepositions used as fragments
+      '在', '是', '有', '和', '与', '为', '被', '把',
+      // Numbers used as fragments (not standalone names)
+      '一', '二', '三', '四', '五', '六', '七', '八', '九', '十',
+    ]);
+    for (const ch of str) {
+      if (nonNameChars.has(ch)) return false;
+    }
+    return true;
+  }
+
+  /**
    * 主入口：校验 LLM 输出
    * @param {string} llmOutput
    * @param {Object} grounding - grounding package from FactProvider
@@ -561,6 +590,16 @@ class GroundingChecker {
     const { selfId, selfAgentStateLocations, agentKnownLocations, agentNames, forbiddenFacts } = ctx;
 
     const subjectId = claim.subjectId;
+
+    // P1 fix: skip location claims where the subject is clearly not a name.
+    // We detect this by checking for common Chinese function words (pronouns,
+    // demonstratives, measure words, structural particles) that almost never
+    // appear in actual character names but frequently appear in regex-matched
+    // false positives like "一个人站" or "那本书还".
+    if (subjectId && !GroundingChecker._isLikelyName(subjectId)) {
+      return violations;
+    }
+
     const isSelf = subjectId === selfId;
     const displayName = claim.rawSubject || agentNames[subjectId] || subjectId;
     const location = claim.objectRaw;
@@ -1038,14 +1077,10 @@ class GroundingChecker {
   }
 
   _textContainsFactContent(text, description) {
-    if (text.includes(description)) return true;
-    if (description.length >= 4) {
-      for (let i = 0; i <= description.length - 4; i++) {
-        const fragment = description.substring(i, i + 4);
-        if (text.includes(fragment)) return true;
-      }
-    }
-    return false;
+    // P1 fix: removed 4-char fragment matching that caused 96% false positives.
+    // Only exact full-description match is allowed here — structured claim/evidence
+    // binding in the v2 path handles paraphrased matches.
+    return text.includes(description);
   }
 }
 

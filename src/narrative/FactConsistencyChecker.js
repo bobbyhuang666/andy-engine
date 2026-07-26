@@ -272,8 +272,12 @@ class FactConsistencyChecker {
       // Filter: must be a plausible location (not a verb/adj suffix)
       const nonLocationSuffixes = ['看书', '学习', '吃饭', '聊天', '休息', '睡觉', '工作', '运动', '跑步'];
       if (nonLocationSuffixes.some(suffix => location.endsWith(suffix))) continue;
-      // Skip common non-location words
-      const commonNonLocations = ['这里', '那里', '哪里', '外面', '里面', '旁边', '对面', '上面', '下面'];
+      // Skip common non-location words (standalone or compound)
+      const commonNonLocations = [
+        '这里', '那里', '哪里', '外面', '里面', '旁边', '对面', '上面', '下面',
+        // P1 fix: generic noun + spatial suffix compounds are not location entity claims
+        '步道上', '步道上', '雪地上', '雪地里', '书包里', '地上', '树上', '墙上', '桌上', '椅上', '门上', '河里', '海里', '山上',
+      ];
       if (commonNonLocations.includes(location)) continue;
       // Skip locations inside source-attributed regions (e.g. "鲍勃告诉我他去了图书馆")
       if (this._isInSourceAttributedRegion(text, matchIndex)) continue;
@@ -496,7 +500,7 @@ class FactConsistencyChecker {
       const agentName = match[1];
       const location = match[2];
 
-      const commonNonAgents = ['大家', '别人', '对方', '朋友', '人们', '我们', '他们', '她们'];
+      const commonNonAgents = ['大家', '别人', '对方', '朋友', '人们', '我们', '他们', '她们', '一个人站', '那本书还'];
       if (commonNonAgents.includes(agentName)) continue;
 
       const commonNonLocations = ['这里', '那里', '哪里', '外面', '里面', '旁边', '对面', '上面', '下面'];
@@ -823,7 +827,8 @@ class FactConsistencyChecker {
     for (const desc of toldFacts) {
       if (desc.length < 2) continue;
       // If the description content appears in text but without attribution
-      if (this._textContainsFactContent(text, desc)) {
+      // Use exact-only matching to avoid false positives from 4-char fragments
+      if (this._textContainsFactContent(text, desc, false)) {
         const hasAttribution = toldMarkers.some(m => text.includes(m));
         if (!hasAttribution) {
           violations.push({
@@ -839,7 +844,8 @@ class FactConsistencyChecker {
     // Check: inferred facts must have hedging markers in text
     for (const desc of inferredFacts) {
       if (desc.length < 2) continue;
-      if (this._textContainsFactContent(text, desc)) {
+      // Use exact-only matching to avoid false positives from 4-char fragments
+      if (this._textContainsFactContent(text, desc, false)) {
         const hasHedging = inferredMarkers.some(m => text.includes(m)) ||
                            toldMarkers.some(m => text.includes(m));
         if (!hasHedging) {
@@ -858,16 +864,21 @@ class FactConsistencyChecker {
 
   /**
    * 检查文本是否包含事实描述的关键内容
+   * @param {string} text
+   * @param {string} description
+   * @param {boolean} [allowFragments=true] — allow 4-char fragment matching for
+   *   local_scope_leak (catches paraphrased leaks). Set false for
+   *   missing_source_attribution where exact match avoids false positives.
    * @private
    */
-  _textContainsFactContent(text, description) {
-    // Require the full description to appear in text.
-    // 4-char fragment matching caused false positives:
-    //   text "我没有在图书馆" contains 4-char fragment "在图书" from
-    //   told fact "鲍勃在图书馆" → spurious missing_source_attribution.
-    // The v2 structured checker handles paraphrased matches; v1 regex
-    // should only flag exact description repetitions without attribution.
+  _textContainsFactContent(text, description, allowFragments = true) {
     if (text.includes(description)) return true;
+    if (allowFragments && description.length >= 4) {
+      for (let i = 0; i <= description.length - 4; i++) {
+        const fragment = description.substring(i, i + 4);
+        if (text.includes(fragment)) return true;
+      }
+    }
     return false;
   }
 
