@@ -525,6 +525,10 @@ class AndyWorld {
     // either rolls it back (atomicTicks) or faults the Engine; never expose it
     // through callbacks as though it had committed.
     if (result.status === 'committed') {
+      // Post-tick refresh of AGENT_STATE facts so that position reflects the
+      // final state after all movement phases (thinking, spatial, encounter).
+      this._refreshAgentStateFacts();
+
       for (const cb of this._tickCallbacks) {
         try { cb(result); } catch (e) { diagnostics.warn(`onTick callback error: ${e.message}`); }
       }
@@ -579,6 +583,24 @@ class AndyWorld {
     // Sync simTime to factStore
     if (this.factStore) {
       this.factStore.setSimTime(this.clock.time);
+    }
+  }
+
+  /**
+   * Post-tick refresh of agent-state facts.
+   *
+   * Called AFTER all position-changing phases (agent thinking, spatial moves,
+   * encounter effects) so that AGENT_STATE facts reflect the final position.
+   *
+   * MUST only be invoked when result.status === 'committed'; degraded ticks
+   * must not persist stale position data into the fact store.
+   *
+   * @private
+   */
+  _refreshAgentStateFacts() {
+    if (this.factEmitter) {
+      this.factEmitter.setSimTime(this.clock.time);
+      this.factEmitter.emitAgentStateFacts(this.agents);
     }
   }
 

@@ -317,19 +317,26 @@ describe('Fact System Tavern Runnable Slice', () => {
     const leoGrounding = engine.getGroundingPackage('leo');
     const checker = new FactConsistencyChecker(engine.world.factStore, tavernDomain);
 
-    // Bobby 说 "Bobby在酒馆" — 他自己的 AGENT_STATE 已更新为酒馆 → valid
-    const bobbyClaim = checker.check('Bobby在酒馆', bobbyGrounding);
+    // E2-1 fix: AGENT_STATE now reflects post-tick position (after Phase 9
+    // refresh), not the pre-tick manual position. Use the actual current
+    // region from worldContext for the self-claim assertion.
+    const bobbyCtx = engine.getWorldContext('bobby');
+    const bobbyRegion = bobbyCtx.currentRegion;
+    expect(bobbyRegion).toBeDefined();
+
+    // Bobby 说 "Bobby在{region}" — 他自己的 AGENT_STATE 已更新为 post-tick 位置 → valid
+    const bobbyClaim = checker.check(`Bobby在${bobbyRegion}`, bobbyGrounding);
     expect(bobbyClaim.valid).toBe(true);
 
-    // Leo 说 "Bobby在酒馆" — 他既不是 participant 也不是 observer，
+    // Leo 说 "Bobby在{region}" — 他既不是 participant 也不是 observer，
     // 且不应信任 PUBLIC agent_state 作为位置证据 → unsupported_claim
-    const leoClaim = checker.check('Bobby在酒馆', leoGrounding);
+    const leoClaim = checker.check(`Bobby在${bobbyRegion}`, leoGrounding);
     expect(leoClaim.valid).toBe(false);
     expect(leoClaim.violations.some(v => v.type === 'unsupported_claim')).toBe(true);
 
-    // Mira 说 "Bobby在酒馆" — 她是 observer 但事件 location 是 '广场' 不是 '酒馆'，
-    // 她知道 Bobby 离开了广场，但不知道 Bobby 在酒馆 → unsupported_claim
-    const miraClaim = checker.check('Bobby在酒馆', miraGrounding);
+    // Mira 说 "Bobby在{region}" — 她是 observer 但事件 location 是 '广场' 不是该位置，
+    // 她知道 Bobby 离开了广场，但不知道 Bobby 的最终位置 → unsupported_claim
+    const miraClaim = checker.check(`Bobby在${bobbyRegion}`, miraGrounding);
     expect(miraClaim.valid).toBe(false);
     expect(miraClaim.violations.some(v => v.type === 'unsupported_claim')).toBe(true);
   });
