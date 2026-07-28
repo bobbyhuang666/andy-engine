@@ -146,6 +146,19 @@ describe('v3 trace — 与 v2 判定一致', () => {
     }
   });
 
+  it('fact-bound supported claim → evidenceTrace carries the supporting fact id', () => {
+    const c = makeChecker();
+    const r = c.check('我在图书馆', baseGrounding({
+      allowedFacts: [
+        { id: 'fact_alice_library', type: FactType.AGENT_STATE, agentId: 'alice', position: '图书馆' },
+      ],
+      metadata: { agentId: 'alice', agentNames: { alice: '爱丽丝' } },
+    }));
+    const locTrace = r.evidenceTrace.find(t => t.type === 'location');
+    expect(locTrace.support).toBe('supports');
+    expect(locTrace.factId).toBe('fact_alice_library');
+  });
+
   it('unsupported claim → support unsupported', () => {
     const c = makeChecker();
     const r = c.check('鲍勃在食堂', baseGrounding({

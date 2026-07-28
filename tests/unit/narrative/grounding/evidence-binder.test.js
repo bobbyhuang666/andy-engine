@@ -82,6 +82,19 @@ describe('EvidenceBinder', () => {
   const charlieId = 'charlie';
 
   describe('self location', () => {
+    test('命中 → emits the supporting fact id', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = [
+        { ...makeAgentStateFact({ agentId: selfId, position: '图书馆' }), id: 'fact_self_location' },
+      ];
+      const claims = [makeClaim({ type: 'location', subject: selfId, object: '图书馆' })];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings[0].support).toBe(SUPPORT.SUPPORTS);
+      expect(result.bindings[0].factId).toBe('fact_self_location');
+    });
+
     test('命中 → supports', () => {
       const binder = new EvidenceBinder({ selfId });
       const allowedFacts = [
@@ -112,6 +125,19 @@ describe('EvidenceBinder', () => {
   });
 
   describe('other-agent location (EVENT participants/observers)', () => {
+    test('EVENT participants 命中 → emits the supporting event fact id', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = [
+        { ...makeEventFact({ location: '图书馆', participants: [bobId] }), id: 'fact_bob_library' },
+      ];
+      const claims = [makeClaim({ type: 'location', subject: bobId, object: '图书馆' })];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings[0].support).toBe(SUPPORT.SUPPORTS);
+      expect(result.bindings[0].factId).toBe('fact_bob_library');
+    });
+
     test('EVENT participants 命中 → supports', () => {
       const binder = new EvidenceBinder({ selfId });
       const allowedFacts = [
@@ -575,9 +601,9 @@ describe('EvidenceBinder', () => {
       const result = binder.bind(claims, allowedFacts);
 
       expect(result.index).toBeDefined();
-      expect(result.index.selfAgentStateLocations).toBeInstanceOf(Set);
+      expect(result.index.selfAgentStateLocations).toBeInstanceOf(Map);
       expect(result.index.agentKnownLocations).toBeInstanceOf(Map);
-      expect(result.index.knownEventDescriptions).toBeInstanceOf(Set);
+      expect(result.index.knownEventDescriptions).toBeInstanceOf(Map);
     });
   });
 

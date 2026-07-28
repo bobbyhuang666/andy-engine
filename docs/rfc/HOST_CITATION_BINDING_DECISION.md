@@ -8,8 +8,9 @@ Andy Engine does not require a language model to emit internal fact IDs in a
 narrative. A Host that needs citations obtains them after generation by calling
 the public `checkConsistency()` API and consuming its `evidenceTrace`.
 
-Each trace entry is a deterministic binding from a checked claim to its
-support status and, when supported, to `factId`. This is an evidence projection:
+Each fact-bound trace entry is a deterministic binding from a checked claim to
+its support status and, when supported, to `factId`. Self-attested source and
+time markers intentionally have no backing fact ID. This is an evidence projection:
 it does not create facts, change knowledge, or repair an unsupported claim.
 
 ## Rationale

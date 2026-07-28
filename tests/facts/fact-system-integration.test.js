@@ -62,6 +62,24 @@ describe('Fact System Integration', () => {
     expect(result).toHaveProperty('severity');
   });
 
+  it('checkConsistency 的支持性位置 trace 绑定来源 factId', () => {
+    const engine = new AndyEngine({ enableFacts: true });
+    engine.createCharacter({ id: 'test', name: '测试', mbti: 'INFP' });
+    engine.tick();
+
+    const grounding = engine.getGroundingPackage('test');
+    const stateFact = grounding.allowedFacts.find(f =>
+      f.type === 'agent_state' && f.agentId === 'test' && (f.position || f.region)
+    );
+    const location = stateFact.position || stateFact.region;
+    const result = engine.checkConsistency(`我在${location}`, 'test');
+    const trace = result.evidenceTrace.find(entry => entry.type === 'location');
+
+    expect(result.valid).toBe(true);
+    expect(trace.support).toBe('supports');
+    expect(trace.factId).toBe(stateFact.id);
+  });
+
   it('多 tick 后 agent_state 事实更新而非无限增长', () => {
     const engine = new AndyEngine({ enableFacts: true });
     engine.createCharacter({ id: 'test', name: '测试', mbti: 'INFP' });

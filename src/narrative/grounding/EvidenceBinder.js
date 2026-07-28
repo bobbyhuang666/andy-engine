@@ -98,11 +98,14 @@ class EvidenceBinder {
    * @private
    */
   _buildIndex(allowedFacts, selfId) {
-    const selfAgentStateLocations = new Set(); // selfId → position/region
-    const agentKnownLocations = new Map();     // agentId → Set<location>
-    const agentKnownEvents = new Map();        // agentId → Set<descLower>
-    const knownEventDescriptions = new Set();  // lowercased description fragments
-    const knownRelationships = new Map();      // 'agentA:agentB' → relationType（双向）
+    // Keep the fact id alongside every index key. EvidenceTrace is a
+    // host-facing read projection, so a supported fact-bound claim must be
+    // able to identify the fact that supplied its support.
+    const selfAgentStateLocations = new Map(); // location → factId
+    const agentKnownLocations = new Map();     // agentId → Map<location, factId>
+    const agentKnownEvents = new Map();        // agentId → Map<descLower, factId>
+    const knownEventDescriptions = new Map();  // descLower → factId
+    const knownRelationships = new Map();      // 'agentA:agentB' → { relationType, factId }
     const toldFacts = [];                      // facts with _evidence.source === 'told'
     const inferredFacts = [];                  // facts with _evidence.source === 'inferred'
 
@@ -111,8 +114,8 @@ class EvidenceBinder {
 
       // Self AGENT_STATE for location/state support
       if (fact.type === FactType.AGENT_STATE && fact.agentId === selfId) {
-        if (fact.position) selfAgentStateLocations.add(fact.position);
-        if (fact.region) selfAgentStateLocations.add(fact.region);
+        if (fact.position) selfAgentStateLocations.set(fact.position, fact.id || null);
+        if (fact.region) selfAgentStateLocations.set(fact.region, fact.id || null);
       }
 
       // EVENT facts: build agent→location map
@@ -120,30 +123,30 @@ class EvidenceBinder {
       if (fact.type === FactType.EVENT && fact.location) {
         if (fact.participants) {
           for (const pid of fact.participants) {
-            if (!agentKnownLocations.has(pid)) agentKnownLocations.set(pid, new Set());
-            agentKnownLocations.get(pid).add(fact.location);
+            if (!agentKnownLocations.has(pid)) agentKnownLocations.set(pid, new Map());
+            agentKnownLocations.get(pid).set(fact.location, fact.id || null);
           }
         }
         if (fact.observers) {
           for (const oid of fact.observers) {
-            if (!agentKnownLocations.has(oid)) agentKnownLocations.set(oid, new Set());
-            agentKnownLocations.get(oid).add(fact.location);
+            if (!agentKnownLocations.has(oid)) agentKnownLocations.set(oid, new Map());
+            agentKnownLocations.get(oid).set(fact.location, fact.id || null);
           }
         }
         // EVENT facts: index description
         if (fact.description) {
-          knownEventDescriptions.add(fact.description.toLowerCase());
+          knownEventDescriptions.set(fact.description.toLowerCase(), fact.id || null);
           // agentKnownEvents: participants/observers → description.toLowerCase()
           if (fact.participants) {
             for (const pid of fact.participants) {
-              if (!agentKnownEvents.has(pid)) agentKnownEvents.set(pid, new Set());
-              agentKnownEvents.get(pid).add(fact.description.toLowerCase());
+              if (!agentKnownEvents.has(pid)) agentKnownEvents.set(pid, new Map());
+              agentKnownEvents.get(pid).set(fact.description.toLowerCase(), fact.id || null);
             }
           }
           if (fact.observers) {
             for (const oid of fact.observers) {
-              if (!agentKnownEvents.has(oid)) agentKnownEvents.set(oid, new Set());
-              agentKnownEvents.get(oid).add(fact.description.toLowerCase());
+              if (!agentKnownEvents.has(oid)) agentKnownEvents.set(oid, new Map());
+              agentKnownEvents.get(oid).set(fact.description.toLowerCase(), fact.id || null);
             }
           }
         }
@@ -151,17 +154,17 @@ class EvidenceBinder {
 
       // OBSERVATION facts: observer→target→context (location stored in context)
       if (fact.type === FactType.OBSERVATION && fact.context && fact.observerId) {
-        if (!agentKnownLocations.has(fact.observerId)) agentKnownLocations.set(fact.observerId, new Set());
-        agentKnownLocations.get(fact.observerId).add(fact.context);
+        if (!agentKnownLocations.has(fact.observerId)) agentKnownLocations.set(fact.observerId, new Map());
+        agentKnownLocations.get(fact.observerId).set(fact.context, fact.id || null);
       }
 
       // RELATIONSHIP facts
       if (fact.type === FactType.RELATIONSHIP && fact.agentA && fact.agentB) {
         const key = `${fact.agentA}:${fact.agentB}`;
-        knownRelationships.set(key, fact.relationType);
+        knownRelationships.set(key, { relationType: fact.relationType, factId: fact.id || null });
         // Also store reverse
         const reverseKey = `${fact.agentB}:${fact.agentA}`;
-        knownRelationships.set(reverseKey, fact.relationType);
+        knownRelationships.set(reverseKey, { relationType: fact.relationType, factId: fact.id || null });
       }
 
       // Evidence tracking for source attribution
@@ -370,12 +373,15 @@ class EvidenceBinder {
     // 检查 canonical 是否在证据中存在
     const hasEvidence =
       index.selfAgentStateLocations.has(canonical) ||
-      (index.agentKnownLocations.get(subjectId) || new Set()).has(canonical);
+      (index.agentKnownLocations.get(subjectId) || new Map()).has(canonical);
 
     if (!hasEvidence) return null; // alias 不能单独造支持
 
     return {
       canonical,
+      factId: index.selfAgentStateLocations.get(canonical)
+        ?? index.agentKnownLocations.get(subjectId)?.get(canonical)
+        ?? null,
       hasEvidence: true,
     };
   }
@@ -404,7 +410,7 @@ class EvidenceBinder {
       if (matchedLocation) {
         bindings.push({
           claimId: claim.id || 'unknown',
-          factId: null, // self state 可能对应多个 fact
+          factId: selfAgentStateLocations.get(matchedLocation) || null,
           support: SUPPORT.SUPPORTS,
           evidenceSource: 'self_agent_state',
           confidence,
@@ -416,7 +422,7 @@ class EvidenceBinder {
         if (aliasResult) {
           bindings.push({
             claimId: claim.id || 'unknown',
-            factId: null,
+            factId: aliasResult.factId,
             support: SUPPORT.PARAPHRASE_SUPPORTS,
             evidenceSource: 'self_agent_state',
             confidence: 0.6,
@@ -444,7 +450,7 @@ class EvidenceBinder {
       if (matchedLocation) {
         bindings.push({
           claimId: claim.id || 'unknown',
-          factId: null,
+          factId: knownLocs.get(matchedLocation) || null,
           support: SUPPORT.SUPPORTS,
           evidenceSource: 'agent_known_locations',
           confidence,
@@ -456,7 +462,7 @@ class EvidenceBinder {
         if (aliasResult) {
           bindings.push({
             claimId: claim.id || 'unknown',
-            factId: null,
+            factId: aliasResult.factId,
             support: SUPPORT.PARAPHRASE_SUPPORTS,
             evidenceSource: 'agent_known_locations',
             confidence: 0.6,
@@ -512,17 +518,19 @@ class EvidenceBinder {
       const eventRefs = objectCandidates.map(value => String(value).toLowerCase());
       let found = false;
       let matchedDesc = null;
-      for (const desc of knownEventDescriptions) {
+      let matchedFactId = null;
+      for (const [desc, factId] of knownEventDescriptions) {
         if (eventRefs.some(eventRef => desc.includes(eventRef) || eventRef.includes(desc))) {
           found = true;
           matchedDesc = desc;
+          matchedFactId = factId;
           break;
         }
       }
       if (found) {
         bindings.push({
           claimId: claim.id || 'unknown',
-          factId: null,
+          factId: matchedFactId,
           support: SUPPORT.SUPPORTS,
           evidenceSource: 'known_event_descriptions',
           confidence,
@@ -585,7 +593,8 @@ class EvidenceBinder {
     // 查 knownRelationships（双向）
     const key = `${subjectId}:${secondAgent}`;
     const reverseKey = `${secondAgent}:${subjectId}`;
-    const exists = knownRelationships.has(key) || knownRelationships.has(reverseKey);
+    const relationship = knownRelationships.get(key) || knownRelationships.get(reverseKey);
+    const exists = Boolean(relationship);
 
     if (exists) {
       // 关系已存在
@@ -593,7 +602,7 @@ class EvidenceBinder {
         // 否认现有关系 → contradicts
         bindings.push({
           claimId: claim.id || 'unknown',
-          factId: null,
+          factId: relationship.factId,
           support: SUPPORT.CONTRADICTS,
           evidenceSource: 'known_relationships',
           confidence,
@@ -603,7 +612,7 @@ class EvidenceBinder {
         // 肯定已有关系 → 仍 unsupported（LLM 不能造关系）
         bindings.push({
           claimId: claim.id || 'unknown',
-          factId: null,
+          factId: relationship.factId,
           support: SUPPORT.UNSUPPORTED,
           evidenceSource: 'known_relationships',
           confidence,
@@ -676,7 +685,7 @@ class EvidenceBinder {
     if (knownLocs && knownLocs.size > 0) {
       bindings.push({
         claimId: claim.id || 'unknown',
-        factId: null,
+        factId: knownLocs.values().next().value || null,
         support: SUPPORT.SUPPORTS,
         evidenceSource: 'agent_known_locations',
         confidence,
