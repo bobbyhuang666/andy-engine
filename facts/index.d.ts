@@ -48,13 +48,27 @@ interface ConsistencyCheckResult {
   [key: string]: any;
 }
 
-/** v3 sidecar entry: per-claim evidence binding */
+/** v3 sidecar entry: per-claim evidence binding produced by check(). */
 interface EvidenceTraceEntry {
-  claim: string;
-  source: string;
-  support: string;
-  reason: string;
-  [key: string]: any;
+  claimId: string;
+  type: StructuredClaimType | string;
+  subjectId: string | null;
+  objectRaw: string | null;
+  predicate: string | null;
+  polarity: StructuredClaimPolarity | string | null;
+  modality: string | null;
+  support: 'supports' | 'paraphrase_supports' | 'contradicts' | 'unsupported' | string;
+  evidenceSource: string | null;
+  confidence: number;
+  reason: string | null;
+  factId: string | null;
+  sourceSpanRaw: string | null;
+  blocking: boolean;
+  evidence?: Array<{ claimId: string; support: string; factId?: string | null; confidence?: number; reason?: string }>;
+  paraphraseAlias?: string;
+  paraphraseCanonical?: string;
+  coreferenceStatus?: string;
+  coreferenceResolvedTo?: string;
 }
 
 /** v3 sidecar entry: coreference resolution note */

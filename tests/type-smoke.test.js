@@ -39,6 +39,18 @@ describe('Type Safety Smoke', () => {
     }
   });
 
+  it('evidenceTrace declarations match the runtime trace contract', () => {
+    for (const dtsPath of ['index.d.ts', 'facts/index.d.ts']) {
+      const content = readFileSync(path.resolve(process.cwd(), dtsPath), 'utf-8');
+      for (const field of [
+        'claimId:', 'type:', 'subjectId:', 'objectRaw:', 'predicate:',
+        'support:', 'evidenceSource:', 'factId:', 'sourceSpanRaw:', 'blocking:',
+      ]) {
+        expect(content).toContain(field);
+      }
+    }
+  });
+
   it('getAllAgents returns an array, not a Map', () => {
     const dtsPath = path.resolve(process.cwd(), 'index.d.ts');
     const content = readFileSync(dtsPath, 'utf-8');
