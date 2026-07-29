@@ -32,6 +32,44 @@ const ConversationLog = require('./ConversationLog');
 const { diagnostics } = require('../shared/Diagnostics');
 const { DEFAULT_DOMAIN_ID } = require('../config/defaults');
 
+/**
+ * Build a minimal fact-backed delivery fallback using only the Engine's public
+ * grounding and consistency APIs. If it cannot be verified, callers retain
+ * the established silent fallback instead of exposing unverified text.
+ *
+ * @param {Object} engine
+ * @param {string} agentId
+ * @returns {string|null}
+ */
+function createVerifiedGroundingFallback(engine, agentId) {
+  if (!engine || typeof engine.getGroundingPackage !== 'function' || typeof engine.checkConsistency !== 'function') {
+    return null;
+  }
+
+  try {
+    const grounding = engine.getGroundingPackage(agentId);
+    const stateFact = (grounding?.allowedFacts || []).find((fact) =>
+      fact &&
+      fact.type === 'agent_state' &&
+      fact.agentId === agentId &&
+      (fact.position || fact.region)
+    );
+    if (!stateFact) return null;
+
+    const location = stateFact.position || stateFact.region;
+    const candidate = `我在${location}。我只确认这些已知事实。`;
+    return engine.checkConsistency(candidate, agentId).valid ? candidate : null;
+  } catch (error) {
+    diagnostics.warn(`Grounded delivery fallback error: ${error.message}`);
+    diagnostics.collect({ type: 'grounded_delivery_fallback_error', error: error.message });
+    return null;
+  }
+}
+
+function safeReplyOrSilence(engine, agentId, name) {
+  return createVerifiedGroundingFallback(engine, agentId) || `[${name}沉默了一会儿]`;
+}
+
 class Character {
   /**
    * @param {Object} config
@@ -210,13 +248,9 @@ class Character {
       const consistencyOpts = options?.structuredClaims != null ? { structuredClaims: options.structuredClaims } : {};
       const consistency = this._engine.checkConsistency(reply, this.id, consistencyOpts);
       if (!consistency.valid) {
-        // R39 P1 fix (B2): 拦截 reject AND rewrite 两种 severity。
-        // 原实现只拦截 reject,rewrite 级违规内容被原样返回给用户,违反
-        // "consistency invalid 不外泄"目标。当前无 rewrite 改写实现,rewrite
-        // 一律降级为沉默(与 reject 一致),确保违规内容不流出。与 chatStream 对齐。
-        if (consistency.severity === 'reject' || consistency.severity === 'rewrite') {
-          reply = `[${this.name}沉默了一会儿]`;
-        }
+        // Invalid text must never leave this API. Prefer a separately verified,
+        // fact-backed delivery fallback; retain silence when none is available.
+        reply = safeReplyOrSilence(this._engine, this.id, this.name);
       }
     }
 
@@ -314,13 +348,9 @@ class Character {
       const consistencyOpts = options?.structuredClaims != null ? { structuredClaims: options.structuredClaims } : {};
       const consistency = this._engine.checkConsistency(fullReply, this.id, consistencyOpts);
       if (!consistency.valid) {
-        // R39 P1 fix: 拦截 reject AND rewrite 两种 severity。
-        // 原实现只拦截 reject,rewrite 级违规内容被原样 yield 给用户,违反
-        // "consistency invalid 不外泄"目标。当前无 rewrite 改写实现,rewrite
-        // 一律降级为沉默(与 reject 一致),确保违规内容不流出。
-        if (consistency.severity === 'reject' || consistency.severity === 'rewrite') {
-          outputReply = `[${this.name}沉默了一会儿]`;
-        }
+        // Buffering plus this fallback ensures invalid streamed text is never
+        // exposed before a separately verified grounded alternative.
+        outputReply = safeReplyOrSilence(this._engine, this.id, this.name);
       }
     }
 
