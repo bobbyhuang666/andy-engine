@@ -647,6 +647,39 @@ class ClaimExtractor {
       }
     }
 
+    // ── First-person activity: 我 + (正在|在) + activity ──
+    // "我" is the one pronoun with an unambiguous subject: the narrator. It
+    // must therefore participate in the same grounding checks as named-agent
+    // activity claims instead of silently bypassing extraction.
+    for (const activity of ACTIVITY_WORDS) {
+      const pattern = new RegExp(`我(?:正在|在)${activity}`);
+      const match = pattern.exec(text);
+      if (!match) continue;
+
+      const negation = this._checkNegation(text, match.index);
+      const uncertain = this._checkUncertainty(text, match.index);
+      let confidence = 0.9;
+      if (negation) confidence -= 0.1;
+      if (uncertain) confidence -= 0.15;
+
+      claims.push({
+        type: 'state',
+        subject: this.selfId,
+        rawSubject: '我',
+        predicate: 'activity',
+        object: activity,
+        polarity: uncertain ? 'uncertain' : (negation ? 'negative' : 'affirmative'),
+        evidenceRequired: 'self',
+        confidence,
+        stateType: 'activity',
+        sourceSpan: {
+          start: match.index,
+          end: match.index + match[0].length,
+          raw: match[0],
+        },
+      });
+    }
+
     // ── Pronoun state claims (includePronouns only) ──
     // Scan for pronoun + emotion/need/activity patterns
     if (includePronouns) {

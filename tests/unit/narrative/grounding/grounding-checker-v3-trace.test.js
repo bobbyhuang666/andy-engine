@@ -159,6 +159,28 @@ describe('v3 trace — 与 v2 判定一致', () => {
     expect(locTrace.factId).toBe('fact_alice_library');
   });
 
+  it('self activity must match AGENT_STATE and binds its fact id', () => {
+    const c = makeChecker();
+    const grounding = baseGrounding({
+      allowedFacts: [
+        { id: 'fact_alice_rest', type: FactType.AGENT_STATE, agentId: 'alice', state: '休息', region: '图书馆' },
+      ],
+      metadata: { agentId: 'alice', agentNames: { alice: '爱丽丝' } },
+    });
+
+    const supported = c.check('我正在休息。', grounding);
+    expect(supported.valid).toBe(true);
+    expect(supported.evidenceTrace[0]).toMatchObject({
+      type: 'state', support: 'supports', factId: 'fact_alice_rest', evidenceSource: 'self_agent_state',
+    });
+
+    const invented = c.check('我正在睡觉。', grounding);
+    expect(invented.valid).toBe(false);
+    expect(invented.severity).toBe('rewrite');
+    expect(invented.violations.some(v => v.type === 'unsupported_self_state')).toBe(true);
+    expect(invented.evidenceTrace[0]).toMatchObject({ type: 'state', support: 'unsupported', factId: null });
+  });
+
   it('unsupported claim → support unsupported', () => {
     const c = makeChecker();
     const r = c.check('鲍勃在食堂', baseGrounding({

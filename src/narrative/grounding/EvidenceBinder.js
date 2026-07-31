@@ -106,6 +106,7 @@ class EvidenceBinder {
     const agentKnownEvents = new Map();        // agentId → Map<descLower, factId>
     const knownEventDescriptions = new Map();  // descLower → factId
     const knownRelationships = new Map();      // 'agentA:agentB' → { relationType, factId }
+    const selfAgentStates = [];                // { state, factId }
     const toldFacts = [];                      // facts with _evidence.source === 'told'
     const inferredFacts = [];                  // facts with _evidence.source === 'inferred'
 
@@ -116,6 +117,7 @@ class EvidenceBinder {
       if (fact.type === FactType.AGENT_STATE && fact.agentId === selfId) {
         if (fact.position) selfAgentStateLocations.set(fact.position, fact.id || null);
         if (fact.region) selfAgentStateLocations.set(fact.region, fact.id || null);
+        selfAgentStates.push({ state: fact.state || '', factId: fact.id || null });
       }
 
       // EVENT facts: build agent→location map
@@ -180,6 +182,7 @@ class EvidenceBinder {
       agentKnownEvents,
       knownEventDescriptions,
       knownRelationships,
+      selfAgentStates,
       toldFacts,
       inferredFacts,
       forbiddenFacts: this.forbiddenFacts || [],
@@ -662,12 +665,40 @@ class EvidenceBinder {
   _bindStateClaim(claim, index, ctx) {
     const bindings = [];
     const agentKnownLocations = index.agentKnownLocations;
+    const selfAgentStates = index.selfAgentStates || [];
     const { selfId } = ctx;
     const confidence = claim.confidence || 0.7;
     const subjectId = this._subjectId(claim);
     const isSelf = subjectId === selfId;
 
     if (isSelf) {
+      if (claim.stateType === 'activity' || claim.predicate === 'activity') {
+        const activity = String(claim.object || '').toLowerCase();
+        const stateMatch = selfAgentStates.find(entry => {
+          const state = String(entry.state || '').toLowerCase();
+          return activity && state && (state.includes(activity) || activity.includes(state));
+        });
+        if (!stateMatch) {
+          bindings.push({
+            claimId: claim.id || 'unknown',
+            factId: null,
+            support: SUPPORT.UNSUPPORTED,
+            evidenceSource: null,
+            confidence,
+            reason: `self activity "${claim.object}" not found in current AGENT_STATE`,
+          });
+          return bindings;
+        }
+        bindings.push({
+          claimId: claim.id || 'unknown',
+          factId: stateMatch.factId,
+          support: SUPPORT.SUPPORTS,
+          evidenceSource: 'self_agent_state',
+          confidence,
+          reason: `self activity "${claim.object}" matched current AGENT_STATE`,
+        });
+        return bindings;
+      }
       // Self state claims are always supported (self-knowledge)
       bindings.push({
         claimId: claim.id || 'unknown',

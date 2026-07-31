@@ -734,7 +734,26 @@ class GroundingChecker {
     }
 
     if (isSelf) {
-      // Self state claims are always allowed
+      // Self activity claims still need to agree with the canonical
+      // AGENT_STATE fact. "I" identifies the narrator; it does not authorize
+      // the narrative to invent what that narrator is currently doing.
+      if (claim.stateType === 'activity') {
+        const claimedActivity = String(claim.object || '').toLowerCase();
+        const selfStateFact = allowedFacts.find(fact =>
+          fact && fact.type === FactType.AGENT_STATE && fact.agentId === selfId
+        );
+        const actualState = String(selfStateFact?.state || '').toLowerCase();
+        const supported = claimedActivity && actualState &&
+          (actualState.includes(claimedActivity) || claimedActivity.includes(actualState));
+        if (!supported) {
+          violations.push({
+            type: 'unsupported_self_state',
+            agent: displayName,
+            state: claim.object,
+            message: `表达了自己的活动状态“${claim.object}”，但当前 agent_state 未支持该活动`,
+          });
+        }
+      }
       return violations;
     }
 
@@ -918,6 +937,7 @@ class GroundingChecker {
     if (violations.some(v =>
       v.severity === 'rewrite' ||
       v.type === 'unsupported_claim' ||
+      v.type === 'unsupported_self_state' ||
       v.type === 'agent_state_leak' ||
       v.type === 'local_scope_leak' ||
       v.type === 'unknown_character' ||
@@ -968,6 +988,9 @@ class GroundingChecker {
           break;
         case 'unsupported_claim':
           suggestions.push(`移除不支持的声明"${v.agent}在${v.location}"`);
+          break;
+        case 'unsupported_self_state':
+          suggestions.push(`移除未被当前状态支持的活动“${v.state}”`);
           break;
         case 'missing_source_attribution':
           suggestions.push(`为"${v.fact}"添加来源标注（${v.source === 'told' ? '听说/XX告诉我' : '推测/大概'}）`);
