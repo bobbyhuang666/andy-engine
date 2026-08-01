@@ -57,8 +57,22 @@ function createVerifiedGroundingFallback(engine, agentId) {
     if (!stateFact) return null;
 
     const location = stateFact.position || stateFact.region;
-    const candidate = `我在${location}。我只确认这些已知事实。`;
-    return engine.checkConsistency(candidate, agentId).valid ? candidate : null;
+    const state = stateFact.state || null;
+    const emotion = stateFact.emotionSummary || null;
+
+    // Build richer fact-bound candidates (priority order). Each uses ONLY fact
+    // field values — no invention. Every candidate is verified by
+    // checkConsistency before return; never return an unverified candidate.
+    const candidates = [];
+    if (location && state) candidates.push(`我在${location}，正在${state}。`);
+    if (location && emotion) candidates.push(`我在${location}，心情${emotion}。`);
+    if (location && state && emotion) candidates.push(`我在${location}，正在${state}，心情${emotion}。`);
+    candidates.push(`我在${location}。我只确认这些已知事实。`);
+
+    for (const candidate of candidates) {
+      if (engine.checkConsistency(candidate, agentId).valid) return candidate;
+    }
+    return null;
   } catch (error) {
     diagnostics.warn(`Grounded delivery fallback error: ${error.message}`);
     diagnostics.collect({ type: 'grounded_delivery_fallback_error', error: error.message });
