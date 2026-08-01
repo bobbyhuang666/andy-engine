@@ -33,6 +33,13 @@ const { classifyGroundedQuestion } = require('./ConversationQuestion');
 const { diagnostics } = require('../shared/Diagnostics');
 const { DEFAULT_DOMAIN_ID } = require('../config/defaults');
 
+// Keep the Host-side assertion shape local to the SDK boundary. The checker
+// treats it as opaque data and independently verifies it against allowed
+// observation facts; SDK must not import narrative internals.
+function observationAssertion(targetId, action, context = '') {
+  return JSON.stringify([String(targetId || ''), String(action || ''), String(context || '')]);
+}
+
 /**
  * Build a minimal fact-backed delivery fallback using only the Engine's public
  * grounding and consistency APIs. If it cannot be verified, callers retain
@@ -53,15 +60,21 @@ function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
     const stateFact = (grounding?.allowedFacts || []).find((fact) =>
       fact &&
       fact.type === 'agent_state' &&
-      fact.agentId === agentId &&
-      (fact.position || fact.region)
+      fact.agentId === agentId
     );
-    if (!stateFact) return null;
 
-    const location = stateFact.position || stateFact.region;
-    const state = stateFact.state || null;
-    const emotion = NarrativeBuilder.formatEmotionSummary(stateFact.emotionSummary);
+    const location = stateFact?.position || stateFact?.region || null;
+    const state = stateFact?.state || null;
+    const emotion = NarrativeBuilder.formatEmotionSummary(stateFact?.emotionSummary);
     const intent = classifyGroundedQuestion(userMessage);
+    const agentNames = grounding?.metadata?.agentNames || {};
+    const observationFact = (grounding?.allowedFacts || []).find((fact) =>
+      fact && fact.type === 'observation' && fact.observerId === agentId &&
+      fact.targetId && fact.action && agentNames[fact.targetId]
+    );
+    const eventFact = (grounding?.allowedFacts || []).find((fact) =>
+      fact && fact.type === 'event' && fact.description
+    );
 
     // Build richer fact-bound candidates (priority order). Each uses ONLY fact
     // field values — no invention. Every candidate is verified by
@@ -69,12 +82,35 @@ function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
     const locationLine = location ? { text: `我在${location}。`, structuredClaims: [{ type: 'location', subject: agentId, predicate: 'is_at', object: location, confidence: 1 }] } : null;
     const activityLine = state ? { text: `我目前处于${state}状态。`, structuredClaims: [{ type: 'state', subject: agentId, predicate: 'activity', object: state, confidence: 1 }] } : null;
     const emotionLine = emotion ? { text: `我感觉${emotion}。`, structuredClaims: [{ type: 'state', subject: agentId, predicate: 'feels', object: emotion, confidence: 1 }] } : null;
+    const observationText = observationFact
+      ? `我观察到${agentNames[observationFact.targetId]}${observationFact.action}${observationFact.context ? `，当时在${observationFact.context}` : ''}。`
+      : null;
+    const observationLine = observationFact ? {
+      text: observationText,
+      structuredClaims: [{
+        type: 'event', subject: agentId, predicate: 'observed',
+        object: observationAssertion(observationFact.targetId, observationFact.action, observationFact.context),
+        // ClaimExtractor's legacy location pattern starts after "观" in
+        // "我观察到…". Use its semantic span so the trusted sidecar replaces
+        // that lossy regex extraction instead of being evaluated twice.
+        span: `察到${agentNames[observationFact.targetId]}${observationFact.action}`, confidence: 1,
+      }],
+    } : null;
+    const eventText = eventFact ? `我知道${eventFact.description}。` : null;
+    const eventLine = eventFact ? {
+      text: eventText,
+      structuredClaims: [{ type: 'event', subject: agentId, predicate: 'refers_to', object: eventFact.description, span: eventText, confidence: 1 }],
+    } : null;
     const candidates = intent === 'emotion'
       ? [emotionLine, activityLine, locationLine]
       : intent === 'activity'
         ? [activityLine, locationLine, emotionLine]
         : intent === 'location'
           ? [locationLine, activityLine, emotionLine]
+          : intent === 'observation'
+            ? [observationLine, eventLine, locationLine, activityLine, emotionLine]
+            : intent === 'recent_event'
+              ? [eventLine, observationLine, locationLine, activityLine, emotionLine]
           : [locationLine, activityLine, emotionLine];
 
     for (const candidate of candidates.filter(Boolean)) {
@@ -102,12 +138,26 @@ function safeReplyOrSilence(engine, agentId, name, userMessage) {
  */
 function hasRequestedFactAnchor(reply, userMessage, groundingPackage, agentId) {
   if (!groundingPackage || typeof reply !== 'string' || typeof userMessage !== 'string') return true;
+  const intent = classifyGroundedQuestion(userMessage);
+  if (intent === 'observation') {
+    const observation = (groundingPackage.allowedFacts || []).find(fact =>
+      fact && fact.type === 'observation' && fact.observerId === agentId && fact.targetId && fact.action
+    );
+    return !observation || reply.includes(observation.action);
+  }
+  if (intent === 'recent_event') {
+    const event = (groundingPackage.allowedFacts || []).find(fact => fact && fact.type === 'event' && fact.description);
+    if (event) return reply.includes(event.description);
+    const observation = (groundingPackage.allowedFacts || []).find(fact =>
+      fact && fact.type === 'observation' && fact.observerId === agentId && fact.action
+    );
+    return !observation || reply.includes(observation.action);
+  }
   const stateFact = (groundingPackage.allowedFacts || []).find(fact =>
     fact && fact.type === 'agent_state' && fact.agentId === agentId
   );
   if (!stateFact) return true;
 
-  const intent = classifyGroundedQuestion(userMessage);
   if (intent === 'emotion') {
     const emotion = NarrativeBuilder.formatEmotionSummary(stateFact.emotionSummary);
     return !emotion || reply.includes(emotion);

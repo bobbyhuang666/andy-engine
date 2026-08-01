@@ -23,6 +23,7 @@ const { EvidenceBinder } = require('./grounding/EvidenceBinder');
 const { createSidecarValidator } = require('./grounding/SidecarValidator');
 const { createCoreferenceResolver } = require('./grounding/CoreferenceResolver');
 const { createGroundingVerifierAdapter, NoOpVerifier } = require('./grounding/GroundingVerifier');
+const { observationAssertion } = require('./ObservationAssertion');
 
 // ─── Severity 映射 ───
 const SEVERITY_ORDER = ['reject', 'rewrite', 'warning', 'degrade_to_template', 'pass'];
@@ -144,6 +145,7 @@ class GroundingChecker {
     const agentKnownLocations = new Map();     // agentId → Set<location>
     const knownEventDescriptions = new Set();  // lowercased description fragments
     const knownRelationships = new Map();      // 'agentA:agentB' → relationType
+    const knownObservations = new Set();       // observerId + canonical observation assertion
     const toldFacts = [];                      // facts with _evidence.source === 'told'
     const inferredFacts = [];                  // facts with _evidence.source === 'inferred'
 
@@ -181,6 +183,9 @@ class GroundingChecker {
       if (fact.type === FactType.OBSERVATION && fact.context && fact.observerId) {
         if (!agentKnownLocations.has(fact.observerId)) agentKnownLocations.set(fact.observerId, new Set());
         agentKnownLocations.get(fact.observerId).add(fact.context);
+      }
+      if (fact.type === FactType.OBSERVATION && fact.observerId && fact.targetId && fact.action) {
+        knownObservations.add(`${fact.observerId}\u0000${observationAssertion(fact.targetId, fact.action, fact.context)}`);
       }
 
       // RELATIONSHIP facts
@@ -240,6 +245,7 @@ class GroundingChecker {
         agentKnownLocations,
         knownEventDescriptions,
         knownRelationships,
+        knownObservations,
         toldFacts,
         inferredFacts,
         allowedFacts,
@@ -645,12 +651,24 @@ class GroundingChecker {
 
   _validateEventClaim(claim, ctx) {
     const violations = [];
-    const { knownEventDescriptions, selfId, forbiddenFacts, agentNames } = ctx;
+    const { knownEventDescriptions, knownObservations, selfId, forbiddenFacts, agentNames } = ctx;
 
     // 否定 claim: 不做反事实证明，不拦截
     if (claim.polarity === 'negative') {
       diagnostics?.warnOnce?.('grounding-checker:negation-event',
         `否定 event claim "${claim.sourceSpan?.raw || ''}" 不触发 blocking violation`);
+      return violations;
+    }
+
+    if (claim.predicate === 'observed') {
+      const key = `${claim.subjectId}\u0000${claim.objectRaw || ''}`;
+      if (!knownObservations || !knownObservations.has(key)) {
+        violations.push({
+          type: 'unsupported_claim',
+          event: claim.objectRaw,
+          message: '该观察不在允许的直接观察事实中',
+        });
+      }
       return violations;
     }
 
@@ -1049,7 +1067,7 @@ class GroundingChecker {
     const merged = [...sidecarClaims]; // start with sidecar (higher precision)
 
     for (const tc of textClaims) {
-      const tcSpan = tc.sourceSpan?.raw;
+      const tcSpan = (tc.sourceSpan || tc.span)?.raw;
       if (!tcSpan) {
         merged.push(tc);
         continue;
@@ -1058,7 +1076,10 @@ class GroundingChecker {
       // Check if any sidecar claim has overlapping span
       let isDuplicate = false;
       for (const sc of merged) {
-        const scSpan = sc.sourceSpan?.raw;
+        // v2 claims call this sourceSpan while v3 sidecar claims use span.
+        // Looking at only sourceSpan meant a sidecar could never replace an
+        // overlapping regex claim, defeating its precision guarantee.
+        const scSpan = (sc.sourceSpan || sc.span)?.raw;
         if (!scSpan) continue;
         // Overlap: if spans share significant text, it's a duplicate
         if (tcSpan.includes(scSpan) || scSpan.includes(tcSpan)) {

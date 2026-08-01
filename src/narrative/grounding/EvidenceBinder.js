@@ -19,6 +19,7 @@
 
 const { FactType } = require('../../canon/FactSchema');
 const { canonicalEmotion } = require('../EmotionVocabulary');
+const { observationAssertion } = require('../ObservationAssertion');
 
 // ─── Support levels ──────────────────────────────────────────────────────────
 
@@ -107,6 +108,7 @@ class EvidenceBinder {
     const agentKnownEvents = new Map();        // agentId → Map<descLower, factId>
     const knownEventDescriptions = new Map();  // descLower → factId
     const knownRelationships = new Map();      // 'agentA:agentB' → { relationType, factId }
+    const knownObservations = new Map();       // observerId + assertion → factId
     const selfAgentStates = [];                // { state, factId }
     const toldFacts = [];                      // facts with _evidence.source === 'told'
     const inferredFacts = [];                  // facts with _evidence.source === 'inferred'
@@ -164,6 +166,10 @@ class EvidenceBinder {
         if (!agentKnownLocations.has(fact.observerId)) agentKnownLocations.set(fact.observerId, new Map());
         agentKnownLocations.get(fact.observerId).set(fact.context, fact.id || null);
       }
+      if (fact.type === FactType.OBSERVATION && fact.observerId && fact.targetId && fact.action) {
+        const key = `${fact.observerId}\u0000${observationAssertion(fact.targetId, fact.action, fact.context)}`;
+        knownObservations.set(key, fact.id || null);
+      }
 
       // RELATIONSHIP facts
       if (fact.type === FactType.RELATIONSHIP && fact.agentA && fact.agentB) {
@@ -187,6 +193,7 @@ class EvidenceBinder {
       agentKnownEvents,
       knownEventDescriptions,
       knownRelationships,
+      knownObservations,
       selfAgentStates,
       toldFacts,
       inferredFacts,
@@ -507,6 +514,34 @@ class EvidenceBinder {
     const confidence = claim.confidence || 0.7;
     const objectCandidates = this._objectValues(claim, 'raw');
     const object = objectCandidates[0] || '';
+
+    // predicate 'observed' — a direct observation. The object is a stable
+    // assertion tuple built only from an allowed OBSERVATION fact.
+    if (claim.predicate === 'observed') {
+      const subjectId = this._subjectId(claim);
+      const key = `${subjectId}\u0000${object}`;
+      const factId = index.knownObservations.get(key);
+      if (factId !== undefined) {
+        bindings.push({
+          claimId: claim.id || 'unknown',
+          factId,
+          support: SUPPORT.SUPPORTS,
+          evidenceSource: 'direct_observation',
+          confidence,
+          reason: 'observation assertion exactly matched an allowed OBSERVATION fact',
+        });
+      } else {
+        bindings.push({
+          claimId: claim.id || 'unknown',
+          factId: null,
+          support: SUPPORT.UNSUPPORTED,
+          evidenceSource: null,
+          confidence,
+          reason: 'observation assertion is not present in the allowed OBSERVATION facts',
+        });
+      }
+      return bindings;
+    }
 
     // predicate 'did' — 新事件创建，永远 unsupported（由上层 policy 拒绝）
     if (claim.predicate === 'did') {

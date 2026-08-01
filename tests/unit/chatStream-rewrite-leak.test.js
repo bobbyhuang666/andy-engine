@@ -63,6 +63,21 @@ function makeCharacterWithQuestionAwareFallback() {
   return character;
 }
 
+function makeCharacterWithObservationFallback() {
+  const character = new Character({
+    name: 'Maya', id: 'maya', personality: 'INFP', llm: async () => '我不知道。',
+  });
+  character._engine.getGroundingPackage = () => ({
+    allowedFacts: [
+      { id: 'fact_maya_state', type: 'agent_state', agentId: 'maya', region: '图书馆', state: '休息' },
+      { id: 'fact_observation', type: 'observation', observerId: 'maya', targetId: 'li', action: '在阅读', context: '图书馆' },
+    ],
+    metadata: { agentNames: { maya: 'Maya', li: '李' } },
+  });
+  character._engine.checkConsistency = () => ({ valid: true, severity: 'pass' });
+  return character;
+}
+
 describe('B2: chat()/chatStream() 不外泄 rewrite 级违规内容', () => {
   it('chat() 对 rewrite 级违规应降级为沉默，不返回违规原文', async () => {
     const character = makeCharacterWithConsistency({ valid: false, severity: 'rewrite' });
@@ -103,6 +118,18 @@ describe('B2: chat()/chatStream() 不外泄 rewrite 级违规内容', () => {
     const reply = await character.chat('你正在做什么？');
 
     expect(reply).toBe('我目前处于休息状态。');
+  });
+
+  it('chat() answers an observation question with a verified direct-observation fallback', async () => {
+    const character = makeCharacterWithObservationFallback();
+    const reply = await character.chat('你观察到什么？');
+    expect(reply).toBe('我观察到李在阅读，当时在图书馆。');
+  });
+
+  it('chat() treats a recent-event question without a pronoun as a grounded question', async () => {
+    const character = makeCharacterWithObservationFallback();
+    const reply = await character.chat('刚才发生了什么？');
+    expect(reply).toBe('我观察到李在阅读，当时在图书馆。');
   });
 
   it('chatStream() 对 rewrite 级违规应降级为沉默，不 yield 违规原文', async () => {
