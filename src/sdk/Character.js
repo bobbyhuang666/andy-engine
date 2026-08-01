@@ -90,10 +90,9 @@ function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
       structuredClaims: [{
         type: 'event', subject: agentId, predicate: 'observed',
         object: observationAssertion(observationFact.targetId, observationFact.action, observationFact.context),
-        // ClaimExtractor's legacy location pattern starts after "观" in
-        // "我观察到…". Use its semantic span so the trusted sidecar replaces
-        // that lossy regex extraction instead of being evaluated twice.
-        span: `察到${agentNames[observationFact.targetId]}${observationFact.action}`, confidence: 1,
+        // A full span lets the precise sidecar replace every overlapping
+        // legacy regex extraction (including the optional context clause).
+        span: observationText, confidence: 1,
       }],
     } : null;
     const eventText = eventFact ? `我知道${eventFact.description}。` : null;
