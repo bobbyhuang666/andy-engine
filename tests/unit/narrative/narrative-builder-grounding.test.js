@@ -23,6 +23,7 @@ describe('NarrativeBuilder — evidence-aware grounding (v2.5-W1)', () => {
       expect(section).toContain('可直接表达的当前事实');
       expect(section).toContain('我在图书馆。');
       expect(section).toContain('我在图书馆，正在学习。');
+      expect(section).toContain('我感觉平静。');
       expect(section).not.toContain('心情calm');
     });
 

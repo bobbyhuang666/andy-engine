@@ -18,6 +18,8 @@ const EMOTION_WORDS = [
   '兴奋', '满足', '烦躁', '焦虑', '疲惫', '害羞', '尴尬', '内疚', '失落',
   '感动', '愤怒', '伤心', '心烦', '郁闷', '寂寞', '委屈', '痛苦',
   '快乐', '幸福', '感激', '后悔', '绝望', '崩溃', '喜悦', '欣慰',
+  '平静', '冷静', '期待', '感兴趣', '厌恶', '恐惧', '渴望',
+  '同情', '困惑', '得意', '敬畏',
 ];
 
 // ─── 需求词库 ───
@@ -677,6 +679,31 @@ class ClaimExtractor {
           end: match.index + match[0].length,
           raw: match[0],
         },
+      });
+    }
+
+    // ── First-person emotion: 我 + intensity/feeling marker + emotion ──
+    // Unlike other pronouns, "我" is always the narrator. Extracting it is
+    // necessary so GroundingChecker can bind it to AGENT_STATE.emotionSummary
+    // instead of treating a self emotion claim as an unverified free pass.
+    for (const emotion of EMOTION_WORDS) {
+      const pattern = new RegExp(`我(?:现在)?(?:(?:很|有点|非常|挺|比较|极度|特别|真)${emotion}|(?:感到|感觉|觉得)${emotion}|心情(?:(?:很|有点|非常|挺|比较)?)${emotion})`);
+      const match = pattern.exec(text);
+      if (!match) continue;
+
+      const negation = this._checkNegation(text, match.index);
+      const uncertain = this._checkUncertainty(text, match.index);
+      claims.push({
+        type: 'state',
+        subject: this.selfId,
+        rawSubject: '我',
+        predicate: 'feels',
+        object: emotion,
+        polarity: uncertain ? 'uncertain' : (negation ? 'negative' : 'affirmative'),
+        evidenceRequired: 'self',
+        confidence: negation ? 0.8 : 0.9,
+        stateType: 'emotion',
+        sourceSpan: { start: match.index, end: match.index + match[0].length, raw: match[0] },
       });
     }
 

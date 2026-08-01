@@ -16,6 +16,7 @@
 
 const ClaimExtractor = require('./ClaimExtractor');
 const { FactType, FactScope } = require('../canon/FactSchema');
+const { canonicalEmotion } = require('./EmotionVocabulary');
 const { diagnostics } = require('../shared/Diagnostics');
 const { translateV2Claim, isBlocking: v3IsBlocking, ClaimTypes } = require('./grounding/ClaimSchema');
 const { EvidenceBinder } = require('./grounding/EvidenceBinder');
@@ -754,6 +755,26 @@ class GroundingChecker {
           });
         }
       }
+      if (claim.stateType === 'emotion') {
+        const selfStateFact = allowedFacts.find(fact =>
+          fact && fact.type === FactType.AGENT_STATE && fact.agentId === selfId
+        );
+        // Old serialized facts may not have emotionSummary. Preserve their
+        // self-knowledge behaviour until the next state refresh rather than
+        // treating absent data as evidence of the opposite emotion.
+        if (selfStateFact?.emotionSummary) {
+          const claimedEmotion = canonicalEmotion(claim.object);
+          const actualEmotion = canonicalEmotion(selfStateFact.emotionSummary);
+          if (!claimedEmotion || !actualEmotion || claimedEmotion !== actualEmotion) {
+            violations.push({
+              type: 'unsupported_self_emotion',
+              agent: displayName,
+              emotion: claim.object,
+              message: `表达了自己的情绪“${claim.object}”，但当前 agent_state 未支持该情绪`,
+            });
+          }
+        }
+      }
       return violations;
     }
 
@@ -938,6 +959,7 @@ class GroundingChecker {
       v.severity === 'rewrite' ||
       v.type === 'unsupported_claim' ||
       v.type === 'unsupported_self_state' ||
+      v.type === 'unsupported_self_emotion' ||
       v.type === 'agent_state_leak' ||
       v.type === 'local_scope_leak' ||
       v.type === 'unknown_character' ||
@@ -991,6 +1013,9 @@ class GroundingChecker {
           break;
         case 'unsupported_self_state':
           suggestions.push(`移除未被当前状态支持的活动“${v.state}”`);
+          break;
+        case 'unsupported_self_emotion':
+          suggestions.push(`移除未被当前状态支持的情绪“${v.emotion}”`);
           break;
         case 'missing_source_attribution':
           suggestions.push(`为"${v.fact}"添加来源标注（${v.source === 'told' ? '听说/XX告诉我' : '推测/大概'}）`);

@@ -181,6 +181,27 @@ describe('v3 trace — 与 v2 判定一致', () => {
     expect(invented.evidenceTrace[0]).toMatchObject({ type: 'state', support: 'unsupported', factId: null });
   });
 
+  it('self emotion must match AGENT_STATE and binds its fact id', () => {
+    const c = makeChecker();
+    const grounding = baseGrounding({
+      allowedFacts: [
+        { id: 'fact_alice_calm', type: FactType.AGENT_STATE, agentId: 'alice', state: '休息', region: '图书馆', emotionSummary: 'calm' },
+      ],
+      metadata: { agentId: 'alice', agentNames: { alice: '爱丽丝' } },
+    });
+
+    const supported = c.check('我感觉平静。', grounding);
+    expect(supported.valid).toBe(true);
+    expect(supported.evidenceTrace.find(trace => trace.type === 'state')).toMatchObject({
+      type: 'state', support: 'supports', factId: 'fact_alice_calm', evidenceSource: 'self_agent_state',
+    });
+
+    const invented = c.check('我感觉焦虑。', grounding);
+    expect(invented.valid).toBe(false);
+    expect(invented.severity).toBe('rewrite');
+    expect(invented.violations.some(v => v.type === 'unsupported_self_emotion')).toBe(true);
+  });
+
   it('unsupported claim → support unsupported', () => {
     const c = makeChecker();
     const r = c.check('鲍勃在食堂', baseGrounding({

@@ -18,6 +18,7 @@
  */
 
 const { FactType } = require('../../canon/FactSchema');
+const { canonicalEmotion } = require('../EmotionVocabulary');
 
 // ─── Support levels ──────────────────────────────────────────────────────────
 
@@ -117,7 +118,11 @@ class EvidenceBinder {
       if (fact.type === FactType.AGENT_STATE && fact.agentId === selfId) {
         if (fact.position) selfAgentStateLocations.set(fact.position, fact.id || null);
         if (fact.region) selfAgentStateLocations.set(fact.region, fact.id || null);
-        selfAgentStates.push({ state: fact.state || '', factId: fact.id || null });
+        selfAgentStates.push({
+          state: fact.state || '',
+          emotionSummary: fact.emotionSummary || '',
+          factId: fact.id || null,
+        });
       }
 
       // EVENT facts: build agent→location map
@@ -696,6 +701,48 @@ class EvidenceBinder {
           evidenceSource: 'self_agent_state',
           confidence,
           reason: `self activity "${claim.object}" matched current AGENT_STATE`,
+        });
+        return bindings;
+      }
+      if (claim.stateType === 'emotion' || claim.predicate === 'feels') {
+        const claimedEmotion = canonicalEmotion(claim.object);
+        const emotionMatch = selfAgentStates.find(entry => {
+          const actualEmotion = canonicalEmotion(entry.emotionSummary);
+          return claimedEmotion && actualEmotion && claimedEmotion === actualEmotion;
+        });
+        if (emotionMatch) {
+          bindings.push({
+            claimId: claim.id || 'unknown',
+            factId: emotionMatch.factId,
+            support: SUPPORT.SUPPORTS,
+            evidenceSource: 'self_agent_state',
+            confidence,
+            reason: `self emotion "${claim.object}" matched current AGENT_STATE`,
+          });
+          return bindings;
+        }
+        // Legacy serialized states did not include emotionSummary. The checker
+        // retains its historical self-knowledge behaviour for those states;
+        // never manufacture a fact id in that case.
+        const hasEmotionSummary = selfAgentStates.some(entry => entry.emotionSummary);
+        if (!hasEmotionSummary) {
+          bindings.push({
+            claimId: claim.id || 'unknown',
+            factId: null,
+            support: SUPPORT.SUPPORTS,
+            evidenceSource: 'self_knowledge',
+            confidence,
+            reason: 'legacy self state has no emotion summary',
+          });
+          return bindings;
+        }
+        bindings.push({
+          claimId: claim.id || 'unknown',
+          factId: null,
+          support: SUPPORT.UNSUPPORTED,
+          evidenceSource: null,
+          confidence,
+          reason: `self emotion "${claim.object}" not found in current AGENT_STATE`,
         });
         return bindings;
       }

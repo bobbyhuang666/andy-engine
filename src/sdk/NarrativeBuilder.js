@@ -12,6 +12,7 @@
 
 const { applyForbiddenTerms } = require('../domain/ForbiddenTerms');
 const FactFormatter = require('../narrative/FactFormatter');
+const { formatEmotion } = require('../narrative/EmotionVocabulary');
 const { DEFAULT_DOMAIN_ID } = require('../config/defaults');
 const { FactType } = require('../canon/FactSchema');
 
@@ -434,6 +435,8 @@ ${factLines.join('\n')}`);
     const location = stateFact.position || stateFact.region;
     const lines = [`我在${location}。`];
     if (stateFact.state) lines.push(`我在${location}，正在${stateFact.state}。`);
+    const emotion = formatEmotion(stateFact.emotionSummary);
+    if (emotion) lines.push(`我感觉${emotion}。`);
     return lines;
   }
 

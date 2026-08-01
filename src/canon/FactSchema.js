@@ -172,6 +172,7 @@ function createStaticEnvFact(data, base = {}) {
  * @param {string} data.agentId - 角色 ID
  * @param {string} data.state - 状态标签
  * @param {string} [data.region] - 所在区域
+ * @param {string} [data.emotionSummary] - 当前主导情绪的 canonical summary
  * @param {Partial<Object>} [base] - BaseFact 覆盖
  */
 function createAgentStateFact(data, base = {}) {
@@ -189,6 +190,7 @@ function createAgentStateFact(data, base = {}) {
     agentId: data.agentId,
     state: data.state,
     region: data.region || '',
+    emotionSummary: data.emotionSummary || '',
   };
 }
 

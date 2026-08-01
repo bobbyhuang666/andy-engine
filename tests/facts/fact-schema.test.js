@@ -212,6 +212,13 @@ describe('createAgentStateFact', () => {
     const fact = createAgentStateFact({ agentId: 'alice', state: '看书', region: '图书馆' });
     expect(fact.region).toBe('图书馆');
   });
+
+  it('保留 runtime 发射的 emotionSummary', () => {
+    const fact = createAgentStateFact({
+      agentId: 'alice', state: '看书', region: '图书馆', emotionSummary: 'calm',
+    });
+    expect(fact.emotionSummary).toBe('calm');
+  });
 });
 
 describe('createRelationshipFact', () => {
