@@ -14,6 +14,7 @@ const require = createRequire(import.meta.url);
 const FactConsistencyChecker = require('../../../src/narrative/FactConsistencyChecker.js');
 const FactFormatter = require('../../../src/narrative/FactFormatter.js');
 const { FactType, FactScope } = require('../../../src/canon/FactSchema.js');
+const { observationAssertion } = require('../../../src/narrative/ObservationAssertion.js');
 
 function makeChecker(regions = ['图书馆', '食堂', '宿舍']) {
   return new FactConsistencyChecker({}, { regions });
@@ -57,6 +58,26 @@ describe('FactConsistencyChecker.check — entry', () => {
     expect(r.violations).toHaveLength(0);
     expect(r.severity).toBe('pass');
     expect(r.suggestion).toBeNull();
+  });
+  it('does not let legacy regexes re-judge a fact-bound observation sidecar span', () => {
+    const fact = {
+      id: 'fact_observation', type: FactType.OBSERVATION, observerId: 'main',
+      targetId: 'maren', action: '在附近注意到有人', context: '酒馆',
+    };
+    const text = '我观察到Maren在附近注意到有人，当时在酒馆。';
+    const r = makeChecker(['酒馆']).check(text, makeGrounding({
+      allowedFacts: [fact], metadata: { agentId: 'main', agentNames: { main: '主角', maren: 'Maren' } },
+    }), {
+      structuredClaims: [{
+        type: 'event', subject: 'main', predicate: 'observed',
+        object: observationAssertion('maren', fact.action, fact.context), span: text, confidence: 1,
+      }],
+    });
+    expect(r.valid).toBe(true);
+    expect(r.violations).toEqual([]);
+    expect(r.evidenceTrace).toEqual(expect.arrayContaining([
+      expect.objectContaining({ support: 'supports', factId: 'fact_observation', evidenceSource: 'direct_observation' }),
+    ]));
   });
 });
 

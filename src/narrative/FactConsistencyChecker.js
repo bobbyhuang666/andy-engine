@@ -108,16 +108,23 @@ class FactConsistencyChecker {
     const v2Result = v2Checker.check(llmOutput, normalizedGrounding, options);
 
     // v1 regex fallback — for patterns not yet covered by structured claims
+    // A fact-bound direct observation has already been exactly checked by the
+    // v2 evidence binder. Do not let legacy location regexes reinterpret its
+    // natural-language rendering (for example, "当时在酒馆") as a second,
+    // unrelated location claim. We mask only spans with direct-observation
+    // support *and* a real fact ID; unsupported sidecars remain fully visible
+    // to every legacy safety check.
+    const regexFallbackText = this._maskBoundObservationSpans(llmOutput, v2Result.evidenceTrace);
     const regexViolations = [];
-    regexViolations.push(...this._checkCharacterNames(llmOutput, normalizedGrounding));
-    regexViolations.push(...this._checkLocationNames(llmOutput, normalizedGrounding));
-    regexViolations.push(...this._checkEventKnowledge(llmOutput, normalizedGrounding));
-    regexViolations.push(...this._checkTimeConflicts(llmOutput, normalizedGrounding));
-    regexViolations.push(...this._checkNewContent(llmOutput, normalizedGrounding));
-    regexViolations.push(...this._checkAgentLocationClaims(llmOutput, normalizedGrounding));
-    regexViolations.push(...this._checkMissingSourceAttribution(llmOutput, normalizedGrounding));
-    regexViolations.push(...this._checkAgentStateLeak(llmOutput, normalizedGrounding));
-    regexViolations.push(...this._checkLocalScopeLeak(llmOutput, normalizedGrounding));
+    regexViolations.push(...this._checkCharacterNames(regexFallbackText, normalizedGrounding));
+    regexViolations.push(...this._checkLocationNames(regexFallbackText, normalizedGrounding));
+    regexViolations.push(...this._checkEventKnowledge(regexFallbackText, normalizedGrounding));
+    regexViolations.push(...this._checkTimeConflicts(regexFallbackText, normalizedGrounding));
+    regexViolations.push(...this._checkNewContent(regexFallbackText, normalizedGrounding));
+    regexViolations.push(...this._checkAgentLocationClaims(regexFallbackText, normalizedGrounding));
+    regexViolations.push(...this._checkMissingSourceAttribution(regexFallbackText, normalizedGrounding));
+    regexViolations.push(...this._checkAgentStateLeak(regexFallbackText, normalizedGrounding));
+    regexViolations.push(...this._checkLocalScopeLeak(regexFallbackText, normalizedGrounding));
 
     // Merge: v2 blocking violations first, then regex-only violations (no duplicates)
     const merged = [...v2Result.violations];
@@ -173,6 +180,40 @@ class FactConsistencyChecker {
     } catch (_err) {
       return null;
     }
+  }
+
+  /**
+   * Preserve legacy regex checks outside direct-observation spans while
+   * preventing their known false-positive reparse inside a span that v2 has
+   * already bound to an allowed observation fact.
+   *
+   * @private
+   */
+  _maskBoundObservationSpans(text, evidenceTrace) {
+    if (typeof text !== 'string' || !Array.isArray(evidenceTrace) || evidenceTrace.length === 0) {
+      return text;
+    }
+    const covered = evidenceTrace
+      .filter(trace =>
+        trace &&
+        trace.support === 'supports' &&
+        trace.evidenceSource === 'direct_observation' &&
+        trace.factId != null &&
+        typeof trace.sourceSpanRaw === 'string' &&
+        trace.sourceSpanRaw.length > 0
+      )
+      .map(trace => trace.sourceSpanRaw);
+    if (covered.length === 0) return text;
+
+    const chars = text.split('');
+    for (const span of covered) {
+      let start = text.indexOf(span);
+      while (start !== -1) {
+        for (let i = start; i < start + span.length; i++) chars[i] = ' ';
+        start = text.indexOf(span, start + span.length);
+      }
+    }
+    return chars.join('');
   }
 
   /**
