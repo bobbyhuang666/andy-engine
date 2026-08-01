@@ -12,6 +12,20 @@ const { FactType } = require('../../../src/canon/FactSchema.js');
 
 describe('NarrativeBuilder — evidence-aware grounding (v2.5-W1)', () => {
   describe('_buildGroundingSection source grouping', () => {
+    it('offers fact-backed first-person state expressions without inventing emotion prose', () => {
+      const section = NarrativeBuilder._buildGroundingSection({
+        allowedFacts: [
+          { id: 'state-1', type: FactType.AGENT_STATE, agentId: 'alice', region: '图书馆', state: '学习', emotionSummary: 'calm' },
+        ],
+        inferredFacts: [],
+      });
+
+      expect(section).toContain('可直接表达的当前事实');
+      expect(section).toContain('我在图书馆。');
+      expect(section).toContain('我在图书馆，正在学习。');
+      expect(section).not.toContain('心情calm');
+    });
+
     it('renders direct facts without source annotation', () => {
       const grounding = {
         allowedFacts: [
@@ -122,6 +136,31 @@ describe('NarrativeBuilder — evidence-aware grounding (v2.5-W1)', () => {
       const section = NarrativeBuilder._buildGroundingSection(grounding);
       expect(section).toContain('听闻');
       expect(section).toContain('推测');
+    });
+  });
+
+  describe('grounded prompt authority', () => {
+    it('does not mix inferred affect guidance into a fact-grounded prompt', () => {
+      const prompt = NarrativeBuilder.buildSystemPrompt({
+        hour: 10,
+        currentRegion: '图书馆',
+        needsState: '精力极度匮乏',
+      }, {
+        characterName: 'Alice',
+        domain: { id: 'test', narrativeTemplates: {}, forbiddenTerms: [] },
+        groundingPackage: {
+          allowedFacts: [
+            { id: 'state-1', type: FactType.AGENT_STATE, agentId: 'alice', region: '图书馆', state: '学习' },
+          ],
+          inferredFacts: [],
+        },
+      });
+
+      expect(prompt).toContain('我在图书馆，正在学习。');
+      expect(prompt).not.toContain('眼皮重得抬不起来');
+      expect(prompt).not.toContain('你现在很困');
+      expect(prompt).toContain('只表达“你知道的事实”');
+      expect(prompt).not.toContain('开心时多说两句');
     });
   });
 });

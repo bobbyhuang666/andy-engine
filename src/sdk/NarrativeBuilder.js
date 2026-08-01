@@ -46,7 +46,12 @@ class NarrativeBuilder {
       sections.push(`# 你的故事\n${backstory.map(b => `- ${b}`).join('\n')}`);
     }
 
-    const state = NarrativeBuilder._buildCurrentState(worldContext, narrativeTemplates, affectFrame);
+    // In grounded mode the grounding package is the authority for expressible
+    // state. The legacy compiler also contains inferred mood/need guidance
+    // that the checker cannot always verify, so do not mix the two sources.
+    const state = options.groundingPackage
+      ? ''
+      : NarrativeBuilder._buildCurrentState(worldContext, narrativeTemplates, affectFrame);
     if (state) sections.push(state);
 
     const memory = NarrativeBuilder._buildMemory(worldContext.memoryContext);
@@ -90,7 +95,13 @@ class NarrativeBuilder {
       sections.push(NarrativeBuilder._buildGroundingSection(options.groundingPackage));
     }
 
-    sections.push(NarrativeBuilder._buildGuidelines(characterName, worldContext, usedDomain, affectFrame));
+    sections.push(NarrativeBuilder._buildGuidelines(
+      characterName,
+      worldContext,
+      usedDomain,
+      options.groundingPackage ? null : affectFrame,
+      { grounded: Boolean(options.groundingPackage) },
+    ));
 
     const rawPrompt = sections.filter(Boolean).join('\n\n');
 
@@ -326,6 +337,15 @@ class NarrativeBuilder {
       fact => fact.type !== FactType.STATIC_ENV,
     );
 
+    const safeStateLines = NarrativeBuilder._buildSafeStateExpressionFrame(allowedFacts);
+    if (safeStateLines.length > 0) {
+      sections.push(
+        '# 可直接表达的当前事实\n' +
+        '以下句子与当前事实逐项一致。优先用其中一条自然地回答用户；不要为了写得更长而补充未列事实。\n' +
+        safeStateLines.map(line => `- ${line}`).join('\n'),
+      );
+    }
+
     if (allowedFacts.length > 0) {
       // v2.5: group by evidence source for clarity
       const grouped = NarrativeBuilder._groupFactsBySource(allowedFacts);
@@ -396,6 +416,28 @@ ${factLines.join('\n')}`);
   }
 
   /**
+   * Build compact first-person state sentences supported by the same
+   * AGENT_STATE fact the checker uses. Emotion and need prose are omitted:
+   * today they are not fact-bound checker claims.
+   *
+   * @param {Object[]} facts
+   * @returns {string[]}
+   * @private
+   */
+  static _buildSafeStateExpressionFrame(facts) {
+    const stateFact = facts.find(fact =>
+      fact && fact.type === FactType.AGENT_STATE &&
+      (fact.position || fact.region)
+    );
+    if (!stateFact) return [];
+
+    const location = stateFact.position || stateFact.region;
+    const lines = [`我在${location}。`];
+    if (stateFact.state) lines.push(`我在${location}，正在${stateFact.state}。`);
+    return lines;
+  }
+
+  /**
    * Group allowedFacts by evidence source
    * @param {Object[]} facts
    * @returns {Object} { direct, observed, overheard, told, inferred, unknown }
@@ -416,13 +458,18 @@ ${factLines.join('\n')}`);
   // ═══════════════════════════════════════════
   // 行为指南（正面引导 + 动态规则）
   // ═══════════════════════════════════════════
-  static _buildGuidelines(name, ctx, domain = null, affectFrame = null) {
+  static _buildGuidelines(name, ctx, domain = null, affectFrame = null, options = {}) {
+    const grounded = options.grounded === true;
     const rules = [
       `你就是${name}，不是 AI，不是助手。你有自己的生活、感受和想法。`,
-      '像真人发消息一样回复：简短、自然、有口语感。不要写长段落。',
-      '通过你的语气和用词展现情绪，不要说"我现在感到难过"这种话。',
+      '像真人发消息一样回复：简短、自然、有口语感。直接回答用户的问题，不要写长段落。',
+      grounded
+        ? '只表达“你知道的事实”和“可直接表达的当前事实”中有依据的内容。'
+        : '通过你的语气和用词展现情绪，不要说"我现在感到难过"这种话。',
       '如果你不知道的事，就说不知道，不要编。',
-      '可以有情绪起伏：开心时多说两句，累时回复简短，烦时可以不耐烦。',
+      grounded
+        ? '如果事实不足以回答，就简短承认不知道；不要用臆测补全。'
+        : '可以有情绪起伏：开心时多说两句，累时回复简短，烦时可以不耐烦。',
     ];
 
     // 只在非默认 domain 时添加世界观约束
@@ -434,7 +481,7 @@ ${factLines.join('\n')}`);
     }
 
     // 情绪状态指南
-    if (affectFrame) {
+    if (!options.grounded && affectFrame) {
       // 使用结构化数据
       if (affectFrame.valence < -0.2) {
         rules.push('你现在心情不好，回复可以带点低落的语气，但不要一直抱怨。');
@@ -456,7 +503,7 @@ ${factLines.join('\n')}`);
       }
     }
 
-    if (!affectFrame && ctx.needsState) {
+    if (!options.grounded && !affectFrame && ctx.needsState) {
       // 回退到字符串解析
       if (ctx.needsState.includes('精力不足') || ctx.needsState.includes('精力极度匮乏')) {
         rules.push('你现在很困，回复简短，可能想休息。');
