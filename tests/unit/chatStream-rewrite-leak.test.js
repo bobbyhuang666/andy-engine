@@ -126,6 +126,12 @@ describe('B2: chat()/chatStream() 不外泄 rewrite 级违规内容', () => {
     expect(reply).toBe('我观察到李在阅读，当时在图书馆。');
   });
 
+  it('chat() recognizes the common "看见了什么" observation wording', async () => {
+    const character = makeCharacterWithObservationFallback();
+    const reply = await character.chat('你看见了什么？');
+    expect(reply).toBe('我观察到李在阅读，当时在图书馆。');
+  });
+
   it('chat() treats a recent-event question without a pronoun as a grounded question', async () => {
     const character = makeCharacterWithObservationFallback();
     const reply = await character.chat('刚才发生了什么？');
