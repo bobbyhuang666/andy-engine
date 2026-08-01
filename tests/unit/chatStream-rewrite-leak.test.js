@@ -46,6 +46,23 @@ function makeCharacterWithVerifiedFallback() {
   return character;
 }
 
+function makeCharacterWithQuestionAwareFallback() {
+  const character = new Character({
+    name: 'Maya',
+    id: 'maya',
+    personality: 'INFP',
+    llm: async () => '我感觉平静。',
+  });
+  character._engine.getGroundingPackage = () => ({
+    allowedFacts: [{
+      id: 'fact_maya_state', type: 'agent_state', agentId: 'maya',
+      region: '图书馆', state: '休息', emotionSummary: 'calm',
+    }],
+  });
+  character._engine.checkConsistency = () => ({ valid: true, severity: 'pass' });
+  return character;
+}
+
 describe('B2: chat()/chatStream() 不外泄 rewrite 级违规内容', () => {
   it('chat() 对 rewrite 级违规应降级为沉默，不返回违规原文', async () => {
     const character = makeCharacterWithConsistency({ valid: false, severity: 'rewrite' });
@@ -77,8 +94,15 @@ describe('B2: chat()/chatStream() 不外泄 rewrite 级违规内容', () => {
     const character = makeCharacterWithVerifiedFallback();
     const reply = await character.chat('随便说点什么');
 
-    expect(reply).toBe('我在图书馆。我只确认这些已知事实。');
+    expect(reply).toBe('我在图书馆。');
     expect(reply).not.toContain('违规内容');
+  });
+
+  it('chat() replaces a valid but off-topic state reply with the requested fact anchor', async () => {
+    const character = makeCharacterWithQuestionAwareFallback();
+    const reply = await character.chat('你正在做什么？');
+
+    expect(reply).toBe('我在图书馆，正在休息。');
   });
 
   it('chatStream() 对 rewrite 级违规应降级为沉默，不 yield 违规原文', async () => {
@@ -126,7 +150,7 @@ describe('B2: chat()/chatStream() 不外泄 rewrite 级违规内容', () => {
       tokens.push(token);
     }
 
-    expect(tokens.join('')).toBe('我在图书馆。我只确认这些已知事实。');
+    expect(tokens.join('')).toBe('我在图书馆。');
     expect(tokens.join('')).not.toContain('违规内容');
   });
 

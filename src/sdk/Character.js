@@ -39,9 +39,10 @@ const { DEFAULT_DOMAIN_ID } = require('../config/defaults');
  *
  * @param {Object} engine
  * @param {string} agentId
+ * @param {string} [userMessage]
  * @returns {string|null}
  */
-function createVerifiedGroundingFallback(engine, agentId) {
+function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
   if (!engine || typeof engine.getGroundingPackage !== 'function' || typeof engine.checkConsistency !== 'function') {
     return null;
   }
@@ -58,18 +59,24 @@ function createVerifiedGroundingFallback(engine, agentId) {
 
     const location = stateFact.position || stateFact.region;
     const state = stateFact.state || null;
-    const emotion = stateFact.emotionSummary || null;
+    const emotion = NarrativeBuilder.formatEmotionSummary(stateFact.emotionSummary);
+    const text = typeof userMessage === 'string' ? userMessage : '';
 
     // Build richer fact-bound candidates (priority order). Each uses ONLY fact
     // field values — no invention. Every candidate is verified by
     // checkConsistency before return; never return an unverified candidate.
-    const candidates = [];
-    if (location && state) candidates.push(`我在${location}，正在${state}。`);
-    if (location && emotion) candidates.push(`我在${location}，心情${emotion}。`);
-    if (location && state && emotion) candidates.push(`我在${location}，正在${state}，心情${emotion}。`);
-    candidates.push(`我在${location}。我只确认这些已知事实。`);
+    const locationLine = location ? `我在${location}。` : null;
+    const activityLine = location && state ? `我在${location}，正在${state}。` : null;
+    const emotionLine = emotion ? `我感觉${emotion}。` : null;
+    const candidates = /(?:你|您)(?:现在)?(?:感觉|心情).{0,4}|(?:你|您).{0,4}(?:怎么样|好吗)/.test(text)
+      ? [emotionLine, activityLine, locationLine]
+      : /(?:你|您).{0,4}(?:做什么|干什么|忙什么|正在)/.test(text)
+        ? [activityLine, locationLine, emotionLine]
+        : /(?:你|您).{0,4}(?:在哪|哪里|哪儿)/.test(text)
+          ? [locationLine, activityLine, emotionLine]
+          : [activityLine, emotionLine, locationLine];
 
-    for (const candidate of candidates) {
+    for (const candidate of candidates.filter(Boolean)) {
       if (engine.checkConsistency(candidate, agentId).valid) return candidate;
     }
     return null;
@@ -80,8 +87,36 @@ function createVerifiedGroundingFallback(engine, agentId) {
   }
 }
 
-function safeReplyOrSilence(engine, agentId, name) {
-  return createVerifiedGroundingFallback(engine, agentId) || `[${name}沉默了一会儿]`;
+function safeReplyOrSilence(engine, agentId, name, userMessage) {
+  return createVerifiedGroundingFallback(engine, agentId, userMessage) || `[${name}沉默了一会儿]`;
+}
+
+/**
+ * For a few factual questions, a checker-valid reply still is not useful if
+ * it ignores the requested dimension. This is a delivery check, not another
+ * truth checker: it only asks whether the reply contains the canonical state
+ * value that answers the user's direct question.
+ */
+function hasRequestedFactAnchor(reply, userMessage, groundingPackage, agentId) {
+  if (!groundingPackage || typeof reply !== 'string' || typeof userMessage !== 'string') return true;
+  const stateFact = (groundingPackage.allowedFacts || []).find(fact =>
+    fact && fact.type === 'agent_state' && fact.agentId === agentId
+  );
+  if (!stateFact) return true;
+
+  const text = userMessage;
+  if (/(?:你|您)(?:现在)?(?:感觉|心情).{0,4}|(?:你|您).{0,4}(?:怎么样|好吗)/.test(text)) {
+    const emotion = NarrativeBuilder.formatEmotionSummary(stateFact.emotionSummary);
+    return !emotion || reply.includes(emotion);
+  }
+  if (/(?:你|您).{0,4}(?:做什么|干什么|忙什么|正在)/.test(text)) {
+    return !stateFact.state || reply.includes(stateFact.state);
+  }
+  if (/(?:你|您).{0,4}(?:在哪|哪里|哪儿)/.test(text)) {
+    const location = stateFact.position || stateFact.region;
+    return !location || reply.includes(location);
+  }
+  return true;
 }
 
 class Character {
@@ -234,6 +269,7 @@ class Character {
       conversationHistory: this._conversation.getSummary(),
       domain: this._engine.domain,
       groundingPackage,
+      userMessage: message,
     });
 
     // 4. 构建 messages
@@ -261,10 +297,10 @@ class Character {
     if (this._engine.checkConsistency) {
       const consistencyOpts = options?.structuredClaims != null ? { structuredClaims: options.structuredClaims } : {};
       const consistency = this._engine.checkConsistency(reply, this.id, consistencyOpts);
-      if (!consistency.valid) {
+      if (!consistency.valid || !hasRequestedFactAnchor(reply, message, groundingPackage, this.id)) {
         // Invalid text must never leave this API. Prefer a separately verified,
         // fact-backed delivery fallback; retain silence when none is available.
-        reply = safeReplyOrSilence(this._engine, this.id, this.name);
+        reply = safeReplyOrSilence(this._engine, this.id, this.name, message);
       }
     }
 
@@ -327,6 +363,7 @@ class Character {
       conversationHistory: this._conversation.getSummary(),
       domain: this._engine.domain,
       groundingPackage,
+      userMessage: message,
     });
 
     const messages = [
@@ -361,10 +398,10 @@ class Character {
     if (this._engine.checkConsistency) {
       const consistencyOpts = options?.structuredClaims != null ? { structuredClaims: options.structuredClaims } : {};
       const consistency = this._engine.checkConsistency(fullReply, this.id, consistencyOpts);
-      if (!consistency.valid) {
+      if (!consistency.valid || !hasRequestedFactAnchor(fullReply, message, groundingPackage, this.id)) {
         // Buffering plus this fallback ensures invalid streamed text is never
         // exposed before a separately verified grounded alternative.
-        outputReply = safeReplyOrSilence(this._engine, this.id, this.name);
+        outputReply = safeReplyOrSilence(this._engine, this.id, this.name, message);
       }
     }
 
@@ -392,6 +429,7 @@ class Character {
         conversationHistory: this._conversation.getSummary(),
         domain: this._engine.domain,
         groundingPackage,
+        userMessage: options.userText,
       }),
       narrative,
       worldContext,

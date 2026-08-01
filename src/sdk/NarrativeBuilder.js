@@ -17,6 +17,10 @@ const { DEFAULT_DOMAIN_ID } = require('../config/defaults');
 const { FactType } = require('../canon/FactSchema');
 
 class NarrativeBuilder {
+  static formatEmotionSummary(value) {
+    return formatEmotion(value);
+  }
+
   static buildSystemPrompt(worldContext, options = {}) {
     const {
       characterName = '角色',
@@ -93,7 +97,7 @@ class NarrativeBuilder {
     }
 
     if (options.groundingPackage) {
-      sections.push(NarrativeBuilder._buildGroundingSection(options.groundingPackage));
+      sections.push(NarrativeBuilder._buildGroundingSection(options.groundingPackage, options.userMessage));
     }
 
     sections.push(NarrativeBuilder._buildGuidelines(
@@ -317,7 +321,7 @@ class NarrativeBuilder {
   // ═══════════════════════════════════════════
   // 事实约束（grounding package）— v2.5 evidence-aware
   // ═══════════════════════════════════════════
-  static _buildGroundingSection(groundingPackage) {
+  static _buildGroundingSection(groundingPackage, userMessage = '') {
     const sections = [];
 
     sections.push(`# 事实约束
@@ -338,7 +342,7 @@ class NarrativeBuilder {
       fact => fact.type !== FactType.STATIC_ENV,
     );
 
-    const safeStateLines = NarrativeBuilder._buildSafeStateExpressionFrame(allowedFacts);
+    const safeStateLines = NarrativeBuilder._buildSafeStateExpressionFrame(allowedFacts, userMessage);
     if (safeStateLines.length > 0) {
       sections.push(
         '# 可直接表达的当前事实\n' +
@@ -425,7 +429,7 @@ ${factLines.join('\n')}`);
    * @returns {string[]}
    * @private
    */
-  static _buildSafeStateExpressionFrame(facts) {
+  static _buildSafeStateExpressionFrame(facts, userMessage = '') {
     const stateFact = facts.find(fact =>
       fact && fact.type === FactType.AGENT_STATE &&
       (fact.position || fact.region)
@@ -433,11 +437,18 @@ ${factLines.join('\n')}`);
     if (!stateFact) return [];
 
     const location = stateFact.position || stateFact.region;
-    const lines = [`我在${location}。`];
-    if (stateFact.state) lines.push(`我在${location}，正在${stateFact.state}。`);
-    const emotion = formatEmotion(stateFact.emotionSummary);
-    if (emotion) lines.push(`我感觉${emotion}。`);
-    return lines;
+    const locationLine = `我在${location}。`;
+    const activityLine = stateFact.state ? `我在${location}，正在${stateFact.state}。` : null;
+    const emotion = NarrativeBuilder.formatEmotionSummary(stateFact.emotionSummary);
+    const emotionLine = emotion ? `我感觉${emotion}。` : null;
+    const text = typeof userMessage === 'string' ? userMessage : '';
+
+    // A compact, question-specific surface prevents the model from choosing a
+    // random state template when the user asked about one concrete dimension.
+    if (/(?:你|您)(?:现在)?(?:感觉|心情).{0,4}|(?:你|您).{0,4}(?:怎么样|好吗)/.test(text) && emotionLine) return [emotionLine, activityLine, locationLine].filter(Boolean);
+    if (/(?:你|您).{0,4}(?:做什么|干什么|忙什么|正在)/.test(text) && activityLine) return [activityLine, locationLine, emotionLine].filter(Boolean);
+    if (/(?:你|您).{0,4}(?:在哪|哪里|哪儿)/.test(text)) return [locationLine, activityLine, emotionLine].filter(Boolean);
+    return [activityLine, emotionLine, locationLine].filter(Boolean);
   }
 
   /**
