@@ -29,6 +29,7 @@ const NarrativeBuilder = require('./NarrativeBuilder');
 const LLMAdapter = require('./LLMAdapter');
 const AutoTick = require('./AutoTick');
 const ConversationLog = require('./ConversationLog');
+const { classifyGroundedQuestion } = require('./ConversationQuestion');
 const { diagnostics } = require('../shared/Diagnostics');
 const { DEFAULT_DOMAIN_ID } = require('../config/defaults');
 
@@ -60,24 +61,26 @@ function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
     const location = stateFact.position || stateFact.region;
     const state = stateFact.state || null;
     const emotion = NarrativeBuilder.formatEmotionSummary(stateFact.emotionSummary);
-    const text = typeof userMessage === 'string' ? userMessage : '';
+    const intent = classifyGroundedQuestion(userMessage);
 
     // Build richer fact-bound candidates (priority order). Each uses ONLY fact
     // field values — no invention. Every candidate is verified by
     // checkConsistency before return; never return an unverified candidate.
-    const locationLine = location ? `我在${location}。` : null;
-    const activityLine = location && state ? `我在${location}，正在${state}。` : null;
-    const emotionLine = emotion ? `我感觉${emotion}。` : null;
-    const candidates = /(?:你|您)(?:现在)?(?:感觉|心情).{0,4}|(?:你|您).{0,4}(?:怎么样|好吗)/.test(text)
+    const locationLine = location ? { text: `我在${location}。`, structuredClaims: [{ type: 'location', subject: agentId, predicate: 'is_at', object: location, confidence: 1 }] } : null;
+    const activityLine = state ? { text: `我目前处于${state}状态。`, structuredClaims: [{ type: 'state', subject: agentId, predicate: 'activity', object: state, confidence: 1 }] } : null;
+    const emotionLine = emotion ? { text: `我感觉${emotion}。`, structuredClaims: [{ type: 'state', subject: agentId, predicate: 'feels', object: emotion, confidence: 1 }] } : null;
+    const candidates = intent === 'emotion'
       ? [emotionLine, activityLine, locationLine]
-      : /(?:你|您).{0,4}(?:做什么|干什么|忙什么|正在)/.test(text)
+      : intent === 'activity'
         ? [activityLine, locationLine, emotionLine]
-        : /(?:你|您).{0,4}(?:在哪|哪里|哪儿)/.test(text)
+        : intent === 'location'
           ? [locationLine, activityLine, emotionLine]
-          : [activityLine, emotionLine, locationLine];
+          : [locationLine, activityLine, emotionLine];
 
     for (const candidate of candidates.filter(Boolean)) {
-      if (engine.checkConsistency(candidate, agentId).valid) return candidate;
+      if (engine.checkConsistency(candidate.text, agentId, { structuredClaims: candidate.structuredClaims }).valid) {
+        return candidate.text;
+      }
     }
     return null;
   } catch (error) {
@@ -104,15 +107,15 @@ function hasRequestedFactAnchor(reply, userMessage, groundingPackage, agentId) {
   );
   if (!stateFact) return true;
 
-  const text = userMessage;
-  if (/(?:你|您)(?:现在)?(?:感觉|心情).{0,4}|(?:你|您).{0,4}(?:怎么样|好吗)/.test(text)) {
+  const intent = classifyGroundedQuestion(userMessage);
+  if (intent === 'emotion') {
     const emotion = NarrativeBuilder.formatEmotionSummary(stateFact.emotionSummary);
     return !emotion || reply.includes(emotion);
   }
-  if (/(?:你|您).{0,4}(?:做什么|干什么|忙什么|正在)/.test(text)) {
+  if (intent === 'activity') {
     return !stateFact.state || reply.includes(stateFact.state);
   }
-  if (/(?:你|您).{0,4}(?:在哪|哪里|哪儿)/.test(text)) {
+  if (intent === 'location') {
     const location = stateFact.position || stateFact.region;
     return !location || reply.includes(location);
   }

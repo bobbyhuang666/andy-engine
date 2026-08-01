@@ -33,7 +33,7 @@ describe('NarrativeBuilder — evidence-aware grounding (v2.5-W1)', () => {
           { id: 'state-1', type: FactType.AGENT_STATE, agentId: 'alice', region: '图书馆', state: '学习', emotionSummary: 'calm' },
         ],
         inferredFacts: [],
-      }, '你感觉怎么样？');
+      }, '你的情绪怎么样？');
 
       const frame = section.split('# 可直接表达的当前事实')[1].split('# 你知道的事实')[0];
       expect(frame.indexOf('我感觉平静。')).toBeLessThan(frame.indexOf('我在图书馆，正在学习。'));

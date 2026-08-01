@@ -102,7 +102,7 @@ describe('B2: chat()/chatStream() 不外泄 rewrite 级违规内容', () => {
     const character = makeCharacterWithQuestionAwareFallback();
     const reply = await character.chat('你正在做什么？');
 
-    expect(reply).toBe('我在图书馆，正在休息。');
+    expect(reply).toBe('我目前处于休息状态。');
   });
 
   it('chatStream() 对 rewrite 级违规应降级为沉默，不 yield 违规原文', async () => {
