@@ -203,12 +203,106 @@ class FactEmitter {
   }
 
   /**
+   * 交互内容里被识别为"泛化模板"的动作词。这类内容（来自陌生人相遇）
+   * 信息量不足且语义冗余（"观察到...注意到有人"），观察事实应改用被观察
+   * 目标当前的具体动作/状态来描述。
+   *
+   * 判定只比较文本本身，不硬编码任何世界词——具体世界语义来自 domain。
+   * @private
+   */
+  static _GENERIC_OBSERVATION_TEMPLATES = Object.freeze([
+    '在附近注意到有人',
+    '在附近注意到有人，没什么特别的',
+  ]);
+
+  /**
+   * 用被观察目标当前的具体动作/状态构造观察动作描述。
+   *
+   * 设计动机：陌生人相遇事件的内容是泛化模板（如"在附近注意到有人"），
+   * 直接成为 OBSERVATION fact 的 action 后信息量不足、语义冗余
+   * （"观察到 Maren 在附近注意到有人"）。观察事实应描述被观察者在做什么，
+   * 而非观察者"注意到了有人"这一行为本身。
+   *
+   * 具体动作词通过 domain-driven 方式获取（不把任何世界词写进 core）：
+   *   - 目标当前状态标签（domain-driven state name）描述被观察者在做什么
+   *   - statePositionMap 把状态名映射为动作描述（如 "休息" → "在休息"）
+   *   - 观察地点（domain-driven region name）补足上下文，使动作足够具体、
+   *     有信息量且长度充足（如 "正在酒馆里休息"）
+   *
+   * 仅当交互内容本身是泛化模板时才替换；具体交互内容（如"一起聊了会天"）
+   * 保留原样，避免丢失原有语义信息。
+   *
+   * **BOUNDARY**: FactEmitter 是只读 fact 生成器，不修改 engine 状态。
+   * 仅读取 agent.stateMachine.currentState 描述被观察者的当前活动，与
+   * emitAgentStateFacts 读取 agent 状态的模式一致。region 名来自 domain
+   * 配置，不硬编码在 core。
+   *
+   * @private
+   * @param {Object} event - 交互事件
+   * @param {string} targetId - 被观察目标 ID
+   * @param {Map<string, Object>} [agents] - agentId → Agent 实例（只读）
+   * @param {Object} [domain] - DomainRegistry 实例（只读）
+   * @returns {string} 观察动作描述
+   */
+  _resolveObservationAction(event, targetId, agents, domain) {
+    const content = (event && event.content) || '互动';
+
+    // 具体交互内容直接保留——只有泛化模板才替换为被观察目标的具体动作。
+    const isGeneric = FactEmitter._GENERIC_OBSERVATION_TEMPLATES.includes(content);
+    if (!isGeneric) return content;
+
+    if (!agents || !domain) return content;
+
+    const target = agents.get(targetId);
+    if (!target) return content;
+
+    // 读取被观察目标的当前状态标签（domain-driven state name）。
+    const stateLabel = target.stateMachine?.currentState;
+    if (!stateLabel) return content;
+
+    // 通过 domain 的叙事模板把状态名映射为"在做什么"的动作描述。
+    // domain-driven：具体动作词（如"在休息""在教室上课"）来自 statePositionMap。
+    // 不同 preset 的 statePositionMap 约定不同（tavern 给"在+动词"，campus
+    // 给"在+地点+动词"），映射值已是完整动作短语，直接使用。
+    const statePositionMap =
+      (domain.narrativeTemplates && domain.narrativeTemplates.statePositionMap) || {};
+    const mapped = statePositionMap[stateLabel];
+    if (typeof mapped === 'string' && mapped.length > 0) {
+      // 映射值已含具体动作描述。仅当映射值是简短的"在+动词"形式（length=3，
+      // 如 tavern 的"在休息"）时才用观察地点补足上下文，构造"正在酒馆里休息"
+      // 这样具体、length>6 的描述。更长的映射值（如 campus 的"在图书馆"或
+      // "在教室上课"）本身已是完整动作短语，直接使用，避免与 region 重复。
+      // region 来自 domain 配置，不硬编码在 core。
+      const region = event.location || '';
+      if (region && mapped.length === 3) {
+        return `正在${region}里${mapped.replace(/^在/, '')}`;
+      }
+      return `正在${mapped.replace(/^在/, '')}`;
+    }
+
+    // 状态未映射：用状态名本身（domain-driven state name）+ 观察地点。
+    // campus 多数状态名已带"在"前缀，去前导"在"得纯词再与 region 组合。
+    const region = event.location || '';
+    let stateVerb = stateLabel.replace(/^在/, '');
+    if (region && stateVerb) {
+      return `正在${region}里${stateVerb}`;
+    }
+    return `正在${stateVerb || stateLabel}`;
+  }
+
+  /**
    * 从交互事件提取观察事实
    *
+   * 当提供 agents + domain 时，被观察目标的当前动作/状态（而非泛化模板内容）
+   * 成为观察事实的 action，使观察事实携带具体、有信息量的内容
+   * （如"Maren 在休息"而非"Maren 在附近注意到有人"）。
+   *
    * @param {Object[]} interactionEvents - Simulator 的交互事件
+   * @param {Map<string, Object>} [agents] - agentId → Agent 实例（只读，用于读取被观察目标当前状态）
+   * @param {Object} [domain] - DomainRegistry 实例（只读，用于把状态映射为动作描述）
    * @returns {Object[]}
    */
-  emitObservationFacts(interactionEvents) {
+  emitObservationFacts(interactionEvents, agents = null, domain = null) {
     if (!interactionEvents || !Array.isArray(interactionEvents)) return [];
 
     const facts = [];
@@ -221,10 +315,12 @@ class FactEmitter {
         const observerId = event.participants[i];
         const targetId = event.participants[(i + 1) % event.participants.length];
 
+        const action = this._resolveObservationAction(event, targetId, agents, domain);
+
         const fact = createObservationFact({
           observerId,
           targetId,
-          action: event.content || '互动',
+          action,
           context: event.location || '',
           timestamp: event.time || now,
           source: FactSource.OBSERVATION,

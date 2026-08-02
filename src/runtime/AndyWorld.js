@@ -779,12 +779,17 @@ class AndyWorld {
 
   /**
    * Phase 9: FACT_EMISSION — emit observation and relationship facts.
+   *
+   * Passes agents + domain to FactEmitter.emitObservationFacts so the OBSERVATION
+   * fact's action reflects the observed target's current specific activity
+   * (domain-driven, e.g. "Maren 在休息") instead of a generic stranger-encounter
+   * template ("在附近注意到有人"). This keeps observation facts informative.
    * @private
    */
   _emitObservationFacts(interactionEvents, result) {
     if (this.factEmitter) {
       this.factEmitter.setSimTime(this.clock.time);
-      this.factEmitter.emitObservationFacts(interactionEvents);
+      this.factEmitter.emitObservationFacts(interactionEvents, this.agents, this.domain);
       this.factEmitter.emitRelationshipFacts(this.socialGraph);
       result.phase.factEmission = this.factStore.getStats();
     }
