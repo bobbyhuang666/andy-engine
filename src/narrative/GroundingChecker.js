@@ -383,13 +383,21 @@ class GroundingChecker {
         });
 
         // Flatten v3 structured subject/object → plain strings for EvidenceBinder compatibility.
+        // R8.5: relationship 'is_relation' reference claims need the structured
+        // {kind:'agent', id, raw} object so _extractSecondAgent can find the other
+        // party. Do not flatten agent-kind objects; other claim types flatten as before.
         const binderClaims = v3Claims.map((vc) => {
           const flat = { ...vc };
           if (flat.subject && typeof flat.subject === 'object') {
             flat.subject = flat.subject.id ?? flat.subject.raw ?? null;
           }
           if (flat.object && typeof flat.object === 'object') {
-            flat.object = flat.object.id ?? flat.object.raw ?? null;
+            if (flat.object.kind === 'agent') {
+              // keep structured object so _extractSecondAgent resolves the other agent
+              flat.object = { kind: 'agent', id: flat.object.id ?? null, raw: flat.object.raw ?? '' };
+            } else {
+              flat.object = flat.object.id ?? flat.object.raw ?? null;
+            }
           }
           return flat;
         });
@@ -722,8 +730,12 @@ class GroundingChecker {
   _validateRelationshipClaim(claim, ctx) {
     const violations = [];
 
-    // 所有关系变化 claim → 不允许 LLM 创建新关系
-    if (claim.polarity === 'affirmative') {
+    // R8.5: predicate 'is_relation' references an EXISTING relationship
+    // (mirrors 'observed'/'refers_to' referencing existing facts). It is not a
+    // relationship-creation claim, so it is allowed. Only relationship-creation
+    // claims (default predicate) are rejected to keep relationships as engine
+    // (Canon) authority.
+    if (claim.polarity === 'affirmative' && claim.predicate !== 'is_relation') {
       violations.push({
         type: 'new_relationship',
         message: '生成了新的关系变化',

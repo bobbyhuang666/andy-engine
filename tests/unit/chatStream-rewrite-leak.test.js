@@ -180,6 +180,26 @@ describe('B2: chat()/chatStream() 不外泄 rewrite 级违规内容', () => {
     expect(reply).toBe(`我知道${genericDesc}。`);
   });
 
+  it('R8.5: relationship fallback delivers an existing relationship via is_relation reference', async () => {
+    // A public RELATIONSHIP fact involving this agent is referenced (not
+    // created) via predicate 'is_relation'. The fallback must deliver the
+    // relationType, not be rejected as new_relationship.
+    const character = new Character({
+      name: 'Maya', id: 'maya', personality: 'INFP', llm: async () => '违规内容',
+    });
+    const bobId = 'char_bob';
+    character._engine.getGroundingPackage = () => ({
+      allowedFacts: [
+        { id: 'fact_maya_state', type: 'agent_state', agentId: 'maya', region: '酒馆', state: '喝酒' },
+        { id: 'fact_rel_1', type: 'relationship', agentA: 'maya', agentB: bobId, relationType: 'stranger', strength: 0.1, scope: 'public' },
+      ],
+      metadata: { agentNames: { maya: 'Maya', char_bob: '李' } },
+    });
+    character._engine.checkConsistency = () => ({ valid: true, severity: 'pass' });
+    const reply = await character.chat('你们关系如何？');
+    expect(reply).toBe('我和李的关系是stranger。');
+  });
+
   it('chatStream() 对 rewrite 级违规应降级为沉默，不 yield 违规原文', async () => {
     const character = makeCharacterWithConsistency({ valid: false, severity: 'rewrite' });
     const tokens = [];

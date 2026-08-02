@@ -651,8 +651,21 @@ class EvidenceBinder {
           confidence,
           reason: `known relationship ${key} exists but claim denies it`,
         });
+      } else if (claim.predicate === 'is_relation') {
+        // R8.5: predicate 'is_relation' references an EXISTING relationship
+        // (mirrors 'observed'/'refers_to' referencing existing facts). It does
+        // not create or change the relationship, so it is supported by the
+        // existing RELATIONSHIP fact with a real factId.
+        bindings.push({
+          claimId: claim.id || 'unknown',
+          factId: relationship.factId,
+          support: SUPPORT.SUPPORTS,
+          evidenceSource: 'known_relationships',
+          confidence,
+          reason: `relationship ${key} referenced via is_relation exists in known relationships`,
+        });
       } else {
-        // 肯定已有关系 → 仍 unsupported（LLM 不能造关系）
+        // 肯定已有关系（默认/创建谓词）→ 仍 unsupported（LLM 不能造关系变化）
         bindings.push({
           claimId: claim.id || 'unknown',
           factId: relationship.factId,

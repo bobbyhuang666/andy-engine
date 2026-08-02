@@ -10,6 +10,10 @@ function classifyGroundedQuestion(message) {
   // classify safely without the pronoun gate used by state questions.
   if (/(观察到什么|看到什么|看到了什么|看见什么|看见了什么|发现什么|发现了什么|周围有什么|环境怎么样)/.test(text)) return 'observation';
   if (/(发生什么|发生了什么|出了什么事|刚才怎么了)/.test(text)) return 'recent_event';
+  // Relationship questions reference the agent's own relationships (which are
+  // public-scope RELATIONSHIP facts in the grounding). They use 你/您 but the
+  // vocabulary is narrow enough to classify before the pronoun gate.
+  if (/(认识谁|认识什么人|认识什么人吗|认识谁吗|关系如何|关系怎么样|是什么关系|怎么认识的|关系怎样|朋友吗|朋友|熟人)/.test(text)) return 'relationship';
   if (!/(你|您)/.test(text)) return null;
   if (/(感觉|心情|情绪|怎么样|好吗)/.test(text)) return 'emotion';
   if (/(在哪|哪里|哪儿|位置)/.test(text)) return 'location';

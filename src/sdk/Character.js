@@ -122,6 +122,32 @@ function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
       text: eventText,
       structuredClaims: [{ type: 'event', subject: agentId, predicate: 'refers_to', object: eventFact.description, span: eventText, confidence: 1 }],
     } : null;
+    // R8.5: relationship fallback references an EXISTING public RELATIONSHIP fact
+    // via predicate 'is_relation' (a reference, not a creation claim). The fact
+    // must involve this agent; the other party is named via agentNames.
+    const relationshipFact = (grounding?.allowedFacts || []).find((fact) =>
+      fact && fact.type === 'relationship' &&
+      (fact.agentA === agentId || fact.agentB === agentId) &&
+      fact.relationType
+    );
+    let relationshipLine = null;
+    if (relationshipFact) {
+      const otherId = relationshipFact.agentA === agentId
+        ? relationshipFact.agentB
+        : relationshipFact.agentA;
+      const otherName = agentNames[otherId];
+      if (otherName) {
+        const relationshipText = `我和${otherName}的关系是${relationshipFact.relationType}。`;
+        relationshipLine = {
+          text: relationshipText,
+          structuredClaims: [{
+            type: 'relationship', subject: agentId, predicate: 'is_relation',
+            object: { kind: 'agent', id: otherId, raw: otherName },
+            span: relationshipText, confidence: 1,
+          }],
+        };
+      }
+    }
     const candidates = intent === 'emotion'
       ? [emotionLine, activityLine, locationLine]
       : intent === 'activity'
@@ -132,6 +158,8 @@ function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
             ? [observationLine, eventLine, locationLine, activityLine, emotionLine]
             : intent === 'recent_event'
               ? [eventLine, observationLine, locationLine, activityLine, emotionLine]
+            : intent === 'relationship'
+              ? [relationshipLine, observationLine, eventLine, locationLine, activityLine, emotionLine]
           : [locationLine, activityLine, emotionLine];
 
     for (const candidate of candidates.filter(Boolean)) {
@@ -173,6 +201,17 @@ function hasRequestedFactAnchor(reply, userMessage, groundingPackage, agentId) {
       fact && fact.type === 'observation' && fact.observerId === agentId && fact.action
     );
     return !observation || reply.includes(observation.action);
+  }
+  if (intent === 'relationship') {
+    // R8.5: the canonical relationship answer names the other party and the
+    // relationType from an existing RELATIONSHIP fact. If no relationship fact
+    // involves this agent, no anchor is required.
+    const rel = (groundingPackage.allowedFacts || []).find(fact =>
+      fact && fact.type === 'relationship' &&
+      (fact.agentA === agentId || fact.agentB === agentId) && fact.relationType
+    );
+    if (!rel) return true;
+    return reply.includes(rel.relationType);
   }
   const stateFact = (groundingPackage.allowedFacts || []).find(fact =>
     fact && fact.type === 'agent_state' && fact.agentId === agentId

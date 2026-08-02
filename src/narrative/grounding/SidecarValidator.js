@@ -33,6 +33,12 @@ const KNOWN_MODALITIES = new Set([
 // ─── 不可信 claim 类型（红线）────────────────────────────────────────────────
 
 const UNTRUSTED_EVENT_PREDICATE = 'did';
+// R8.5: predicate 'is_relation' references an EXISTING relationship (mirrors
+// how 'observed' references an existing observation and 'refers_to' references
+// an existing event). It is NOT a relationship-creation claim, so it is trusted
+// rather than mistrusted. The default relationship predicate (no 'is_relation')
+// is still a relationship-creation claim and remains mistrusted/rejected.
+const RELATION_REFERENCE_PREDICATE = 'is_relation';
 
 // ─── 辅助函数 ────────────────────────────────────────────────────────────────
 
@@ -323,7 +329,10 @@ function _validateSingleClaim(rawClaim, index, issues, selfId, agentNames) {
   // ── 规则 6: 红线检测 ──────────────────────────────────────────────────────
 
   const isUntrustedEvent = (type === 'event' && predicate === UNTRUSTED_EVENT_PREDICATE);
-  const isUntrustedRelationship = (type === 'relationship');
+  // R8.5: only relationship-creation claims (default predicate) are mistrusted.
+  // predicate='is_relation' references an existing relationship and is trusted
+  // (mirrors 'observed'/'refers_to' referencing existing facts — not creation).
+  const isUntrustedRelationship = (type === 'relationship' && predicate !== RELATION_REFERENCE_PREDICATE);
 
   if (isUntrustedEvent) {
     issues.push({

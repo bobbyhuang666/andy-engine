@@ -318,6 +318,51 @@ describe('EvidenceBinder', () => {
       expect(result.bindings.length).toBe(1);
       expect(result.bindings[0].support).toBe(SUPPORT.UNSUPPORTED);
     });
+
+    test('R8.5: is_relation reference to existing relationship → supports + factId', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = [
+        { id: 'fact_rel_1', type: 'relationship', agentA: selfId, agentB: bobId, relationType: 'friend' },
+      ];
+      const claims = [
+        makeClaim({
+          type: 'relationship',
+          id: 'rel_ref_001',
+          subject: selfId,
+          predicate: 'is_relation',
+          object: { kind: 'agent', id: bobId, raw: '鲍勃' },
+          polarity: 'affirmative',
+        }),
+      ];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings.length).toBe(1);
+      expect(result.bindings[0].support).toBe(SUPPORT.SUPPORTS);
+      expect(result.bindings[0].evidenceSource).toBe('known_relationships');
+      expect(result.bindings[0].factId).toBe('fact_rel_1');
+    });
+
+    test('R8.5: is_relation reference to non-existent relationship → unsupported', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = [];
+      const claims = [
+        makeClaim({
+          type: 'relationship',
+          id: 'rel_ref_002',
+          subject: selfId,
+          predicate: 'is_relation',
+          object: { kind: 'agent', id: bobId, raw: '鲍勃' },
+          polarity: 'affirmative',
+        }),
+      ];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings.length).toBe(1);
+      expect(result.bindings[0].support).toBe(SUPPORT.UNSUPPORTED);
+      expect(result.bindings[0].factId).toBeFalsy();
+    });
   });
 
   describe('state claim', () => {
