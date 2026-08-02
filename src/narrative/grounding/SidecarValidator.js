@@ -370,6 +370,7 @@ function _validateSingleClaim(rawClaim, index, issues, selfId, agentNames) {
     subject: resolvedSubject,
     predicate,
     object: resolvedObject,
+    relationType: typeof rawClaim.relationType === 'string' ? rawClaim.relationType : null,
     polarity,
     modality,
     source,

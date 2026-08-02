@@ -137,7 +137,7 @@ require('andy-engine/presets/tavern') → presets/tavern/index.js
   - `FactScope`, `FACT_SCOPES` — enum
   - `validateFact` — function
   - `validateTypeFields` — function
-  - `createBaseFact`, `createStaticEnvFact`, `createAgentStateFact`, `createRelationshipFact`, `createEventFact`, `createObservationFact`, `createMemoryFact`, `createRuleFact`, `createLocationMeaningFact`, `createInvalidatedFact` — factory functions
+  - `createBaseFact`, `createStaticEnvFact`, `createAgentStateFact`, `createRelationshipFact`, `createEventFact`, `createObservationFact`, `createMemoryFact`, `createIntentionFact`, `createRuleFact`, `createLocationMeaningFact`, `createInvalidatedFact` — factory functions
   - `WorldFactStore` — class
   - `FactEmitter` — class
   - `FactFormatter` — class

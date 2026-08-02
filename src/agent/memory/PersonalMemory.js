@@ -114,6 +114,7 @@ class PersonalMemory {
           lastAccessed: safeDate(m.lastAccessed, this._simTime || 0),
           presentations: (Array.isArray(m.presentations) ? m.presentations : []).map(t => safeDate(t, this._simTime || 0)),
           semanticCategory: m.semanticCategory || null,
+          groundingExcluded: m.groundingExcluded === true,
           // R34 P2 fix: validate importance from saved data.
           importance: typeof m.importance === 'number' && Number.isFinite(m.importance) ? m.importance : 0.5,
           // R12: deep-copy nested objects to prevent shared reference mutation
@@ -269,6 +270,7 @@ class PersonalMemory {
       appraisal: event._appraisal || null,
       // 语义事件分类（支持基于类别的记忆检索）
       semanticCategory: this._classifySemanticCategory(event),
+      groundingExcluded: event.groundingExcluded === true,
     };
 
     this.memories.push(memory);
@@ -1168,6 +1170,7 @@ class PersonalMemory {
       // R12: spread-copy to prevent shared reference mutation
       emotionSnapshot: { ...(m.emotionSnapshot || {}) },
       semanticCategory: m.semanticCategory || null,
+      ...(m.groundingExcluded === true ? { groundingExcluded: true } : {}),
       appraisal: m.appraisal ? { ...m.appraisal } : null,
     }));
     // R8 fix: include _nextMemId to prevent ID collision after prune+restore.

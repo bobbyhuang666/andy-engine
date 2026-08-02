@@ -186,7 +186,7 @@ describe('GroundingChecker v2 — event claim', () => {
     expect(r.violations.some(v => v.type === 'unknown_event')).toBe(true);
   });
 
-  it('"那次XX" → pass 当在已知事件中', () => {
+  it('"那次XX" → 事件引用不接受已知描述的 substring', () => {
     const c = makeChecker();
     const g = makeGrounding({
       allowedFacts: [
@@ -194,7 +194,7 @@ describe('GroundingChecker v2 — event claim', () => {
       ],
     });
     const r = c.check('那次运动会你跑了第一名', g);
-    expect(r.violations.some(v => v.type === 'unknown_event')).toBe(false);
+    expect(r.violations.some(v => v.type === 'unknown_event')).toBe(true);
   });
 
   it('否定 event claim → 不触发 new_event', () => {

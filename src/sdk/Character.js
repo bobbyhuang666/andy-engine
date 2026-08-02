@@ -143,6 +143,7 @@ function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
           structuredClaims: [{
             type: 'relationship', subject: agentId, predicate: 'is_relation',
             object: { kind: 'agent', id: otherId, raw: otherName },
+            relationType: relationshipFact.relationType,
             span: relationshipText, confidence: 1,
           }],
         };
@@ -728,6 +729,7 @@ class Character {
         category: 'social',
         emotionTag: 'neutral',
         importance: 0.6,
+        groundingExcluded: true,
       });
 
       // 自己的回复
@@ -736,6 +738,7 @@ class Character {
         category: 'social',
         emotionTag: 'neutral',
         importance: 0.5,
+        groundingExcluded: true,
       });
     } catch (e) {
       diagnostics.warn(`Conversation memory error: ${e.message}`);

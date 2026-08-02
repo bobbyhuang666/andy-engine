@@ -799,11 +799,16 @@ class AndyWorld {
       this.factEmitter.emitMemoryFacts(this.agents);
       // R8.7: emit per-agent future intention facts (next scheduled activity,
       // domain-driven) so the future_intention conversational surface has facts
-      // to ground on. emitIntentionFacts is read-only (reads agent.schedule
-      // entries), consistent with the FactEmitter boundary. INTENTION facts are
+      // to ground on. emitIntentionFacts is read-only (delegates to the schedule
+      // API), consistent with the FactEmitter boundary. INTENTION facts are
       // LOCAL scope owned by the agent. Pass the UTC hour from the clock (which
       // is already UTC and allowlisted) so FactEmitter does not call getUTCHours.
-      this.factEmitter.emitIntentionFacts(this.agents, this.clock.time.getUTCHours());
+      this.factEmitter.emitIntentionFacts(
+        this.agents,
+        this.clock.time.getUTCHours(),
+        this.clock.dayOfWeek,
+        this.clock.toISOString().slice(0, 10),
+      );
       result.phase.factEmission = this.factStore.getStats();
     }
   }

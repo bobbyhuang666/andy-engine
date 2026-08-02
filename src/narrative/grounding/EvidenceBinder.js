@@ -21,6 +21,14 @@ const { FactType } = require('../../canon/FactSchema');
 const { canonicalEmotion } = require('../EmotionVocabulary');
 const { observationAssertion } = require('../ObservationAssertion');
 
+function normalizeComparableText(value) {
+  return String(value ?? '')
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/\s+/gu, ' ')
+    .trim();
+}
+
 // ─── Support levels ──────────────────────────────────────────────────────────
 
 const SUPPORT = {
@@ -131,33 +139,35 @@ class EvidenceBinder {
 
       // EVENT facts: build agent→location map
       // 关键规则：只读 participants / observers，不读 propagatedFrom
-      if (fact.type === FactType.EVENT && fact.location) {
-        if (fact.participants) {
-          for (const pid of fact.participants) {
-            if (!agentKnownLocations.has(pid)) agentKnownLocations.set(pid, new Map());
-            agentKnownLocations.get(pid).set(fact.location, fact.id || null);
+      if (fact.type === FactType.EVENT) {
+        if (fact.location) {
+          if (fact.participants) {
+            for (const pid of fact.participants) {
+              if (!agentKnownLocations.has(pid)) agentKnownLocations.set(pid, new Map());
+              agentKnownLocations.get(pid).set(fact.location, fact.id || null);
+            }
           }
-        }
-        if (fact.observers) {
-          for (const oid of fact.observers) {
-            if (!agentKnownLocations.has(oid)) agentKnownLocations.set(oid, new Map());
-            agentKnownLocations.get(oid).set(fact.location, fact.id || null);
+          if (fact.observers) {
+            for (const oid of fact.observers) {
+              if (!agentKnownLocations.has(oid)) agentKnownLocations.set(oid, new Map());
+              agentKnownLocations.get(oid).set(fact.location, fact.id || null);
+            }
           }
         }
         // EVENT facts: index description
         if (fact.description) {
-          knownEventDescriptions.set(fact.description.toLowerCase(), fact.id || null);
+          knownEventDescriptions.set(normalizeComparableText(fact.description), fact.id || null);
           // agentKnownEvents: participants/observers → description.toLowerCase()
           if (fact.participants) {
             for (const pid of fact.participants) {
               if (!agentKnownEvents.has(pid)) agentKnownEvents.set(pid, new Map());
-              agentKnownEvents.get(pid).set(fact.description.toLowerCase(), fact.id || null);
+              agentKnownEvents.get(pid).set(normalizeComparableText(fact.description), fact.id || null);
             }
           }
           if (fact.observers) {
             for (const oid of fact.observers) {
               if (!agentKnownEvents.has(oid)) agentKnownEvents.set(oid, new Map());
-              agentKnownEvents.get(oid).set(fact.description.toLowerCase(), fact.id || null);
+              agentKnownEvents.get(oid).set(normalizeComparableText(fact.description), fact.id || null);
             }
           }
         }
@@ -187,7 +197,7 @@ class EvidenceBinder {
       // so only the owning agent sees them. Binding matches self-memory content.
       if (fact.type === FactType.MEMORY && fact.agentId && fact.content) {
         if (!knownMemories.has(fact.agentId)) knownMemories.set(fact.agentId, new Map());
-        knownMemories.get(fact.agentId).set(fact.content.toLowerCase(), fact.id || null);
+        knownMemories.get(fact.agentId).set(normalizeComparableText(fact.content), fact.id || null);
       }
 
       // R8.7: INTENTION facts — index by agentId → { intent, region, factId }.
@@ -583,18 +593,11 @@ class EvidenceBinder {
 
     // predicate 'refers_to' — 引用过去事件
     if (claim.predicate === 'refers_to') {
-      const eventRefs = objectCandidates.map(value => String(value).toLowerCase());
-      let found = false;
-      let matchedDesc = null;
-      let matchedFactId = null;
-      for (const [desc, factId] of knownEventDescriptions) {
-        if (eventRefs.some(eventRef => desc.includes(eventRef) || eventRef.includes(desc))) {
-          found = true;
-          matchedDesc = desc;
-          matchedFactId = factId;
-          break;
-        }
-      }
+      const eventRefs = objectCandidates.map(normalizeComparableText);
+      const matched = eventRefs.find(eventRef => knownEventDescriptions.has(eventRef));
+      const found = matched !== undefined;
+      const matchedDesc = found ? matched : null;
+      const matchedFactId = found ? knownEventDescriptions.get(matched) : null;
       if (found) {
         bindings.push({
           claimId: claim.id || 'unknown',
@@ -677,6 +680,19 @@ class EvidenceBinder {
           reason: `known relationship ${key} exists but claim denies it`,
         });
       } else if (claim.predicate === 'is_relation') {
+        const requestedRelation = normalizeComparableText(claim.relationType);
+        const knownRelation = normalizeComparableText(relationship.relationType);
+        if (!requestedRelation || requestedRelation !== knownRelation) {
+          bindings.push({
+            claimId: claim.id || 'unknown',
+            factId: relationship.factId,
+            support: SUPPORT.UNSUPPORTED,
+            evidenceSource: 'known_relationships',
+            confidence,
+            reason: `relationship type "${claim.relationType || ''}" does not exactly match known type "${relationship.relationType || ''}"`,
+          });
+          return bindings;
+        }
         // R8.5: predicate 'is_relation' references an EXISTING relationship
         // (mirrors 'observed'/'refers_to' referencing existing facts). It does
         // not create or change the relationship, so it is supported by the
@@ -904,7 +920,7 @@ class EvidenceBinder {
       return bindings;
     }
 
-    const contentLower = String(contentRaw).toLowerCase();
+    const contentLower = normalizeComparableText(contentRaw);
     const agentMemories = knownMemories.get(selfId);
     if (!agentMemories || agentMemories.size === 0) {
       bindings.push({
@@ -918,19 +934,7 @@ class EvidenceBinder {
       return bindings;
     }
 
-    // Exact match first, then contained match (claim content is a fragment
-    // of the fact content, or vice versa).
-    let matchedFactId = null;
-    for (const [factContentLower, factId] of agentMemories) {
-      if (factContentLower === contentLower) { matchedFactId = factId; break; }
-    }
-    if (matchedFactId === null) {
-      for (const [factContentLower, factId] of agentMemories) {
-        if (factContentLower.includes(contentLower) || contentLower.includes(factContentLower)) {
-          matchedFactId = factId; break;
-        }
-      }
-    }
+    const matchedFactId = agentMemories.get(contentLower);
 
     if (matchedFactId !== null && matchedFactId) {
       bindings.push({
@@ -1002,10 +1006,9 @@ class EvidenceBinder {
     // object is the intent activity (string). Exact or contained match.
     const objectCandidates = this._objectValues(claim, 'raw');
     const intentRaw = objectCandidates[0] || '';
-    const intentLower = String(intentRaw).toLowerCase();
-    const factIntentLower = String(intention.intent).toLowerCase();
-    const matched = intentLower === factIntentLower ||
-      factIntentLower.includes(intentLower) || intentLower.includes(factIntentLower);
+    const intentLower = normalizeComparableText(intentRaw);
+    const factIntentLower = normalizeComparableText(intention.intent);
+    const matched = intentLower === factIntentLower;
 
     if (matched && intention.factId) {
       bindings.push({

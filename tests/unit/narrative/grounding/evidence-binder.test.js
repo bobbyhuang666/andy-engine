@@ -79,6 +79,7 @@ function makeClaim(opts) {
     subject: opts.subject != null ? opts.subject : null,
     predicate: opts.predicate || null,
     object: opts.object || null,
+    relationType: opts.relationType || null,
     polarity: opts.polarity || 'affirmative',
     confidence: opts.confidence || 0.8,
     stateType: opts.stateType || null,
@@ -342,6 +343,7 @@ describe('EvidenceBinder', () => {
           subject: selfId,
           predicate: 'is_relation',
           object: { kind: 'agent', id: bobId, raw: '鲍勃' },
+          relationType: 'friend',
           polarity: 'affirmative',
         }),
       ];
@@ -631,7 +633,7 @@ describe('EvidenceBinder', () => {
         makeClaim({
           type: 'event',
           predicate: 'refers_to',
-          object: '图书馆学习',
+          object: '鲍勃在图书馆学习',
         }),
       ];
 
@@ -741,7 +743,7 @@ describe('EvidenceBinder', () => {
           type: 'event',
           subject: { kind: 'agent', id: bobId, raw: '鲍勃' },
           predicate: 'refers_to',
-          object: { kind: 'event', id: 'evt1', raw: '图书馆学习' },
+          object: { kind: 'event', id: 'evt1', raw: '鲍勃在图书馆学习' },
         }),
       ];
 

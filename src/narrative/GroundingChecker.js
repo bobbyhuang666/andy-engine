@@ -35,6 +35,14 @@ const SEVERITY_RULES = {
   degrade_to_template: ['time_conflict', 'unknown_event'],
 };
 
+function normalizeComparableText(value) {
+  return String(value ?? '')
+    .normalize('NFKC')
+    .toLocaleLowerCase()
+    .replace(/\s+/gu, ' ')
+    .trim();
+}
+
 class GroundingChecker {
   /**
    * @param {import('../canon/WorldFactStore')} worldFactStore
@@ -176,7 +184,7 @@ class GroundingChecker {
 
       // EVENT facts: index description regardless of location
       if (fact.type === FactType.EVENT && fact.description) {
-        knownEventDescriptions.add(fact.description.toLowerCase());
+        knownEventDescriptions.add(normalizeComparableText(fact.description));
       }
 
       // OBSERVATION facts: observer→target→context (location stored in context)
@@ -412,6 +420,12 @@ class GroundingChecker {
           locationAliases: binderLocationAliases,
         });
 
+        // EvidenceBinder is authoritative for references to existing memory,
+        // intention, relationship, and event facts. These references must not
+        // remain diagnostic-only: an unsupported or contradictory binding is
+        // a blocking rewrite violation.
+        violations.push(...this._evidenceBindingViolations(v3Claims, bindings));
+
         // ── Step D1: Optional verifier (sync path, diagnostic only) ──
         try {
           const strictness = options.strictness || 'normal';
@@ -611,6 +625,45 @@ class GroundingChecker {
     return violations;
   }
 
+  /**
+   * Convert failed bindings for existing-fact references into blocking
+   * violations. Other claim classes keep their established v2 policies.
+   * @private
+   */
+  _evidenceBindingViolations(claims, bindings) {
+    const referencePredicates = new Map([
+      ['memory', new Set(['remembers'])],
+      ['intention', new Set(['plans_to'])],
+      ['relationship', new Set(['is_relation'])],
+      ['event', new Set(['refers_to'])],
+    ]);
+    const bindingsByClaim = new Map();
+    for (const binding of bindings || []) {
+      if (!binding || !binding.claimId) continue;
+      if (!bindingsByClaim.has(binding.claimId)) bindingsByClaim.set(binding.claimId, []);
+      bindingsByClaim.get(binding.claimId).push(binding);
+    }
+
+    const violations = [];
+    for (const claim of claims || []) {
+      const predicates = referencePredicates.get(claim?.type);
+      if (!predicates || !predicates.has(claim?.predicate) || !v3IsBlocking(claim)) continue;
+
+      for (const binding of bindingsByClaim.get(claim.id) || []) {
+        if (binding.support !== 'unsupported' && binding.support !== 'contradicts') continue;
+        violations.push({
+          type: 'unsupported_claim',
+          claimId: claim.id,
+          evidenceSupport: binding.support,
+          factId: binding.factId || undefined,
+          message: binding.reason || `claim ${claim.id} lacks a valid supporting fact`,
+          severity: 'rewrite',
+        });
+      }
+    }
+    return violations;
+  }
+
   // ═══════════════════════════════════════════
   // Location claim validation
   // ═══════════════════════════════════════════
@@ -721,7 +774,7 @@ class GroundingChecker {
       const eventRef = claim.objectRaw;
       let found = false;
       for (const known of knownEventDescriptions) {
-        if (known.includes(eventRef?.toLowerCase()) || eventRef?.toLowerCase()?.includes(known)) {
+        if (known === normalizeComparableText(eventRef)) {
           found = true;
           break;
         }

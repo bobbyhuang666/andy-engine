@@ -432,6 +432,7 @@ class FactEmitter {
       if (!agent.memory || !agent.memory.memories) continue;
 
       const recentMemories = agent.memory.memories
+        .filter(m => m.groundingExcluded !== true)
         .filter(m => m.importance > 0.3)
         .slice(-10);
 
@@ -479,17 +480,19 @@ class FactEmitter {
    * 条目，用其 activity（domain-driven）和 region 构造意图。区别于 AGENT_STATE
    * （当前活动）和 EVENT（已发生事件）。
    *
-   * **BOUNDARY**: FactEmitter 是只读 fact 生成器，仅读取 agent.schedule.entries
-   * 和 agent.id，不修改 engine 状态，与 emitAgentStateFacts/emitMemoryFacts
-   * 一致。intent 词来自 domain-driven schedule activity，不硬编码世界词。
+   * **BOUNDARY**: FactEmitter 是只读 fact 生成器，调用 Schedule 的公开
+   * getNextActivity() 读取 days/probability/noise 已生效的下一项，不修改
+   * engine 状态。intent 词来自 domain-driven schedule activity，不硬编码世界词。
    *
    * 每 tick 覆盖旧 INTENTION fact（按 agentId 去重更新）。
    *
    * @param {Map<string, Object>} agents - agentId → Agent 实例
    * @param {number} [currentUtcHour] - 当前 UTC 小时（用于找下一个 schedule entry）
+   * @param {number} [currentDayOfWeek] - 当前 UTC 星期（0-6）
+   * @param {string} [simDate] - 当前模拟日期（用于 Schedule 的变体缓存）
    * @returns {Object[]}
    */
-  emitIntentionFacts(agents, currentUtcHour = 0) {
+  emitIntentionFacts(agents, currentUtcHour = 0, currentDayOfWeek = 0, simDate = null) {
     if (!agents || agents.size === 0) return [];
 
     const facts = [];
@@ -504,27 +507,18 @@ class FactEmitter {
       ? Math.floor(currentUtcHour) : 0;
 
     for (const [agentId, agent] of agents) {
-      // 找出当前小时之后的下一个 schedule entry。
-      const entries = (agent.schedule && agent.schedule.entries) || [];
-      if (!Array.isArray(entries) || entries.length === 0) continue;
-
-      // Find next entry: smallest startHour > currentHour, else earliest entry
-      // (wrap to next day).
-      let nextEntry = null;
-      for (const e of entries) {
-        if (typeof e.startHour !== 'number') continue;
-        if (e.startHour > currentHour) {
-          if (!nextEntry || e.startHour < nextEntry.startHour) nextEntry = e;
+      const schedule = agent.schedule;
+      const nextActivity = schedule && typeof schedule.getNextActivity === 'function'
+        ? schedule.getNextActivity(currentHour, currentDayOfWeek, simDate)
+        : null;
+      const nextEntry = nextActivity?.entry || null;
+      const existing = existingByAgentId.get(agentId);
+      if (!nextEntry || !nextEntry.activity) {
+        if (existing && this.store._hasActiveFact(existing.id)) {
+          this.store.invalidateFact(existing.id, 'no_next_scheduled_activity');
         }
+        continue;
       }
-      if (!nextEntry) {
-        // wrap: earliest entry of next day
-        for (const e of entries) {
-          if (typeof e.startHour !== 'number') continue;
-          if (!nextEntry || e.startHour < nextEntry.startHour) nextEntry = e;
-        }
-      }
-      if (!nextEntry || !nextEntry.activity) continue;
 
       const fact = createIntentionFact({
         agentId,
@@ -539,7 +533,6 @@ class FactEmitter {
         observers: [],
       });
 
-      const existing = existingByAgentId.get(agentId);
       if (existing && this.store._hasActiveFact(existing.id)) {
         const updated = this.store.updateFact(existing.id, {
           intent: nextEntry.activity,

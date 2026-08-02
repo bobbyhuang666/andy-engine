@@ -214,11 +214,11 @@ describe('EvidenceBinder — alias / paraphrase support (M3-R3)', () => {
 
   // ── 8. non-location claim type 不受 alias 影响 ──
 
-  test('event claim 不受 locationAliases 影响', () => {
+    test('event claim 不受 locationAliases 影响且必须完全匹配', () => {
     const binder = new EvidenceBinder({ selfId });
     const allowedFacts = [makeEventFact({ description: '鲍勃在图书馆学习', location: '图书馆' })];
     const claims = [
-      makeClaim({ type: 'event', predicate: 'refers_to', object: '图书馆学习' }),
+      makeClaim({ type: 'event', predicate: 'refers_to', object: '鲍勃在图书馆学习' }),
     ];
     const locationAliases = { '图书馆': ['lib'] };
     const result = binder.bind(claims, allowedFacts, { locationAliases });
