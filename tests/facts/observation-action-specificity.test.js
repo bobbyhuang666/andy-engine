@@ -21,6 +21,16 @@ import tavern from '../../presets/tavern/index.js';
 import campus from '../../presets/campus/index.js';
 
 const TEST_START = new Date('2026-09-01T08:00:00Z');
+const englishDomain = {
+  narrativeTemplates: {
+    observationAction: {
+      genericTemplates: ['noticed someone nearby'],
+      stateMap: { resting: 'resting', working: 'working' },
+      withRegionTemplate: '{state} at {region}',
+      template: '{state}',
+    },
+  },
+};
 
 function makeAgentStub(state, opts = {}) {
   return {
@@ -139,6 +149,35 @@ describe('FactEmitter.emitObservationFacts — action specificity', () => {
     const bobObs = facts.find((f) => f.observerId === 'bob');
     // alice state="在图书馆" → statePositionMap["在图书馆"]="在图书馆" → "正在图书馆"
     expect(bobObs.action).toBe('正在图书馆');
+  });
+
+  it('custom English domain owns generic recognition and rendering', () => {
+    const agents = new Map([
+      ['alice', makeAgentStub('working', { id: 'alice' })],
+      ['bob', makeAgentStub('resting', { id: 'bob' })],
+    ]);
+    const events = [makeEvent('noticed someone nearby', 'square')];
+
+    const facts = emitter.emitObservationFacts(events, agents, englishDomain);
+
+    expect(facts.find((f) => f.observerId === 'alice').action).toBe('resting at square');
+    expect(facts.find((f) => f.observerId === 'bob').action).toBe('working at square');
+  });
+
+  it('incomplete observation config conservatively preserves interaction content', () => {
+    const agents = new Map([
+      ['alice', makeAgentStub('resting', { id: 'alice' })],
+      ['bob', makeAgentStub('working', { id: 'bob' })],
+    ]);
+    const event = makeEvent('noticed someone nearby', 'square');
+
+    const facts = emitter.emitObservationFacts([event], agents, {
+      narrativeTemplates: {
+        observationAction: { genericTemplates: ['noticed someone nearby'] },
+      },
+    });
+
+    for (const fact of facts) expect(fact.action).toBe(event.content);
   });
 
   it('被观察目标无 currentState 时回退到泛化模板', () => {

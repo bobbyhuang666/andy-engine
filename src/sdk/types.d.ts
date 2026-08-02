@@ -53,6 +53,12 @@ export interface DomainConfig {
   narrativeTemplates?: {
     statePositionMap?: Record<string, string>;
     regionMap?: Record<string, string>;
+    observationAction?: {
+      genericTemplates: string[];
+      stateMap: Record<string, string>;
+      template: string;
+      withRegionTemplate?: string;
+    };
   };
   roleArchetypes?: Record<string, { entries: Array<Record<string, any>> }>;
   fallback?: {

@@ -233,6 +233,10 @@ semanticProfile: {
 |-------|------|-------------|
 | `narrativeTemplates.statePositionMap` | `Object` | State → display text |
 | `narrativeTemplates.regionMap` | `Object` | Region → display text |
+| `narrativeTemplates.observationAction.genericTemplates` | `string[]` | Exact interaction content eligible for state-based observation rendering |
+| `narrativeTemplates.observationAction.stateMap` | `Object` | State → domain-owned observation text |
+| `narrativeTemplates.observationAction.template` | `string` | Rendering template; supports `{state}` and `{region}` |
+| `narrativeTemplates.observationAction.withRegionTemplate` | `string` | Optional rendering template used when the event has a region |
 
 ### Role Archetypes
 

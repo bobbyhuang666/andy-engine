@@ -345,6 +345,19 @@ const tavernDomain = {
       '工作': '在工作',
       '休息': '在休息',
     },
+    observationAction: {
+      genericTemplates: ['在附近注意到有人', '在附近注意到有人，没什么特别的'],
+      stateMap: {
+        '睡觉': '睡觉',
+        '闲逛': '闲逛',
+        '喝酒': '喝酒',
+        '聊天': '聊天',
+        '工作': '工作',
+        '休息': '休息',
+      },
+      withRegionTemplate: '正在{region}里{state}',
+      template: '正在{state}',
+    },
     regionMap: {
       '小屋': '在小屋里，壁炉温暖',
       '广场': '在广场上，人来人往',
