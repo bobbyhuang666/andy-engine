@@ -525,6 +525,71 @@ describe('EvidenceBinder', () => {
     });
   });
 
+  describe('R8.7 intention claim', () => {
+    test('self intention match → supports + factId', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = [
+        { id: 'fact_int_1', type: 'intention', agentId: selfId, intent: '工作', region: '铁匠铺', scope: 'local' },
+      ];
+      const claims = [
+        makeClaim({
+          type: 'intention',
+          id: 'int_001',
+          subject: selfId,
+          predicate: 'plans_to',
+          object: '工作',
+        }),
+      ];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings.length).toBe(1);
+      expect(result.bindings[0].support).toBe(SUPPORT.SUPPORTS);
+      expect(result.bindings[0].evidenceSource).toBe('known_intentions');
+      expect(result.bindings[0].factId).toBe('fact_int_1');
+    });
+
+    test('self intention no match → unsupported', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = [
+        { id: 'fact_int_1', type: 'intention', agentId: selfId, intent: '工作', scope: 'local' },
+      ];
+      const claims = [
+        makeClaim({
+          type: 'intention',
+          id: 'int_002',
+          subject: selfId,
+          predicate: 'plans_to',
+          object: '完全不相关的活动',
+        }),
+      ];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings[0].support).toBe(SUPPORT.UNSUPPORTED);
+      expect(result.bindings[0].factId).toBeFalsy();
+    });
+
+    test('other-agent intention → unsupported (forbidden)', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = [];
+      const claims = [
+        makeClaim({
+          type: 'intention',
+          id: 'int_003',
+          subject: bobId,
+          predicate: 'plans_to',
+          object: 'something',
+        }),
+      ];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings[0].support).toBe(SUPPORT.UNSUPPORTED);
+      expect(result.bindings[0].reason).toContain('not the speaker');
+    });
+  });
+
   describe('time claim', () => {
     test('time → supports reason 标注', () => {
       const binder = new EvidenceBinder({ selfId });

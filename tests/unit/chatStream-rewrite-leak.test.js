@@ -218,6 +218,24 @@ describe('B2: chat()/chatStream() 不外泄 rewrite 级违规内容', () => {
     expect(reply).toBe('我记得今天的麦酒特别好喝。');
   });
 
+  it('R8.7: future intention fallback delivers the next planned activity', async () => {
+    // A LOCAL INTENTION fact owned by this agent is referenced (not created) via
+    // predicate 'plans_to'. The fallback must deliver the intent activity + region.
+    const character = new Character({
+      name: 'Maya', id: 'maya', personality: 'INFP', llm: async () => '违规内容',
+    });
+    character._engine.getGroundingPackage = () => ({
+      allowedFacts: [
+        { id: 'fact_maya_state', type: 'agent_state', agentId: 'maya', region: '酒馆', state: '喝酒' },
+        { id: 'fact_int_1', type: 'intention', agentId: 'maya', intent: '工作', region: '铁匠铺', scheduledHour: 8, scope: 'local', participants: ['maya'] },
+      ],
+      metadata: { agentNames: { maya: 'Maya' } },
+    });
+    character._engine.checkConsistency = () => ({ valid: true, severity: 'pass' });
+    const reply = await character.chat('你接下来打算做什么？');
+    expect(reply).toBe('我接下来打算去铁匠铺工作。');
+  });
+
   it('chatStream() 对 rewrite 级违规应降级为沉默，不 yield 违规原文', async () => {
     const character = makeCharacterWithConsistency({ valid: false, severity: 'rewrite' });
     const tokens = [];

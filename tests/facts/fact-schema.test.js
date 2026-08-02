@@ -35,8 +35,13 @@ import {
 // ═══════════════════════════════════════════
 
 describe('FactType 枚举', () => {
-  it('应该包含 9 种类型', () => {
-    expect(FACT_TYPES).toHaveLength(9);
+  it('应该包含 10 种类型', () => {
+    expect(FACT_TYPES).toHaveLength(10);
+  });
+
+  it('应该包含 R8.7 INTENTION 类型', () => {
+    expect(FactType.INTENTION).toBe('intention');
+    expect(FACT_TYPES).toContain('intention');
   });
 
   it('每个类型的值应该是 kebab-case 字符串', () => {
@@ -326,6 +331,17 @@ describe('validateTypeFields', () => {
   it('memory 缺少 content 应该失败', () => {
     const result = validateTypeFields({ type: FactType.MEMORY, agentId: 'a' });
     expect(result.valid).toBe(false);
+  });
+
+  it('R8.7: intention 缺少 intent 应该失败', () => {
+    const result = validateTypeFields({ type: FactType.INTENTION, agentId: 'a' });
+    expect(result.valid).toBe(false);
+  });
+
+  it('R8.7: intention 有效字段应该通过', () => {
+    const result = validateTypeFields({ type: FactType.INTENTION, agentId: 'a', intent: '工作' });
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
   });
 
   it('有效类型专用字段应该通过', () => {

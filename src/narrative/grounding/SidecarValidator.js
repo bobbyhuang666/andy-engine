@@ -172,6 +172,8 @@ function _inferEvidenceRequirement(type, source) {
       return 'any';
     case 'memory':
       return 'self';
+    case 'intention':
+      return 'self';
     case 'causal':
       return 'any';
     case 'comparison':

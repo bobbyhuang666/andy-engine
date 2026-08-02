@@ -18,6 +18,7 @@ const ClaimTypes = Object.freeze({
   relationship: 'relationship',
   state: 'state',
   memory: 'memory',
+  intention: 'intention',
   source_attribution: 'source_attribution',
   time: 'time',
   causal: 'causal',

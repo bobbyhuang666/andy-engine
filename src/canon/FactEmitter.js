@@ -13,6 +13,7 @@ const {
   createObservationFact,
   createRelationshipFact,
   createMemoryFact,
+  createIntentionFact,
 } = require('./FactSchema');
 
 class FactEmitter {
@@ -464,6 +465,94 @@ class FactEmitter {
           facts.push(added);
           existingByAgentAndContent.set(key, added);
         }
+      }
+    }
+
+    return facts;
+  }
+
+  /**
+   * 从 Agent schedule 提取未来意图事实
+   *
+   * R8.7: 为每个 agent 发射其接下来计划做的活动（domain-driven state name）
+   * 作为 INTENTION fact。从 agent.schedule.entries 找出当前小时之后的下一个
+   * 条目，用其 activity（domain-driven）和 region 构造意图。区别于 AGENT_STATE
+   * （当前活动）和 EVENT（已发生事件）。
+   *
+   * **BOUNDARY**: FactEmitter 是只读 fact 生成器，仅读取 agent.schedule.entries
+   * 和 agent.id，不修改 engine 状态，与 emitAgentStateFacts/emitMemoryFacts
+   * 一致。intent 词来自 domain-driven schedule activity，不硬编码世界词。
+   *
+   * 每 tick 覆盖旧 INTENTION fact（按 agentId 去重更新）。
+   *
+   * @param {Map<string, Object>} agents - agentId → Agent 实例
+   * @param {number} [currentUtcHour] - 当前 UTC 小时（用于找下一个 schedule entry）
+   * @returns {Object[]}
+   */
+  emitIntentionFacts(agents, currentUtcHour = 0) {
+    if (!agents || agents.size === 0) return [];
+
+    const facts = [];
+    const now = this._getSimTime();
+    // Zero-copy read: build a lookup of existing intention facts by agentId.
+    const existingByAgentId = new Map();
+    for (const f of this.store._getByTypeReadOnly(FactType.INTENTION)) {
+      if (f.agentId) existingByAgentId.set(f.agentId, f);
+    }
+
+    const currentHour = (typeof currentUtcHour === 'number' && Number.isFinite(currentUtcHour))
+      ? Math.floor(currentUtcHour) : 0;
+
+    for (const [agentId, agent] of agents) {
+      // 找出当前小时之后的下一个 schedule entry。
+      const entries = (agent.schedule && agent.schedule.entries) || [];
+      if (!Array.isArray(entries) || entries.length === 0) continue;
+
+      // Find next entry: smallest startHour > currentHour, else earliest entry
+      // (wrap to next day).
+      let nextEntry = null;
+      for (const e of entries) {
+        if (typeof e.startHour !== 'number') continue;
+        if (e.startHour > currentHour) {
+          if (!nextEntry || e.startHour < nextEntry.startHour) nextEntry = e;
+        }
+      }
+      if (!nextEntry) {
+        // wrap: earliest entry of next day
+        for (const e of entries) {
+          if (typeof e.startHour !== 'number') continue;
+          if (!nextEntry || e.startHour < nextEntry.startHour) nextEntry = e;
+        }
+      }
+      if (!nextEntry || !nextEntry.activity) continue;
+
+      const fact = createIntentionFact({
+        agentId,
+        intent: nextEntry.activity,
+        region: nextEntry.region || '',
+        scheduledHour: nextEntry.startHour,
+        timestamp: now,
+        source: FactSource.ENGINE,
+        confidence: 0.8,
+        scope: FactScope.LOCAL,
+        participants: [agentId],
+        observers: [],
+      });
+
+      const existing = existingByAgentId.get(agentId);
+      if (existing && this.store._hasActiveFact(existing.id)) {
+        const updated = this.store.updateFact(existing.id, {
+          intent: nextEntry.activity,
+          region: nextEntry.region || '',
+          scheduledHour: nextEntry.startHour,
+          timestamp: now,
+        });
+        if (updated) existingByAgentId.set(agentId, updated);
+        facts.push(updated || fact);
+      } else {
+        const added = this.store.addFact(fact);
+        existingByAgentId.set(agentId, added);
+        facts.push(added);
       }
     }
 

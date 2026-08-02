@@ -16,6 +16,11 @@ const FactType = Object.freeze({
   EVENT: 'event',
   OBSERVATION: 'observation',
   MEMORY: 'memory',
+  // R8.7: future intention — the agent's next scheduled activity, derived
+  // domain-driven from the agent's schedule entries. Describes what the agent
+  // plans to do next (intent) and where (region), distinct from AGENT_STATE
+  // (current activity) and EVENT (what happened). LOCAL scope owned by agent.
+  INTENTION: 'intention',
   RULE: 'rule',
   LOCATION_MEANING: 'location_meaning',
   INVALIDATED: 'invalidated',
@@ -315,6 +320,40 @@ function createMemoryFact(data, base = {}) {
 }
 
 /**
+ * 创建 IntentionFact（未来意图事实）
+ *
+ * R8.7: 描述 agent 接下来计划做的事（intent，domain-driven state name）和
+ * 在哪里（region），从 agent 的 schedule entries 推导。区别于 AGENT_STATE
+ * （当前活动）和 EVENT（已发生事件）。LOCAL scope owned by agent。
+ *
+ * @param {Object} data
+ * @param {string} data.agentId - 角色 ID
+ * @param {string} data.intent - 计划的活动（domain-driven state name）
+ * @param {string} [data.region] - 计划地点
+ * @param {number} [data.scheduledHour] - 计划开始小时（0-23）
+ * @param {Partial<Object>} [base] - BaseFact 覆盖
+ */
+function createIntentionFact(data, base = {}) {
+  return {
+    ...createBaseFact({
+      ...base,
+      type: FactType.INTENTION,
+      timestamp: data.timestamp,
+      source: data.source,
+      confidence: data.confidence,
+      scope: data.scope || FactScope.LOCAL,
+      participants: data.participants,
+      observers: data.observers,
+    }),
+    agentId: data.agentId,
+    intent: data.intent || '',
+    region: data.region || '',
+    scheduledHour: typeof data.scheduledHour === 'number' && Number.isFinite(data.scheduledHour)
+      ? data.scheduledHour : null,
+  };
+}
+
+/**
  * 创建 RuleFact（规则/约束事实）
  * @param {Object} data
  * @param {string} data.ruleId - 规则 ID
@@ -449,6 +488,10 @@ function validateTypeFields(fact) {
         errors.push('memory: importance must be a finite number between 0 and 1');
       }
       break;
+    case FactType.INTENTION:
+      if (!fact.agentId) errors.push('intention: agentId is required');
+      if (!fact.intent) errors.push('intention: intent is required');
+      break;
     case FactType.RULE:
       if (!fact.ruleId) errors.push('rule: ruleId is required');
       if (!fact.description) errors.push('rule: description is required');
@@ -487,6 +530,7 @@ module.exports = {
   createEventFact,
   createObservationFact,
   createMemoryFact,
+  createIntentionFact,
   createRuleFact,
   createLocationMeaningFact,
   createInvalidatedFact,

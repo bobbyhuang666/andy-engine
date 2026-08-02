@@ -588,6 +588,13 @@ class GroundingChecker {
         // binder, not by a validator violation here.
         break;
 
+      case 'intention':
+        // R8.7: self-intention reference (predicate 'plans_to') references an
+        // existing LOCAL INTENTION fact owned by the agent. It is a reference,
+        // not a creation, so it produces no blocking violation. The EvidenceBinder
+        // decides support/unsupported.
+        break;
+
       case 'state':
         violations.push(...this._validateStateClaim(nc, ctx));
         break;

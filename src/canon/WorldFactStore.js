@@ -33,6 +33,8 @@ const MAX_AGENT_STATE_FACTS = 1000;
 const MAX_RELATIONSHIP_FACTS = 2000;
 const MAX_RULE_FACTS = 200;
 const MAX_LOCATION_MEANING_FACTS = 500;
+// R8.7: intention facts are per-agent (1-2 per tick); allow generous headroom.
+const MAX_INTENTION_FACTS = 500;
 
 class WorldFactStore {
   constructor() {
@@ -145,6 +147,8 @@ class WorldFactStore {
       this._evictFactsByType(FactType.RULE, MAX_RULE_FACTS);
     } else if (fact.type === FactType.LOCATION_MEANING) {
       this._evictFactsByType(FactType.LOCATION_MEANING, MAX_LOCATION_MEANING_FACTS);
+    } else if (fact.type === FactType.INTENTION) {
+      this._evictFactsByType(FactType.INTENTION, MAX_INTENTION_FACTS);
     }
 
     return this._deepCopyFact(stored);

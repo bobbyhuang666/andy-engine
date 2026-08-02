@@ -171,6 +171,26 @@ function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
       text: memoryText,
       structuredClaims: [{ type: 'memory', subject: agentId, predicate: 'remembers', object: memoryFact.content, span: memoryText, confidence: 1 }],
     } : null;
+    // R8.7: future intention fallback references an EXISTING LOCAL INTENTION
+    // fact owned by this agent via predicate 'plans_to' (a reference, not a
+    // creation). The fact's intent is the agent's next scheduled activity
+    // (domain-driven). Include the region if present for informativeness.
+    const intentionFact = (grounding?.allowedFacts || []).find((fact) =>
+      fact && fact.type === 'intention' && fact.agentId === agentId && fact.intent
+    );
+    let intentionLine = null;
+    if (intentionFact) {
+      const intentionText = intentionFact.region
+        ? `我接下来打算去${intentionFact.region}${intentionFact.intent}。`
+        : `我接下来打算${intentionFact.intent}。`;
+      intentionLine = {
+        text: intentionText,
+        structuredClaims: [{
+          type: 'intention', subject: agentId, predicate: 'plans_to',
+          object: intentionFact.intent, span: intentionText, confidence: 1,
+        }],
+      };
+    }
     const candidates = intent === 'emotion'
       ? [emotionLine, activityLine, locationLine]
       : intent === 'activity'
@@ -185,6 +205,8 @@ function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
               ? [relationshipLine, observationLine, eventLine, locationLine, activityLine, emotionLine]
             : intent === 'memory'
               ? [memoryLine, relationshipLine, observationLine, eventLine, locationLine, activityLine, emotionLine]
+            : intent === 'future_intention'
+              ? [intentionLine, memoryLine, relationshipLine, observationLine, eventLine, locationLine, activityLine, emotionLine]
           : [locationLine, activityLine, emotionLine];
 
     for (const candidate of candidates.filter(Boolean)) {
@@ -246,6 +268,15 @@ function hasRequestedFactAnchor(reply, userMessage, groundingPackage, agentId) {
     );
     if (!mem) return true;
     return reply.includes(mem.content);
+  }
+  if (intent === 'future_intention') {
+    // R8.7: the canonical intention answer references the agent's own INTENTION
+    // fact intent. If no intention fact exists for this agent, no anchor is required.
+    const int = (groundingPackage.allowedFacts || []).find(fact =>
+      fact && fact.type === 'intention' && fact.agentId === agentId && fact.intent
+    );
+    if (!int) return true;
+    return reply.includes(int.intent);
   }
   const stateFact = (groundingPackage.allowedFacts || []).find(fact =>
     fact && fact.type === 'agent_state' && fact.agentId === agentId

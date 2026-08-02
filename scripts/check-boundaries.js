@@ -1509,6 +1509,10 @@ const CORE_UTC_TIME_ALLOWLIST = {
     count: 2,
     reason: 'core simulation clock is explicitly UTC',
   },
+  'src/runtime/AndyWorld.js': {
+    count: 1,
+    reason: 'R8.7: emitIntentionFacts needs the current UTC hour to find the next schedule entry; clock.time is UTC',
+  },
   'src/pressure/WorldPressure.js': {
     count: 1,
     reason: 'world-time fallback must preserve UTC simulation semantics',

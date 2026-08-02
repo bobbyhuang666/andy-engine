@@ -110,6 +110,7 @@ class EvidenceBinder {
     const knownRelationships = new Map();      // 'agentA:agentB' → { relationType, factId }
     const knownObservations = new Map();       // observerId + assertion → factId
     const knownMemories = new Map();           // agentId → Map<contentLower, factId>
+    const knownIntentions = new Map();         // agentId → { intent, region, factId }
     const selfAgentStates = [];                // { state, factId }
     const toldFacts = [];                      // facts with _evidence.source === 'told'
     const inferredFacts = [];                  // facts with _evidence.source === 'inferred'
@@ -189,6 +190,13 @@ class EvidenceBinder {
         knownMemories.get(fact.agentId).set(fact.content.toLowerCase(), fact.id || null);
       }
 
+      // R8.7: INTENTION facts — index by agentId → { intent, region, factId }.
+      // Intention facts are LOCAL scope owned by the agent. Binding matches
+      // self-intent (the agent's own next planned activity).
+      if (fact.type === FactType.INTENTION && fact.agentId && fact.intent) {
+        knownIntentions.set(fact.agentId, { intent: fact.intent, region: fact.region || '', factId: fact.id || null });
+      }
+
       // Evidence tracking for source attribution
       if (fact._evidence) {
         if (fact._evidence.source === 'told') toldFacts.push(fact);
@@ -204,6 +212,7 @@ class EvidenceBinder {
       knownRelationships,
       knownObservations,
       knownMemories,
+      knownIntentions,
       selfAgentStates,
       toldFacts,
       inferredFacts,
@@ -240,6 +249,9 @@ class EvidenceBinder {
         break;
       case 'memory':
         bindings.push(...this._bindMemoryClaim(claim, index, ctx));
+        break;
+      case 'intention':
+        bindings.push(...this._bindIntentionClaim(claim, index, ctx));
         break;
       case 'source_attribution':
         bindings.push(...this._bindSourceClaim(claim, index, ctx));
@@ -937,6 +949,81 @@ class EvidenceBinder {
         evidenceSource: null,
         confidence,
         reason: `self-memory content not found in allowed memory facts`,
+      });
+    }
+
+    return bindings;
+  }
+
+  // ═══════════════════════════════════════════
+  // R8.7: Intention claim binding
+  // ═══════════════════════════════════════════
+
+  /**
+   * 绑定 self-intention 引用 claim。predicate 'plans_to' references an
+   * EXISTING LOCAL INTENTION fact owned by the agent (mirrors remembers/
+   * is_relation referencing existing facts). Only self-intention is bound —
+   * other agents' intentions are forbidden and remain unsupported.
+   *
+   * @private
+   */
+  _bindIntentionClaim(claim, index, ctx) {
+    const bindings = [];
+    const knownIntentions = index.knownIntentions;
+    const confidence = claim.confidence || 0.7;
+    const subjectId = this._subjectId(claim);
+    const { selfId } = ctx;
+
+    if (subjectId !== selfId) {
+      bindings.push({
+        claimId: claim.id || 'unknown',
+        factId: null,
+        support: SUPPORT.UNSUPPORTED,
+        evidenceSource: null,
+        confidence,
+        reason: `intention claim subject "${subjectId}" is not the speaker; other-agent intention is forbidden`,
+      });
+      return bindings;
+    }
+
+    const intention = knownIntentions.get(selfId);
+    if (!intention || !intention.intent) {
+      bindings.push({
+        claimId: claim.id || 'unknown',
+        factId: null,
+        support: SUPPORT.UNSUPPORTED,
+        evidenceSource: null,
+        confidence,
+        reason: `no allowed intention facts for agent ${selfId}`,
+      });
+      return bindings;
+    }
+
+    // object is the intent activity (string). Exact or contained match.
+    const objectCandidates = this._objectValues(claim, 'raw');
+    const intentRaw = objectCandidates[0] || '';
+    const intentLower = String(intentRaw).toLowerCase();
+    const factIntentLower = String(intention.intent).toLowerCase();
+    const matched = intentLower === factIntentLower ||
+      factIntentLower.includes(intentLower) || intentLower.includes(factIntentLower);
+
+    if (matched && intention.factId) {
+      bindings.push({
+        claimId: claim.id || 'unknown',
+        factId: intention.factId,
+        support: SUPPORT.SUPPORTS,
+        evidenceSource: 'known_intentions',
+        confidence,
+        reason: `self-intention "${intention.intent}" matched an allowed INTENTION fact`,
+      });
+    } else {
+      bindings.push({
+        claimId: claim.id || 'unknown',
+        factId: null,
+        support: SUPPORT.UNSUPPORTED,
+        evidenceSource: null,
+        confidence,
+        reason: `self-intention content not found in allowed intention facts`,
       });
     }
 
