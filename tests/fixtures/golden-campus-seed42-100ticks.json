@@ -10,7 +10,7 @@
     "nodeVersion": "26",
     "nativeMode": "disabled",
     "generationCommand": "npm run golden:regen",
-    "generatedAt": "2026-08-02T15:50:37.752Z"
+    "generatedAt": "2026-08-02T16:00:57.545Z"
   },
   "schemaVersion": "0.1.0",
   "worldId": "golden-campus-v1",
@@ -3791,6 +3791,12 @@
             "在咖啡店": "咖啡店"
           },
           "template": "正在{state}"
+        },
+        "thirdPartyKnowledge": {
+          "unknown": "我不知道{target}的情况。",
+          "observation": "我观察到{target}{action}。",
+          "location": "我观察到{target}在{location}。",
+          "event": "我知道{event}。"
         },
         "regionMap": {
           "图书馆": "在图书馆，周围很安静",

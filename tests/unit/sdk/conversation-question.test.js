@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classifyGroundedQuestion } from '../../../src/sdk/ConversationQuestion.js';
+import { classifyGroundedQuestion, classifyThirdPartyQuestion } from '../../../src/sdk/ConversationQuestion.js';
 
 describe('classifyGroundedQuestion direct character surfaces', () => {
   it('does not route ordinary first-person or third-person statements', () => {
@@ -19,5 +19,19 @@ describe('classifyGroundedQuestion direct character surfaces', () => {
   it('keeps observation and recent-event no-pronoun questions', () => {
     expect(classifyGroundedQuestion('刚才发生了什么？')).toBe('recent_event');
     expect(classifyGroundedQuestion('观察到什么？')).toBe('observation');
+  });
+
+  it('recognizes only direct third-party knowledge questions', () => {
+    const names = { alice: 'Alice', bob: 'Bob' };
+    expect(classifyThirdPartyQuestion('Bob在哪里？', names, 'alice')).toEqual({
+      targetId: 'bob', targetName: 'Bob', dimension: 'location',
+    });
+    expect(classifyThirdPartyQuestion('Bob最近在做什么？', names, 'alice')).toEqual({
+      targetId: 'bob', targetName: 'Bob', dimension: 'recent',
+    });
+    expect(classifyThirdPartyQuestion('Bob感觉如何？', names, 'alice')).toEqual({
+      targetId: 'bob', targetName: 'Bob', dimension: 'forbidden',
+    });
+    expect(classifyThirdPartyQuestion('Bob在酒馆', names, 'alice')).toBeNull();
   });
 });

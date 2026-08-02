@@ -29,7 +29,7 @@ const NarrativeBuilder = require('./NarrativeBuilder');
 const LLMAdapter = require('./LLMAdapter');
 const AutoTick = require('./AutoTick');
 const ConversationLog = require('./ConversationLog');
-const { classifyGroundedQuestion } = require('./ConversationQuestion');
+const { classifyGroundedQuestion, classifyThirdPartyQuestion } = require('./ConversationQuestion');
 const { diagnostics } = require('../shared/Diagnostics');
 const { DEFAULT_DOMAIN_ID } = require('../config/defaults');
 
@@ -38,6 +38,103 @@ const { DEFAULT_DOMAIN_ID } = require('../config/defaults');
 // observation facts; SDK must not import narrative internals.
 function observationAssertion(targetId, action, context = '') {
   return JSON.stringify([String(targetId || ''), String(action || ''), String(context || '')]);
+}
+
+function renderThirdPartyTemplate(template, values) {
+  if (typeof template !== 'string' || template.length === 0) return null;
+  const rendered = template.replace(/\{(target|action|location|event)\}/g, (_, key) => values[key] || '');
+  return rendered.length > 0 && !/\{[^}]+\}/.test(rendered) ? rendered : null;
+}
+
+function thirdPartyFactTimestamp(fact) {
+  const value = fact?.timestamp instanceof Date ? fact.timestamp.getTime() : new Date(fact?.timestamp || 0).getTime();
+  return Number.isFinite(value) ? value : 0;
+}
+
+function hasExplicitKnowledge(fact, agentId, targetId) {
+  const source = fact?._evidence?.source;
+  const knownSource = source === 'direct' || source === 'observed' || source === 'told';
+  const selfInvolved = fact?.participants?.includes(agentId) || fact?.observers?.includes(agentId);
+  const targetInvolved = fact?.participants?.includes(targetId) || fact?.observers?.includes(targetId);
+  return targetInvolved && (selfInvolved || knownSource);
+}
+
+/**
+ * Answer only third-party questions whose proof is already in the speaker's
+ * allowed grounding. No engine/world handles are consulted here.
+ * @returns {string|null} null means this is not a third-party question
+ */
+function createThirdPartyKnowledgeReply(engine, agentId, userMessage, grounding) {
+  const agentNames = grounding?.metadata?.agentNames || {};
+  const question = classifyThirdPartyQuestion(userMessage, agentNames, agentId);
+  if (!question) return null;
+
+  const templates = engine?.domain?.narrativeTemplates?.thirdPartyKnowledge || {};
+  const targetName = question.targetName || '';
+  const values = { target: targetName };
+  const unknown = targetName
+    ? (renderThirdPartyTemplate(templates.unknown, values) || '我不知道。')
+    : '我不知道。';
+
+  // Forbidden third-party inner state, memory, and intention questions never
+  // inspect facts. They immediately take the epistemic-unknown path.
+  if (question.dimension === 'forbidden' || !question.targetId || !grounding) return unknown;
+
+  const allowedFacts = grounding.allowedFacts || [];
+  const observations = allowedFacts
+    .filter((fact) =>
+      fact && fact.type === 'observation' && fact.id &&
+      fact.observerId === agentId && fact.targetId === question.targetId && fact.action
+    )
+    .sort((a, b) => thirdPartyFactTimestamp(b) - thirdPartyFactTimestamp(a));
+  const observation = observations[0];
+
+  if (observation && (question.dimension === 'recent' || question.dimension === 'location')) {
+    const template = question.dimension === 'location' ? templates.location : templates.observation;
+    const text = question.dimension === 'location' && observation.context
+      ? renderThirdPartyTemplate(template, { target: targetName, location: observation.context })
+      : question.dimension === 'recent'
+        ? renderThirdPartyTemplate(template, { target: targetName, action: observation.action })
+        : null;
+    if (text) {
+      const structuredClaims = [{
+        type: 'event',
+        subject: agentId,
+        predicate: 'observed',
+        object: observationAssertion(observation.targetId, observation.action, observation.context),
+        span: text,
+        confidence: 1,
+      }];
+      const checked = engine.checkConsistency(text, agentId, { structuredClaims });
+      const bound = (checked.evidenceTrace || []).some((trace) => trace.factId);
+      if (checked.valid && bound) return text;
+    }
+  }
+
+  const event = allowedFacts
+    .filter((fact) =>
+      fact && fact.type === 'event' && fact.id && fact.description &&
+      hasExplicitKnowledge(fact, agentId, question.targetId)
+    )
+    .sort((a, b) => thirdPartyFactTimestamp(b) - thirdPartyFactTimestamp(a))[0];
+  if (event && question.dimension === 'recent') {
+    const text = renderThirdPartyTemplate(templates.event, { target: targetName, event: event.description });
+    if (text) {
+      const structuredClaims = [{
+        type: 'event',
+        subject: agentId,
+        predicate: 'refers_to',
+        object: event.description,
+        span: text,
+        confidence: 1,
+      }];
+      const checked = engine.checkConsistency(text, agentId, { structuredClaims });
+      const bound = (checked.evidenceTrace || []).some((trace) => trace.factId);
+      if (checked.valid && bound) return text;
+    }
+  }
+
+  return unknown;
 }
 
 /**
@@ -441,6 +538,19 @@ class Character {
           topic: message,
         })
       : null;
+
+    const thirdPartyReply = createThirdPartyKnowledgeReply(
+      this._engine,
+      this.id,
+      message,
+      groundingPackage
+    );
+    if (thirdPartyReply) {
+      this._conversation.addAssistantMessage(thirdPartyReply);
+      this._recordConversation(message, thirdPartyReply);
+      return thirdPartyReply;
+    }
+
     const systemPrompt = NarrativeBuilder.buildSystemPrompt(worldContext, {
       characterName: this.name,
       backstory: this.backstory,

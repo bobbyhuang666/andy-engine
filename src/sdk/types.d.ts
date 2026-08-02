@@ -59,6 +59,12 @@ export interface DomainConfig {
       template: string;
       withRegionTemplate?: string;
     };
+    thirdPartyKnowledge?: {
+      unknown: string;
+      observation: string;
+      location: string;
+      event: string;
+    };
   };
   roleArchetypes?: Record<string, { entries: Array<Record<string, any>> }>;
   fallback?: {

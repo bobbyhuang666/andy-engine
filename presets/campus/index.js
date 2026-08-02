@@ -627,6 +627,12 @@ const campusDomain = {
       },
       template: '正在{state}',
     },
+    thirdPartyKnowledge: {
+      unknown: '我不知道{target}的情况。',
+      observation: '我观察到{target}{action}。',
+      location: '我观察到{target}在{location}。',
+      event: '我知道{event}。',
+    },
     regionMap: {
       '图书馆': '在图书馆，周围很安静', '食堂': '在食堂，人声嘈杂',
       '教室': '在教室里', '宿舍': '在宿舍', '操场': '在操场上',

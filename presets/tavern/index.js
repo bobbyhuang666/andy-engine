@@ -358,6 +358,12 @@ const tavernDomain = {
       withRegionTemplate: '正在{region}里{state}',
       template: '正在{state}',
     },
+    thirdPartyKnowledge: {
+      unknown: '我不知道{target}的情况。',
+      observation: '我观察到{target}{action}。',
+      location: '我观察到{target}在{location}。',
+      event: '我知道{event}。',
+    },
     regionMap: {
       '小屋': '在小屋里，壁炉温暖',
       '广场': '在广场上，人来人往',

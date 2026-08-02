@@ -7,6 +7,48 @@ function isDirectCharacterQuestion(message, text) {
   return /[?？]/.test(message) || /(吗|呢|什么|谁|哪|如何|怎样|怎么样|怎么|是否|是不是|能不能|可不可以|有没有|几|多少)/.test(text);
 }
 
+function isDirectQuestion(message, text) {
+  return /[?？]/.test(message) || /(吗|呢|什么|谁|哪|如何|怎样|怎么样|怎么|是否|是不是|能不能|可不可以|有没有|几|多少)/.test(text);
+}
+
+/**
+ * Identify a direct question about another named character without deciding
+ * whether the answer is knowable. The caller must answer from allowed facts
+ * or return epistemic unknown.
+ */
+function classifyThirdPartyQuestion(message, agentNames = {}, selfId = '') {
+  if (typeof message !== 'string') return null;
+  const text = message.replace(/\s+/g, '');
+  if (!isDirectQuestion(message, text)) return null;
+
+  const candidates = Object.entries(agentNames || {})
+    .filter(([agentId]) => agentId && agentId !== selfId)
+    .map(([agentId, displayName]) => ({
+      agentId,
+      displayName: String(displayName || agentId),
+    }))
+    .sort((a, b) => Math.max(b.displayName.length, b.agentId.length) - Math.max(a.displayName.length, a.agentId.length));
+  const target = candidates.find(({ agentId, displayName }) => text.includes(displayName) || text.includes(agentId));
+  const hasUnresolvedThirdParty = /(?:他|她|TA|ta|他们|她们)/.test(text);
+  if (!target && !hasUnresolvedThirdParty) return null;
+
+  const forbiddenSurface = /(在想|想什么|内心|感觉|心情|情绪|记得|记忆|回忆|打算|计划|接下来|未来|意图|想法)/.test(text);
+  const dimension = forbiddenSurface
+    ? 'forbidden'
+    : /(在哪|哪里|哪儿|位置|什么地方|去哪)/.test(text)
+      ? 'location'
+      : /(在做什么|做什么|干什么|忙什么|状态|最近|刚才|发生|情况|怎么样|观察到|看到)/.test(text)
+        ? 'recent'
+        : null;
+  if (!dimension) return null;
+
+  return {
+    targetId: target?.agentId || null,
+    targetName: target?.displayName || null,
+    dimension,
+  };
+}
+
 function classifyGroundedQuestion(message) {
   if (typeof message !== 'string') return null;
   const text = message.replace(/\s+/g, '');
@@ -33,4 +75,4 @@ function classifyGroundedQuestion(message) {
   return null;
 }
 
-module.exports = { classifyGroundedQuestion };
+module.exports = { classifyGroundedQuestion, classifyThirdPartyQuestion };
