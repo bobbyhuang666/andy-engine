@@ -791,6 +791,12 @@ class AndyWorld {
       this.factEmitter.setSimTime(this.clock.time);
       this.factEmitter.emitObservationFacts(interactionEvents, this.agents, this.domain);
       this.factEmitter.emitRelationshipFacts(this.socialGraph);
+      // R8.6: emit per-agent memory facts so the memory conversational surface
+      // has facts to ground on. emitMemoryFacts is read-only (reads
+      // agent.memory.memories), consistent with the FactEmitter read-only
+      // boundary. Memory facts are LOCAL scope with the owning agent as the
+      // only participant, so only that agent sees them via getGroundingPackage.
+      this.factEmitter.emitMemoryFacts(this.agents);
       result.phase.factEmission = this.factStore.getStats();
     }
   }

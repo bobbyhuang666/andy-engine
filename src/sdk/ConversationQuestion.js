@@ -14,6 +14,8 @@ function classifyGroundedQuestion(message) {
   // public-scope RELATIONSHIP facts in the grounding). They use 你/您 but the
   // vocabulary is narrow enough to classify before the pronoun gate.
   if (/(认识谁|认识什么人|认识什么人吗|认识谁吗|关系如何|关系怎么样|是什么关系|怎么认识的|关系怎样|朋友吗|朋友|熟人)/.test(text)) return 'relationship';
+  // Memory questions reference the agent's own LOCAL MEMORY facts.
+  if (/(记得什么|记得什么吗|上次聊了什么|上次说了什么|还记得吗|记忆|记得)/.test(text)) return 'memory';
   if (!/(你|您)/.test(text)) return null;
   if (/(感觉|心情|情绪|怎么样|好吗)/.test(text)) return 'emotion';
   if (/(在哪|哪里|哪儿|位置)/.test(text)) return 'location';

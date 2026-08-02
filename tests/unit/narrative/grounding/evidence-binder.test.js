@@ -61,6 +61,17 @@ function makeRelationshipFact(agentA, agentB, relationType) {
   };
 }
 
+function makeMemoryFact(agentId, content) {
+  return {
+    type: 'memory',
+    agentId,
+    content,
+    importance: 0.5,
+    emotionTag: 'neutral',
+    category: 'event',
+  };
+}
+
 function makeClaim(opts) {
   return {
     id: opts.id || `claim_${Math.random().toString(36).slice(2, 6)}`,
@@ -425,6 +436,92 @@ describe('EvidenceBinder', () => {
       expect(result.bindings.length).toBe(1);
       expect(result.bindings[0].support).toBe(SUPPORT.SUPPORTS);
       expect(result.bindings[0].reason).toBe('source marker self-attested');
+    });
+  });
+
+  describe('R8.6 memory claim', () => {
+    test('self memory content match → supports + factId', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = [
+        { ...makeMemoryFact(selfId, '今天的麦酒特别好喝'), id: 'fact_mem_1' },
+      ];
+      const claims = [
+        makeClaim({
+          type: 'memory',
+          id: 'mem_001',
+          subject: selfId,
+          predicate: 'remembers',
+          object: '今天的麦酒特别好喝',
+        }),
+      ];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings.length).toBe(1);
+      expect(result.bindings[0].support).toBe(SUPPORT.SUPPORTS);
+      expect(result.bindings[0].evidenceSource).toBe('known_memories');
+      expect(result.bindings[0].factId).toBe('fact_mem_1');
+    });
+
+    test('self memory content fragment match → supports', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = [
+        { ...makeMemoryFact(selfId, '有人在远处吹笛子'), id: 'fact_mem_2' },
+      ];
+      const claims = [
+        makeClaim({
+          type: 'memory',
+          id: 'mem_002',
+          subject: selfId,
+          predicate: 'remembers',
+          object: '有人在远处吹笛子', // exact match
+        }),
+      ];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings[0].support).toBe(SUPPORT.SUPPORTS);
+      expect(result.bindings[0].factId).toBe('fact_mem_2');
+    });
+
+    test('self memory no match → unsupported', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = [
+        { ...makeMemoryFact(selfId, '今天的麦酒特别好喝'), id: 'fact_mem_1' },
+      ];
+      const claims = [
+        makeClaim({
+          type: 'memory',
+          id: 'mem_003',
+          subject: selfId,
+          predicate: 'remembers',
+          object: '完全不相关的内容',
+        }),
+      ];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings[0].support).toBe(SUPPORT.UNSUPPORTED);
+      expect(result.bindings[0].factId).toBeFalsy();
+    });
+
+    test('other-agent memory → unsupported (forbidden)', () => {
+      const binder = new EvidenceBinder({ selfId });
+      const allowedFacts = []; // bob's memory is not in selfId's allowedFacts
+      const claims = [
+        makeClaim({
+          type: 'memory',
+          id: 'mem_004',
+          subject: bobId, // not self
+          predicate: 'remembers',
+          object: 'something',
+        }),
+      ];
+
+      const result = binder.bind(claims, allowedFacts);
+
+      expect(result.bindings[0].support).toBe(SUPPORT.UNSUPPORTED);
+      expect(result.bindings[0].reason).toContain('not the speaker');
     });
   });
 

@@ -148,6 +148,29 @@ function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
         };
       }
     }
+    // R8.6: memory fallback references an EXISTING LOCAL MEMORY fact owned by
+    // this agent via predicate 'remembers' (a reference, not a creation). The
+    // fact's content is the agent's own memory. Prefer a specific (non-generic)
+    // memory, excluding generic stranger-encounter templates read from domain.
+    const genericMemoryTemplates = new Set([
+      socialInteractions.strangerNotice,
+      socialInteractions.strangerBrief,
+    ].filter(Boolean));
+    const memoryFacts = (grounding?.allowedFacts || []).filter((fact) =>
+      fact && fact.type === 'memory' && fact.agentId === agentId && fact.content
+    );
+    let memoryFact = null;
+    if (memoryFacts.length > 0) {
+      const specific = memoryFacts.filter((f) => !genericMemoryTemplates.has(f.content));
+      const pool = specific.length > 0 ? specific : memoryFacts;
+      memoryFact = pool.reduce((best, cur) =>
+        (cur.content.length > (best ? best.content.length : 0)) ? cur : best, null);
+    }
+    const memoryText = memoryFact ? `我记得${memoryFact.content}。` : null;
+    const memoryLine = memoryFact ? {
+      text: memoryText,
+      structuredClaims: [{ type: 'memory', subject: agentId, predicate: 'remembers', object: memoryFact.content, span: memoryText, confidence: 1 }],
+    } : null;
     const candidates = intent === 'emotion'
       ? [emotionLine, activityLine, locationLine]
       : intent === 'activity'
@@ -160,6 +183,8 @@ function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
               ? [eventLine, observationLine, locationLine, activityLine, emotionLine]
             : intent === 'relationship'
               ? [relationshipLine, observationLine, eventLine, locationLine, activityLine, emotionLine]
+            : intent === 'memory'
+              ? [memoryLine, relationshipLine, observationLine, eventLine, locationLine, activityLine, emotionLine]
           : [locationLine, activityLine, emotionLine];
 
     for (const candidate of candidates.filter(Boolean)) {
@@ -212,6 +237,15 @@ function hasRequestedFactAnchor(reply, userMessage, groundingPackage, agentId) {
     );
     if (!rel) return true;
     return reply.includes(rel.relationType);
+  }
+  if (intent === 'memory') {
+    // R8.6: the canonical memory answer references the agent's own MEMORY fact
+    // content. If no memory fact exists for this agent, no anchor is required.
+    const mem = (groundingPackage.allowedFacts || []).find(fact =>
+      fact && fact.type === 'memory' && fact.agentId === agentId && fact.content
+    );
+    if (!mem) return true;
+    return reply.includes(mem.content);
   }
   const stateFact = (groundingPackage.allowedFacts || []).find(fact =>
     fact && fact.type === 'agent_state' && fact.agentId === agentId

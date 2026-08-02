@@ -200,6 +200,24 @@ describe('B2: chat()/chatStream() 不外泄 rewrite 级违规内容', () => {
     expect(reply).toBe('我和李的关系是stranger。');
   });
 
+  it('R8.6: memory fallback delivers the agent own memory content', async () => {
+    // A LOCAL MEMORY fact owned by this agent is referenced (not created) via
+    // predicate 'remembers'. The fallback must deliver the memory content.
+    const character = new Character({
+      name: 'Maya', id: 'maya', personality: 'INFP', llm: async () => '违规内容',
+    });
+    character._engine.getGroundingPackage = () => ({
+      allowedFacts: [
+        { id: 'fact_maya_state', type: 'agent_state', agentId: 'maya', region: '酒馆', state: '喝酒' },
+        { id: 'fact_mem_1', type: 'memory', agentId: 'maya', content: '今天的麦酒特别好喝', importance: 0.4, scope: 'local', participants: ['maya'] },
+      ],
+      metadata: { agentNames: { maya: 'Maya' } },
+    });
+    character._engine.checkConsistency = () => ({ valid: true, severity: 'pass' });
+    const reply = await character.chat('你记得什么？');
+    expect(reply).toBe('我记得今天的麦酒特别好喝。');
+  });
+
   it('chatStream() 对 rewrite 级违规应降级为沉默，不 yield 违规原文', async () => {
     const character = makeCharacterWithConsistency({ valid: false, severity: 'rewrite' });
     const tokens = [];

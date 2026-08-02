@@ -580,6 +580,14 @@ class GroundingChecker {
         violations.push(...this._validateRelationshipClaim(nc, ctx));
         break;
 
+      case 'memory':
+        // R8.6: self-memory reference (predicate 'remembers') references an
+        // existing LOCAL MEMORY fact owned by the agent. It is a reference,
+        // not a creation, so it produces no blocking violation. The EvidenceBinder
+        // decides support/unsupported; unsupported memories are surfaced by the
+        // binder, not by a validator violation here.
+        break;
+
       case 'state':
         violations.push(...this._validateStateClaim(nc, ctx));
         break;

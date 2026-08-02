@@ -109,6 +109,7 @@ class EvidenceBinder {
     const knownEventDescriptions = new Map();  // descLower → factId
     const knownRelationships = new Map();      // 'agentA:agentB' → { relationType, factId }
     const knownObservations = new Map();       // observerId + assertion → factId
+    const knownMemories = new Map();           // agentId → Map<contentLower, factId>
     const selfAgentStates = [];                // { state, factId }
     const toldFacts = [];                      // facts with _evidence.source === 'told'
     const inferredFacts = [];                  // facts with _evidence.source === 'inferred'
@@ -180,6 +181,14 @@ class EvidenceBinder {
         knownRelationships.set(reverseKey, { relationType: fact.relationType, factId: fact.id || null });
       }
 
+      // R8.6: MEMORY facts — index by agentId → content (lowercased) → factId.
+      // Memory facts are LOCAL scope owned by the agent (participants=[agentId]),
+      // so only the owning agent sees them. Binding matches self-memory content.
+      if (fact.type === FactType.MEMORY && fact.agentId && fact.content) {
+        if (!knownMemories.has(fact.agentId)) knownMemories.set(fact.agentId, new Map());
+        knownMemories.get(fact.agentId).set(fact.content.toLowerCase(), fact.id || null);
+      }
+
       // Evidence tracking for source attribution
       if (fact._evidence) {
         if (fact._evidence.source === 'told') toldFacts.push(fact);
@@ -194,6 +203,7 @@ class EvidenceBinder {
       knownEventDescriptions,
       knownRelationships,
       knownObservations,
+      knownMemories,
       selfAgentStates,
       toldFacts,
       inferredFacts,
@@ -227,6 +237,9 @@ class EvidenceBinder {
         break;
       case 'state':
         bindings.push(...this._bindStateClaim(claim, index, ctx));
+        break;
+      case 'memory':
+        bindings.push(...this._bindMemoryClaim(claim, index, ctx));
         break;
       case 'source_attribution':
         bindings.push(...this._bindSourceClaim(claim, index, ctx));
@@ -825,6 +838,105 @@ class EvidenceBinder {
         evidenceSource: null,
         confidence,
         reason: `no direct knowledge for agent "${subjectId}" state; potential agent_state_leak`,
+      });
+    }
+
+    return bindings;
+  }
+
+  // ═══════════════════════════════════════════
+  // R8.6: Memory claim binding
+  // ═══════════════════════════════════════════
+
+  /**
+   * 绑定 self-memory 引用 claim。predicate 'remembers' references an
+   * EXISTING LOCAL MEMORY fact owned by the agent (mirrors observed/refers_to/
+   * is_relation referencing existing facts). Only self-memory is bound —
+   * other agents' memories are forbidden and remain unsupported.
+   *
+   * @private
+   */
+  _bindMemoryClaim(claim, index, ctx) {
+    const bindings = [];
+    const knownMemories = index.knownMemories;
+    const confidence = claim.confidence || 0.7;
+    const subjectId = this._subjectId(claim);
+    const { selfId } = ctx;
+
+    // Only self-memory is bindable. Other agents' memories are forbidden.
+    if (subjectId !== selfId) {
+      bindings.push({
+        claimId: claim.id || 'unknown',
+        factId: null,
+        support: SUPPORT.UNSUPPORTED,
+        evidenceSource: null,
+        confidence,
+        reason: `memory claim subject "${subjectId}" is not the speaker; other-agent memory is forbidden`,
+      });
+      return bindings;
+    }
+
+    // object is the memory content (string). Match against the agent's known
+    // memory contents (lowercased). Exact or contained match accepted.
+    const objectCandidates = this._objectValues(claim, 'raw');
+    const contentRaw = objectCandidates[0] || '';
+    if (!contentRaw) {
+      bindings.push({
+        claimId: claim.id || 'unknown',
+        factId: null,
+        support: SUPPORT.UNSUPPORTED,
+        evidenceSource: null,
+        confidence,
+        reason: `memory claim has no content to match`,
+      });
+      return bindings;
+    }
+
+    const contentLower = String(contentRaw).toLowerCase();
+    const agentMemories = knownMemories.get(selfId);
+    if (!agentMemories || agentMemories.size === 0) {
+      bindings.push({
+        claimId: claim.id || 'unknown',
+        factId: null,
+        support: SUPPORT.UNSUPPORTED,
+        evidenceSource: null,
+        confidence,
+        reason: `no allowed memory facts for agent ${selfId}`,
+      });
+      return bindings;
+    }
+
+    // Exact match first, then contained match (claim content is a fragment
+    // of the fact content, or vice versa).
+    let matchedFactId = null;
+    for (const [factContentLower, factId] of agentMemories) {
+      if (factContentLower === contentLower) { matchedFactId = factId; break; }
+    }
+    if (matchedFactId === null) {
+      for (const [factContentLower, factId] of agentMemories) {
+        if (factContentLower.includes(contentLower) || contentLower.includes(factContentLower)) {
+          matchedFactId = factId; break;
+        }
+      }
+    }
+
+    if (matchedFactId !== null && matchedFactId) {
+      bindings.push({
+        claimId: claim.id || 'unknown',
+        factId: matchedFactId,
+        support: SUPPORT.SUPPORTS,
+        evidenceSource: 'known_memories',
+        confidence,
+        reason: `self-memory content matched an allowed MEMORY fact`,
+      });
+    } else {
+      bindings.push({
+        claimId: claim.id || 'unknown',
+        factId: null,
+        support: SUPPORT.UNSUPPORTED,
+        evidenceSource: null,
+        confidence,
+        reason: `self-memory content not found in allowed memory facts`,
       });
     }
 
