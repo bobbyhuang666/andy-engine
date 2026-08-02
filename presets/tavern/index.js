@@ -357,6 +357,8 @@ const tavernDomain = {
       },
       withRegionTemplate: '正在{region}里{state}',
       template: '正在{state}',
+      fallbackWithRegionTemplate: '正在{region}里{state}',
+      fallbackTemplate: '正在{state}',
     },
     thirdPartyKnowledge: {
       unknown: '我不知道{target}的情况。',

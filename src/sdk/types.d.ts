@@ -58,6 +58,8 @@ export interface DomainConfig {
       stateMap: Record<string, string>;
       template: string;
       withRegionTemplate?: string;
+      fallbackTemplate?: string;
+      fallbackWithRegionTemplate?: string;
     };
     thirdPartyKnowledge?: {
       unknown: string;

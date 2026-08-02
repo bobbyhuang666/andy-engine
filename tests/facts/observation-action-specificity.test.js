@@ -28,6 +28,8 @@ const englishDomain = {
       stateMap: { resting: 'resting', working: 'working' },
       withRegionTemplate: '{state} at {region}',
       template: '{state}',
+      fallbackWithRegionTemplate: '{state} at {region}',
+      fallbackTemplate: '{state}',
     },
   },
 };
@@ -164,6 +166,45 @@ describe('FactEmitter.emitObservationFacts — action specificity', () => {
     expect(facts.find((f) => f.observerId === 'bob').action).toBe('working at square');
   });
 
+  it('uses a domain fallback template for an unmapped English state label', () => {
+    const agents = new Map([
+      ['alice', makeAgentStub('reading', { id: 'alice' })],
+      ['bob', makeAgentStub('resting', { id: 'bob' })],
+    ]);
+    const facts = emitter.emitObservationFacts(
+      [makeEvent('noticed someone nearby', 'square')], agents, englishDomain
+    );
+
+    expect(facts.find((f) => f.observerId === 'alice').action).toBe('resting at square');
+    expect(facts.find((f) => f.observerId === 'bob').action).toBe('reading at square');
+  });
+
+  it('preset fallback renders unmapped campus state labels without core language logic', () => {
+    const agents = new Map([
+      ['alice', makeAgentStub('有点累', { id: 'alice' })],
+      ['bob', makeAgentStub('请假了', { id: 'bob' })],
+    ]);
+    const events = [makeEvent('在附近注意到有人', '图书馆')];
+
+    const facts = emitter.emitObservationFacts(events, agents, campus);
+
+    expect(facts.find((f) => f.observerId === 'alice').action).toBe('请假了');
+    expect(facts.find((f) => f.observerId === 'bob').action).toBe('有点累');
+  });
+
+  it('preset fallback renders unmapped tavern state labels with its region template', () => {
+    const agents = new Map([
+      ['alice', makeAgentStub('有点累', { id: 'alice' })],
+      ['bob', makeAgentStub('未知状态', { id: 'bob' })],
+    ]);
+    const facts = emitter.emitObservationFacts(
+      [makeEvent('在附近注意到有人', '酒馆')], agents, tavern
+    );
+
+    expect(facts.find((f) => f.observerId === 'alice').action).toBe('正在酒馆里未知状态');
+    expect(facts.find((f) => f.observerId === 'bob').action).toBe('正在酒馆里有点累');
+  });
+
   it('incomplete observation config conservatively preserves interaction content', () => {
     const agents = new Map([
       ['alice', makeAgentStub('resting', { id: 'alice' })],
@@ -246,5 +287,32 @@ describe('FactEmitter.emitObservationFacts — engine integration', () => {
     expect(obsFact.action).not.toBe('在附近注意到有人，没什么特别的');
     expect(obsFact.action).not.toContain('注意到');
     expect(obsFact.action.length).toBeGreaterThan(6);
+  });
+
+  it('5 agents × 200 ticks: state-bearing observations do not retain generic actions', () => {
+    const AndyEngine = require('../../index.js').default || require('../../index.js');
+    const engine = new AndyEngine({
+      seed: 'observation-5x200',
+      enableFacts: true,
+      startTime: TEST_START,
+    });
+    for (let i = 0; i < 5; i++) {
+      engine.createCharacter({
+        id: `agent-${i}`,
+        name: `Agent${i}`,
+        mbti: i % 2 ? 'ESTJ' : 'INFP',
+        schedule: 'student',
+      });
+    }
+
+    for (let tick = 0; tick < 200; tick++) {
+      try { engine.tick(); } catch (e) { /* preserve deterministic diagnostic loop */ }
+    }
+
+    const genericTemplates = new Set(engine.domain.narrativeTemplates.observationAction.genericTemplates);
+    const observations = engine.world.factStore.getAllFacts([FactType.OBSERVATION]);
+
+    expect(observations.length).toBeGreaterThan(0);
+    expect(observations.filter((fact) => genericTemplates.has(fact.action))).toHaveLength(0);
   });
 });

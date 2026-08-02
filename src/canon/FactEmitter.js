@@ -241,16 +241,21 @@ class FactEmitter {
     if (!stateLabel) return content;
 
     const mapped = observationAction.stateMap?.[stateLabel];
-    if (typeof mapped !== 'string' || mapped.length === 0) return content;
+    const hasMappedState = typeof mapped === 'string' && mapped.length > 0;
+    const stateValue = hasMappedState ? mapped : stateLabel;
 
     const region = event.location || '';
-    const template = region && typeof observationAction.withRegionTemplate === 'string'
-      ? observationAction.withRegionTemplate
-      : observationAction.template;
+    const template = hasMappedState
+      ? (region && typeof observationAction.withRegionTemplate === 'string'
+        ? observationAction.withRegionTemplate
+        : observationAction.template)
+      : (region && typeof observationAction.fallbackWithRegionTemplate === 'string'
+        ? observationAction.fallbackWithRegionTemplate
+        : observationAction.fallbackTemplate);
     if (typeof template !== 'string' || template.length === 0) return content;
 
     const rendered = template.replace(/\{(state|region)\}/g, (_, key) => (
-      key === 'state' ? mapped : region
+      key === 'state' ? stateValue : region
     ));
     return rendered.length > 0 && !/\{[^}]+\}/.test(rendered) ? rendered : content;
   }

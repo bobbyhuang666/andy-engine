@@ -626,6 +626,7 @@ const campusDomain = {
         '在校园广场': '校园广场', '在咖啡店': '咖啡店',
       },
       template: '正在{state}',
+      fallbackTemplate: '{state}',
     },
     thirdPartyKnowledge: {
       unknown: '我不知道{target}的情况。',

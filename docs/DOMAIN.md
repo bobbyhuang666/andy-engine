@@ -237,6 +237,8 @@ semanticProfile: {
 | `narrativeTemplates.observationAction.stateMap` | `Object` | State → domain-owned observation text |
 | `narrativeTemplates.observationAction.template` | `string` | Rendering template; supports `{state}` and `{region}` |
 | `narrativeTemplates.observationAction.withRegionTemplate` | `string` | Optional rendering template used when the event has a region |
+| `narrativeTemplates.observationAction.fallbackTemplate` | `string` | Optional rendering template for an unmapped domain state label |
+| `narrativeTemplates.observationAction.fallbackWithRegionTemplate` | `string` | Optional unmapped-state template used when the event has a region |
 | `narrativeTemplates.thirdPartyKnowledge.unknown` | `string` | Safe epistemic-unknown reply; supports `{target}` |
 | `narrativeTemplates.thirdPartyKnowledge.observation` | `string` | Reply for an allowed observation; supports `{target}` and `{action}` |
 | `narrativeTemplates.thirdPartyKnowledge.location` | `string` | Reply for an allowed observed location; supports `{target}` and `{location}` |
