@@ -183,9 +183,26 @@ class FactConsistencyChecker {
   }
 
   /**
-   * Preserve legacy regex checks outside direct-observation spans while
-   * preventing their known false-positive reparse inside a span that v2 has
-   * already bound to an allowed observation fact.
+   * Preserve legacy regex checks outside fact-bound spans while preventing
+   * their known false-positive reparse inside a span that v2 has already bound
+   * to an allowed fact with a real fact ID.
+   *
+   * Originally this masked only `direct_observation` spans (R8.x), so legacy
+   * location/leak regexes could not reinterpret an observation's natural-language
+   * rendering (e.g. "当时在酒馆") as a second, unrelated location claim. R8.3
+   * extends the same guarantee to fact-bound `refers_to` event references: a
+   * recent_event fallback like "我知道有人在远处吹笛子。" is bound to an allowed
+   * EVENT fact (evidenceSource `known_event_descriptions`, non-empty factId),
+   * yet the legacy v1 `_checkLocationNames`/`_checkLocalScopeLeak` reparse it
+   * and produce false `unknown_location`/`local_scope_leak` violations because
+   * a forbidden `mind_wander` event description overlaps the bound event text
+   * by a 4-char fragment. Masking the bound span (with a non-empty factId)
+   * keeps every legacy safety check active elsewhere while suppressing the
+   * reparse of text v2 has already verified.
+   *
+   * Only traces that are BOTH supported (`support === 'supports'`) AND carry a
+   * real fact ID are masked — unsupported sidecars remain fully visible to
+   * every legacy safety check.
    *
    * @private
    */
@@ -197,8 +214,8 @@ class FactConsistencyChecker {
       .filter(trace =>
         trace &&
         trace.support === 'supports' &&
-        trace.evidenceSource === 'direct_observation' &&
         trace.factId != null &&
+        String(trace.factId).length > 0 &&
         typeof trace.sourceSpanRaw === 'string' &&
         trace.sourceSpanRaw.length > 0
       )

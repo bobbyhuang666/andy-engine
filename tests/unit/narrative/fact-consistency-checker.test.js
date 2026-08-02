@@ -905,6 +905,154 @@ describe('_checkLocalScopeLeak (v2.5-W2)', () => {
 });
 
 // ═══════════════════════════════════════════
+// R8.3: fact-bound event-reference span masking
+//
+// A recent_event fallback like "我知道有人在远处吹笛子。" is bound by v2 to
+// an allowed EVENT fact (evidenceSource `known_event_descriptions`, non-empty
+// factId). The legacy v1 _checkLocationNames/_checkLocalScopeLeak reparse the
+// bound span and produce false unknown_location/local_scope_leak when a
+// forbidden mind_wander event description overlaps the bound event text by a
+// 4-char fragment. _maskBoundObservationSpans must mask the bound span so the
+// legacy safety checks stay active elsewhere without re-judging verified text.
+// ═══════════════════════════════════════════
+describe('R8.3 fact-bound event-reference span masking', () => {
+  // Reproduce the r81-frozen recent_event scenario: an allowed EVENT whose
+  // description text overlaps a forbidden mind_wander EVENT description.
+  function makeRecentEventGrounding() {
+    return makeGrounding({
+      metadata: { agentId: 'alice', agentNames: { alice: '爱丽丝' } },
+      allowedFacts: [
+        {
+          id: 'fact_engine_27',
+          type: FactType.EVENT,
+          description: '有人在远处吹笛子',
+          location: '广场',
+          scope: FactScope.LOCAL,
+          participants: ['alice'],
+          observers: [],
+        },
+      ],
+      forbiddenFacts: [
+        {
+          id: 'fact_engine_32',
+          type: FactType.EVENT,
+          scope: FactScope.LOCAL,
+          description: '想起了刚刚的事：有人在远处吹笛子',
+          location: '',
+          participants: [],
+          observers: [],
+        },
+      ],
+    });
+  }
+
+  it('fact-bound refers_to event does NOT trigger false local_scope_leak', () => {
+    const c = makeChecker();
+    const grounding = makeRecentEventGrounding();
+    const text = '我知道有人在远处吹笛子。';
+    const sc = {
+      type: 'event', subject: 'alice', predicate: 'refers_to',
+      object: '有人在远处吹笛子', span: text, confidence: 1,
+    };
+    const r = c.check(text, grounding, { structuredClaims: [sc] });
+    // v2 binds the sidecar to the allowed EVENT fact → valid.
+    expect(r.valid).toBe(true);
+    expect(r.violations.some(v => v.type === 'local_scope_leak')).toBe(false);
+  });
+
+  it('fact-bound refers_to event does NOT trigger false unknown_location', () => {
+    const c = makeChecker();
+    const grounding = makeRecentEventGrounding();
+    const text = '我知道有人在远处吹笛子。';
+    const sc = {
+      type: 'event', subject: 'alice', predicate: 'refers_to',
+      object: '有人在远处吹笛子', span: text, confidence: 1,
+    };
+    const r = c.check(text, grounding, { structuredClaims: [sc] });
+    expect(r.valid).toBe(true);
+    expect(r.violations.some(v => v.type === 'unknown_location')).toBe(false);
+  });
+
+  it('fact-bound refers_to event produces supports evidence with non-empty factId', () => {
+    const c = makeChecker();
+    const grounding = makeRecentEventGrounding();
+    const text = '我知道有人在远处吹笛子。';
+    const sc = {
+      type: 'event', subject: 'alice', predicate: 'refers_to',
+      object: '有人在远处吹笛子', span: text, confidence: 1,
+    };
+    const r = c.check(text, grounding, { structuredClaims: [sc] });
+    const ev = (r.evidenceTrace || []).filter(
+      e => (e.evidenceSource || '').includes('event') || e.type === 'event'
+    );
+    expect(ev.length).toBeGreaterThan(0);
+    expect(ev[0].support).toBe('supports');
+    expect(ev[0].factId).toBeTruthy();
+    expect(String(ev[0].factId).length).toBeGreaterThan(0);
+  });
+
+  it('unsupported (no matching allowed event) text STILL triggers local_scope_leak', () => {
+    // The masking must only apply to fact-bound spans. An unsupported claim that
+    // merely overlaps a forbidden event must remain flagged.
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      metadata: { agentId: 'alice' },
+      allowedFacts: [],
+      forbiddenFacts: [
+        {
+          type: FactType.EVENT,
+          scope: FactScope.LOCAL,
+          description: '想起了刚刚的事：有人在远处吹笛子',
+          location: '',
+        },
+      ],
+    });
+    // No sidecar, no allowed event → not fact-bound → legacy check fires.
+    const r = c.check('我想起了刚刚的事：有人在远处吹笛子', grounding);
+    expect(r.violations.some(v => v.type === 'local_scope_leak')).toBe(true);
+  });
+
+  it('fact-bound direct_observation span still masked (no regression to R8.2)', () => {
+    // The broader mask must not regress the R8.2 observation guarantee.
+    const c = makeChecker();
+    const grounding = makeGrounding({
+      metadata: { agentId: 'alice', agentNames: { alice: '爱丽丝', bob: '鲍勃' } },
+      allowedFacts: [
+        {
+          id: 'fact_observation_1',
+          type: FactType.OBSERVATION,
+          observerId: 'alice',
+          targetId: 'bob',
+          action: '在休息',
+          context: '酒馆',
+          scope: FactScope.LOCAL,
+          participants: ['alice', 'bob'],
+          observers: ['alice'],
+        },
+      ],
+      forbiddenFacts: [
+        {
+          type: FactType.EVENT,
+          scope: FactScope.LOCAL,
+          description: '有人在酒馆休息',
+          location: '',
+        },
+      ],
+    });
+    const text = '我观察到鲍勃在休息，当时在酒馆。';
+    const sc = {
+      type: 'event', subject: 'alice', predicate: 'observed',
+      object: observationAssertion('bob', '在休息', '酒馆'),
+      span: text, confidence: 1,
+    };
+    const r = c.check(text, grounding, { structuredClaims: [sc] });
+    expect(r.valid).toBe(true);
+    expect(r.violations.some(v => v.type === 'local_scope_leak')).toBe(false);
+    expect(r.violations.some(v => v.type === 'unknown_location')).toBe(false);
+  });
+});
+
+// ═══════════════════════════════════════════
 // told fallback "听闻" (v2.5-W2)
 // ═══════════════════════════════════════════
 describe('told fallback "听闻" (v2.5-W2)', () => {

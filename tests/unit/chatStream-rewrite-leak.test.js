@@ -138,6 +138,48 @@ describe('B2: chat()/chatStream() 不外泄 rewrite 级违规内容', () => {
     expect(reply).toBe('我观察到李在阅读，当时在图书馆。');
   });
 
+  it('R8.4: recent_event fallback prefers a specific event over a generic template', async () => {
+    // Two EVENT facts: a generic stranger-encounter template (excluded by
+    // domain.socialInteractions.strangerNotice) and a specific event. The
+    // fallback must deliver the specific event, not the generic template.
+    const character = new Character({
+      name: 'Maya', id: 'maya', personality: 'INFP', llm: async () => '违规内容',
+    });
+    const genericDesc = character._engine.domain.socialInteractions.strangerNotice;
+    const specificDesc = '今天的麦酒特别好喝';
+    character._engine.getGroundingPackage = () => ({
+      allowedFacts: [
+        { id: 'fact_event_generic', type: 'event', description: genericDesc, location: '酒馆' },
+        { id: 'fact_event_specific', type: 'event', description: specificDesc, location: '酒馆' },
+        { id: 'fact_maya_state', type: 'agent_state', agentId: 'maya', region: '酒馆', state: '喝酒' },
+      ],
+      metadata: { agentNames: { maya: 'Maya' } },
+    });
+    character._engine.checkConsistency = () => ({ valid: true, severity: 'pass' });
+    const reply = await character.chat('刚才发生了什么？');
+    expect(reply).toBe(`我知道${specificDesc}。`);
+    expect(reply).not.toContain(genericDesc);
+  });
+
+  it('R8.4: recent_event fallback falls back to generic event when no specific event exists', async () => {
+    // When only a generic event is available, the fallback still delivers it
+    // (better than silence) but the selection must not crash.
+    const character = new Character({
+      name: 'Maya', id: 'maya', personality: 'INFP', llm: async () => '违规内容',
+    });
+    const genericDesc = character._engine.domain.socialInteractions.strangerNotice;
+    character._engine.getGroundingPackage = () => ({
+      allowedFacts: [
+        { id: 'fact_event_generic', type: 'event', description: genericDesc, location: '酒馆' },
+        { id: 'fact_maya_state', type: 'agent_state', agentId: 'maya', region: '酒馆', state: '喝酒' },
+      ],
+      metadata: { agentNames: { maya: 'Maya' } },
+    });
+    character._engine.checkConsistency = () => ({ valid: true, severity: 'pass' });
+    const reply = await character.chat('刚才发生了什么？');
+    expect(reply).toBe(`我知道${genericDesc}。`);
+  });
+
   it('chatStream() 对 rewrite 级违规应降级为沉默，不 yield 违规原文', async () => {
     const character = makeCharacterWithConsistency({ valid: false, severity: 'rewrite' });
     const tokens = [];

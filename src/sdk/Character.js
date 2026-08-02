@@ -72,9 +72,31 @@ function createVerifiedGroundingFallback(engine, agentId, userMessage = '') {
       fact && fact.type === 'observation' && fact.observerId === agentId &&
       fact.targetId && fact.action && agentNames[fact.targetId]
     );
-    const eventFact = (grounding?.allowedFacts || []).find((fact) =>
+    // R8.4: prefer a specific EVENT fact for the recent_event fallback rather
+    // than the first (which is often a generic stranger-encounter template
+    // like "在附近注意到有人"). A specific event carries real information
+    // (e.g. "今天的麦酒特别好喝") and yields a non-generic, informative reply.
+    // The generic templates are read from the domain config
+    // (socialInteractions.strangerNotice / strangerBrief), keeping this
+    // domain-driven rather than hardcoding world words in the SDK. Among the
+    // remaining (non-generic) events, prefer the longest description; fall
+    // back to the first event fact only when all are generic.
+    const domain = engine?.domain;
+    const socialInteractions = domain?.socialInteractions || {};
+    const genericTemplates = new Set([
+      socialInteractions.strangerNotice,
+      socialInteractions.strangerBrief,
+    ].filter(Boolean));
+    const eventFacts = (grounding?.allowedFacts || []).filter((fact) =>
       fact && fact.type === 'event' && fact.description
     );
+    let eventFact = null;
+    if (eventFacts.length > 0) {
+      const specific = eventFacts.filter((f) => !genericTemplates.has(f.description));
+      const pool = specific.length > 0 ? specific : eventFacts;
+      eventFact = pool.reduce((best, cur) =>
+        (cur.description.length > (best ? best.description.length : 0)) ? cur : best, null);
+    }
 
     // Build richer fact-bound candidates (priority order). Each uses ONLY fact
     // field values — no invention. Every candidate is verified by
