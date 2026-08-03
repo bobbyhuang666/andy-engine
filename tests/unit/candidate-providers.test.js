@@ -200,9 +200,44 @@ describe('BehaviorFieldCandidateProvider', () => {
 
   it('高社交生成 socialize 候选', () => {
     const provider = new BehaviorFieldCandidateProvider();
-    const ctx = makeContext({ behaviorField: { B: [0.5, 0.8, 0.5, 0.5], label: 'social' } });
+    const ctx = makeContext({
+      behaviorField: { B: [0.5, 0.8, 0.5, 0.5], label: 'social' },
+      agent: { id: 'alice', position: 'home' },
+      coPresentAgentIds: ['bob'],
+    });
     const result = provider.generate(ctx);
     expect(result.some(c => c.type === 'socialize')).toBe(true);
+  });
+
+  it('高社交只选择排序后的共处他者并排除自己', () => {
+    const provider = new BehaviorFieldCandidateProvider();
+    const result = provider.generate(makeContext({
+      behaviorField: { B: [0.5, 0.8, 0.5, 0.5], label: 'social' },
+      agent: { id: 'alice', position: 'home' },
+      coPresentAgentIds: ['zara', 'alice', 'bob'],
+    }));
+
+    const socialize = result.filter(candidate => candidate.type === 'socialize');
+    expect(socialize).toHaveLength(1);
+    expect(socialize[0].target).toBe('bob');
+    expect(result.filter(candidate => candidate.type !== 'socialize').map(candidate => candidate.type))
+      .toEqual([]);
+  });
+
+  it.each([
+    undefined,
+    [],
+    ['alice'],
+    [null, '', 7],
+  ])('高社交无有效共处他者时不生成 socialize (%j)', coPresentAgentIds => {
+    const provider = new BehaviorFieldCandidateProvider();
+    const result = provider.generate(makeContext({
+      behaviorField: { B: [0.5, 0.8, 0.5, 0.5], label: 'social' },
+      agent: { id: 'alice', position: 'home' },
+      coPresentAgentIds,
+    }));
+
+    expect(result.some(candidate => candidate.type === 'socialize')).toBe(false);
   });
 
   it('高专注生成 work 候选', () => {

@@ -19,7 +19,18 @@ class BehaviorFieldCandidateProvider extends CandidateProvider {
     }
 
     if (sociality > 0.6) {
-      candidates.push(new ActionCandidate({ type: 'socialize', source: 'behaviorField', label: 'social tendency' }));
+      const selfId = context.agent?.id || context.agentId;
+      const target = (Array.isArray(context.coPresentAgentIds) ? context.coPresentAgentIds : [])
+        .filter(id => typeof id === 'string' && id.length > 0 && id !== selfId)
+        .sort()[0];
+      if (target) {
+        candidates.push(new ActionCandidate({
+          type: 'socialize',
+          source: 'behaviorField',
+          target,
+          label: 'social tendency',
+        }));
+      }
     }
 
     if (focus > 0.6) {

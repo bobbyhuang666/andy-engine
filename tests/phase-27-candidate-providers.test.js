@@ -80,7 +80,11 @@ describe('Phase 27: Candidate Provider Consolidation', () => {
 
     it('generates socialize candidate when sociality is high', () => {
       const provider = new BehaviorFieldCandidateProvider();
-      const context = { behaviorField: { B: [0.5, 0.7, 0.3, 0.3] } };
+      const context = {
+        behaviorField: { B: [0.5, 0.7, 0.3, 0.3] },
+        agent: { id: 'alice' },
+        coPresentAgentIds: ['bob'],
+      };
       const candidates = provider.generate(context);
       expect(candidates.some(c => c.type === 'socialize')).toBe(true);
     });
