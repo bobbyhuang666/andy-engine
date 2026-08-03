@@ -7,6 +7,7 @@
 
 const { ANDY_DEFAULTS } = require('../config/defaults');
 const { collectBooleanConfigErrors } = require('../config/validate');
+const { normalizeActionSelectionConfig } = require('../config/actionSelection');
 
 /**
  * R41 A4 fix: deep-merge season probability overrides so that specifying
@@ -46,10 +47,10 @@ class RuntimeConfig {
 
     // R134-A2-001: deep-merge object config sections so partial user overrides
     // (e.g. { mode: 'normal' }) do not drop default keys (temperature, etc.).
-    this.actionSelection =
-      typeof config.actionSelection === 'object' && config.actionSelection !== null
-        ? { ...ANDY_DEFAULTS.actionSelection, ...config.actionSelection }
-        : { ...ANDY_DEFAULTS.actionSelection };
+    this.actionSelection = normalizeActionSelectionConfig(
+      config.actionSelection,
+      ANDY_DEFAULTS.actionSelection
+    );
 
     this.weather = config.weather || 'sunny';
 

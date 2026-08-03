@@ -28,6 +28,7 @@ const { immutableProjection } = require('./src/runtime/ReadProjection');
 const Agent = require('./agent/Agent');
 const { ANDY_DEFAULTS } = require('./src/config/defaults');
 const { validateConfig, validateAgentConfig } = require('./src/config/validate');
+const { normalizeActionSelectionConfig } = require('./src/config/actionSelection');
 const { DomainRegistry } = require('./src/domain/DomainRegistry');
 const { validateDomain } = require('./src/domain/validateDomain');
 const { RNG } = require('./src/shared/rng');
@@ -110,11 +111,10 @@ class AndyEngine {
       // _restoreConfig.enableFacts=true when the caller passed an explicit
       // config object without enableFacts, dropping the factStore on restore.
       enableFacts: config.enableFacts ?? savedState?._restoreConfig?.enableFacts ?? false,
-      actionSelection: {
-        ...ANDY_DEFAULTS.actionSelection,
+      actionSelection: normalizeActionSelectionConfig({
         ...(savedState?._restoreConfig?.actionSelection || {}),
         ...(config.actionSelection || {}),
-      },
+      }, ANDY_DEFAULTS.actionSelection),
     };
     const restoredConfig = savedState?._restoreConfig || {};
     const worldConfig = {

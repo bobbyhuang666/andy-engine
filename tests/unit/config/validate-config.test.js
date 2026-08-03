@@ -10,6 +10,7 @@
 import { describe, it, expect } from 'vitest';
 import { validateConfig, validateAgentConfig } from '../../../src/config/validate.js';
 import RuntimeConfig from '../../../src/runtime/RuntimeConfig.js';
+const AndyEngine = require('../../../index.js');
 
 // ═══════════════════════════════════════════
 // validateConfig — 输入守卫
@@ -64,6 +65,53 @@ describe('validateConfig — boolean feature switches', () => {
     expect(() => new RuntimeConfig({
       actionSelection: { enabled: 'false' },
     })).toThrow(/actionSelection\.enabled must be a boolean/);
+  });
+});
+
+describe('validateConfig — action selection execution settings', () => {
+  it('rejects non-executable action selection settings before a world starts', () => {
+    const invalid = [
+      [{ actionSelection: 'active' }, /actionSelection must be an object/],
+      [{ actionSelection: { mode: 'autopilot' } }, /actionSelection\.mode/],
+      [{ actionSelection: { temperature: -0.1 } }, /actionSelection\.temperature/],
+      [{ actionSelection: { temperature: Number.NaN } }, /actionSelection\.temperature/],
+      [{ actionSelection: { maxTraceHistory: 1.5 } }, /actionSelection\.maxTraceHistory/],
+      [{ actionSelection: { active: 'yes' } }, /actionSelection\.active must be a boolean/],
+      [{ actionSelection: { active: true, enabled: false } }, /conflicts with actionSelection\.enabled/],
+    ];
+
+    for (const [config, pattern] of invalid) {
+      expect(() => validateConfig(config)).toThrow(pattern);
+      expect(() => new RuntimeConfig(config)).toThrow(pattern);
+    }
+  });
+
+  it('normalizes the historical active shorthand into a real active configuration', () => {
+    const input = { active: true, temperature: 0, maxTraceHistory: 4 };
+    const runtime = new RuntimeConfig({ actionSelection: input });
+    expect(runtime.actionSelection).toMatchObject({
+      enabled: true,
+      mode: 'active',
+      temperature: 0,
+      maxTraceHistory: 4,
+    });
+    expect(runtime.actionSelection).not.toHaveProperty('active');
+    expect(input).toEqual({ active: true, temperature: 0, maxTraceHistory: 4 });
+  });
+
+  it('makes the historical active shorthand execute actions instead of silently disabling them', () => {
+    const engine = new AndyEngine({
+      seed: 'legacy-active-alias',
+      startTime: new Date('2026-01-01T09:00:00Z'),
+      actionSelection: { active: true, temperature: 0 },
+    });
+    engine.createCharacter({ id: 'actor', name: 'Actor', mbti: 'ISTJ', schedule: 'student' });
+    engine.tick();
+
+    const agent = engine.getAgent('actor');
+    expect(agent._actionSelectionConfig).toMatchObject({ enabled: true, mode: 'active' });
+    expect(agent._actionTraceHistory).toHaveLength(1);
+    expect(engine.world.eventDispatcher.eventLog.some(event => event.type === 'action_selected')).toBe(true);
   });
 });
 

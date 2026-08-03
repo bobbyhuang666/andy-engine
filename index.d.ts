@@ -17,8 +17,12 @@ interface AndyEngineConfig {
   tickMinutes?: number;
   actionSelection?: {
     enabled?: boolean;
+    /** @deprecated Use `{ enabled: true, mode: 'active' }`. */
+    active?: boolean;
     mode?: 'shadow' | 'event' | 'dryRunEffects' | 'active';
     temperature?: number;
+    recordTraces?: boolean;
+    maxTraceHistory?: number;
     providers?: Record<string, { enabled?: boolean; weight?: number }>;
   };
   [key: string]: any;

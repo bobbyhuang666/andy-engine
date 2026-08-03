@@ -10,6 +10,7 @@
  */
 
 const { ANDY_DEFAULTS, EMOTION_DIMENSIONS } = require('./defaults');
+const { collectActionSelectionConfigErrors } = require('./actionSelection');
 
 /**
  * 验证配置参数
@@ -442,6 +443,7 @@ function collectBooleanConfigErrors(config, errors) {
   checkBoolean(config.atomicTicks, 'atomicTicks', errors);
 
   const actionSelection = config.actionSelection;
+  collectActionSelectionConfigErrors(actionSelection, errors);
   if (!actionSelection || typeof actionSelection !== 'object' || Array.isArray(actionSelection)) {
     return;
   }
