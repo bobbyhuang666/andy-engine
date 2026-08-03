@@ -117,6 +117,7 @@ class EvidenceBinder {
     const knownEventDescriptions = new Map();  // descLower → factId
     const knownRelationships = new Map();      // 'agentA:agentB' → { relationType, factId }
     const knownObservations = new Map();       // observerId + assertion → factId
+    const knownObservationActions = new Map(); // observerId + target + action → unique factId
     const knownMemories = new Map();           // agentId → Map<contentLower, factId>
     const knownIntentions = new Map();         // agentId → { intent, region, factId }
     const selfAgentStates = [];                // { state, factId }
@@ -181,6 +182,9 @@ class EvidenceBinder {
       if (fact.type === FactType.OBSERVATION && fact.observerId && fact.targetId && fact.action) {
         const key = `${fact.observerId}\u0000${observationAssertion(fact.targetId, fact.action, fact.context)}`;
         knownObservations.set(key, fact.id || null);
+        const actionKey = `${fact.observerId}\u0000${fact.targetId}\u0000${fact.action}`;
+        knownObservationActions.set(actionKey,
+          knownObservationActions.has(actionKey) ? null : (fact.id || null));
       }
 
       // RELATIONSHIP facts
@@ -221,6 +225,7 @@ class EvidenceBinder {
       knownEventDescriptions,
       knownRelationships,
       knownObservations,
+      knownObservationActions,
       knownMemories,
       knownIntentions,
       selfAgentStates,
@@ -556,10 +561,23 @@ class EvidenceBinder {
       const subjectId = this._subjectId(claim);
       const key = `${subjectId}\u0000${object}`;
       const factId = index.knownObservations.get(key);
-      if (factId !== undefined) {
+      let resolvedFactId = factId;
+      if (resolvedFactId === undefined && object) {
+        try {
+          const [targetId, action, context] = JSON.parse(object);
+          if (context === '') {
+            resolvedFactId = index.knownObservationActions?.get(
+              `${this._subjectId(claim)}\u0000${targetId}\u0000${action}`
+            );
+          }
+        } catch {
+          // Keep the exact assertion result as the safe default.
+        }
+      }
+      if (resolvedFactId !== undefined && resolvedFactId !== null) {
         bindings.push({
           claimId: claim.id || 'unknown',
-          factId,
+          factId: resolvedFactId,
           support: SUPPORT.SUPPORTS,
           evidenceSource: 'direct_observation',
           confidence,

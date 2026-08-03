@@ -129,6 +129,41 @@ describe('GroundingChecker v2 — canonical self state', () => {
   });
 });
 
+describe('GroundingChecker v2 — canonical reference acknowledgements', () => {
+  it('does not reject a short acknowledgement as an unsupported event reference', () => {
+    const checker = makeChecker();
+    const eventAcknowledgement = checker.check('好的，我知道了。', makeGrounding({ allowedFacts: [] }));
+    const memoryAcknowledgement = checker.check('好的，我记得了。', makeGrounding({ allowedFacts: [] }));
+
+    expect(eventAcknowledgement.valid).toBe(true);
+    expect(eventAcknowledgement.violations).toEqual([]);
+    expect(memoryAcknowledgement.valid).toBe(true);
+    expect(memoryAcknowledgement.violations).toEqual([]);
+  });
+
+  it('still rejects an incorrect canonical event value', () => {
+    const result = makeChecker().check('我知道不存在的事件。', makeGrounding({
+      allowedFacts: [{ id: 'event_1', type: FactType.EVENT, description: '真实事件' }],
+    }));
+
+    expect(result.valid).toBe(false);
+    expect(result.evidenceTrace.some(trace =>
+      trace.predicate === 'refers_to' && trace.support === 'unsupported'
+    )).toBe(true);
+  });
+
+  it('still rejects an incorrect canonical memory value', () => {
+    const result = makeChecker().check('我记得不存在的记忆。', makeGrounding({
+      allowedFacts: [{ id: 'memory_1', type: FactType.MEMORY, agentId: 'alice', content: '真实记忆' }],
+    }));
+
+    expect(result.valid).toBe(false);
+    expect(result.evidenceTrace.some(trace =>
+      trace.predicate === 'remembers' && trace.support === 'unsupported'
+    )).toBe(true);
+  });
+});
+
 // ═══════════════════════════════════════════
 // Other-agent location validation
 // ═══════════════════════════════════════════

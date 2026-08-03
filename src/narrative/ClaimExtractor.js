@@ -11,6 +11,7 @@
  */
 
 const { diagnostics } = require('../shared/Diagnostics');
+const { observationAssertion } = require('./ObservationAssertion');
 
 // ─── 情绪词库 ───
 const EMOTION_WORDS = [
@@ -99,12 +100,33 @@ class ClaimExtractor {
     const claims = [];
     claims.push(...this._extractLocationClaims(llmOutput, includePronouns));
     claims.push(...this._extractEventClaims(llmOutput));
+    const canonicalObservations = this._extractCanonicalObservationClaims(llmOutput);
+    claims.push(...canonicalObservations);
     claims.push(...this._extractRelationshipClaims(llmOutput));
+    claims.push(...this._extractCanonicalRelationshipClaims(llmOutput));
     claims.push(...this._extractStateClaims(llmOutput, includePronouns));
+    claims.push(...this._extractCanonicalIntentionClaims(llmOutput, options.allowedFacts));
+    claims.push(...this._extractCanonicalEventReferenceClaims(llmOutput));
+    claims.push(...this._extractCanonicalMemoryClaims(llmOutput));
     claims.push(...this._extractSourceClaims(llmOutput));
     claims.push(...this._extractTimeClaims(llmOutput));
 
-    return claims;
+    // A canonical observation is the authoritative interpretation of its
+    // complete sentence. Do not re-interpret the same span as a generic
+    // third-party state, location, or source claim; those duplicate claims
+    // can incorrectly turn a supported observation into a privacy violation.
+    // Claims outside the canonical span remain available for explicit leakage
+    // detection.
+    const observationSpans = canonicalObservations.map(claim => claim.sourceSpan).filter(Boolean);
+    if (observationSpans.length === 0) return claims;
+    return claims.filter(claim => {
+      if (claim.predicate === 'observed' && claim.type === 'event') return true;
+      const span = claim.sourceSpan;
+      if (!span) return true;
+      return !observationSpans.some(observation =>
+        span.start < observation.end && observation.start < span.end
+      );
+    });
   }
 
   // ═══════════════════════════════════════════
@@ -452,6 +474,172 @@ class ClaimExtractor {
       }
     }
 
+    return claims;
+  }
+
+  _extractCanonicalObservationClaims(text) {
+    const claims = [];
+    const names = Object.entries(this.agentNames)
+      .filter(([id, name]) => id !== this.selfId && name)
+      .sort((a, b) => String(b[1]).length - String(a[1]).length)
+      .map(([, name]) => this._escapeRegex(String(name)));
+    if (names.length === 0) return claims;
+
+    const pattern = new RegExp(
+      `我观察到(${names.join('|')})([^，。！？!?]+?)(?:，当时在([^。！？!?]+?))?。`,
+      'g'
+    );
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const targetName = match[1];
+      const targetId = this._resolveToAgentId(targetName);
+      const action = match[2].trim();
+      const context = (match[3] || '').trim();
+      if (!targetId || !action) continue;
+      // The location fallback is rendered as "我观察到{target}在{location}。"
+      // and is already handled by the location extractor. It has no action
+      // assertion to bind here, so do not reinterpret its location as action.
+      if (!context && action.startsWith('在')) continue;
+      claims.push({
+        type: 'event',
+        subject: this.selfId,
+        predicate: 'observed',
+        object: observationAssertion(targetId, action, context),
+        polarity: 'affirmative',
+        evidenceRequired: 'observed',
+        confidence: 0.9,
+        sourceSpan: { start: match.index, end: match.index + match[0].length, raw: match[0] },
+      });
+    }
+    return claims;
+  }
+
+  _extractCanonicalRelationshipClaims(text) {
+    const claims = [];
+    const names = Object.entries(this.agentNames)
+      .filter(([id, name]) => id !== this.selfId && name)
+      .sort((a, b) => String(b[1]).length - String(a[1]).length);
+    if (names.length === 0) return claims;
+
+    const pattern = new RegExp(
+      `我和(${names.map(([, name]) => this._escapeRegex(String(name))).join('|')})的关系是([^。！？!?]+?)。`,
+      'g'
+    );
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const targetName = match[1];
+      const targetId = this._resolveToAgentId(targetName);
+      const relationType = match[2].trim();
+      if (!targetId || !relationType) continue;
+      claims.push({
+        type: 'relationship',
+        subject: this.selfId,
+        predicate: 'is_relation',
+        object: { kind: 'agent', id: targetId, raw: targetName },
+        relationType,
+        polarity: 'affirmative',
+        evidenceRequired: 'any',
+        confidence: 0.9,
+        sourceSpan: { start: match.index, end: match.index + match[0].length, raw: match[0] },
+      });
+    }
+    return claims;
+  }
+
+  _extractCanonicalIntentionClaims(text, allowedFacts = []) {
+    const claims = [];
+    const intentions = (allowedFacts || [])
+      .filter(fact => fact && fact.type === 'intention' && fact.agentId === this.selfId && fact.intent)
+      .map(fact => ({ region: String(fact.region || ''), intent: String(fact.intent) }));
+    const splitBody = body => {
+      const match = intentions
+        .filter(item => item.region && body.startsWith(item.region))
+        .sort((a, b) => b.region.length - a.region.length)[0];
+      return match ? { region: match.region, intent: body.slice(match.region.length).trim() } : { region: '', intent: body.trim() };
+    };
+
+    const withRegion = /我接下来打算去([^。！？!?]+?)。/g;
+    let match;
+    while ((match = withRegion.exec(text)) !== null) {
+      const parsed = splitBody(match[1]);
+      if (!parsed.intent) continue;
+      claims.push({
+        type: 'intention',
+        subject: this.selfId,
+        predicate: 'plans_to',
+        object: parsed.intent,
+        region: parsed.region,
+        polarity: 'affirmative',
+        evidenceRequired: 'self',
+        confidence: 0.9,
+        sourceSpan: { start: match.index, end: match.index + match[0].length, raw: match[0] },
+      });
+    }
+
+    const withoutRegion = /我接下来打算(?!去)([^。！？!?]+?)。/g;
+    while ((match = withoutRegion.exec(text)) !== null) {
+      const intent = match[1].trim();
+      if (!intent) continue;
+      claims.push({
+        type: 'intention',
+        subject: this.selfId,
+        predicate: 'plans_to',
+        object: intent,
+        region: '',
+        polarity: 'affirmative',
+        evidenceRequired: 'self',
+        confidence: 0.9,
+        sourceSpan: { start: match.index, end: match.index + match[0].length, raw: match[0] },
+      });
+    }
+    return claims;
+  }
+
+  _extractCanonicalEventReferenceClaims(text) {
+    const claims = [];
+    const pattern = /我知道(.+?)。/g;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const description = match[1].trim();
+      // Short acknowledgement forms such as "我知道了。" are not event
+      // references. Keep the canonical parser strict enough to avoid turning
+      // conversational filler into an unsupported factual claim.
+      if (!description || description === '了') continue;
+      claims.push({
+        type: 'event',
+        subject: this.selfId,
+        predicate: 'refers_to',
+        object: description,
+        polarity: 'affirmative',
+        evidenceRequired: 'any',
+        confidence: 0.9,
+        sourceSpan: { start: match.index, end: match.index + match[0].length, raw: match[0] },
+      });
+    }
+    return claims;
+  }
+
+  _extractCanonicalMemoryClaims(text) {
+    const claims = [];
+    const pattern = /我记得(.+?)。/g;
+    let match;
+    while ((match = pattern.exec(text)) !== null) {
+      const content = match[1].trim();
+      // "我记得了。" is a conversational acknowledgement, not a memory
+      // reference. Actual content remains parsed and must still bind to an
+      // allowed memory fact.
+      if (!content || content === '了') continue;
+      claims.push({
+        type: 'memory',
+        subject: this.selfId,
+        predicate: 'remembers',
+        object: content,
+        polarity: 'affirmative',
+        evidenceRequired: 'self',
+        confidence: 0.9,
+        sourceSpan: { start: match.index, end: match.index + match[0].length, raw: match[0] },
+      });
+    }
     return claims;
   }
 

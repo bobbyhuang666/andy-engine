@@ -155,6 +155,17 @@ function normalizeObject(value, selfId, agentNames, claimType) {
     return { kind: 'generic', id: null, raw: String(value ?? '') };
   }
 
+  // Preserve structured agent references emitted by the canonical
+  // relationship fallback. Flattening this object to "[object Object]"
+  // prevents EvidenceBinder from resolving the referenced relationship.
+  if (typeof value === 'object' && value.kind === 'agent') {
+    return {
+      kind: 'agent',
+      id: value.id ?? null,
+      raw: value.raw ?? value.id ?? '',
+    };
+  }
+
   const raw = String(value);
 
   // 如果 claim 类型是 location 且 object 看起来像地点名，标记为 location

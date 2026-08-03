@@ -82,6 +82,15 @@ describe('third-party knowledge Character.chat surface', () => {
     expect(sidecarChecked.valid).toBe(true);
     expect(sidecarChecked.evidenceTrace.some((trace) => trace.factId === fact.id)).toBe(true);
     expect(checked.valid).toBe(true);
+    expect(checked.evidenceTrace.some((trace) =>
+      trace.support === 'supports' && trace.factId === fact.id
+    )).toBe(true);
+
+    const wrong = engine.checkConsistency('我观察到Bob正在王冠房间里休息。', 'alice');
+    expect(wrong.valid).toBe(false);
+    expect(wrong.evidenceTrace.some((trace) =>
+      trace.type === 'event' && trace.support !== 'supports'
+    )).toBe(true);
   });
 
   it('answers an observed third-party location with the same observation factId', async () => {

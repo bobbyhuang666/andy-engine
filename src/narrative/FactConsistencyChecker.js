@@ -252,6 +252,9 @@ class FactConsistencyChecker {
     }
 
     for (const name of mentionedNames) {
+      // A first-person phrase is never a character name candidate. Real
+      // character names are resolved from agentNames by the structured path.
+      if (name.startsWith('我')) continue;
       // 跳过常见动词/名词
       const commonWords = ['大家', '别人', '对方', '朋友', '人们'];
       if (commonWords.includes(name)) continue;

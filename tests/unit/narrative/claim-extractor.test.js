@@ -105,6 +105,14 @@ describe('ClaimExtractor — 所有 claim 类型', () => {
     });
   });
 
+  it('canonical event/memory acknowledgement does not create reference claims', () => {
+    const ex = makeExtractor('alice');
+    const claims = ex.extract('好的，我知道了。我记得了。');
+
+    expect(claims.some(c => c.predicate === 'refers_to')).toBe(false);
+    expect(claims.some(c => c.predicate === 'remembers')).toBe(false);
+  });
+
   it('提取 source_attribution claim: "听说鲍勃发现了"', () => {
     const ex = makeExtractor('alice');
     const claims = ex.extract('听说鲍勃发现了一本好书');

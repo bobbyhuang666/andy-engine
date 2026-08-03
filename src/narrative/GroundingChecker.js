@@ -110,7 +110,7 @@ class GroundingChecker {
 
     // 1. Extract structured claims from text
     const extractor = new ClaimExtractor(selfId, agentNames);
-    const allClaimsFromText = extractor.extract(llmOutput);
+    const allClaimsFromText = extractor.extract(llmOutput, { allowedFacts });
 
     // ─── Sidecar path ────────────────────────────────────────────────────────────
     let sidecarClaims = [];
@@ -154,6 +154,7 @@ class GroundingChecker {
     const knownEventDescriptions = new Set();  // lowercased description fragments
     const knownRelationships = new Map();      // 'agentA:agentB' → relationType
     const knownObservations = new Set();       // observerId + canonical observation assertion
+    const knownObservationActions = new Map(); // unqualified legacy observation → unique fact marker
     const toldFacts = [];                      // facts with _evidence.source === 'told'
     const inferredFacts = [];                  // facts with _evidence.source === 'inferred'
 
@@ -194,6 +195,8 @@ class GroundingChecker {
       }
       if (fact.type === FactType.OBSERVATION && fact.observerId && fact.targetId && fact.action) {
         knownObservations.add(`${fact.observerId}\u0000${observationAssertion(fact.targetId, fact.action, fact.context)}`);
+        const actionKey = `${fact.observerId}\u0000${fact.targetId}\u0000${fact.action}`;
+        knownObservationActions.set(actionKey, knownObservationActions.has(actionKey) ? null : true);
       }
 
       // RELATIONSHIP facts
@@ -254,6 +257,7 @@ class GroundingChecker {
         knownEventDescriptions,
         knownRelationships,
         knownObservations,
+        knownObservationActions,
         toldFacts,
         inferredFacts,
         allowedFacts,
@@ -294,7 +298,7 @@ class GroundingChecker {
       let corefResolver = null;
       if (agentNames && Object.keys(agentNames).length > 0) {
         const pronounExtractor = new ClaimExtractor(selfId, agentNames);
-        const allPronounClaims = pronounExtractor.extract(llmOutput, { includePronouns: true });
+        const allPronounClaims = pronounExtractor.extract(llmOutput, { includePronouns: true, allowedFacts });
         pronounClaimsRaw = allPronounClaims.filter(c => c.extractionMethod === 'extractor-pronoun');
         // Ensure pronoun claims have span field for CoreferenceResolver distance calc
         for (const pc of pronounClaimsRaw) {
@@ -727,7 +731,7 @@ class GroundingChecker {
 
   _validateEventClaim(claim, ctx) {
     const violations = [];
-    const { knownEventDescriptions, knownObservations, selfId, forbiddenFacts, agentNames } = ctx;
+    const { knownEventDescriptions, knownObservations, knownObservationActions, selfId, forbiddenFacts, agentNames } = ctx;
 
     // 否定 claim: 不做反事实证明，不拦截
     if (claim.polarity === 'negative') {
@@ -738,7 +742,19 @@ class GroundingChecker {
 
     if (claim.predicate === 'observed') {
       const key = `${claim.subjectId}\u0000${claim.objectRaw || ''}`;
-      if (!knownObservations || !knownObservations.has(key)) {
+      let supported = knownObservations && knownObservations.has(key);
+      if (!supported && knownObservationActions && claim.objectRaw) {
+        try {
+          const [targetId, action, context] = JSON.parse(claim.objectRaw);
+          if (context === '') {
+            supported = knownObservationActions.get(`${selfId}\u0000${targetId}\u0000${action}`) === true;
+          }
+        } catch {
+          // The exact assertion path below remains the only fallback for
+          // malformed observation objects.
+        }
+      }
+      if (!supported) {
         violations.push({
           type: 'unsupported_claim',
           event: claim.objectRaw,
@@ -1023,6 +1039,9 @@ class GroundingChecker {
     while ((nameMatch = namePattern.exec(text)) !== null) {
       const name = nameMatch[1];
       const commonWords = ['大家', '别人', '对方', '朋友', '人们'];
+      // A first-person phrase is never a character name candidate. Real
+      // character names are resolved from agentNames by the structured path.
+      if (name.startsWith('我')) continue;
       if (commonWords.includes(name)) continue;
       if (!nameToId.has(name.toLowerCase())) {
         violations.push({
