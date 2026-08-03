@@ -49,7 +49,92 @@ function findRuntimeObservation(engine) {
   return null;
 }
 
+function setupNaturalAudit() {
+  const engine = new AndyEngine({
+    enableFacts: true,
+    seed: 'natural-audit',
+    startTime: START,
+  });
+  const provider = vi.fn(async () => {
+    throw new Error('provider must not be invoked for grounded natural facts');
+  });
+  const alice = new Character({
+    id: 'alice',
+    name: 'Alice',
+    personality: 'INFP',
+    schedule: 'student',
+    initialPosition: '校园广场',
+    engine,
+    llm: provider,
+  });
+  for (const [id, name] of [['bob', 'Bob'], ['carol', 'Carol'], ['dave', 'Dave'], ['erin', 'Erin']]) {
+    engine.createCharacter({ id, name, mbti: 'ESTJ', schedule: 'student', initialPosition: '校园广场' });
+  }
+  return { engine, alice, provider };
+}
+
+function findNaturalAuditFacts(engine) {
+  for (let tick = 0; tick < 288; tick++) {
+    engine.tick();
+    const facts = engine.getGroundingPackage('alice').allowedFacts;
+    const selected = {
+      observation: facts.find(fact => fact.type === 'observation' && fact.observerId === 'alice' && fact.id),
+      relationship: facts.find(fact => fact.type === 'relationship' && fact.id
+        && (fact.agentA === 'alice' || fact.agentB === 'alice')),
+      memory: facts.find(fact => fact.type === 'memory' && fact.agentId === 'alice' && fact.id),
+      intention: facts.find(fact => fact.type === 'intention' && fact.agentId === 'alice' && fact.id),
+      event: facts.find(fact => fact.type === 'event' && fact.description && fact.id),
+    };
+    if (Object.values(selected).every(Boolean)) return selected;
+  }
+  return null;
+}
+
 describe('runtime-generated third-party observation grounding', () => {
+  it('naturally rechecks observation, relationship, memory, intention, and event facts', async () => {
+    const surfaces = [
+      { key: 'memory', predicate: 'remembers', type: 'memory', question: () => '你记得什么？', value: fact => fact.content },
+      { key: 'event', predicate: 'refers_to', type: 'event', question: () => '刚才发生了什么？', value: fact => fact.description },
+      { key: 'observation', predicate: 'observed', type: 'observation', traceType: 'event', question: (fact, names) => `${names[fact.targetId]}最近在做什么？`, value: fact => fact.action },
+      { key: 'relationship', predicate: 'is_relation', type: 'relationship', question: (fact, names) => `你和${names[fact.agentA === 'alice' ? fact.agentB : fact.agentA]}是什么关系？`, value: fact => fact.relationType },
+      { key: 'intention', predicate: 'plans_to', type: 'intention', question: () => '你接下来打算做什么？', value: fact => fact.intent },
+    ];
+
+    for (const surface of surfaces) {
+      const { engine, alice, provider } = setupNaturalAudit();
+      const selected = findNaturalAuditFacts(engine);
+      expect(selected, `natural-audit must produce all five fact categories before ${surface.key}`).toBeDefined();
+      const targetFact = selected[surface.key];
+      const names = engine.getGroundingPackage('alice').metadata.agentNames;
+      const reply = await alice.chat(surface.question(targetFact, names));
+      const check = engine.checkConsistency(reply, 'alice');
+
+      expect(provider).not.toHaveBeenCalled();
+      expect(check.valid).toBe(true);
+      const trace = check.evidenceTrace.find(entry =>
+        entry.type === (surface.traceType || surface.type)
+        && entry.predicate === surface.predicate
+        && entry.support === 'supports'
+        && entry.factId
+      );
+      expect(trace, `natural ${surface.predicate} trace`).toBeDefined();
+      const boundFact = engine.getGroundingPackage('alice').allowedFacts.find(fact => fact.id === trace.factId);
+      expect(boundFact?.type).toBe(surface.type);
+      expect(reply).toContain(surface.value(boundFact));
+
+      if (surface.key === 'intention') {
+        const wrongIntent = engine.checkConsistency(
+          `我接下来打算去${boundFact.region}在偷王冠。`,
+          'alice',
+        );
+        expect(wrongIntent.valid).toBe(false);
+        expect(wrongIntent.evidenceTrace.some(entry =>
+          entry.predicate === 'plans_to' && entry.support !== 'supports'
+        )).toBe(true);
+      }
+    }
+  });
+
   it('answers only allowed evidence and preserves it across Character save/load', async () => {
     const { engine, alice, provider } = setup();
     const observation = findRuntimeObservation(engine);

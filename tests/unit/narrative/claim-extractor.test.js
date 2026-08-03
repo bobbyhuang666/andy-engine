@@ -113,6 +113,37 @@ describe('ClaimExtractor — 所有 claim 类型', () => {
     expect(claims.some(c => c.predicate === 'remembers')).toBe(false);
   });
 
+  it('canonical intention suppresses overlapping generic location parsing', () => {
+    const ex = makeExtractor('alice');
+    const claims = ex.extract('我接下来打算去教室在上课。', {
+      allowedFacts: [{ type: 'intention', agentId: 'alice', region: '教室', intent: '在上课' }],
+    });
+    const intention = claims.find(c => c.predicate === 'plans_to');
+
+    expect(intention).toMatchObject({ subject: 'alice', region: '教室', object: '在上课' });
+    expect(claims.some(c => c.type === 'location')).toBe(false);
+  });
+
+  it('keeps an exact context-empty location-shaped observation canonical', () => {
+    const ex = makeExtractor('alice', { alice: 'Alice', bob: 'Bob' });
+    const claims = ex.extract('我观察到Bob在教室。', {
+      allowedFacts: [{ type: 'observation', observerId: 'alice', targetId: 'bob', action: '在教室', context: '' }],
+    });
+
+    expect(claims.filter(c => c.predicate === 'observed')).toHaveLength(1);
+    expect(claims.some(c => c.type === 'location')).toBe(false);
+  });
+
+  it('keeps a context-backed location fallback out of observed canonical parsing', () => {
+    const ex = makeExtractor('alice', { alice: 'Alice', bob: 'Bob' });
+    const claims = ex.extract('我观察到Bob在教室。', {
+      allowedFacts: [{ type: 'observation', observerId: 'alice', targetId: 'bob', action: '休息', context: '教室' }],
+    });
+
+    expect(claims.some(c => c.type === 'event' && c.predicate === 'observed')).toBe(false);
+    expect(claims.some(c => c.type === 'location' && c.subject === 'bob' && c.object === '教室')).toBe(true);
+  });
+
   it('提取 source_attribution claim: "听说鲍勃发现了"', () => {
     const ex = makeExtractor('alice');
     const claims = ex.extract('听说鲍勃发现了一本好书');

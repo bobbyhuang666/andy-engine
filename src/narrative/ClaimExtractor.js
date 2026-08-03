@@ -100,12 +100,13 @@ class ClaimExtractor {
     const claims = [];
     claims.push(...this._extractLocationClaims(llmOutput, includePronouns));
     claims.push(...this._extractEventClaims(llmOutput));
-    const canonicalObservations = this._extractCanonicalObservationClaims(llmOutput);
+    const canonicalObservations = this._extractCanonicalObservationClaims(llmOutput, options.allowedFacts);
     claims.push(...canonicalObservations);
     claims.push(...this._extractRelationshipClaims(llmOutput));
     claims.push(...this._extractCanonicalRelationshipClaims(llmOutput));
     claims.push(...this._extractStateClaims(llmOutput, includePronouns));
-    claims.push(...this._extractCanonicalIntentionClaims(llmOutput, options.allowedFacts));
+    const canonicalIntentions = this._extractCanonicalIntentionClaims(llmOutput, options.allowedFacts);
+    claims.push(...canonicalIntentions);
     claims.push(...this._extractCanonicalEventReferenceClaims(llmOutput));
     claims.push(...this._extractCanonicalMemoryClaims(llmOutput));
     claims.push(...this._extractSourceClaims(llmOutput));
@@ -117,14 +118,17 @@ class ClaimExtractor {
     // can incorrectly turn a supported observation into a privacy violation.
     // Claims outside the canonical span remain available for explicit leakage
     // detection.
-    const observationSpans = canonicalObservations.map(claim => claim.sourceSpan).filter(Boolean);
-    if (observationSpans.length === 0) return claims;
+    const protectedSpans = [...canonicalObservations, ...canonicalIntentions]
+      .map(claim => claim.sourceSpan)
+      .filter(Boolean);
+    if (protectedSpans.length === 0) return claims;
     return claims.filter(claim => {
-      if (claim.predicate === 'observed' && claim.type === 'event') return true;
+      if ((claim.predicate === 'observed' && claim.type === 'event')
+        || (claim.predicate === 'plans_to' && claim.type === 'intention')) return true;
       const span = claim.sourceSpan;
       if (!span) return true;
-      return !observationSpans.some(observation =>
-        span.start < observation.end && observation.start < span.end
+      return !protectedSpans.some(protectedSpan =>
+        span.start < protectedSpan.end && protectedSpan.start < span.end
       );
     });
   }
@@ -477,7 +481,7 @@ class ClaimExtractor {
     return claims;
   }
 
-  _extractCanonicalObservationClaims(text) {
+  _extractCanonicalObservationClaims(text, allowedFacts = []) {
     const claims = [];
     const names = Object.entries(this.agentNames)
       .filter(([id, name]) => id !== this.selfId && name)
@@ -496,10 +500,22 @@ class ClaimExtractor {
       const action = match[2].trim();
       const context = (match[3] || '').trim();
       if (!targetId || !action) continue;
-      // The location fallback is rendered as "我观察到{target}在{location}。"
-      // and is already handled by the location extractor. It has no action
-      // assertion to bind here, so do not reinterpret its location as action.
-      if (!context && action.startsWith('在')) continue;
+      // "我观察到Bob在酒馆。" is also the legacy location fallback for an
+      // observation whose action is unrelated (for example "休息") and whose
+      // context is 酒馆. Only keep the canonical observed tuple when the
+      // allowed evidence has that exact context-empty action; otherwise let
+      // the existing location extractor validate the location claim.
+      if (!context && action.startsWith('在')) {
+        const exactAction = allowedFacts.some(fact =>
+          fact && fact.type === 'observation' && fact.targetId === targetId
+          && fact.action === action && !fact.context
+        );
+        const locationEvidence = allowedFacts.some(fact =>
+          fact && fact.type === 'observation' && fact.targetId === targetId
+          && fact.context === action.slice(1)
+        );
+        if (!exactAction && locationEvidence) continue;
+      }
       claims.push({
         type: 'event',
         subject: this.selfId,
