@@ -494,7 +494,10 @@ class AndyWorld {
     this._runCanonPipeline(dispatched, result);
 
     // ─── Phase 8b: ENCOUNTER_EFFECTS ───
-    const encounterEffectCount = this._applyEncounterEffects(dispatched);
+    const encounterDurationHours = Number.isFinite(minutesElapsed) && minutesElapsed >= 0
+      ? minutesElapsed / 60
+      : 0;
+    const encounterEffectCount = this._applyEncounterEffects(dispatched, encounterDurationHours);
     if (encounterEffectCount > 0) {
       result.phase.encounterEffects = { applied: encounterEffectCount };
     }
@@ -916,10 +919,16 @@ class AndyWorld {
    * relationship and memory deltas via the canonical delta pipeline.
    *
    * @param {Object[]} dispatched - dispatched events
+   * @param {number} [durationHours] - simulated duration for this runtime
+   *   encounter pass; omitted for legacy full-effect behavior
    * @returns {number} count of effects applied
    * @private
    */
-  _applyEncounterEffects(dispatched) {
+  _applyEncounterEffects(dispatched, durationHours) {
+    const hasDuration = durationHours !== undefined;
+    const effectScale = hasDuration && Number.isFinite(durationHours) && durationHours >= 0
+      ? durationHours
+      : (hasDuration ? 0 : 1);
     const deltas = [];
     // Deduplicate relationship deltas: A→B and B→A refer to the same
     // bidirectional Relationship object, so only one recordInteraction per pair.
@@ -952,12 +961,14 @@ class AndyWorld {
             // participant disappears mid-tick.
             const source = this.agents.has(effect.target) ? effect.target : d.target;
             if (!this.agents.has(source)) continue;
-            deltas.push(new RelationshipDelta(source, {
+            const relationshipPayload = {
               targetAgentId: source === effect.target ? d.target : effect.target,
               interactionType: 'encounter',
               valence: d.valence,
               content: event.content || '',
-            }));
+            };
+            if (hasDuration) relationshipPayload.durationHours = durationHours;
+            deltas.push(new RelationshipDelta(source, relationshipPayload));
           }
         } else if (effect.type === 'emotion' && effect.delta) {
           // Apply encounter emotions in the same commit pass as relationship and
@@ -966,7 +977,11 @@ class AndyWorld {
           // when many events are dispatched after the encounter.
           const safeTarget = typeof effect.target === 'string' ? effect.target : null;
           if (safeTarget && this.agents.has(safeTarget)) {
-            deltas.push(new EmotionDelta(safeTarget, effect.delta));
+            const emotionChanges = {};
+            for (const [dimension, value] of Object.entries(effect.delta)) {
+              if (Number.isFinite(value)) emotionChanges[dimension] = value * effectScale;
+            }
+            deltas.push(new EmotionDelta(safeTarget, emotionChanges));
             effect._committedByEncounterEffects = true;
           }
         } else if (effect.type === 'memory' && effect.delta) {
