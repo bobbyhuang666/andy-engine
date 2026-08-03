@@ -199,12 +199,19 @@ function runShadowActionSelection(agent, env) {
     let stateDeltas = null;
     if ((actionCfg.mode === 'dryRunEffects' || actionCfg.mode === 'active') && selected) {
       const agentSnapshot = buildActionContext(agent, env);
+      const durationHours = Number.isFinite(env?.minutesElapsed) && env.minutesElapsed >= 0
+        ? env.minutesElapsed / 60
+        : 0;
       pipelineResult = applyActionEffect({
         agentSnapshot,
         selectedCandidate: selected,
         reasonTrace: trace,
         simTime: env.simTime,
         coPresentAgentIds: agentSnapshot.coPresentAgentIds,
+        durationHours,
+        needsRecoveryRate: agent.needs?._cfg?.recoveryRate
+          ? { ...agent.needs._cfg.recoveryRate }
+          : {},
         locationMeaningAvailable: Boolean(
           env?.effectWorld?.factStore &&
           typeof env.effectWorld.factStore.updateLocationMeaning === 'function'

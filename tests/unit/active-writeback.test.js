@@ -2,7 +2,7 @@
  * Phase 36: Minimal Active Writeback Gate (Hardened)
  *
  * active mode applies allowed stateDeltas to live agent state:
- *   - rest: need.energy +0.4, emotion calm/joy
+ *   - rest: needs/emotion effects use the configured per-hour rate × tick duration
  *   - observe: memory candidate delta
  *   - reflect: memory candidate delta + tiny calm
  *   - continue/default: no-op
@@ -80,9 +80,9 @@ describe('Phase 36: Minimal Active Writeback Gate', () => {
 
     // identical stateDeltas
     expect(dryTrace.stateDeltas).toEqual(actTrace.stateDeltas);
-    expect(dryTrace.stateDeltas.need.energy).toBe(0.4);
-    expect(dryTrace.stateDeltas.emotion.calm).toBe(0.1);
-    expect(dryTrace.stateDeltas.emotion.joy).toBe(0.05);
+    expect(dryTrace.stateDeltas.need.energy).toBeCloseTo(0.15 * (5 / 60), 10);
+    expect(dryTrace.stateDeltas.emotion.calm).toBeCloseTo(0.1 * (5 / 60), 10);
+    expect(dryTrace.stateDeltas.emotion.joy).toBeCloseTo(0.05 * (5 / 60), 10);
 
     // active applied deltas → live state strictly greater
     const dryAgent = dry.getAgent('char_1');
@@ -96,7 +96,7 @@ describe('Phase 36: Minimal Active Writeback Gate', () => {
     expect(actTrace.selectedAction).toBe('rest');
     const events = act.world.eventDispatcher.eventLog.filter(e => e.type === 'action_selected');
     expect(events.length).toBe(1);
-    expect(events[0].stateDeltas.need.energy).toBe(0.4);
+    expect(events[0].stateDeltas.need.energy).toBeCloseTo(0.15 * (5 / 60), 10);
   });
 
   // ─── 2. Unsupported active no-op: compare against dryRun baseline, no extra writeback ───
@@ -322,7 +322,7 @@ describe('Phase 36: Minimal Active Writeback Gate', () => {
     const actTrace = act.getAgent('char_1')._actionTraceHistory[0];
     expect(dryTrace.stateDeltas).toEqual(actTrace.stateDeltas);
     expect(dryTrace.stateDeltas.memory).not.toBeNull();
-    expect(dryTrace.stateDeltas.emotion.calm).toBe(0.03);
+    expect(dryTrace.stateDeltas.emotion.calm).toBeCloseTo(0.03 * (5 / 60), 10);
 
     // active applied calm delta, dryRun did not
     expect(act.getAgent('char_1').emotion.current.calm)

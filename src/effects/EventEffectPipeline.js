@@ -33,6 +33,9 @@ const { FutureTendencyDelta } = require('./FutureTendencyDelta');
  * @param {Date|string} params.simTime — simulation time
  * @param {string[]} [params.coPresentAgentIds] — runtime presence snapshot;
  *   omitted for direct-call backward compatibility
+ * @param {number} [params.durationHours] — runtime action duration; omitted
+ *   for legacy one-action semantics
+ * @param {Object} [params.needsRecoveryRate] — per-hour recovery rates
  * @param {boolean} [params.locationMeaningAvailable=true] — whether the
  *   optional facts-backed location meaning consequence can be committed
  * @returns {EffectResult}
@@ -43,6 +46,8 @@ function applyActionEffect({
   reasonTrace,
   simTime,
   coPresentAgentIds,
+  durationHours,
+  needsRecoveryRate,
   locationMeaningAvailable = true,
 }) {
   const simTimeISO = simTime instanceof Date ? simTime.toISOString() : (simTime || null);
@@ -89,6 +94,8 @@ function applyActionEffect({
 
   const deltas = computeDeltas(selectedCandidate, agentSnapshot, {
     coPresentAgentIds,
+    durationHours,
+    needsRecoveryRate,
     locationMeaningAvailable,
   });
 
@@ -104,6 +111,9 @@ function applyActionEffect({
  * @param {Object} [options]
  * @param {string[]} [options.coPresentAgentIds] — explicit runtime presence
  *   snapshot; omitted for direct-call backward compatibility
+ * @param {number} [options.durationHours] — runtime action duration; omitted
+ *   for legacy one-action semantics
+ * @param {Object} [options.needsRecoveryRate] — per-hour recovery rates
  * @param {boolean} [options.locationMeaningAvailable=true] — whether the
  *   optional facts-backed location meaning consequence can be committed
  * @returns {import('./StateDelta').StateDelta[]}
@@ -115,13 +125,31 @@ function computeDeltas(candidate, agentSnapshot, options = {}) {
   if (!agentId) {
     throw new Error('EventEffectPipeline.computeDeltas(): agentSnapshot.id is required');
   }
+  const actionOptions = options && typeof options === 'object' ? options : {};
+  const hasDuration = actionOptions.durationHours !== undefined;
+  const durationHours = hasDuration && Number.isFinite(actionOptions.durationHours)
+    && actionOptions.durationHours >= 0
+    ? actionOptions.durationHours
+    : 0;
+  const scaleEmotion = value => hasDuration ? value * durationHours : value;
+  const recoveryFor = (need, legacyValue) => {
+    if (!hasDuration) return legacyValue;
+    const rate = actionOptions.needsRecoveryRate?.[need];
+    return Number.isFinite(rate) ? rate * durationHours : 0;
+  };
   const deltas = [];
 
   switch (candidate.type) {
     case 'rest':
       // R23 P1 fix: also recover comfort, matching scoreNeed's rest→comfort mapping
-      deltas.push(new NeedDelta(agentId, { energy: 0.4, comfort: 0.2 }));
-      deltas.push(new EmotionDelta(agentId, { calm: 0.1, joy: 0.05 }));
+      deltas.push(new NeedDelta(agentId, {
+        energy: recoveryFor('energy', 0.4),
+        comfort: recoveryFor('comfort', 0.2),
+      }));
+      deltas.push(new EmotionDelta(agentId, {
+        calm: scaleEmotion(0.1),
+        joy: scaleEmotion(0.05),
+      }));
       break;
     case 'observe':
       deltas.push(new MemoryDelta(agentId, {
@@ -138,7 +166,7 @@ function computeDeltas(candidate, agentSnapshot, options = {}) {
         target: candidate.target || null,
         content: candidate.label || 'reflect',
       }));
-      deltas.push(new EmotionDelta(agentId, { calm: 0.03 }));
+      deltas.push(new EmotionDelta(agentId, { calm: scaleEmotion(0.03) }));
       break;
     case 'move':
     case 'explore':
@@ -153,7 +181,7 @@ function computeDeltas(candidate, agentSnapshot, options = {}) {
           from: agentSnapshot?.agent?.position || null,
           reason: `action_${candidate.type}`,
         }));
-        if (options.locationMeaningAvailable !== false) {
+        if (actionOptions.locationMeaningAvailable !== false) {
           deltas.push(new LocationMeaningDelta(agentId, {
             location: candidate.target,
             meaningType: 'movement_target',
@@ -166,9 +194,9 @@ function computeDeltas(candidate, agentSnapshot, options = {}) {
       }
       break;
     case 'socialize':
-      const hasPresenceSnapshot = options.coPresentAgentIds !== undefined;
-      const targetIsPresent = hasPresenceSnapshot && Array.isArray(options.coPresentAgentIds)
-        ? options.coPresentAgentIds.includes(candidate.target)
+      const hasPresenceSnapshot = actionOptions.coPresentAgentIds !== undefined;
+      const targetIsPresent = hasPresenceSnapshot && Array.isArray(actionOptions.coPresentAgentIds)
+        ? actionOptions.coPresentAgentIds.includes(candidate.target)
         : !hasPresenceSnapshot;
       if (candidate.target && targetIsPresent) {
         deltas.push(new RelationshipDelta(agentId, {
@@ -183,14 +211,14 @@ function computeDeltas(candidate, agentSnapshot, options = {}) {
       // R22 P0-1 fix: consume must produce NeedDelta for hunger,
       // otherwise hunger-satisfaction loop is broken (agent picks consume
       // when hungry but hunger never recovers → infinite consume loop).
-      deltas.push(new NeedDelta(agentId, { hunger: 0.3 }));
-      deltas.push(new EmotionDelta(agentId, { satisfaction: 0.05 }));
+      deltas.push(new NeedDelta(agentId, { hunger: recoveryFor('hunger', 0.3) }));
+      deltas.push(new EmotionDelta(agentId, { satisfaction: scaleEmotion(0.05) }));
       break;
     case 'work':
       // R22 P0-1 fix: work must produce NeedDelta for stimulation,
       // otherwise work action has zero effect on agent state.
-      deltas.push(new NeedDelta(agentId, { stimulation: 0.3 }));
-      deltas.push(new EmotionDelta(agentId, { satisfaction: 0.02 }));
+      deltas.push(new NeedDelta(agentId, { stimulation: recoveryFor('stimulation', 0.3) }));
+      deltas.push(new EmotionDelta(agentId, { satisfaction: scaleEmotion(0.02) }));
       break;
     case 'continue':
     default:
