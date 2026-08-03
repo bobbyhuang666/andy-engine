@@ -14,6 +14,8 @@ class RelationshipDelta extends StateDelta {
    * @param {string} payload.interactionType — e.g. 'action_socialize'
    * @param {number} payload.valence — [-1, 1] effect on relationship strength
    * @param {string} payload.content — interaction description
+ * @param {number} [payload.durationHours] — optional simulated interaction
+ *   duration; omitted for legacy full-effect behavior
    */
   constructor(agentId, payload) {
     super('relationship', 'relationship', agentId);
@@ -25,16 +27,21 @@ class RelationshipDelta extends StateDelta {
     this.valence = typeof payload.valence === 'number' && Number.isFinite(payload.valence)
       ? payload.valence : 0;
     this.content = payload.content || '';
+    if (payload.durationHours !== undefined) {
+      this.durationHours = payload.durationHours;
+    }
   }
 
   toJSON() {
-    return {
+    const json = {
       ...super.toJSON(),
       targetAgentId: this.targetAgentId,
       interactionType: this.interactionType,
       valence: this.valence,
       content: this.content,
     };
+    if (this.durationHours !== undefined) json.durationHours = this.durationHours;
+    return json;
   }
 }
 

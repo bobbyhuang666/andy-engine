@@ -199,12 +199,16 @@ function computeDeltas(candidate, agentSnapshot, options = {}) {
         ? actionOptions.coPresentAgentIds.includes(candidate.target)
         : !hasPresenceSnapshot;
       if (candidate.target && targetIsPresent) {
-        deltas.push(new RelationshipDelta(agentId, {
+        const relationshipPayload = {
           targetAgentId: candidate.target,
           interactionType: 'action_socialize',
           valence: 0.3,
           content: candidate.label || 'socialize',
-        }));
+        };
+        if (actionOptions.durationHours !== undefined) {
+          relationshipPayload.durationHours = actionOptions.durationHours;
+        }
+        deltas.push(new RelationshipDelta(agentId, relationshipPayload));
       }
       break;
     case 'consume':

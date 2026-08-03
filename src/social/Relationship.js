@@ -96,11 +96,17 @@ class Relationship {
    * @param {number} valence - 情感效价 (-1 到 +1)
    * @param {string} [content] - 交互内容描述
    * @param {Date} [simTime] - 模拟时间（不传则用真实时间，仅测试用）
+   * @param {number} [durationHours] - simulated interaction duration;
+   *   omitted for legacy full-effect behavior
    */
-  recordInteraction(type, valence, content = '', simTime = null) {
+  recordInteraction(type, valence, content = '', simTime = null, durationHours) {
     if (!Number.isFinite(valence)) return;
     if (!Number.isFinite(this.strength)) this.strength = this._cfg.initialStrength;
     this.interactionCount++;
+    const hasDuration = durationHours !== undefined;
+    const effectScale = hasDuration && Number.isFinite(durationHours) && durationHours >= 0
+      ? durationHours
+      : (hasDuration ? 0 : 1);
 
     // 计算关系强度变化
     // R5 修复：调整 calculative→relational 阈值从 0.4 到 0.55，
@@ -142,6 +148,11 @@ class Relationship {
       delta = negDelta;
     }
 
+    // Action-selection ticks are shorter than a complete interaction. Scale
+    // only the numeric relationship/impression effect; the interaction count
+    // and history entry remain one per selected action.
+    delta *= effectScale;
+
     // R41 H3 fix: NaN guard is now at the top of recordInteraction() (line 90).
     // The guard below was duplicated — kept for defense-in-depth if strength
     // was re-corrupted between the guard and here.
@@ -151,9 +162,9 @@ class Relationship {
     // 更新印象（R11: cap at 5.0 to prevent unbounded growth; bondStrength * 0.1
     // is clamped at 0.5 anyway, so values above 5.0 have no behavioral effect)
     if (valence > 0) {
-      this.impression.positive = Math.min(this.impression.positive + valence, 5.0);
+      this.impression.positive = Math.min(this.impression.positive + valence * effectScale, 5.0);
     } else {
-      this.impression.negative = Math.min(this.impression.negative + Math.abs(valence), 5.0);
+      this.impression.negative = Math.min(this.impression.negative + Math.abs(valence) * effectScale, 5.0);
     }
 
     // 更新关系类型

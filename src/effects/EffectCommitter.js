@@ -388,12 +388,14 @@ class EffectCommitter {
       // R34 P2 fix: Number.isFinite rejects NaN (typeof NaN === 'number' is true)
       const valence = typeof delta.valence === 'number' && Number.isFinite(delta.valence)
         ? delta.valence : 0;
-      relationship.recordInteraction(
+      const interactionArgs = [
         delta.interactionType || 'unknown',
         valence,
         delta.content || '',
-        this.world?.time || null
-      );
+        this.world?.time || null,
+      ];
+      if (delta.durationHours !== undefined) interactionArgs.push(delta.durationHours);
+      relationship.recordInteraction(...interactionArgs);
     }
     return true;
   }
