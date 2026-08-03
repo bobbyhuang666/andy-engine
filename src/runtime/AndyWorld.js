@@ -494,10 +494,7 @@ class AndyWorld {
     this._runCanonPipeline(dispatched, result);
 
     // ─── Phase 8b: ENCOUNTER_EFFECTS ───
-    const encounterDurationHours = Number.isFinite(minutesElapsed) && minutesElapsed >= 0
-      ? minutesElapsed / 60
-      : 0;
-    const encounterEffectCount = this._applyEncounterEffects(dispatched, encounterDurationHours);
+    const encounterEffectCount = this._applyEncounterEffects(dispatched);
     if (encounterEffectCount > 0) {
       result.phase.encounterEffects = { applied: encounterEffectCount };
     }
@@ -919,16 +916,10 @@ class AndyWorld {
    * relationship and memory deltas via the canonical delta pipeline.
    *
    * @param {Object[]} dispatched - dispatched events
-   * @param {number} [durationHours] - simulated duration for this runtime
-   *   encounter pass; omitted for legacy full-effect behavior
    * @returns {number} count of effects applied
    * @private
    */
-  _applyEncounterEffects(dispatched, durationHours) {
-    const hasDuration = durationHours !== undefined;
-    const effectScale = hasDuration && Number.isFinite(durationHours) && durationHours >= 0
-      ? durationHours
-      : (hasDuration ? 0 : 1);
+  _applyEncounterEffects(dispatched) {
     const deltas = [];
     // Deduplicate relationship deltas: A→B and B→A refer to the same
     // bidirectional Relationship object, so only one recordInteraction per pair.
@@ -967,7 +958,6 @@ class AndyWorld {
               valence: d.valence,
               content: event.content || '',
             };
-            if (hasDuration) relationshipPayload.durationHours = durationHours;
             deltas.push(new RelationshipDelta(source, relationshipPayload));
           }
         } else if (effect.type === 'emotion' && effect.delta) {
@@ -979,7 +969,7 @@ class AndyWorld {
           if (safeTarget && this.agents.has(safeTarget)) {
             const emotionChanges = {};
             for (const [dimension, value] of Object.entries(effect.delta)) {
-              if (Number.isFinite(value)) emotionChanges[dimension] = value * effectScale;
+              if (Number.isFinite(value)) emotionChanges[dimension] = value;
             }
             if (Object.keys(emotionChanges).length > 0) {
               deltas.push(new EmotionDelta(safeTarget, emotionChanges));

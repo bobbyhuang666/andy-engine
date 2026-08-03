@@ -136,6 +136,20 @@ class EventDispatcher {
       if (this._rand() > 0.6) return null;
       rel = socialGraph.getOrCreateRelationship(agentA, agentB);
     }
+
+    const cooldownMinutes = this._eventConfig.encounterCooldownMinutes;
+    const lastInteraction = rel.lastInteraction instanceof Date
+      ? rel.lastInteraction
+      : new Date(rel.lastInteraction);
+    const currentSimTime = this._simTime instanceof Date ? this._simTime : new Date(this._simTime);
+    const lastInteractionMs = lastInteraction.getTime();
+    const currentSimTimeMs = currentSimTime.getTime();
+    if (Number.isFinite(cooldownMinutes) && cooldownMinutes > 0
+      && Number.isFinite(lastInteractionMs) && lastInteractionMs !== 0
+      && Number.isFinite(currentSimTimeMs)) {
+      const elapsedMinutes = (currentSimTimeMs - lastInteractionMs) / (60 * 1000);
+      if (elapsedMinutes >= 0 && elapsedMinutes < cooldownMinutes) return null;
+    }
     const strength = Number.isFinite(rel.strength) ? rel.strength : 0;
 
     // 去重：避免同一对 Agent 同时产生多个交互事件

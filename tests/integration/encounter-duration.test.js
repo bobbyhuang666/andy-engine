@@ -53,7 +53,7 @@ function createEncounterEngine(seed = 'encounter-duration') {
   return engine;
 }
 
-function applyControlledEncounter(engine, durationHours) {
+function applyControlledEncounter(engine) {
   const alice = engine.getAgent('alice');
   const relation = engine.world.socialGraph.getRelationship('alice', 'bob');
   const before = {
@@ -64,9 +64,7 @@ function applyControlledEncounter(engine, durationHours) {
     memories: alice.memory.memories.length,
   };
   const emotionScale = 1 - alice.personality.behavior.emotionalInertia * 0.5;
-  const count = durationHours === undefined
-    ? engine.world._applyEncounterEffects([encounterEvent()])
-    : engine.world._applyEncounterEffects([encounterEvent()], durationHours);
+  const count = engine.world._applyEncounterEffects([encounterEvent()]);
 
   return {
     count,
@@ -78,10 +76,11 @@ function applyControlledEncounter(engine, durationHours) {
     memoryEffect: alice.memory.memories.length - before.memories,
     interactionCount: relation.interactionCount,
     historyLength: relation.history.length,
+    lastInteraction: relation.lastInteraction,
   };
 }
 
-describe('encounter effect duration calibration', () => {
+describe('natural encounter discrete effects', () => {
   it.each([
     {},
     { joy: Number.NaN, calm: Number.POSITIVE_INFINITY },
@@ -90,24 +89,24 @@ describe('encounter effect duration calibration', () => {
     const event = emotionEncounter(delta);
     const commit = vi.spyOn(engine.world.effectCommitter, 'commit');
 
-    expect(engine.world._applyEncounterEffects([event], 5 / 60)).toBe(0);
+    expect(engine.world._applyEncounterEffects([event])).toBe(0);
 
     expect(commit).not.toHaveBeenCalled();
     expect(event.effect._committedByEncounterEffects).toBe(true);
   });
 
-  it('commits valid encounter emotion changes with duration scaling', () => {
+  it('commits valid encounter emotion changes at full discrete strength', () => {
     const engine = createEncounterEngine('encounter-valid-emotion');
     const event = emotionEncounter({ joy: 0.06, calm: 0.04 });
     const commit = vi.spyOn(engine.world.effectCommitter, 'commit');
 
-    expect(engine.world._applyEncounterEffects([event], 5 / 60)).toBe(1);
+    expect(engine.world._applyEncounterEffects([event])).toBe(1);
 
     expect(commit).toHaveBeenCalledOnce();
     expect(commit.mock.calls[0][0].deltas).toHaveLength(1);
     expect(commit.mock.calls[0][0].deltas[0].changes).toEqual({
-      joy: 0.06 * (5 / 60),
-      calm: 0.04 * (5 / 60),
+      joy: 0.06,
+      calm: 0.04,
     });
     expect(event.effect._committedByEncounterEffects).toBe(true);
   });
@@ -123,47 +122,7 @@ describe('encounter effect duration calibration', () => {
     expect(result.memoryEffect).toBe(1);
     expect(result.interactionCount).toBe(1);
     expect(result.historyLength).toBe(1);
-  });
-
-  it('5-minute encounter effects are 1/12 of 60-minute effects', () => {
-    const five = applyControlledEncounter(createEncounterEngine('encounter-five'), 5 / 60);
-    const sixty = applyControlledEncounter(createEncounterEngine('encounter-sixty'), 1);
-
-    expect(five.strengthEffect).toBeCloseTo(sixty.strengthEffect / 12, 12);
-    expect(five.positiveEffect).toBeCloseTo(sixty.positiveEffect / 12, 12);
-    expect(five.joyEffect).toBeCloseTo(sixty.joyEffect / 12, 12);
-    expect(five.calmEffect).toBeCloseTo(sixty.calmEffect / 12, 12);
-    expect(five.memoryEffect).toBe(1);
-    expect(sixty.memoryEffect).toBe(1);
-  });
-
-  it('twelve five-minute encounter effects approximate one hourly effect', () => {
-    const twelveEngine = createEncounterEngine('encounter-twelve');
-    const hourly = applyControlledEncounter(createEncounterEngine('encounter-hourly'), 1);
-    const effects = [];
-    for (let i = 0; i < 12; i++) {
-      effects.push(applyControlledEncounter(twelveEngine, 5 / 60));
-    }
-
-    const total = key => effects.reduce((sum, effect) => sum + effect[key], 0);
-    expect(total('strengthEffect')).toBeCloseTo(hourly.strengthEffect, 12);
-    expect(total('positiveEffect')).toBeCloseTo(hourly.positiveEffect, 12);
-    expect(total('joyEffect')).toBeCloseTo(hourly.joyEffect, 12);
-    expect(total('calmEffect')).toBeCloseTo(hourly.calmEffect, 12);
-    expect(twelveEngine.getAgent('alice').memory.memories.length).toBe(12);
-    expect(twelveEngine.world.socialGraph.getRelationship('alice', 'bob').interactionCount).toBe(12);
-  });
-
-  it('invalid supplied duration has zero numeric effect but remains a discrete event', () => {
-    const result = applyControlledEncounter(createEncounterEngine('encounter-invalid'), Number.NaN);
-
-    expect(result.strengthEffect).toBe(0);
-    expect(result.positiveEffect).toBe(0);
-    expect(result.joyEffect).toBe(0);
-    expect(result.calmEffect).toBe(0);
-    expect(result.memoryEffect).toBe(1);
-    expect(result.interactionCount).toBe(1);
-    expect(result.historyLength).toBe(1);
+    expect(result.lastInteraction).toEqual(TEST_START);
   });
 
   it('active engine encounter replay remains deterministic', () => {

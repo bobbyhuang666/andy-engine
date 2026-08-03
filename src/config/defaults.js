@@ -198,6 +198,7 @@ const ANDY_DEFAULTS = {
     randomEventProbability: 0.08, // 每 tick 随机事件概率
     causalChainMaxLength: 5,    // 因果链最大长度
     eventLifespan: 7 * 24 * 60, // 事件保质期（分钟，7天）
+    encounterCooldownMinutes: 120, // 同一关系自然相遇的最短模拟间隔
   },
 
   // ═══════════════════════════════════════════

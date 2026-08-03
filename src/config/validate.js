@@ -307,6 +307,13 @@ function validateConfig(config) {
     if (ev.eventLifespan !== undefined) {
       checkRange(ev.eventLifespan, 1, 525600, 'events.eventLifespan', errors);
     }
+    if (ev.encounterCooldownMinutes !== undefined && (
+      typeof ev.encounterCooldownMinutes !== 'number'
+      || !Number.isFinite(ev.encounterCooldownMinutes)
+      || ev.encounterCooldownMinutes < 0
+    )) {
+      errors.push(`events.encounterCooldownMinutes 必须是非负有限数字，当前值: ${ev.encounterCooldownMinutes}`);
+    }
   }
 
   // ─── 天气系统参数 ───

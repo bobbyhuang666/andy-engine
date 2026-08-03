@@ -82,6 +82,14 @@ class RuntimeConfig {
         ? { ...ANDY_DEFAULTS.spatial, ...config.spatial }
         : null;
 
+    if (config.events !== undefined && config.events !== null && typeof config.events === 'object' && !Array.isArray(config.events)) {
+      const cooldown = config.events.encounterCooldownMinutes;
+      if (cooldown !== undefined && (
+        typeof cooldown !== 'number' || !Number.isFinite(cooldown) || cooldown < 0
+      )) {
+        throw new Error(`Invalid events.encounterCooldownMinutes: ${cooldown}. Must be a non-negative finite number.`);
+      }
+    }
     this.events =
       typeof config.events === 'object' && config.events !== null
         ? { ...ANDY_DEFAULTS.events, ...config.events }

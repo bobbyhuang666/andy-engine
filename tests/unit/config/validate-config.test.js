@@ -27,6 +27,21 @@ describe('validateConfig — input guard', () => {
   });
 });
 
+describe('validateConfig — encounter cooldown', () => {
+  it('accepts zero and finite non-negative cooldowns', () => {
+    expect(() => validateConfig({ events: { encounterCooldownMinutes: 0 } })).not.toThrow();
+    expect(() => validateConfig({ events: { encounterCooldownMinutes: 120.5 } })).not.toThrow();
+    expect(() => new RuntimeConfig({ events: { encounterCooldownMinutes: 0 } })).not.toThrow();
+  });
+
+  it.each([-1, Number.NaN, Number.POSITIVE_INFINITY, '120'])('rejects invalid cooldown %j', value => {
+    expect(() => validateConfig({ events: { encounterCooldownMinutes: value } }))
+      .toThrow(/events\.encounterCooldownMinutes/);
+    expect(() => new RuntimeConfig({ events: { encounterCooldownMinutes: value } }))
+      .toThrow(/events\.encounterCooldownMinutes/);
+  });
+});
+
 describe('validateConfig — boolean feature switches', () => {
   it('accepts explicit true and false values', () => {
     expect(() => validateConfig({
