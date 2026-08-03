@@ -34,6 +34,23 @@ class RuntimeContext {
    * @returns {Object}
    */
   buildAgentEnv(minutesElapsed) {
+    // Snapshot co-presence once per tick. The same immutable ID-only view is
+    // shared by every agent so active writeback order cannot change who was
+    // considered present for this tick.
+    const agentsByRegion = new Map();
+    const agents = this.world.getAllAgents();
+    for (const agent of agents) {
+      const region = agent?.position ?? null;
+      const ids = agentsByRegion.get(region) || [];
+      ids.push(agent.id);
+      agentsByRegion.set(region, ids);
+    }
+    const coPresentAgentIdsByAgent = Object.fromEntries(agents.map(agent => {
+      const region = agent?.position ?? null;
+      const ids = (agentsByRegion.get(region) || []).filter(id => id !== agent.id);
+      return [agent.id, Object.freeze(ids)];
+    }));
+
     const env = {
       hour: this.clock.time.getUTCHours() + this.clock.time.getUTCMinutes() / 60,
       dayOfWeek: this.clock.dayOfWeek,
@@ -43,6 +60,7 @@ class RuntimeContext {
       simDate: this.clock.time.toISOString().slice(0, 10),
       effectCommitter: this.world.effectCommitter,
       effectWorld: this.world,
+      coPresentAgentIdsByAgent: Object.freeze(coPresentAgentIdsByAgent),
     };
 
     // R19: Provide a callback for ActionSelectionRuntime to signal position

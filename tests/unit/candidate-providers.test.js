@@ -217,13 +217,31 @@ describe('ExploreCandidateProvider', () => {
 });
 
 describe('SocializeCandidateProvider', () => {
-  it('有强关系时生成 socialize 候选', () => {
+  it('远程强关系不生成 socialize 候选', () => {
     const provider = new SocializeCandidateProvider();
-    const ctx = makeContext({ relationships: [{ strength: 0.5, id: 'r1' }] });
+    const ctx = makeContext({
+      agent: { id: 'alice', position: 'home' },
+      relationships: [{ agentA: 'alice', agentB: 'bob', strength: 0.5 }],
+      coPresentAgentIds: [],
+    });
+    expect(provider.generate(ctx)).toEqual([]);
+  });
+
+  it('只为共处的强关系生成 socialize 候选', () => {
+    const provider = new SocializeCandidateProvider();
+    const ctx = makeContext({
+      agent: { id: 'alice', position: 'home' },
+      relationships: [
+        { agentA: 'alice', agentB: 'remote', strength: 0.8 },
+        { agentA: 'alice', agentB: 'bob', strength: 0.5 },
+      ],
+      coPresentAgentIds: ['bob'],
+    });
     const result = provider.generate(ctx);
 
     expect(result.length).toBe(1);
     expect(result[0].type).toBe('socialize');
+    expect(result[0].target).toBe('bob');
     expectValidCandidate(result[0]);
   });
 
@@ -245,7 +263,9 @@ describe('CandidateProviderManager', () => {
     const ctx = makeContext({
       needs: { hunger: 0.1, energy: 0.1, social: 0.8, stimulation: 0.8 },
       intrinsic: { curiosity: 0.5 },
-      relationships: [{ strength: 0.5 }],
+      relationships: [{ agentA: 'alice', agentB: 'bob', strength: 0.5 }],
+      agent: { id: 'alice', position: 'home' },
+      coPresentAgentIds: ['bob'],
     });
 
     const r1 = manager.generateAll(ctx);

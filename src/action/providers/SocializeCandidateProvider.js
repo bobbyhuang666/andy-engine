@@ -11,7 +11,20 @@ class SocializeCandidateProvider extends CandidateProvider {
   generate(context) {
     if (!context.relationships || context.relationships.length === 0) return [];
 
-    const nearby = context.relationships.filter(r => r.strength > 0.1);
+    const coPresentAgentIds = new Set(
+      Array.isArray(context.coPresentAgentIds) ? context.coPresentAgentIds : []
+    );
+    const myId = context.agent?.id || context.agentId;
+    const nearby = context.relationships
+      .map(relationship => {
+        const targetId = relationship.getOther
+          ? relationship.getOther(myId)
+          : (relationship.agentB || relationship.from || relationship.target);
+        return { relationship, targetId };
+      })
+      .filter(({ relationship, targetId }) => (
+        relationship.strength > 0.1 && coPresentAgentIds.has(targetId)
+      ));
     if (nearby.length === 0) return [];
 
     // R22 P1 fix: select a target agent for socialize action.
@@ -19,11 +32,7 @@ class SocializeCandidateProvider extends CandidateProvider {
     // RelationshipDelta production (line 147: if (candidate.target)),
     // making socialize actions have zero relationship effect.
     // R23 P1 fix: use context.agent.id (not context.agentId which is undefined).
-    const myId = context.agent?.id || context.agentId;
-    const targetRel = nearby[0];
-    const targetId = targetRel.getOther
-      ? targetRel.getOther(myId)
-      : (targetRel.agentB || targetRel.from || targetRel.target);
+    const targetId = nearby[0].targetId;
 
     return [new ActionCandidate({
       type: 'socialize',

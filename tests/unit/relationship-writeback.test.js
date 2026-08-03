@@ -142,10 +142,10 @@ describe('Phase 38: Minimal Relationship Writeback Gate', () => {
     // no relationship with nonexistent agent
     expect(engine.world.socialGraph.getRelationship('alice', 'nonexistent_agent')).toBeNull();
 
-    // trace still recorded
+    // trace still recorded, but the runtime presence gate omits the unsafe delta
     const trace = alice._actionTraceHistory[0];
     expect(trace.selectedAction).toBe('socialize');
-    expect(trace.stateDeltas.relationship.targetAgentId).toBe('nonexistent_agent');
+    expect(trace.stateDeltas.relationship).toBeNull();
   });
 
   // ─── 4. Self target: no-op ───

@@ -111,6 +111,8 @@ describe('Phase 27: Candidate Provider Consolidation', () => {
           { agentB: 'bob', strength: 0.6, type: 'friend' },
           { agentId: 'stranger', strength: 0.1, type: 'stranger' },
         ],
+        agent: { id: 'alice', position: 'home' },
+        coPresentAgentIds: ['bob'],
       };
       const candidates = provider.generate(context);
       expect(candidates).toHaveLength(1);
@@ -127,6 +129,8 @@ describe('Phase 27: Candidate Provider Consolidation', () => {
         schedule: {},
         intrinsic: { curiosity: 0.6 },
         relationships: [{ agentB: 'bob', strength: 0.5, type: 'friend' }],
+        agent: { id: 'alice', position: 'home' },
+        coPresentAgentIds: ['bob'],
       };
       const candidates = manager.generateAll(context);
       expect(candidates.length).toBeGreaterThan(1);

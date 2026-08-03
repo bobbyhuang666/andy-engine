@@ -121,6 +121,9 @@ function buildActionContext(agent, env) {
     relationships: agent.socialGraph
       ? agent.socialGraph.getRelationships(agent.id)
       : [],
+    coPresentAgentIds: Array.isArray(env.coPresentAgentIdsByAgent?.[agent.id])
+      ? env.coPresentAgentIdsByAgent[agent.id]
+      : Object.freeze([]),
     goals: _resolveGoals(agent),
     // R21 P0-3: provide real worldPressure (previously null → WorldPressureCandidateProvider dead code)
     worldPressure: pressureContext ? pressureContext.world : null,
@@ -201,6 +204,7 @@ function runShadowActionSelection(agent, env) {
         selectedCandidate: selected,
         reasonTrace: trace,
         simTime: env.simTime,
+        coPresentAgentIds: agentSnapshot.coPresentAgentIds,
         locationMeaningAvailable: Boolean(
           env?.effectWorld?.factStore &&
           typeof env.effectWorld.factStore.updateLocationMeaning === 'function'

@@ -31,6 +31,8 @@ const { FutureTendencyDelta } = require('./FutureTendencyDelta');
  * @param {Object} params.selectedCandidate — UtilitySelector selected candidate
  * @param {Object} params.reasonTrace — ReasonTrace (read-only)
  * @param {Date|string} params.simTime — simulation time
+ * @param {string[]} [params.coPresentAgentIds] — runtime presence snapshot;
+ *   omitted for direct-call backward compatibility
  * @param {boolean} [params.locationMeaningAvailable=true] — whether the
  *   optional facts-backed location meaning consequence can be committed
  * @returns {EffectResult}
@@ -40,6 +42,7 @@ function applyActionEffect({
   selectedCandidate,
   reasonTrace,
   simTime,
+  coPresentAgentIds,
   locationMeaningAvailable = true,
 }) {
   const simTimeISO = simTime instanceof Date ? simTime.toISOString() : (simTime || null);
@@ -84,7 +87,10 @@ function applyActionEffect({
     },
   };
 
-  const deltas = computeDeltas(selectedCandidate, agentSnapshot, { locationMeaningAvailable });
+  const deltas = computeDeltas(selectedCandidate, agentSnapshot, {
+    coPresentAgentIds,
+    locationMeaningAvailable,
+  });
 
   const reasonTraceCopy = reasonTrace ? { ...reasonTrace } : {};
   return new EffectResult({ event, deltas, reasonTrace: reasonTraceCopy });
@@ -96,6 +102,8 @@ function applyActionEffect({
  * @param {Object} candidate — selected candidate
  * @param {Object} agentSnapshot — agent snapshot
  * @param {Object} [options]
+ * @param {string[]} [options.coPresentAgentIds] — explicit runtime presence
+ *   snapshot; omitted for direct-call backward compatibility
  * @param {boolean} [options.locationMeaningAvailable=true] — whether the
  *   optional facts-backed location meaning consequence can be committed
  * @returns {import('./StateDelta').StateDelta[]}
@@ -158,7 +166,11 @@ function computeDeltas(candidate, agentSnapshot, options = {}) {
       }
       break;
     case 'socialize':
-      if (candidate.target) {
+      const hasPresenceSnapshot = options.coPresentAgentIds !== undefined;
+      const targetIsPresent = hasPresenceSnapshot && Array.isArray(options.coPresentAgentIds)
+        ? options.coPresentAgentIds.includes(candidate.target)
+        : !hasPresenceSnapshot;
+      if (candidate.target && targetIsPresent) {
         deltas.push(new RelationshipDelta(agentId, {
           targetAgentId: candidate.target,
           interactionType: 'action_socialize',
