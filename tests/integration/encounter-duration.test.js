@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import AndyEngine from '../../index.js';
 
 const TEST_START = new Date('2026-09-01T08:00:00Z');
@@ -25,6 +25,16 @@ function encounterEvent() {
         delta: { kind: 'candidate', memoryType: 'social', content: 'encounter memory' },
       },
     ],
+  };
+}
+
+function emotionEncounter(delta) {
+  const effect = { target: 'alice', type: 'emotion', delta };
+  return {
+    type: 'social',
+    content: 'controlled emotion encounter',
+    effects: [effect],
+    effect,
   };
 }
 
@@ -72,6 +82,36 @@ function applyControlledEncounter(engine, durationHours) {
 }
 
 describe('encounter effect duration calibration', () => {
+  it.each([
+    {},
+    { joy: Number.NaN, calm: Number.POSITIVE_INFINITY },
+  ])('does not commit an empty encounter emotion delta (%j) but marks it handled', delta => {
+    const engine = createEncounterEngine('encounter-empty-emotion');
+    const event = emotionEncounter(delta);
+    const commit = vi.spyOn(engine.world.effectCommitter, 'commit');
+
+    expect(engine.world._applyEncounterEffects([event], 5 / 60)).toBe(0);
+
+    expect(commit).not.toHaveBeenCalled();
+    expect(event.effect._committedByEncounterEffects).toBe(true);
+  });
+
+  it('commits valid encounter emotion changes with duration scaling', () => {
+    const engine = createEncounterEngine('encounter-valid-emotion');
+    const event = emotionEncounter({ joy: 0.06, calm: 0.04 });
+    const commit = vi.spyOn(engine.world.effectCommitter, 'commit');
+
+    expect(engine.world._applyEncounterEffects([event], 5 / 60)).toBe(1);
+
+    expect(commit).toHaveBeenCalledOnce();
+    expect(commit.mock.calls[0][0].deltas).toHaveLength(1);
+    expect(commit.mock.calls[0][0].deltas[0].changes).toEqual({
+      joy: 0.06 * (5 / 60),
+      calm: 0.04 * (5 / 60),
+    });
+    expect(event.effect._committedByEncounterEffects).toBe(true);
+  });
+
   it('direct encounter without duration preserves full relationship and emotion effects', () => {
     const result = applyControlledEncounter(createEncounterEngine('encounter-legacy'));
 

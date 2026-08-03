@@ -981,7 +981,9 @@ class AndyWorld {
             for (const [dimension, value] of Object.entries(effect.delta)) {
               if (Number.isFinite(value)) emotionChanges[dimension] = value * effectScale;
             }
-            deltas.push(new EmotionDelta(safeTarget, emotionChanges));
+            if (Object.keys(emotionChanges).length > 0) {
+              deltas.push(new EmotionDelta(safeTarget, emotionChanges));
+            }
             effect._committedByEncounterEffects = true;
           }
         } else if (effect.type === 'memory' && effect.delta) {
