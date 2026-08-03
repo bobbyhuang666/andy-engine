@@ -201,6 +201,10 @@ function runShadowActionSelection(agent, env) {
         selectedCandidate: selected,
         reasonTrace: trace,
         simTime: env.simTime,
+        locationMeaningAvailable: Boolean(
+          env?.effectWorld?.factStore &&
+          typeof env.effectWorld.factStore.updateLocationMeaning === 'function'
+        ),
       });
       // Phase D-2: Keep legacy stateDeltas on trace for backward compat
       trace.stateDeltas = pipelineResult.toLegacyFormat().stateDeltas;

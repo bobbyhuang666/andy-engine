@@ -31,9 +31,17 @@ const { FutureTendencyDelta } = require('./FutureTendencyDelta');
  * @param {Object} params.selectedCandidate — UtilitySelector selected candidate
  * @param {Object} params.reasonTrace — ReasonTrace (read-only)
  * @param {Date|string} params.simTime — simulation time
+ * @param {boolean} [params.locationMeaningAvailable=true] — whether the
+ *   optional facts-backed location meaning consequence can be committed
  * @returns {EffectResult}
  */
-function applyActionEffect({ agentSnapshot, selectedCandidate, reasonTrace, simTime }) {
+function applyActionEffect({
+  agentSnapshot,
+  selectedCandidate,
+  reasonTrace,
+  simTime,
+  locationMeaningAvailable = true,
+}) {
   const simTimeISO = simTime instanceof Date ? simTime.toISOString() : (simTime || null);
   // R8 fix: throw on missing agentId instead of using 'unknown' fallback.
   // The 'unknown' fallback caused all deltas to be silently dropped by
@@ -76,7 +84,7 @@ function applyActionEffect({ agentSnapshot, selectedCandidate, reasonTrace, simT
     },
   };
 
-  const deltas = computeDeltas(selectedCandidate, agentSnapshot);
+  const deltas = computeDeltas(selectedCandidate, agentSnapshot, { locationMeaningAvailable });
 
   const reasonTraceCopy = reasonTrace ? { ...reasonTrace } : {};
   return new EffectResult({ event, deltas, reasonTrace: reasonTraceCopy });
@@ -87,9 +95,12 @@ function applyActionEffect({ agentSnapshot, selectedCandidate, reasonTrace, simT
  *
  * @param {Object} candidate — selected candidate
  * @param {Object} agentSnapshot — agent snapshot
+ * @param {Object} [options]
+ * @param {boolean} [options.locationMeaningAvailable=true] — whether the
+ *   optional facts-backed location meaning consequence can be committed
  * @returns {import('./StateDelta').StateDelta[]}
  */
-function computeDeltas(candidate, agentSnapshot) {
+function computeDeltas(candidate, agentSnapshot, options = {}) {
   // R8 fix: throw on missing agentId (same as applyActionEffect)
   // Note: id may be at agentSnapshot.id or agentSnapshot.agent.id
   const agentId = agentSnapshot?.id ?? agentSnapshot?.agent?.id;
@@ -134,14 +145,16 @@ function computeDeltas(candidate, agentSnapshot) {
           from: agentSnapshot?.agent?.position || null,
           reason: `action_${candidate.type}`,
         }));
-        deltas.push(new LocationMeaningDelta(agentId, {
-          location: candidate.target,
-          meaningType: 'movement_target',
-          weight: 0,
-          reason: `action_${candidate.type}`,
-          from: agentSnapshot?.agent?.position || null,
-          to: candidate.target,
-        }));
+        if (options.locationMeaningAvailable !== false) {
+          deltas.push(new LocationMeaningDelta(agentId, {
+            location: candidate.target,
+            meaningType: 'movement_target',
+            weight: 0,
+            reason: `action_${candidate.type}`,
+            from: agentSnapshot?.agent?.position || null,
+            to: candidate.target,
+          }));
+        }
       }
       break;
     case 'socialize':
