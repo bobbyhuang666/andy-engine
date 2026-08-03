@@ -324,6 +324,21 @@ function safeReplyOrSilence(engine, agentId, name, userMessage) {
   return createVerifiedGroundingFallback(engine, agentId, userMessage) || `[${name}沉默了一会儿]`;
 }
 
+function createDeterministicReply(engine, agentId, userMessage, grounding) {
+  const thirdPartyReply = createThirdPartyKnowledgeReply(
+    engine,
+    agentId,
+    userMessage,
+    grounding
+  );
+  if (thirdPartyReply) return thirdPartyReply;
+
+  if (classifyGroundedQuestion(userMessage)) {
+    return createVerifiedGroundingFallback(engine, agentId, userMessage);
+  }
+  return null;
+}
+
 /**
  * For a few factual questions, a checker-valid reply still is not useful if
  * it ignores the requested dimension. This is a delivery check, not another
@@ -539,16 +554,16 @@ class Character {
         })
       : null;
 
-    const thirdPartyReply = createThirdPartyKnowledgeReply(
+    const deterministicReply = createDeterministicReply(
       this._engine,
       this.id,
       message,
       groundingPackage
     );
-    if (thirdPartyReply) {
-      this._conversation.addAssistantMessage(thirdPartyReply);
-      this._recordConversation(message, thirdPartyReply);
-      return thirdPartyReply;
+    if (deterministicReply) {
+      this._conversation.addAssistantMessage(deterministicReply);
+      this._recordConversation(message, deterministicReply);
+      return deterministicReply;
     }
 
     const systemPrompt = NarrativeBuilder.buildSystemPrompt(worldContext, {
@@ -645,6 +660,18 @@ class Character {
           topic: message,
         })
       : null;
+    const deterministicReply = createDeterministicReply(
+      this._engine,
+      this.id,
+      message,
+      groundingPackage
+    );
+    if (deterministicReply) {
+      this._conversation.addAssistantMessage(deterministicReply);
+      this._recordConversation(message, deterministicReply);
+      yield deterministicReply;
+      return;
+    }
     const systemPrompt = NarrativeBuilder.buildSystemPrompt(worldContext, {
       characterName: this.name,
       backstory: this.backstory,

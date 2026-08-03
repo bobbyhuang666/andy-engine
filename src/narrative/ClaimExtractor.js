@@ -682,6 +682,32 @@ class ClaimExtractor {
       });
     }
 
+    // Canonical self-state fallback form. The state vocabulary remains
+    // domain-owned: capture the rendered value and let EvidenceBinder verify
+    // it against the speaker's AGENT_STATE fact.
+    const canonicalStatePattern = /我(?:目前)?处于([^。！？!?，,；;]+?)状态/g;
+    let canonicalStateMatch;
+    while ((canonicalStateMatch = canonicalStatePattern.exec(text)) !== null) {
+      const state = canonicalStateMatch[1].trim();
+      if (!state) continue;
+      claims.push({
+        type: 'state',
+        subject: this.selfId,
+        rawSubject: '我',
+        predicate: 'activity',
+        object: state,
+        polarity: 'affirmative',
+        evidenceRequired: 'self',
+        confidence: 0.9,
+        stateType: 'activity',
+        sourceSpan: {
+          start: canonicalStateMatch.index,
+          end: canonicalStateMatch.index + canonicalStateMatch[0].length,
+          raw: canonicalStateMatch[0],
+        },
+      });
+    }
+
     // ── First-person emotion: 我 + intensity/feeling marker + emotion ──
     // Unlike other pronouns, "我" is always the narrator. Extracting it is
     // necessary so GroundingChecker can bind it to AGENT_STATE.emotionSummary

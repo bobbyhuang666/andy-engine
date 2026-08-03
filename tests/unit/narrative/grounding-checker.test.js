@@ -101,6 +101,34 @@ describe('GroundingChecker v2 — self location', () => {
   });
 });
 
+describe('GroundingChecker v2 — canonical self state', () => {
+  function stateGrounding(state) {
+    return makeGrounding({
+      allowedFacts: [
+        { id: 'fact_state_1', type: FactType.AGENT_STATE, agentId: 'alice', state },
+        { id: 'fact_state_2', type: FactType.AGENT_STATE, agentId: 'bob', state: '在休息' },
+      ],
+    });
+  }
+
+  it('binds canonical self state to AGENT_STATE with factId without sidecar', () => {
+    const result = makeChecker().check('我目前处于有点困状态。', stateGrounding('有点困'));
+    const trace = result.evidenceTrace.find(entry => entry.type === 'state');
+
+    expect(result.valid).toBe(true);
+    expect(trace.support).toBe('supports');
+    expect(trace.evidenceSource).toBe('self_agent_state');
+    expect(trace.factId).toBe('fact_state_1');
+  });
+
+  it('rejects an incorrect canonical self state', () => {
+    const result = makeChecker().check('我目前处于看完了状态。', stateGrounding('有点困'));
+
+    expect(result.valid).toBe(false);
+    expect(result.violations.some(v => v.type === 'unsupported_self_state')).toBe(true);
+  });
+});
+
 // ═══════════════════════════════════════════
 // Other-agent location validation
 // ═══════════════════════════════════════════

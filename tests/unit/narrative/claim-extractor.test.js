@@ -93,6 +93,18 @@ describe('ClaimExtractor — 所有 claim 类型', () => {
     expect(stateClaims[0].stateType).toBe('activity');
   });
 
+  it('提取 canonical self-state claim: "我目前处于有点困状态。"', () => {
+    const ex = makeExtractor('alice');
+    const stateClaim = ex.extract('我目前处于有点困状态。').find(c => c.type === 'state');
+    expect(stateClaim).toMatchObject({
+      subject: 'alice',
+      predicate: 'activity',
+      object: '有点困',
+      stateType: 'activity',
+      evidenceRequired: 'self',
+    });
+  });
+
   it('提取 source_attribution claim: "听说鲍勃发现了"', () => {
     const ex = makeExtractor('alice');
     const claims = ex.extract('听说鲍勃发现了一本好书');
