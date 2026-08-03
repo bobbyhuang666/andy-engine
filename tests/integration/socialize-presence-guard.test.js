@@ -92,6 +92,7 @@ describe('active socialize presence guard', () => {
       runAliceAction(runtime, 'bob');
 
       expect(runtime.alice._actionTraceHistory.at(-1).stateDeltas.relationship).toBeNull();
+      expect(runtime.alice._actionTraceHistory.at(-1).stateDeltas.need).toEqual({});
       expect(runtime.relation.history).toHaveLength(0);
       expect(runtime.relation.interactionCount).toBe(0);
       expect(relationshipSkips(warnSpy)).toHaveLength(0);

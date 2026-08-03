@@ -25,10 +25,19 @@ class NeedCandidateProvider extends CandidateProvider {
       const mapping = NEED_ACTION_MAP[needKey];
       if (!mapping) continue;
 
+      let target = needKey;
+      if (needKey === 'social') {
+        const selfId = context.agent?.id || context.agentId;
+        target = (Array.isArray(context.coPresentAgentIds) ? context.coPresentAgentIds : [])
+          .filter(id => typeof id === 'string' && id.length > 0 && id !== selfId)
+          .sort()[0];
+        if (!target) continue;
+      }
+
       candidates.push(new ActionCandidate({
         type: mapping.type,
         source: 'need',
-        target: needKey,
+        target,
         label: mapping.label,
         metadata: { needKey, needValue: value },
       }));

@@ -209,6 +209,9 @@ function computeDeltas(candidate, agentSnapshot, options = {}) {
           relationshipPayload.durationHours = actionOptions.durationHours;
         }
         deltas.push(new RelationshipDelta(agentId, relationshipPayload));
+        if (hasDuration) {
+          deltas.push(new NeedDelta(agentId, { social: recoveryFor('social', 0) }));
+        }
       }
       break;
     case 'consume':

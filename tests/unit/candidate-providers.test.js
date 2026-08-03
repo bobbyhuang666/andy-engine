@@ -87,9 +87,41 @@ describe('NeedCandidateProvider', () => {
 
   it('低 social 生成 socialize 候选', () => {
     const provider = new NeedCandidateProvider();
-    const ctx = makeContext({ needs: { hunger: 0.8, energy: 0.8, social: 0.1, stimulation: 0.8 } });
+    const ctx = makeContext({
+      needs: { hunger: 0.8, energy: 0.8, social: 0.1, stimulation: 0.8 },
+      agent: { id: 'alice', position: 'home' },
+      coPresentAgentIds: ['bob'],
+    });
     const result = provider.generate(ctx);
     expect(result.some(c => c.type === 'socialize')).toBe(true);
+  });
+
+  it('低 social 只选择排序后的共处他者并排除自己', () => {
+    const provider = new NeedCandidateProvider();
+    const result = provider.generate(makeContext({
+      needs: { hunger: 0.1, energy: 0.8, social: 0.1, stimulation: 0.8 },
+      agent: { id: 'alice', position: 'home' },
+      coPresentAgentIds: ['zara', 'alice', 'bob'],
+    }));
+
+    const socialize = result.filter(candidate => candidate.type === 'socialize');
+    expect(socialize).toHaveLength(1);
+    expect(socialize[0].target).toBe('bob');
+    expect(socialize[0].target).not.toBe('alice');
+    expect(result.filter(candidate => candidate.type !== 'socialize').map(candidate => candidate.type))
+      .toEqual(['consume']);
+  });
+
+  it('低 social 无共处他者时不生成 no-op socialize 候选', () => {
+    const provider = new NeedCandidateProvider();
+    const result = provider.generate(makeContext({
+      needs: { hunger: 0.1, energy: 0.8, social: 0.1, stimulation: 0.8 },
+      agent: { id: 'alice', position: 'home' },
+      coPresentAgentIds: ['alice'],
+    }));
+
+    expect(result.some(candidate => candidate.type === 'socialize')).toBe(false);
+    expect(result.map(candidate => candidate.type)).toEqual(['consume']);
   });
 
   it('低 stimulation 生成 explore 候选', () => {
