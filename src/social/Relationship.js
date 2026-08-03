@@ -95,12 +95,14 @@ class Relationship {
    * @param {string} type - 交互类型 ('talk', 'help', 'conflict', 'ignore', ...)
    * @param {number} valence - 情感效价 (-1 到 +1)
    * @param {string} [content] - 交互内容描述
-   * @param {Date} [simTime] - 模拟时间（不传则用真实时间，仅测试用）
+   * @param {Date|string|number} [simTime] - 模拟时间；不传或无效时保持确定性 epoch fallback
    * @param {number} [durationHours] - simulated interaction duration;
    *   omitted for legacy full-effect behavior
    */
   recordInteraction(type, valence, content = '', simTime = null, durationHours) {
     if (!Number.isFinite(valence)) return;
+    const suppliedSimTime = simTime == null ? null : new Date(simTime);
+    const hasValidSimTime = suppliedSimTime !== null && Number.isFinite(suppliedSimTime.getTime());
     if (!Number.isFinite(this.strength)) this.strength = this._cfg.initialStrength;
     this.interactionCount++;
     const hasDuration = durationHours !== undefined;
@@ -180,6 +182,11 @@ class Relationship {
     });
     if (this.history.length > 20) {
       this.history = this.history.slice(-20);
+    }
+
+    if (hasValidSimTime) {
+      this.lastInteraction = new Date(suppliedSimTime.getTime());
+      this._hoursSinceLastInteraction = 0;
     }
   }
 

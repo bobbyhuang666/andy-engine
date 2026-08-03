@@ -70,6 +70,64 @@ describe('SocialGraph 模块', () => {
       graph.tick(24); // 24 小时
       expect(relAB.strength).toBeLessThanOrEqual(prevStrength);
     });
+
+    it('valid simulated interaction time updates recency with a defensive Date copy', () => {
+      const simTime = new Date('2026-09-01T08:00:00Z');
+      relAB._hoursSinceLastInteraction = 72;
+
+      relAB.recordInteraction('talk', 0.5, '聊天', simTime);
+
+      expect(relAB.lastInteraction).not.toBe(simTime);
+      expect(relAB.lastInteraction.getTime()).toBe(simTime.getTime());
+      expect(relAB._hoursSinceLastInteraction).toBe(0);
+      simTime.setUTCDate(2);
+      expect(relAB.lastInteraction.toISOString()).toBe('2026-09-01T08:00:00.000Z');
+    });
+
+    it('interaction resets accelerated decay recency before the next tick', () => {
+      const firstTime = new Date('2026-09-01T08:00:00Z');
+      const secondTime = new Date('2026-09-10T08:00:00Z');
+      relAB.recordInteraction('talk', 0.5, '聊天', firstTime);
+      relAB.tick(200);
+      expect(relAB._hoursSinceLastInteraction).toBe(200);
+
+      relAB.recordInteraction('talk', 0.5, '聊天', secondTime);
+      expect(relAB._hoursSinceLastInteraction).toBe(0);
+
+      const baseline = SocialGraph.fromJSON({ edges: [relAB.toJSON()], _tickCount: 0 })
+        .getRelationship('A', 'B');
+      relAB.tick(24);
+      baseline.tick(24);
+      expect(relAB.strength).toBeCloseTo(baseline.strength, 12);
+      expect(relAB._hoursSinceLastInteraction).toBe(24);
+    });
+
+    it('missing or invalid simulated time preserves deterministic legacy recency', () => {
+      const simTime = new Date('2026-09-01T08:00:00Z');
+      relAB.recordInteraction('talk', 0.5, '聊天', simTime);
+      relAB.tick(24);
+
+      relAB.recordInteraction('talk', 0.5, '聊天');
+      expect(relAB.lastInteraction.toISOString()).toBe(simTime.toISOString());
+      expect(relAB._hoursSinceLastInteraction).toBe(24);
+
+      relAB.recordInteraction('talk', 0.5, '聊天', 'not-a-date');
+      expect(relAB.lastInteraction.toISOString()).toBe(simTime.toISOString());
+      expect(relAB._hoursSinceLastInteraction).toBe(24);
+      expect(relAB.history.at(-1).time).toBe('1970-01-01T00:00:00.000Z');
+    });
+
+    it('replays fixed simulated relationship times deterministically', () => {
+      const replay = () => {
+        const relation = new SocialGraph().getOrCreateRelationship('A', 'B');
+        relation.recordInteraction('talk', 0.5, '聊天', new Date('2026-09-01T08:00:00Z'));
+        relation.tick(24);
+        relation.recordInteraction('help', 0.7, '帮忙', new Date('2026-09-02T08:00:00Z'));
+        return relation.toJSON();
+      };
+
+      expect(replay()).toEqual(replay());
+    });
   });
 
   describe('社交距离', () => {

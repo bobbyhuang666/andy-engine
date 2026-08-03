@@ -58,6 +58,19 @@ describe('Wave 4 — serialization round-trip', () => {
       roundTrip(Relationship, rel);
     });
 
+    it('persists the latest simulated interaction time and recency counter', () => {
+      const rel = new Relationship('alice', 'bob');
+      rel.recordInteraction('talk', 0.6, '聊天', T1);
+      rel.tick(7);
+
+      const restored = Relationship.fromJSON(rel.toJSON());
+
+      expect(restored.lastInteraction).not.toBe(rel.lastInteraction);
+      expect(restored.lastInteraction.getTime()).toBe(T1.getTime());
+      expect(restored._hoursSinceLastInteraction).toBe(7);
+      expect(restored.toJSON()).toEqual(rel.toJSON());
+    });
+
     it('round-trips a fresh relationship', () => {
       roundTrip(Relationship, new Relationship('x', 'y'));
     });
