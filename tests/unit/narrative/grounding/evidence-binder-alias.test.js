@@ -665,14 +665,23 @@ describe('EvidenceBinder — alias / paraphrase support (M3-R3)', () => {
     binderNoAlias.bind(claims, allowedFacts);
     binderWithAlias.bind(claims, allowedFacts, { locationAliases });
 
-    // Timed runs
-    const startNoAlias = performance.now();
-    binderNoAlias.bind(claims, allowedFacts);
-    const timeNoAlias = performance.now() - startNoAlias;
+    // 取 7 次运行的中位数：共享 CI runner 的 GC 抖动会把单次计时的比率放大到误报，
+    // 中位数保留对结构性回归的检测力，同时过滤尖峰噪声。
+    const medianTime = (fn, runs = 7) => {
+      const times = [];
+      for (let run = 0; run < runs; run++) {
+        const start = performance.now();
+        fn();
+        times.push(performance.now() - start);
+      }
+      times.sort((a, b) => a - b);
+      return times[Math.floor(times.length / 2)];
+    };
 
-    const startWithAlias = performance.now();
-    binderWithAlias.bind(claims, allowedFacts, { locationAliases });
-    const timeWithAlias = performance.now() - startWithAlias;
+    const timeNoAlias = medianTime(() => binderNoAlias.bind(claims, allowedFacts));
+    const timeWithAlias = medianTime(() =>
+      binderWithAlias.bind(claims, allowedFacts, { locationAliases })
+    );
 
     expect(timeWithAlias).toBeLessThan(timeNoAlias * 3);
   });
