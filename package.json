@@ -51,7 +51,8 @@
     "docs/DOMAIN.md",
     "CHANGELOG.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "keywords": [
     "multi-agent",
@@ -67,7 +68,7 @@
     "domain-config"
   ],
   "author": "bobbyhuang666",
-  "license": "AGPL-3.0-only",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=20.0.0"
   },

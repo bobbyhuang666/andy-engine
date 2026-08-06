@@ -20,8 +20,8 @@ You grant the project maintainer ("Andy Engine") a perpetual, worldwide, non-exc
 - Sublicense your contribution under any license terms, including commercial licenses
   以任何许可证条款（包括商业许可证）再许可您的贡献
 
-- Include your contribution in both open-source (AGPL-3.0) and proprietary versions of the software
-  将您的贡献包含在开源版本（AGPL-3.0）和商业版本中
+- Include your contribution in both open-source (Apache-2.0) and proprietary versions of the software
+  将您的贡献包含在开源版本（Apache-2.0）和商业版本中
 
 ---
 

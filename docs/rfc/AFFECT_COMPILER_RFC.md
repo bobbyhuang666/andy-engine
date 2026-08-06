@@ -418,7 +418,7 @@ function checkConsistency(llmOutput, affectFrame) {
 
 ## 7. Open Source vs Commercial Boundary
 
-### 7.1 Open Source (AGPL-3.0)
+### 7.1 Open Source (Apache-2.0)
 
 Included in the public repository:
 

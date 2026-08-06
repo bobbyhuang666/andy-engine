@@ -16,7 +16,7 @@ world facts. The default runtime keeps `enableFacts: false` for compatibility.
 
 > **Status**: v2.0.1 — Persistent world runtime.
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 
 **中文简介**：Andy Engine 是一个心理学驱动的 Persistent World / multi-agent simulation engine。它维护同一个可持续世界里的事实、记忆、关系、知识边界和角色状态，让 LLM 只表达角色知道的内容，而不是凭空编故事。完整中文说明见 [Andy Engine 中文](#andy-engine-中文)。
@@ -480,20 +480,20 @@ current docs.
 
 ## License
 
-This project is licensed under the AGPL-3.0-only license.
+This project is licensed under the Apache-2.0 license.
 
-[GNU Affero General Public License v3.0](LICENSE)
+[Apache License 2.0](LICENSE)
 
-You are free to use, modify, and distribute this software, provided that:
-- You disclose the source code of any modified version
-- You include the AGPL-3.0 license notice
-- Network use counts as distribution (if you run a modified version as a service, you must share the source)
+You are free to use, modify, and distribute this software, including in
+proprietary commercial products, provided that:
+- You include the Apache-2.0 license and NOTICE file
+- You state significant changes made to the software
 
-For commercial licensing inquiries: huangweijiebobby@gmail.com
+For commercial support inquiries: huangweijiebobby@gmail.com
 
-## Commercial Licensing
+## Commercial Support
 
-Commercial licensing is available for proprietary integration, hosted products, games, AI companions, robots, and enterprise deployments. Contact us for details.
+Commercial support is available for hosted products, games, AI companions, robots, and enterprise deployments. Contact us for details.
 
 ---
 
@@ -897,14 +897,16 @@ parity 测试后，native 才会重新进入支持面。
 
 ## 许可证
 
-本项目基于 AGPL-3.0-only 许可证。
+本项目基于 Apache-2.0 许可证。
 
 [GNU Affero General Public License v3.0](LICENSE)
 
-可自由使用、修改和分发，但需遵守 AGPL-3.0 条款。
+可自由使用、修改和分发，包括闭源商业产品，但需遵守 Apache-2.0 条款：
+- 分发时保留 Apache-2.0 许可声明与 NOTICE 文件
+- 对软件作出重大修改时需作出说明
 
-商业授权联系：huangweijiebobby@gmail.com
+商业支持联系：huangweijiebobby@gmail.com
 
-## 商业授权
+## 商业支持
 
-商业授权适用于私有集成、托管产品、游戏、AI 伴侣、机器人和企业部署。请联系了解详情。
+商业支持适用于托管产品、游戏、AI 伴侣、机器人和企业部署。请联系了解详情。
