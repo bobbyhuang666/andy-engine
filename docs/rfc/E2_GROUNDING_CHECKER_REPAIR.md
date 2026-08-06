@@ -59,7 +59,7 @@ E1 (LLM Exploratory Findings) confirmed three Engine defects through independent
 
 ## 3. Regression Tests
 
-### 3.1 E2-0 Reproduction tests (`tests/e2/`)
+### 3.1 E2-0 Reproduction tests (`tests/e2e/`)
 
 | Test file | Tests | Purpose |
 |-----------|-------|---------|
