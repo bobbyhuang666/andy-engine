@@ -301,7 +301,7 @@ function renderReport(dimensions, testParsed, domainResult, perfResult, replayRe
 
   lines.push('## Sanity check');
   lines.push('');
-  lines.push(`- **500 tick 不单调发散**: golden-seed-replay 100 ticks 稳定（${findFileStatus(testParsed, 'golden-seed-replay') === 'pass' ? '通过' : '未确认'}）+ perf:check exit ${perfResult.status}`);
+  lines.push(`- **500 tick 不单调发散**: deep-audit-v2/v3 500-tick 长程稳定（${findFileStatus(testParsed, 'deep-audit-v2') === 'pass' && findFileStatus(testParsed, 'deep-audit-v3') === 'pass' ? '通过' : '未确认'}）+ golden-seed-replay 100 ticks（${findFileStatus(testParsed, 'golden-seed-replay') === 'pass' ? '通过' : '未确认'}）+ perf:check exit ${perfResult.status}`);
 
   return lines.join('\n') + '\n';
 }

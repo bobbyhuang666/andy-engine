@@ -1,15 +1,15 @@
 # Aliveness Report
 
-> 生成时间: 2026-07-23T06:36:21.416Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
+> 生成时间: 2026-08-06T06:40:07.451Z | 由 scripts/aliveness-report.js 从测试输出提取（非手写状态表）。
 > ALIVENESS_BENCHMARK_RFC v0.3 §3 报告制度。每次 release 重新生成。
 
 ## 测试命令快照
 
 | 命令 | 退出码 | 关键输出 |
 |---|---|---|
-| npm test | 0 | Test Files  206 passed \| 1 skipped (207) / Tests  3770 passed \| 28 skipped (3798) |
+| npm test | 0 | Test Files  228 passed \| 1 skipped (229) / Tests  3974 passed \| 28 skipped (4002) |
 | npm run test:domain | 0 |  Test Files  5 passed (5) /       Tests  82 passed (82) |
-| npm run perf:check | 0 | 100 agents avg/tick                16.48     25.52   0.65x   ✓ PASS / 300 agents avg/tick               106.95    202.48   0.53x   ✓ PASS / fixed-clustered gather (ms)        36.29     33.87   1.07x   ✓ PASS / fixed-clustered cache (ms)          7.17      7.33   0.98x   ✓ PASS / runtime-clustered gather (ms)      28.63     34.85   0.82x   ✓ PASS / ✓ All performance checks passed |
+| npm run perf:check | 0 | 100 agents avg/tick                35.09     25.52   1.38x   ✓ PASS / 300 agents avg/tick               249.72    202.48   1.23x   ✓ PASS / fixed-clustered gather (ms)        36.97     33.87   1.09x   ✓ PASS / fixed-clustered cache (ms)          7.54      7.33   1.03x   ✓ PASS / runtime-clustered gather (ms)      28.77     34.85   0.83x   ✓ PASS / ✓ All performance checks passed |
 | npm run replay:diff | 0 | ticks: 100 \| matched: 100 \| mismatched: 0 |
 
 ## 七维度状态
@@ -41,7 +41,7 @@
 - **标准**: world-changing event 产生 typed delta；observation/narrative-only event 显式分类并说明无写回原因。
 - **测试入口**: tests/unit/effects/ (含 position-delta.test.js) + golden seed replay
 - **Owner**: effects 层
-- **测试输出引用**: tests/unit/effects/ 1/1 文件 pass
+- **测试输出引用**: tests/unit/effects/ 2/2 文件 pass
 
 ### D5 Grounded Narrative Faithfulness — Warning
 
@@ -67,4 +67,4 @@
 
 ## Sanity check
 
-- **500 tick 不单调发散**: golden-seed-replay 100 ticks 稳定（通过）+ perf:check exit 0
+- **500 tick 不单调发散**: deep-audit-v2/v3 500-tick 长程稳定（通过）+ golden-seed-replay 100 ticks（通过）+ perf:check exit 0

@@ -1,7 +1,7 @@
 # Module Guard Manifest
 
 > R5 "未守护模块"判定 (QUALITY_GATE_RFC v0.3 §6 主判定)。由 `scripts/module-guard-scan.js` 生成。
-> 生成日期: 2026-07-23 | 模块总数: 146 | 守护(直接): 127 | 守护(间接): 19 | 弱守护: 0 | 未守护: 0
+> 生成日期: 2026-08-06 | 模块总数: 153 | 守护(直接): 129 | 守护(间接): 24 | 弱守护: 0 | 未守护: 0
 > coverage 辅助判定: 不可用（未跑 test:coverage）
 
 ## 守护状态汇总
@@ -26,11 +26,16 @@
 | src/agent/runtime/MindWanderRuntime.js | guarded-indirect |
 | src/canon/CanonEventPipeline.js | guarded-indirect |
 | src/canon/index.js | guarded-indirect |
+| src/config/actionSelection.js | guarded-indirect |
 | src/knowledge/index.js | guarded-indirect |
+| src/narrative/EmotionVocabulary.js | guarded-indirect |
+| src/runtime/AtomicTickRecovery.js | guarded-indirect |
+| src/runtime/ReadProjection.js | guarded-indirect |
 | src/sdk/AndyEngine.js | guarded-indirect |
 | src/sdk/AutoTick.js | guarded-indirect |
 | src/sdk/ConversationLog.js | guarded-indirect |
 | src/sdk/EmotionEffectClassifier.js | guarded-indirect |
+| src/store/CheckpointIntegrity.js | guarded-indirect |
 | src/store/SaveLoad.js | guarded-indirect |
 | src/action/ActionCandidate.js | guarded-direct |
 | src/action/index.js | guarded-direct |
@@ -109,6 +114,7 @@
 | src/narrative/grounding/SidecarValidator.js | guarded-direct |
 | src/narrative/GroundingChecker.js | guarded-direct |
 | src/narrative/index.js | guarded-direct |
+| src/narrative/ObservationAssertion.js | guarded-direct |
 | src/narrative/StoryGenerator.js | guarded-direct |
 | src/pressure/index.js | guarded-direct |
 | src/pressure/LocationPressure.js | guarded-direct |
@@ -127,6 +133,7 @@
 | src/sdk/AndyBridge.js | guarded-direct |
 | src/sdk/AndyEngineHelpers.js | guarded-direct |
 | src/sdk/Character.js | guarded-direct |
+| src/sdk/ConversationQuestion.js | guarded-direct |
 | src/sdk/EmotionSignalBuffer.js | guarded-direct |
 | src/sdk/index.js | guarded-direct |
 | src/sdk/LLMAdapter.js | guarded-direct |

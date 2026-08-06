@@ -59,7 +59,7 @@ WorldCanon
 ```
 
 Characters are driven by:
-- **30-dimensional emotion** (Cowen & Keltner 2017) with 10-step evolution pipeline
+- **30-dimensional emotion** (extending the 27 categories of Cowen & Keltner 2017) with 10-step evolution pipeline
 - **Continuous 4D behavior field** (Langevin dynamics + personality modulation)
 - **ACT-R memory** with mood-congruent recall and forgetting
 - **Maslow needs** with continuous gradient
@@ -141,7 +141,7 @@ AndyEngine
 - Continuous 4D BehaviorField as the core behavior dynamics layer
 - Seeded RNG baseline for reproducible core runtime paths
 - Performance benchmark / profiling / perf-check baseline
-- 3770 tests passing / 28 skipped in the latest local quality gate across unit, integration, domain, compatibility, and source-scan suites
+- Latest local quality gate green across unit, integration, domain, compatibility, and source-scan suites (test counts are a moving target and are reported per release in `docs/quality/aliveness-report.md`)
 - Core runtime tests and default package smoke do not require SQLite native bindings; SQLite persistence is verified separately with `npm run sqlite:smoke`
 - Clean Architecture Pass complete: `src/` owns implementation; old top-level runtime wrappers retired; Semantic Closure Pass complete with 9 domain-safe read-only providers
 
@@ -543,7 +543,7 @@ WorldCanon（世界事实）
 ```
 
 角色由以下系统驱动：
-- **30 维情绪**（Cowen & Keltner 2017）+ 10 步演化管线
+- **30 维情绪**（扩展自 Cowen & Keltner 2017 的 27 类）+ 10 步演化管线
 - **连续 4D 行为场**（朗之万动力学 + 人格调制）
 - **ACT-R 记忆**（情绪一致性回忆 + 自然遗忘）
 - **Maslow 需求**（连续梯度）
@@ -584,7 +584,7 @@ B = (活跃度, 社交性, 专注度, 表达欲) ∈ [0,1]⁴
 - 连续 4D BehaviorField 作为核心行为动力学层
 - 可播种 RNG 基线，支持核心运行时路径的可复现模拟
 - 性能基准 / Profiling / perf-check 基线
-- 最新本地质量门控：3770 tests passing / 28 skipped（单元、集成、domain、兼容性、source-scan）
+- 最新本地质量门控全绿（单元、集成、domain、兼容性、source-scan）；测试数量随开发演进，每次发布以 `docs/quality/aliveness-report.md` 为准
 - Clean Architecture Pass 完成：`src/` 拥有实现，旧顶层 runtime wrappers 已退休；Semantic Closure Pass 完成，9 个 domain-safe read-only provider 已接入
 
 ### 正在推进
@@ -899,7 +899,7 @@ parity 测试后，native 才会重新进入支持面。
 
 本项目基于 Apache-2.0 许可证。
 
-[GNU Affero General Public License v3.0](LICENSE)
+[Apache License 2.0](LICENSE)
 
 可自由使用、修改和分发，包括闭源商业产品，但需遵守 Apache-2.0 条款：
 - 分发时保留 Apache-2.0 许可声明与 NOTICE 文件
