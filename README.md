@@ -17,6 +17,7 @@ world facts. The default runtime keeps `enableFacts: false` for compatibility.
 > **Status**: v2.0.1 — Persistent world runtime.
 
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![CI](https://github.com/bobbyhuang666/andy-engine/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/bobbyhuang666/andy-engine/actions/workflows/ci.yml)
 [![Node.js](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 
 **中文简介**：Andy Engine 是一个心理学驱动的 Persistent World / multi-agent simulation engine。它维护同一个可持续世界里的事实、记忆、关系、知识边界和角色状态，让 LLM 只表达角色知道的内容，而不是凭空编故事。完整中文说明见 [Andy Engine 中文](#andy-engine-中文)。
