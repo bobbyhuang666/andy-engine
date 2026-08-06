@@ -8,6 +8,18 @@ All notable changes to Andy Engine will be documented in this file.
 
 ## Unreleased
 
+### Changed
+
+- CI workflows upgraded to actions/checkout and actions/setup-node v7.
+- Repo community surface: CONTRIBUTING.md, PR template, bug/feature issue templates, README CI badge, social preview brand asset.
+
+### Fixed
+
+- Made the alias-path performance test median-of-7 to absorb shared-runner GC jitter.
+- Performance gate now normalizes absolute-ms baselines by a version-independent machine reference (`meta.referenceMs`), and release comparison re-sealed as `benchmarks/baselines/v2.0.1.json` (v0.2.0 baseline kept for history).
+
+## v2.0.1 (2026-08-06)
+
 ### Added
 
 - **TickEffectSummary** (`TickResult.phase.effectSummary`) — additive, optional field providing committed-delta counts per tick (A1 effect/trace observability gap). Counts only; no raw delta objects or live references. See `docs/PUBLIC_API_CONTRACT.md` for the full contract.
