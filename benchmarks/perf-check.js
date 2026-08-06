@@ -20,7 +20,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 const os = require('os');
 
-const RELEASE_BASELINE_PATH = path.join(__dirname, 'baselines/v0.2.0-post-contagion-cache.json');
+const RELEASE_BASELINE_PATH = path.join(__dirname, 'baselines/v2.0.1.json');
 const LOCAL_BASELINE_PATH = path.join(__dirname, 'baselines/local.json');
 const BENCH_JSON = '/tmp/andy-benchmark-baseline.json';
 const CONTAGION_JSON = '/tmp/andy-contagion-profile.json';
@@ -80,6 +80,45 @@ function median(arr) {
   const sorted = [...arr].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+// 版本无关的参考负载：固定规模的 JSON round-trip。
+// 基线 JSON 里记录封印时的 meta.referenceMs；检查时重测一次，
+// machineFactor = current/sealed，据此缩放绝对毫秒基线，
+// 让"别人机器上封印的基线"在本地/CI 都可比。
+const REFERENCE_PAYLOAD = JSON.stringify({
+  agents: Array.from({ length: 200 }, (_, i) => ({ id: i, name: `agent_${i}`, vec: [i, i * 2, i * 3] })),
+});
+
+function measureReferenceMs(rounds = 3) {
+  const times = [];
+  for (let round = 0; round < rounds; round++) {
+    const start = performance.now();
+    let acc = 0;
+    for (let i = 0; i < 50; i++) {
+      acc += JSON.stringify(JSON.parse(REFERENCE_PAYLOAD)).length;
+    }
+    times.push(performance.now() - start);
+  }
+  return median(times);
+}
+
+function scaleBaseline(baseline, factor) {
+  if (factor === 1) return baseline;
+  const scaled = JSON.parse(JSON.stringify(baseline));
+  const scaleMetric = obj => {
+    if (!obj || typeof obj !== 'object') return;
+    for (const key of Object.keys(obj)) {
+      if (['avgMsPerTick', 'gatherMs', 'cacheBuildMs'].includes(key) && typeof obj[key] === 'number') {
+        obj[key] *= factor;
+      } else if (typeof obj[key] === 'object') {
+        scaleMetric(obj[key]);
+      }
+    }
+  };
+  scaleMetric(scaled.benchmark);
+  scaleMetric(scaled.profile);
+  return scaled;
 }
 
 function getGitCommit() {
@@ -267,6 +306,7 @@ function saveLocalBaseline(metrics, runCount) {
     cores: cpus.length,
     runCount,
     timestamp: new Date().toISOString(),
+    meta: { referenceMs: Math.round(measureReferenceMs() * 100) / 100 },
     benchmark: { quick: {} },
     profile: { contagion_quick: {} },
   };
@@ -328,8 +368,17 @@ function main(argv = process.argv.slice(2)) {
   } else {
     baselinePath = RELEASE_BASELINE_PATH;
   }
-  const baseline = loadBaseline(baselinePath);
+  let baseline = loadBaseline(baselinePath);
   console.log(`Baseline: ${baseline.version} (${baseline.date}, ${baseline.commit})${isLocal ? ' [LOCAL]' : ''}`);
+  const sealedRef = baseline?.meta?.referenceMs;
+  if (sealedRef) {
+    const currentRef = measureReferenceMs();
+    const machineFactor = Math.min(Math.max(currentRef / sealedRef, 0.25), 8);
+    console.log(`Machine factor: ${machineFactor.toFixed(2)}x (reference ${currentRef.toFixed(1)}ms vs sealed ${sealedRef.toFixed(1)}ms)`);
+    baseline = scaleBaseline(baseline, machineFactor);
+  } else {
+    console.log('Machine factor: n/a (baseline has no meta.referenceMs, absolute comparison)');
+  }
   console.log(`Runs: ${runCount}${runCount > 1 ? ' (median mode)' : ' (single run)'}\n`);
 
   const allRunResults = [];

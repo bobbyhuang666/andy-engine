@@ -1,0 +1,32 @@
+{
+  "version": "2.0.1",
+  "date": "2026-08-06",
+  "commit": "77daede",
+  "nodeVersion": "v26.4.0",
+  "platform": "darwin arm64",
+  "description": "v2.0.1 post-grounding-wave baseline; absolute ms sealed on darwin, machine factor via meta.referenceMs",
+  "benchmark": {
+    "quick": {
+      "100_agents_50_ticks": {
+        "avgMsPerTick": 32.09
+      },
+      "300_agents_20_ticks": {
+        "avgMsPerTick": 236.54
+      }
+    }
+  },
+  "profile": {
+    "contagion_quick": {
+      "fixed_clustered": {
+        "gatherMs": 37.22,
+        "cacheBuildMs": 7.19
+      },
+      "runtime_clustered": {
+        "gatherMs": 27.27
+      }
+    }
+  },
+  "meta": {
+    "referenceMs": 2.83
+  }
+}
