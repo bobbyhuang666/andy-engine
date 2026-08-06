@@ -1,5 +1,7 @@
 # Andy Engine
 
+![Andy Engine — incomplete knowledge constellation](.github/brand/social-preview.png)
+
 **Persistent life-world runtime for AI characters.**
 
 > **Language**: [English](#andy-engine) / [中文](#andy-engine-中文)
