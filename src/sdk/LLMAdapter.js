@@ -8,9 +8,125 @@
  *   - Ollama（本地，零成本）
  *   - 流式输出（chatStream）
  *   - 自动重试（线性退避）
+ *
+ * RFC W3 / Patch D1: 请求生命周期由三层有界超时 + 单一 AbortController +
+ * try/finally 资源清理管理。此前 30s 超时只覆盖响应头,body/stream 可无限等待,
+ * 生成器退出时不释放 reader。
  */
 
 const SUPPORTED_PROVIDERS = ['openai', 'openai-compatible', 'anthropic', 'ollama', 'custom'];
+
+/**
+ * RFC W3 / Patch D1: stable machine-readable error reason codes via `err.code`.
+ * Note: timeout `message` text now names the failing stage
+ * ("timed out (headers)" / "timed out (body)" / "stream idle timeout")
+ * instead of the old blanket "timed out after 30s"; consumers should match
+ * on `err.code` and on `err.name === 'AbortError'`-free control flow, not on
+ * the exact message string.
+ */
+const LLM_ERROR_REASONS = {
+  HEADERS_TIMEOUT: 'headers_timeout',
+  BODY_TIMEOUT: 'body_timeout',
+  STREAM_IDLE_TIMEOUT: 'stream_idle_timeout',
+  CONSUMER_CANCELLED: 'consumer_cancelled',
+  PROVIDER_HTTP_ERROR: 'provider_http_error',
+  PARSE_ERROR: 'parse_error',
+};
+
+/**
+ * Create an LLM error carrying a stable `code` (see LLM_ERROR_REASONS).
+ * Non-timeout messages keep their previous wording; timeout messages now
+ * name the failing stage (headers/body/idle) rather than "after 30s".
+ * @private
+ */
+function llmError(message, code) {
+  const err = new Error(message);
+  err.code = code;
+  return err;
+}
+
+/**
+ * Request context: manages three-tier timeouts + single AbortController.
+ *
+ *   headersTimeoutMs   — connect → response headers
+ *   overallTimeoutMs   — full request upper bound (includes body)
+ *   streamIdleTimeoutMs — max idle between adjacent stream chunks
+ *
+ * @private
+ */
+class RequestContext {
+  constructor({ headersTimeoutMs, overallTimeoutMs, streamIdleTimeoutMs }) {
+    this.controller = new AbortController();
+    this.headersTimeoutMs = headersTimeoutMs;
+    this.overallTimeoutMs = overallTimeoutMs;
+    this.streamIdleTimeoutMs = streamIdleTimeoutMs;
+    this._headersTimer = null;
+    this._overallTimer = null;
+    this._idleTimer = null;
+    this._settled = false;
+  }
+
+  /** Start the headers + overall timers. */
+  start() {
+    if (this.headersTimeoutMs > 0) {
+      this._headersTimer = setTimeout(() => {
+        this.controller.abort();
+        this._abortReason = LLM_ERROR_REASONS.HEADERS_TIMEOUT;
+      }, this.headersTimeoutMs);
+    }
+    if (this.overallTimeoutMs > 0) {
+      this._overallTimer = setTimeout(() => {
+        this.controller.abort();
+        this._abortReason = LLM_ERROR_REASONS.BODY_TIMEOUT;
+      }, this.overallTimeoutMs);
+    }
+  }
+
+  /** Clear the headers timer once headers are received. */
+  clearHeaders() {
+    if (this._headersTimer) {
+      clearTimeout(this._headersTimer);
+      this._headersTimer = null;
+    }
+  }
+
+  /** Reset the stream idle timer (call before each reader.read()). */
+  resetIdle() {
+    if (this._idleTimer) clearTimeout(this._idleTimer);
+    if (this.streamIdleTimeoutMs > 0) {
+      this._idleTimer = setTimeout(() => {
+        this.controller.abort();
+        this._abortReason = LLM_ERROR_REASONS.STREAM_IDLE_TIMEOUT;
+      }, this.streamIdleTimeoutMs);
+    }
+  }
+
+  /** Clear the idle timer (after read completes or on cleanup). */
+  clearIdle() {
+    if (this._idleTimer) {
+      clearTimeout(this._idleTimer);
+      this._idleTimer = null;
+    }
+  }
+
+  /** Idempotent cleanup: abort + clear all timers. */
+  cleanup() {
+    if (this._settled) return;
+    this._settled = true;
+    try { this.controller.abort(); } catch (_) {}
+    this.clearHeaders();
+    this.clearIdle();
+    if (this._overallTimer) {
+      clearTimeout(this._overallTimer);
+      this._overallTimer = null;
+    }
+  }
+
+  /** The reason code for the last abort (for error classification). */
+  get abortReason() {
+    return this._abortReason || null;
+  }
+}
 
 class LLMAdapter {
   constructor(config = {}) {
@@ -44,6 +160,12 @@ class LLMAdapter {
       this.temperature = config.temperature ?? 0.8;
       this.maxRetries = config.maxRetries ?? 2;
       this._customFn = config.llm || null;
+
+      // RFC W3 / Patch D1: three-tier timeout config (conservative defaults).
+      // headers: 30s (connect → headers), overall: 120s (full body), idle: 30s.
+      this.headersTimeoutMs = config.headersTimeoutMs ?? 30000;
+      this.overallTimeoutMs = config.overallTimeoutMs ?? 120000;
+      this.streamIdleTimeoutMs = config.streamIdleTimeoutMs ?? 30000;
 
       // apiKey 检查延迟到 chat()/chatStream() 时（构造时可能只是用于 tick，不需要 LLM）
     }
@@ -148,8 +270,9 @@ class LLMAdapter {
 
   async _callOpenAI(messages, stream = false) {
     const url = `${this.baseUrl}/chat/completions`;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    // RFC W3 / Patch D1: single RequestContext spans headers + body + stream.
+    const ctx = new RequestContext(this);
+    ctx.start();
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -164,53 +287,79 @@ class LLMAdapter {
           temperature: this.temperature,
           stream,
         }),
-        signal: controller.signal,
+        signal: ctx.controller.signal,
       });
-      clearTimeout(timeoutId);
+      // Headers received — clear the headers timer. overall timer still guards body.
+      ctx.clearHeaders();
 
       if (!response.ok) {
         const err = await response.text().catch(() => '');
         const providerHint = this.provider === 'ollama'
           ? '\n提示：确保 Ollama 正在运行（ollama serve）且模型已拉取（ollama pull ' + this.model + '）'
           : '';
-        throw new Error(`${this.provider} API error ${response.status}: ${err}${providerHint}`);
+        throw llmError(`${this.provider} API error ${response.status}: ${err}${providerHint}`, LLM_ERROR_REASONS.PROVIDER_HTTP_ERROR);
       }
 
-      if (stream) return response;
+      if (stream) {
+        // Stream path: hand the context to the generator for idle/cleanup.
+        return { response, ctx };
+      }
 
       const data = await response.json();
       return data.choices?.[0]?.message?.content || '';
     } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.name === 'AbortError') throw new Error('LLM request timed out after 30s');
+      if (err.name === 'AbortError') {
+        const reason = ctx.abortReason || LLM_ERROR_REASONS.HEADERS_TIMEOUT;
+        const label = reason === LLM_ERROR_REASONS.BODY_TIMEOUT ? 'body' : 'headers';
+        throw llmError(`LLM request timed out (${label})`, reason);
+      }
       throw err;
+    } finally {
+      // For non-stream: cleanup now. For stream: the generator owns cleanup.
+      if (!stream) ctx.cleanup();
     }
   }
 
   async *_streamOpenAI(messages) {
-    const response = await this._callOpenAI(messages, true);
+    // RFC W3 / Patch D1: _callOpenAI returns {response, ctx} in stream mode.
+    const { response, ctx } = await this._callOpenAI(messages, true);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    try {
+      ctx.resetIdle();
+      while (true) {
+        const { done, value } = await reader.read();
+        ctx.resetIdle();
+        if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = LLMAdapter._drainSseLines(buffer);
-      buffer = lines.remainder;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = LLMAdapter._drainSseLines(buffer);
+        buffer = lines.remainder;
 
-      for (const line of lines.complete) {
-        const content = LLMAdapter._parseOpenAIStreamLine(line);
-        if (content === LLMAdapter.STREAM_DONE) return;
-        if (content) yield content;
+        for (const line of lines.complete) {
+          const content = LLMAdapter._parseOpenAIStreamLine(line);
+          if (content === LLMAdapter.STREAM_DONE) return;
+          if (content) yield content;
+        }
       }
-    }
 
-    if (buffer.trim()) {
-      const content = LLMAdapter._parseOpenAIStreamLine(buffer);
-      if (content !== LLMAdapter.STREAM_DONE && content) yield content;
+      if (buffer.trim()) {
+        const content = LLMAdapter._parseOpenAIStreamLine(buffer);
+        if (content !== LLMAdapter.STREAM_DONE && content) yield content;
+      }
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        const reason = ctx.abortReason || LLM_ERROR_REASONS.STREAM_IDLE_TIMEOUT;
+        throw llmError(`LLM stream idle timeout`, reason);
+      }
+      throw err;
+    } finally {
+      // Idempotent cleanup: abort + cancel reader + release lock + clear timers.
+      ctx.cleanup();
+      if (typeof reader.cancel === 'function') await reader.cancel().catch(() => {});
+      if (typeof reader.releaseLock === 'function') { try { reader.releaseLock(); } catch (_) {} }
     }
   }
 
@@ -232,8 +381,9 @@ class LLMAdapter {
     };
     if (systemMsg) body.system = systemMsg.content;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000);
+    // RFC W3 / Patch D1: single RequestContext spans headers + body + stream.
+    const ctx = new RequestContext(this);
+    ctx.start();
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -243,49 +393,71 @@ class LLMAdapter {
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify(body),
-        signal: controller.signal,
+        signal: ctx.controller.signal,
       });
-      clearTimeout(timeoutId);
+      ctx.clearHeaders();
 
       if (!response.ok) {
         const err = await response.text().catch(() => '');
-        throw new Error(`Anthropic API error ${response.status}: ${err}`);
+        throw llmError(`Anthropic API error ${response.status}: ${err}`, LLM_ERROR_REASONS.PROVIDER_HTTP_ERROR);
       }
 
-      if (stream) return response;
+      if (stream) {
+        return { response, ctx };
+      }
 
       const data = await response.json();
       return data.content?.[0]?.text || '';
     } catch (err) {
-      clearTimeout(timeoutId);
-      if (err.name === 'AbortError') throw new Error('LLM request timed out after 30s');
+      if (err.name === 'AbortError') {
+        const reason = ctx.abortReason || LLM_ERROR_REASONS.HEADERS_TIMEOUT;
+        const label = reason === LLM_ERROR_REASONS.BODY_TIMEOUT ? 'body' : 'headers';
+        throw llmError(`LLM request timed out (${label})`, reason);
+      }
       throw err;
+    } finally {
+      if (!stream) ctx.cleanup();
     }
   }
 
   async *_streamAnthropic(messages) {
-    const response = await this._callAnthropic(messages, true);
+    // RFC W3 / Patch D1: _callAnthropic returns {response, ctx} in stream mode.
+    const { response, ctx } = await this._callAnthropic(messages, true);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
+    try {
+      ctx.resetIdle();
+      while (true) {
+        const { done, value } = await reader.read();
+        ctx.resetIdle();
+        if (done) break;
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = LLMAdapter._drainSseLines(buffer);
-      buffer = lines.remainder;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = LLMAdapter._drainSseLines(buffer);
+        buffer = lines.remainder;
 
-      for (const line of lines.complete) {
-        const content = LLMAdapter._parseAnthropicStreamLine(line);
+        for (const line of lines.complete) {
+          const content = LLMAdapter._parseAnthropicStreamLine(line);
+          if (content) yield content;
+        }
+      }
+
+      if (buffer.trim()) {
+        const content = LLMAdapter._parseAnthropicStreamLine(buffer);
         if (content) yield content;
       }
-    }
-
-    if (buffer.trim()) {
-      const content = LLMAdapter._parseAnthropicStreamLine(buffer);
-      if (content) yield content;
+    } catch (err) {
+      if (err.name === 'AbortError') {
+        const reason = ctx.abortReason || LLM_ERROR_REASONS.STREAM_IDLE_TIMEOUT;
+        throw llmError(`LLM stream idle timeout`, reason);
+      }
+      throw err;
+    } finally {
+      ctx.cleanup();
+      if (typeof reader.cancel === 'function') await reader.cancel().catch(() => {});
+      if (typeof reader.releaseLock === 'function') { try { reader.releaseLock(); } catch (_) {} }
     }
   }
 
@@ -375,5 +547,6 @@ class LLMAdapter {
 }
 
 LLMAdapter.STREAM_DONE = Symbol('STREAM_DONE');
+LLMAdapter.LLM_ERROR_REASONS = LLM_ERROR_REASONS;
 
 module.exports = LLMAdapter;

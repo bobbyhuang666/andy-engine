@@ -221,6 +221,7 @@ class AndyWorld {
         scheduledFor: e.scheduledFor instanceof Date ? e.scheduledFor : new Date(e.scheduledFor),
       }));
     this._tickCallbacks = [];
+    this._tickInProgress = false; // RFC W4 / Patch D2: sync reentrance guard
     this._lastTickTime = null;
   }
 
@@ -406,6 +407,16 @@ class AndyWorld {
    * @returns {Object} tick result summary
    */
   step() {
+    // RFC W4 / Patch D2: reject synchronous reentrance. A callback that
+    // calls step() while the outer step() is still settling would double-count
+    // effects into the outer summary (the inner _originalCommit captures the
+    // outer _instrumentedCommit). Return a stable error instead.
+    if (this._tickInProgress) {
+      const err = new Error('AndyWorld.step(): synchronous reentrance is not allowed; schedule the next tick via queue/microtask');
+      err.code = 'TICK_REENTRANCE_REJECTED';
+      return { status: 'rejected', phase: {}, errors: [{ phase: 'tick', message: err.message }], time: this.clock.toISOString() };
+    }
+    this._tickInProgress = true;
     const tickStart = Date.now();
     const minutesElapsed = this.runtimeConfig.tickMinutes;
     const result = {
@@ -521,21 +532,10 @@ class AndyWorld {
     result.committedAt = this.clock.toISOString();
     result.time = result.committedAt;
 
-    // A degraded tick may contain partial in-memory writes. The public facade
-    // either rolls it back (atomicTicks) or faults the Engine; never expose it
-    // through callbacks as though it had committed.
-    if (result.status === 'committed') {
-      // Post-tick refresh of AGENT_STATE facts so that position reflects the
-      // final state after all movement phases (thinking, spatial, encounter).
-      this._refreshAgentStateFacts();
-
-      for (const cb of this._tickCallbacks) {
-        try { cb(result); } catch (e) { diagnostics.warn(`onTick callback error: ${e.message}`); }
-      }
-    }
-
-    } finally {
-    // ─── A1: Restore committer + populate effectSummary ───
+    // ─── RFC W4 / Patch D2: 5-stage tick settlement ───
+    // Stage 2-3: restore committer + freeze effectSummary BEFORE callbacks,
+    // so callbacks see the frozen summary and cannot double-count inner
+    // effects into this tick's statistics.
     this.effectCommitter.commit = _originalCommit;
     const totalEffects = _effectAcc.applied + _effectAcc.skipped + _effectAcc.errored;
     if (totalEffects > 0) {
@@ -548,6 +548,30 @@ class AndyWorld {
         byType: _effectAcc.byType,
       };
     }
+    // Stage 4: clear tick in-progress AFTER callbacks, so that synchronous
+    // reentrance from within a callback is still rejected. The guard at the
+    // top of step() checks this flag.
+    // Stage 5: callbacks last, after all settlement is frozen.
+    if (result.status === 'committed') {
+      // Post-tick refresh of AGENT_STATE facts so that position reflects the
+      // final state after all movement phases (thinking, spatial, encounter).
+      this._refreshAgentStateFacts();
+
+      // Snapshot the callback list to avoid iteration mutation issues (RFC O7).
+      const callbacks = [...this._tickCallbacks];
+      for (const cb of callbacks) {
+        try { cb(result); } catch (e) { diagnostics.warn(`onTick callback error: ${e.message}`); }
+      }
+    }
+
+    this._tickInProgress = false;
+
+    } catch (outerErr) {
+      // Ensure committer is restored and in-progress cleared even on unexpected
+      // phase errors (the phases have their own catch, but this is a safety net).
+      this.effectCommitter.commit = _originalCommit;
+      this._tickInProgress = false;
+      throw outerErr;
     }
 
     result.durationMs = Date.now() - tickStart;

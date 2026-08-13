@@ -11,12 +11,35 @@ Gaps are prefixed `A` (observability/architecture) to distinguish from the
 roadmap §1.2 `G`-series gaps. Numbers continue from the P0 mapping
 (A1–A5).
 
+## Resolution tracking (RFC W0 / Patch A)
+
+Each gap entry SHOULD carry a `Resolution` block with structured fields so
+that resolved gaps can be filtered out of the active Gap count:
+
+| Field | Meaning |
+| --- | --- |
+| `status` | `open` \| `resolved` \| `wontfix` |
+| `resolvedBy` | RFC workstream / patch that closed it (e.g. `W4 / Patch D2`) |
+| `verifiedAt` | ISO date of the verification run |
+| `engineCommit` | git sha the resolution was verified against |
+| `evidence` | one-line pointer to the test / manifest that proves resolution |
+
+A gap without a `Resolution` block defaults to `status: open`. Resolved
+gaps remain in this ledger for audit history but MUST NOT be counted as
+current Gap evidence (DEEP_AUDIT P2-6).
+
 ---
 
 ## A1 — effect/trace observability gap
 
 - **Severity:** Observability gap (not a writeback defect)
 - **Discovered:** P0 mapping, confirmed P2 Caliper
+- **Resolution:**
+  - `status:` resolved (partial — effectSummary now observable; full delta receipt tracked in W4 / Patch D2)
+  - `resolvedBy:` A1 observability via runtime A1 instrumented commit; full receipt pending W4
+  - `verifiedAt:` 2026-08-12
+  - `engineCommit:` bded50c
+  - `evidence:` `reference-host/test/evaluation-bundle.test.js` "evidence chain includes effectSummary from A1" (13/13 pass via `reference-host:verify`)
 - **Evidence (W1):**
   - `host-runner.js` runs `engine.runTicks(count)` and inspects `TickResult`
   - `TickResult` contains phase keys but does NOT expose committed

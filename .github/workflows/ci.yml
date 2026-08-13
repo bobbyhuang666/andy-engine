@@ -120,6 +120,31 @@ jobs:
     - name: Run fresh consumer matrix
       run: npm run fresh:consumer
   
+  reference-host:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20.x, 22.x]
+    steps:
+    - uses: actions/checkout@v7
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v7
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    - name: Install dependencies
+      run: npm ci
+    - name: Verify reference host consumes current HEAD artifact
+      run: npm run reference-host:verify
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - name: Check markdown links and anchors
+      run: npm run docs:check
+
   release-gate:
     runs-on: ubuntu-latest
     

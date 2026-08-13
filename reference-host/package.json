@@ -15,6 +15,6 @@
     "vitest": "^4.1.7"
   },
   "dependencies": {
-    "andy-engine": "file:andy-engine-2.0.1.tgz"
+    "andy-engine": "file:../"
   }
 }

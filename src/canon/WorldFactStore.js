@@ -21,6 +21,7 @@ const {
   createInvalidatedFact,
   createLocationMeaningFact,
 } = require('./FactSchema');
+const { normalizeEventTimeMs, FALLBACK_EPOCH } = require('./timeHelpers');
 
 /** Maximum number of event facts to retain before eviction */
 const MAX_EVENT_FACTS = 2000;
@@ -35,6 +36,22 @@ const MAX_RULE_FACTS = 200;
 const MAX_LOCATION_MEANING_FACTS = 500;
 // R8.7: intention facts are per-agent (1-2 per tick); allow generous headroom.
 const MAX_INTENTION_FACTS = 500;
+
+// RFC W2 / Patch C: single type→limit map drives both addFact() and
+// fromJSON() eviction, preventing the branches from drifting (previously
+// fromJSON missed Intention, leaving 1000 restored Intentions over the 500 cap).
+const FACT_TYPE_LIMITS = new Map([
+  [FactType.EVENT, MAX_EVENT_FACTS],
+  [FactType.OBSERVATION, MAX_OBSERVATION_FACTS],
+  [FactType.MEMORY, MAX_MEMORY_FACTS],
+  [FactType.INVALIDATED, MAX_INVALIDATED_FACTS],
+  [FactType.STATIC_ENV, MAX_STATIC_ENV_FACTS],
+  [FactType.AGENT_STATE, MAX_AGENT_STATE_FACTS],
+  [FactType.RELATIONSHIP, MAX_RELATIONSHIP_FACTS],
+  [FactType.RULE, MAX_RULE_FACTS],
+  [FactType.LOCATION_MEANING, MAX_LOCATION_MEANING_FACTS],
+  [FactType.INTENTION, MAX_INTENTION_FACTS],
+]);
 
 class WorldFactStore {
   constructor() {
@@ -61,6 +78,16 @@ class WorldFactStore {
 
     /** @type {import('../knowledge/KnowledgeStore')|null} R7: wired by AndyWorld for eviction sync */
     this._knowledgeStore = null;
+
+    // RFC W6 / Patch F (Phase A): internal eviction observability.
+    // _evictionReceipts records the last 100 eviction events (bounded);
+    // _totalEvictedByType / _totalEvictionEvents accumulate lifetime counts
+    // (unbounded counters, not derived from the bounded receipts array).
+    // These are internal/experimental — the stable public getStats() envelope
+    // is extended additively (retention key).
+    this._evictionReceipts = []; // [{ type, count, oldestMs, newestMs, reason, simTimeMs }]
+    this._totalEvictedByType = {}; // { [type]: number }
+    this._totalEvictionEvents = 0; // lifetime count of eviction events
   }
 
   /**
@@ -78,18 +105,36 @@ class WorldFactStore {
 
   /**
    * 设置模拟时间
+   *
+   * RFC W2 / Patch C: defensive copy + reject Invalid Date.
+   * 此前直接存入传入的 Date 引用，调用方修改它即改变内部时间；
+   * 且不拒绝 Invalid Date，静默接受 `new Date('invalid')`。
    * @param {Date|string|number} time - 模拟时间
+   * @throws {TypeError} if time resolves to an Invalid Date
    */
   setSimTime(time) {
-    this._simTime = time instanceof Date ? time : new Date(time);
+    if (time instanceof Date) {
+      if (!Number.isFinite(time.getTime())) {
+        throw new TypeError('setSimTime: Invalid Date is not allowed');
+      }
+      this._simTime = new Date(time.getTime());
+    } else {
+      const ms = normalizeEventTimeMs(time, NaN);
+      if (!Number.isFinite(ms)) {
+        throw new TypeError(`setSimTime: invalid time value: ${time}`);
+      }
+      this._simTime = new Date(ms);
+    }
   }
 
   /**
    * 获取模拟时间
+   *
+   * RFC W2 / Patch C: return a fresh Date so callers cannot mutate internal time.
    * @returns {Date|null}
    */
   getSimTime() {
-    return this._simTime;
+    return this._simTime ? new Date(this._simTime.getTime()) : null;
   }
 
   // ═══════════════════════════════════════════
@@ -127,28 +172,15 @@ class WorldFactStore {
 
     this._indexAgents(stored);
 
+    // RFC W2 / Patch C: drive eviction from the single FACT_TYPE_LIMITS map
+    // instead of a duplicated if/else chain, so addFact() and fromJSON()
+    // cannot drift. EVENT still needs the _eventIndex update before eviction.
     if (fact.type === FactType.EVENT) {
       this._eventIndex.set(fact.eventId, fact.id);
-      // Evict oldest event facts when exceeding limit
-      this._evictEventFacts();
-    } else if (fact.type === FactType.OBSERVATION) {
-      this._evictFactsByType(FactType.OBSERVATION, MAX_OBSERVATION_FACTS);
-    } else if (fact.type === FactType.MEMORY) {
-      this._evictFactsByType(FactType.MEMORY, MAX_MEMORY_FACTS);
-    } else if (fact.type === FactType.INVALIDATED) {
-      this._evictFactsByType(FactType.INVALIDATED, MAX_INVALIDATED_FACTS);
-    } else if (fact.type === FactType.STATIC_ENV) {
-      this._evictFactsByType(FactType.STATIC_ENV, MAX_STATIC_ENV_FACTS);
-    } else if (fact.type === FactType.AGENT_STATE) {
-      this._evictFactsByType(FactType.AGENT_STATE, MAX_AGENT_STATE_FACTS);
-    } else if (fact.type === FactType.RELATIONSHIP) {
-      this._evictFactsByType(FactType.RELATIONSHIP, MAX_RELATIONSHIP_FACTS);
-    } else if (fact.type === FactType.RULE) {
-      this._evictFactsByType(FactType.RULE, MAX_RULE_FACTS);
-    } else if (fact.type === FactType.LOCATION_MEANING) {
-      this._evictFactsByType(FactType.LOCATION_MEANING, MAX_LOCATION_MEANING_FACTS);
-    } else if (fact.type === FactType.INTENTION) {
-      this._evictFactsByType(FactType.INTENTION, MAX_INTENTION_FACTS);
+    }
+    const limit = FACT_TYPE_LIMITS.get(fact.type);
+    if (limit !== undefined) {
+      this._evictFactsByType(fact.type, limit);
     }
 
     return this._deepCopyFact(stored);
@@ -174,11 +206,17 @@ class WorldFactStore {
 
   /**
    * Evict oldest facts for bounded high-volume types.
+   *
+   * RFC W6 / Patch F (Phase A): each eviction produces an internal receipt
+   * with type, count, oldest/newest evicted timestamp, and reason, so
+   * callers can observe what was lost without a durable archive.
+   *
    * @param {string} type
    * @param {number} maxCount
+   * @param {string} [reason='capacity_overflow'] - eviction reason
    * @private
    */
-  _evictFactsByType(type, maxCount) {
+  _evictFactsByType(type, maxCount, reason = 'capacity_overflow') {
     const ids = this._byType.get(type);
     if (!ids || ids.size <= maxCount) return;
 
@@ -191,6 +229,8 @@ class WorldFactStore {
 
     const removeCount = ids.size - Math.floor(maxCount * 0.8);
     const evictedIds = [];
+    let oldestMs = null;
+    let newestMs = null;
     for (let i = 0; i < removeCount && i < facts.length; i++) {
       const fact = facts[i];
       this._facts.delete(fact.id);
@@ -198,6 +238,31 @@ class WorldFactStore {
       if (fact.eventId) this._eventIndex.delete(fact.eventId);
       this._unindexAgents(fact);
       evictedIds.push(fact.id);
+      const ts = this._tsMs(fact.timestamp);
+      if (oldestMs === null || ts < oldestMs) oldestMs = ts;
+      if (newestMs === null || ts > newestMs) newestMs = ts;
+    }
+
+    // RFC W6 / Patch F: record eviction receipt for observability.
+    if (evictedIds.length > 0) {
+      const receipt = {
+        type,
+        count: evictedIds.length,
+        oldestMs,
+        newestMs,
+        reason,
+        // Use simTime (not wall-clock Date.now) to stay within the
+        // deterministic core runtime boundary. Null if simTime not set.
+        simTimeMs: this._simTime ? this._simTime.getTime() : null,
+      };
+      this._evictionReceipts.push(receipt);
+      // Keep receipts bounded (last 100) to avoid unbounded memory; the
+      // lifetime event count lives in _totalEvictionEvents instead.
+      this._totalEvictionEvents += 1;
+      if (this._evictionReceipts.length > 100) {
+        this._evictionReceipts = this._evictionReceipts.slice(-100);
+      }
+      this._totalEvictedByType[type] = (this._totalEvictedByType[type] || 0) + evictedIds.length;
     }
 
     // R7 fix: Notify knowledge store to purge stale entries for evicted facts,
@@ -557,18 +622,13 @@ class WorldFactStore {
         store._eventIndex.set(fact.eventId, fact.id);
       }
     }
-    store._evictEventFacts();
-    store._evictFactsByType(FactType.OBSERVATION, MAX_OBSERVATION_FACTS);
-    store._evictFactsByType(FactType.MEMORY, MAX_MEMORY_FACTS);
-    store._evictFactsByType(FactType.INVALIDATED, MAX_INVALIDATED_FACTS);
-    // R158: mirror addFact() eviction for types missing from fromJSON.
-    // Previously only 4 of 9 types were bounded after restore, leaving
-    // STATIC_ENV, AGENT_STATE, RELATIONSHIP, RULE, LOCATION_MEANING unbounded.
-    store._evictFactsByType(FactType.STATIC_ENV, MAX_STATIC_ENV_FACTS);
-    store._evictFactsByType(FactType.AGENT_STATE, MAX_AGENT_STATE_FACTS);
-    store._evictFactsByType(FactType.RELATIONSHIP, MAX_RELATIONSHIP_FACTS);
-    store._evictFactsByType(FactType.RULE, MAX_RULE_FACTS);
-    store._evictFactsByType(FactType.LOCATION_MEANING, MAX_LOCATION_MEANING_FACTS);
+    // RFC W2 / Patch C: drive eviction from the single FACT_TYPE_LIMITS map
+    // so fromJSON() and addFact() cannot drift. Previously fromJSON missed
+    // INTENTION (R158 added 5 types but omitted it), leaving 1000 restored
+    // Intentions over the 500 cap.
+    for (const [type, limit] of FACT_TYPE_LIMITS) {
+      store._evictFactsByType(type, limit);
+    }
 
     return store;
   }
@@ -579,6 +639,11 @@ class WorldFactStore {
 
   /**
    * 获取存储统计信息
+   *
+   * RFC W6 / Patch F (Phase A): adds internal `retention` stats —
+   * per-type cap, current count, total evicted, and last eviction receipt.
+   * These are internal/experimental and do not change the stable public
+   * `total/byType/agentCount/nextId` fields.
    * @returns {Object}
    */
   getStats() {
@@ -587,12 +652,38 @@ class WorldFactStore {
       byType[t] = this._byType.get(t).size;
     }
 
-    return {
+    const stats = {
       total: this._facts.size,
       byType,
       agentCount: this._byAgent.size,
       nextId: this._nextId,
     };
+
+    // RFC W6 / Patch F: internal retention observability (experimental).
+    // Not part of the stable public envelope; consumers should not rely on
+    // these fields yet. Documented in docs/canon/HOT_HISTORY_CAPACITY.md.
+    const retention = {};
+    for (const [type, limit] of FACT_TYPE_LIMITS) {
+      retention[type] = {
+        cap: limit,
+        current: this._byType.get(type)?.size || 0,
+        totalEvicted: this._totalEvictedByType[type] || 0,
+      };
+    }
+    // Last eviction receipt (null if no eviction has occurred).
+    retention.lastEvictionReceipt = this._evictionReceipts.length > 0
+      ? this._evictionReceipts[this._evictionReceipts.length - 1]
+      : null;
+    // Lifetime eviction event count (receipts array itself is bounded to 100,
+    // so it cannot serve as the cumulative counter).
+    retention.totalEvictionEvents = this._totalEvictionEvents;
+    Object.defineProperty(stats, 'retention', {
+      value: retention,
+      enumerable: true,
+      configurable: true,
+    });
+
+    return stats;
   }
 
   /**
@@ -618,7 +709,6 @@ class WorldFactStore {
     const fact = this._facts.get(factId);
     if (!fact) throw new Error(`Fact ${factId} not found`);
 
-    const FALLBACK_EPOCH = new Date('2024-01-01T00:00:00Z');
     const invalidation = createInvalidatedFact({
       originalFactId: factId,
       reason,
@@ -678,7 +768,6 @@ class WorldFactStore {
    * @param {string} [meaning.reason] - 变化原因
    */
   updateLocationMeaning(location, meaning) {
-    const FALLBACK_EPOCH = new Date('2024-01-01T00:00:00Z');
     const existing = this.getLocationMeaning(location);
     const safeWeight = Number.isFinite(meaning.weight) ? meaning.weight : 0;
 

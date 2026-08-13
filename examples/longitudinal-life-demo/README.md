@@ -72,6 +72,4 @@ After running the demo, verify:
 
 ## Related Documentation
 
-- [A-Level Roadmap](../../docs/A_LEVEL_ROADMAP.md)
-- [Aliveness Roadmap](../../docs/ALIVENESS_ROADMAP_v2_1_v3.md)
 - [Public API Contract](../../docs/PUBLIC_API_CONTRACT.md)

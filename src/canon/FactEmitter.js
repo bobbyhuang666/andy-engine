@@ -15,6 +15,7 @@ const {
   createMemoryFact,
   createIntentionFact,
 } = require('./FactSchema');
+const { FALLBACK_EPOCH } = require('./timeHelpers');
 
 class FactEmitter {
   /**
@@ -572,7 +573,7 @@ class FactEmitter {
    * @returns {Date}
    */
   _getSimTime() {
-    return this._simTime || new Date('2024-01-01T00:00:00Z');
+    return this._simTime || FALLBACK_EPOCH;
   }
 
   /**

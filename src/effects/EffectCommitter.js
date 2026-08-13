@@ -71,13 +71,15 @@ class EffectCommitter {
           }
         }
         const outcome = this._applyDelta(delta);
-        if (outcome === 'skipped') {
+        if (outcome.status === 'skipped') {
           result.skipped.push(delta);
-          // P2 fix: log skipped deltas for debugging
-          diagnostics.warn?.('delta_skipped', {
+          // RFC W4 / Patch D2: use collect() for structured skip reason
+          // (warn() only accepts a message string and discards metadata).
+          diagnostics.collect({
+            type: 'delta_skipped',
             agentId: delta.agentId,
-            type: delta.type,
-            reason: 'guard_failure_or_invalid_delta',
+            deltaType: delta.type,
+            reasonCode: outcome.reasonCode || 'unknown',
           });
         } else {
           result.applied.push(delta);
@@ -228,28 +230,59 @@ class EffectCommitter {
 
   /**
    * @param {import('./StateDelta').StateDelta} delta
-   * @returns {'applied'|'skipped'}
+   * @returns {{ status: 'applied'|'skipped', reasonCode: string|null }}
+   *   RFC W4 / Patch D2: structured outcome with stable reasonCode so every
+   *   skip is explainable. Previously returned only 'applied'|'skipped' and
+   *   all guard rejections were compressed into a single opaque string.
    * @private
    */
   _applyDelta(delta) {
     switch (delta.type) {
       case 'need':
-        return this._applyNeedDelta(delta) ? 'applied' : 'skipped';
+        return this._applyNeedDelta(delta)
+          ? { status: 'applied', reasonCode: null }
+          : { status: 'skipped', reasonCode: 'guard_rejected' };
       case 'emotion':
-        return this._applyEmotionDelta(delta) ? 'applied' : 'skipped';
+        return this._applyEmotionDelta(delta)
+          ? { status: 'applied', reasonCode: null }
+          : { status: 'skipped', reasonCode: 'guard_rejected' };
       case 'memory':
-        return this._applyMemoryDelta(delta) ? 'applied' : 'skipped';
+        return this._applyMemoryDelta(delta)
+          ? { status: 'applied', reasonCode: null }
+          : { status: 'skipped', reasonCode: 'guard_rejected' };
       case 'relationship':
-        return this._applyRelationshipDelta(delta) ? 'applied' : 'skipped';
+        return this._applyRelationshipDelta(delta)
+          ? { status: 'applied', reasonCode: null }
+          : { status: 'skipped', reasonCode: 'guard_rejected' };
       case 'position':
-        return this._applyPositionDelta(delta) ? 'applied' : 'skipped';
+        return this._applyPositionDelta(delta)
+          ? { status: 'applied', reasonCode: null }
+          : { status: 'skipped', reasonCode: this._positionSkipReason(delta) };
       case 'locationMeaning':
-        return this._applyLocationMeaningDelta(delta) ? 'applied' : 'skipped';
+        return this._applyLocationMeaningDelta(delta)
+          ? { status: 'applied', reasonCode: null }
+          : { status: 'skipped', reasonCode: 'guard_rejected' };
       case 'futureTendency':
-        return this._applyFutureTendencyDelta(delta) ? 'applied' : 'skipped';
+        return this._applyFutureTendencyDelta(delta)
+          ? { status: 'applied', reasonCode: null }
+          : { status: 'skipped', reasonCode: 'guard_rejected' };
       default:
-        return 'skipped';
+        return { status: 'skipped', reasonCode: 'unknown_delta_type' };
     }
+  }
+
+  /**
+   * Distinguish position skip reasons for observability.
+   * @private
+   */
+  _positionSkipReason(delta) {
+    if (!delta.agentId) return 'invalid_target';
+    const agent = this.agents?.get?.(delta.agentId);
+    if (!agent) return 'agent_missing';
+    if (typeof delta.to !== 'string' || !delta.to) return 'invalid_target';
+    const domain = agent.domain;
+    if (domain && typeof domain.hasRegion === 'function' && !domain.hasRegion(delta.to)) return 'out_of_bounds';
+    return 'guard_rejected';
   }
 
   /**

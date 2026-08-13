@@ -49,19 +49,20 @@ run_check "smoke:pack" "npm run smoke:pack"
 # 8. fresh:consumer
 run_check "fresh:consumer" "npm run fresh:consumer"
 
-# 9. release:check
-run_check "release:check" "npm run release:check"
+# RFC W5 / Patch E: removed `release:check` step — it re-ran npm test +
+# test:domain + check:boundaries which are already covered by steps 1, 4, 6
+# above (P2-4 CI duplication). pack:dry-run is covered by smoke:pack (step 7).
 
-# 10. perf:check
+# 9. perf:check
 run_check "perf:check" "npm run perf:check -- --runs=3"
 
-# 11. legacy-removal-dry-run
+# 10. legacy-removal-dry-run
 run_check "legacy-removal-dry-run" "node scripts/legacy-removal-dry-run.js"
 
-# 12. git diff --check
+# 11. git diff --check
 run_check "git diff --check" "git diff --check"
 
-# 13. sqlite:smoke (optional)
+# 12. sqlite:smoke (optional)
 echo "Checking for better-sqlite3..."
 if node -e "try { require('better-sqlite3'); console.log('available'); } catch(e) { process.exit(1); }" > /dev/null 2>&1; then
   run_check "sqlite:smoke" "npm run sqlite:smoke"

@@ -16,6 +16,7 @@
 
 const path = require('path');
 const fs = require('fs');
+const { binaryCopy } = require('./binaryCopy');
 
 let Database;
 try {
@@ -276,7 +277,7 @@ class SQLiteStore {
     stmt.run(
       tick,
       virtualTime,
-      data,
+      binaryCopy(data),
       meta ? JSON.stringify(meta) : null,
       Date.now(),
     );
@@ -376,10 +377,18 @@ class SQLiteStore {
 
   /**
    * 保留最近 N 个快照
+   *
+   * RFC W1 / Patch B: `keepCount <= 0` 删除全部快照，与 MemoryStore 对齐。
+   * 此前 `if (keepCount <= 0) return 0` 保留全部且与注释自相矛盾。
    */
   prune(keepCount = 720) {
-    // keepCount <= 0 时保留 0 个快照
-    if (keepCount <= 0) return 0;
+    if (keepCount <= 0) {
+      const countStmt = this._prepare('countSnapshots', `SELECT COUNT(*) as n FROM snapshots`);
+      const n = countStmt.get().n;
+      if (n === 0) return 0;
+      const deleteAll = this._prepare('pruneAllSnapshots', `DELETE FROM snapshots`);
+      return deleteAll.run().changes;
+    }
 
     // 找到第 keepCount 个快照的 tick（保留 keepCount 个最新的）
     const stmt = this._prepare('findPruneTick', `

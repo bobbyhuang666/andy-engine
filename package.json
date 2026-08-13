@@ -35,7 +35,9 @@
     "sqlite:smoke": "node -e \"const { SQLiteStore } = require('./src/store'); const db = new SQLiteStore(':memory:'); db.saveSnapshot(0, Date.now(), Buffer.from('test')); const s = db.loadLatest(); if (!s || s.tick !== 0) throw new Error('SQLite smoke failed'); db.close(); console.log('SQLite smoke: OK');\"",
     "fresh:consumer": "bash scripts/fresh-consumer-matrix.sh",
     "release:clean": "bash scripts/check-release-clean.sh",
-    "release:gate": "bash scripts/release-gate.sh"
+    "release:gate": "bash scripts/release-gate.sh",
+    "reference-host:verify": "node scripts/reference-host-verify.js",
+    "docs:check": "node scripts/docs-check.js"
   },
   "files": [
     "index.js",

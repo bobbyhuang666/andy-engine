@@ -17,9 +17,7 @@ const {
   FactType,
   FACT_SCOPES,
 } = require('./FactSchema');
-
-/** Default epoch used when event timestamps are invalid/missing. */
-const FALLBACK_EPOCH = new Date('2024-01-01T00:00:00Z');
+const { normalizeEventTimeMs, FALLBACK_EPOCH } = require('./timeHelpers');
 
 class CanonEventPipeline {
   /**
@@ -91,9 +89,10 @@ class CanonEventPipeline {
    * @private
    */
   _createEventFact(event) {
-    let eventTime = event.time instanceof Date ? event.time : (event.time ? new Date(event.time) : FALLBACK_EPOCH);
-    if (!Number.isFinite(eventTime.getTime())) eventTime = FALLBACK_EPOCH;
-    const eventId = event.id || `evt_${event.type}_${eventTime.getTime()}_${this._eventCounter++}`;
+    // RFC W2 / Patch C: single normalization via normalizeEventTimeMs.
+    const eventTimeMs = normalizeEventTimeMs(event.time);
+    const eventTime = new Date(eventTimeMs);
+    const eventId = event.id || `evt_${event.type}_${eventTimeMs}_${this._eventCounter++}`;
     const scope = FACT_SCOPES.includes(event.scope) ? event.scope : FactScope.PUBLIC;
     const fact = createEventFact({
       eventId,
@@ -130,11 +129,24 @@ class CanonEventPipeline {
     // leaking internal engine state into the epistemic layer.
     if (fact.auditOnly) return updates;
 
+    // RFC W2 / Patch C: build full Evidence with learnedAt + eventId for
+    // direct/observed/overheard, matching told/inferred which already do.
+    // Previously these three paths passed only a string source, causing
+    // KnowledgeStore to normalize learnedAt to 0 and eventId to null.
+    const eventTimeMs = normalizeEventTimeMs(fact.timestamp);
+    const eventId = fact.eventId || null;
+
     if (fact.participants) {
       for (const agentId of fact.participants) {
         if (seen.has(agentId)) continue;
         seen.add(agentId);
-        this.knowledgeStore.addKnowledge(agentId, fact.id, 'direct');
+        this.knowledgeStore.addKnowledge(agentId, fact.id, {
+          source: 'direct',
+          confidence: 1.0,
+          learnedAt: eventTimeMs,
+          propagatedFrom: null,
+          eventId,
+        });
         updates.push({ agentId, source: 'direct' });
       }
     }
@@ -143,7 +155,13 @@ class CanonEventPipeline {
       for (const agentId of fact.observers) {
         if (seen.has(agentId)) continue;
         seen.add(agentId);
-        this.knowledgeStore.addKnowledge(agentId, fact.id, 'observed');
+        this.knowledgeStore.addKnowledge(agentId, fact.id, {
+          source: 'observed',
+          confidence: 0.9,
+          learnedAt: eventTimeMs,
+          propagatedFrom: null,
+          eventId,
+        });
         updates.push({ agentId, source: 'observed' });
       }
     }
@@ -152,9 +170,15 @@ class CanonEventPipeline {
       for (const [agentId, agent] of agents) {
         if (seen.has(agentId)) continue;
         if (agent.position === fact.location &&
-            !this.knowledgeStore.hasKnowledge(agentId, fact.id)) {
+          !this.knowledgeStore.hasKnowledge(agentId, fact.id)) {
           seen.add(agentId);
-          this.knowledgeStore.addKnowledge(agentId, fact.id, 'overheard');
+          this.knowledgeStore.addKnowledge(agentId, fact.id, {
+            source: 'overheard',
+            confidence: 0.7,
+            learnedAt: eventTimeMs,
+            propagatedFrom: null,
+            eventId,
+          });
           updates.push({ agentId, source: 'overheard' });
         }
       }
@@ -218,8 +242,11 @@ class CanonEventPipeline {
    */
   _tryToldPropagation(tellerId, listenerId, event) {
     const tellerFacts = this.knowledgeStore.getKnownFactIds(tellerId);
-    const eventTime = event.time instanceof Date ? event.time.getTime() : (event.time || 0);
-    const safeEventTime = Number.isFinite(eventTime) ? eventTime : FALLBACK_EPOCH.getTime();
+    // RFC W2 / Patch C: use normalizeEventTimeMs so ISO strings are parsed
+    // correctly. Previously `Number.isFinite(eventTime)` on a raw ISO string
+    // was always false, discarding the real timestamp and falling back to
+    // FALLBACK_EPOCH for every told propagation.
+    const safeEventTime = normalizeEventTimeMs(event.time);
 
     for (const factId of tellerFacts) {
       // 1. Listener 不知

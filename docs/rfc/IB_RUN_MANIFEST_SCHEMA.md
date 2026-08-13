@@ -4,6 +4,12 @@
 > **Owner:** Reference Host
 > **Rule:** manifests describe evidence; they do not create world facts
 
+> **W0 补充（2026-08-12）**：`scripts/reference-host-verify.js` 输出的是一份最小
+> *artifact-verification* manifest（schemaVersion `1.0.0`），用于证明"外部宿主消费当前
+> HEAD 打包产物"。它不是本节的完整 run/segment/evidence manifest，而是后者前置的
+> artifact 绑定证据。字段与 fail-closed 规则见
+> [`IB_ARTIFACT_VERIFICATION_MANIFEST.md`](./IB_ARTIFACT_VERIFICATION_MANIFEST.md)。
+
 ## Design goals
 
 The schema must make a run reproducible enough to audit without promising

@@ -27,9 +27,10 @@ const DIMENSIONS = [
     standard: '世界状态可序列化→反序列化→续跑，结构无损。',
     entry: 'tests/unit/persistence-trust.test.js (G1/G2/G3/G6) + golden-seed-replay L1-L4 + tests/unit/replay-trust-l4.test.js',
     owner: 'store 层',
-    // D1: v2.2-W1 修复后 L4 达标（5 层 persistence fidelity 修复）
-    special: 'Pass (v2.2-W1 L4 修复)',
-    specialNote: 'v2.2-W1（commit 1de1176）完整修复 5 层 runtimeSnapshot 持久化缺口（EventDispatcher._nextId / Agent reflection counters / PersonalMemory presentations / memory.appraisal），L4 截断续跑主测试通过，续跑段 hash 与全程一致。W6 旧根因"toWorldState 丢失 memory"已证伪（memory 序列化正常）。',
+    // RFC W5 / Patch E: removed hardcoded `special: 'Pass'` — the D1 judge
+    // below already checks persistence-trust + golden-seed-replay + replay-trust-l4
+    // from real test output. The special short-circuit bypassed that check,
+    // allowing D1 to Pass without live evidence (fail-open).
   },
   {
     id: 'D2',
@@ -94,6 +95,28 @@ function runCommand(cmd, args, timeoutMs = 120000) {
 
 // ─── 输出解析 ───
 
+/**
+ * RFC W5 / Patch E: prefer Vitest JSON reporter for precise file/test ID
+ * extraction. Falls back to verbose-text parsing if JSON is unavailable.
+ */
+function parseVitestJSON(jsonStr) {
+  let j;
+  try { j = JSON.parse(jsonStr); } catch { return null; }
+  const fileResults = [];
+  for (const tr of (j.testResults || [])) {
+    // tr.name is the absolute file path; normalize to tests/.../file.test.js
+    const rel = tr.name.replace(/.*\/(tests\/)/, '$1');
+    let fileStatus = 'pass';
+    for (const a of (tr.assertionResults || [])) {
+      if (a.status === 'failed') fileStatus = 'fail';
+    }
+    fileResults.push({ file: rel, status: fileStatus });
+  }
+  const testFilesLine = `Test Files ${j.numPassedTestSuites || 0} passed`;
+  const testsLine = `Tests ${j.numPassedTests || 0} passed | ${j.numFailedTests || 0} failed | ${(j.numPendingTests || 0) + (j.numTodoTests || 0)} skipped`;
+  return { testFilesLine, testsLine, fileResults };
+}
+
 function parseVitestOutput(output) {
   // 提取 Test Files / Tests 计数行
   const lines = output.split('\n');
@@ -144,8 +167,8 @@ function findFileStatus(parsed, fileSubstring) {
 // ─── 状态判定 ───
 
 function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult) {
-  // 特殊维度（已定稿事实）
-  if (dim.special === 'Pass (v2.2-W1 L4 修复)') return 'Pass';
+  // RFC W5 / Patch E: removed `special` short-circuit that bypassed real
+  // test evidence. All dimensions now derive status from test output.
 
   if (dim.id === 'D5') {
     const smokeStatus = findFileStatus(testParsed, 'grounding-smoke');
@@ -155,9 +178,15 @@ function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult)
     return 'Warning';
   }
 
-  // D7: domain gate
+  // D7: domain gate + declared compatibility test (entry:
+  // 'npm run test:domain + tests/compatibility.test.js'). Both must pass.
+  // compatibility missing from test results → Warning (never Pass).
   if (dim.id === 'D7') {
-    return domainResult.status === 0 ? 'Pass' : 'Gap';
+    if (domainResult.status !== 0) return 'Gap';
+    const compatStatus = findFileStatus(testParsed, 'compatibility');
+    if (compatStatus === 'fail') return 'Gap';
+    if (compatStatus !== 'pass') return 'Warning';
+    return 'Pass';
   }
 
   // D1: persistence-trust + replay L1-L4 + replay-trust-l4
@@ -170,13 +199,17 @@ function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult)
     return 'Gap';
   }
 
-  // D4: 入口是目录 tests/unit/effects/，检查该目录下任一测试文件 pass 即视为守护
+  // D4: effects 目录全绿 + 声明入口中的 golden seed replay（entry:
+  // 'tests/unit/effects/ (含 position-delta.test.js) + golden seed replay'）。
+  // 两者缺一不可：golden replay 缺失/未参跑 → Warning（不得 Pass）。
   if (dim.id === 'D4') {
     const effectsFiles = testParsed.fileResults.filter(f => f.file.includes('tests/unit/effects/'));
-    if (effectsFiles.length > 0 && effectsFiles.every(f => f.status === 'pass')) {
-      return 'Pass';
-    }
-    return 'Gap';
+    if (effectsFiles.length === 0) return 'Gap';
+    if (effectsFiles.some(f => f.status === 'fail')) return 'Gap';
+    const gsrStatus = findFileStatus(testParsed, 'golden-seed-replay');
+    if (gsrStatus === 'fail') return 'Gap';
+    if (gsrStatus !== 'pass') return 'Warning';
+    return 'Pass';
   }
 
   // D3: 入口包含两个 E2E 文件，两者都须 pass
@@ -198,18 +231,25 @@ function judgeDimension(dim, testParsed, domainResult, perfResult, replayResult)
     return 'Warning';
   }
 
-  // 通用：测试入口在 npm test 输出中 pass
-  // 从 entry 提取测试文件名片段（取最后一个 .test.js 词，去尾部标点）
+  // 通用：测试入口在 npm test 输出 pass。RFC W5 / Patch E: check ALL
+  // entry files (not just the first). Previously entryTokens[0] was the
+  // only one checked, so D2 (entry = 2 files) passed if just the first was
+  // green — fail-open. Now all entry files must be 'pass'.
   const entryTokens = dim.entry.match(/tests\/[^\s)]+\.test\.js/g) || [];
-  const entryFile = entryTokens[0];
-  if (entryFile) {
-    const frag = entryFile.split('/').pop().replace('.test.js', '');
-    const status = findFileStatus(testParsed, frag);
-    if (status === 'pass') {
+  if (entryTokens.length > 0) {
+    const statuses = entryTokens.map(tf => {
+      const frag = tf.split('/').pop().replace('.test.js', '');
+      return findFileStatus(testParsed, frag);
+    });
+    // fail-closed: any fail → Gap; any not-found/missing → Warning (never Pass);
+    // all pass → Pass (or Warning if warningNote set).
+    if (statuses.some(s => s === 'fail')) return 'Gap';
+    if (statuses.some(s => s === 'not-found')) return 'Warning';
+    if (statuses.every(s => s === 'pass')) {
       return dim.warningNote ? 'Warning' : 'Pass';
     }
-    if (status === 'fail') return 'Gap';
-    // not-found：可能入口是目录或 npm script，降级判定
+    // Mixed (e.g. some pass + some not-found) → Warning
+    return 'Warning';
   }
 
   return 'Warning';
@@ -249,9 +289,6 @@ function renderReport(dimensions, testParsed, domainResult, perfResult, replayRe
     lines.push(`- **标准**: ${dim.standard}`);
     lines.push(`- **测试入口**: ${dim.entry}`);
     lines.push(`- **Owner**: ${dim.owner}`);
-    if (dim.special) {
-      lines.push(`- **特殊说明**: ${dim.special} — ${dim.specialNote}`);
-    }
     if (dim.warningNote) {
       lines.push(`- **Warning 条件**: ${dim.warningNote}`);
     }
@@ -286,12 +323,15 @@ function renderReport(dimensions, testParsed, domainResult, perfResult, replayRe
       const contagionStatus = findFileStatus(testParsed, 'emotion-contagion-cluster');
       lines.push(`- **测试输出引用**: social-emergence ${socialStatus} / gossip-propagation ${gossipStatus} / emotion-contagion-cluster ${contagionStatus}`);
     } else {
+      // RFC W5 / Patch E: render all entry file statuses (not just first).
       const entryTokens = dim.entry.match(/tests\/[^\s)]+\.test\.js/g) || [];
-      const entryFile = entryTokens[0];
-      if (entryFile) {
-        const frag = entryFile.split('/').pop().replace('.test.js', '');
-        const fstatus = findFileStatus(testParsed, frag);
-        lines.push(`- **测试输出引用**: ${entryFile} ${fstatus}`);
+      if (entryTokens.length > 0) {
+        const parts = entryTokens.map(tf => {
+          const frag = tf.split('/').pop().replace('.test.js', '');
+          const fstatus = findFileStatus(testParsed, frag);
+          return `${tf} ${fstatus}`;
+        });
+        lines.push(`- **测试输出引用**: ${parts.join(' / ')}`);
       } else {
         lines.push(`- **测试输出引用**: (入口非单一测试文件，见测试命令快照)`);
       }
@@ -313,9 +353,11 @@ function main() {
   const write = args.includes('--write');
   const generatedAt = new Date().toISOString();
 
-  console.error('[aliveness-report] 跑 npm test...');
-  const testResult = runCommand('npm', ['test', '--', '--reporter=verbose']);
-  const testParsed = parseVitestOutput(testResult.combined);
+  console.error('[aliveness-report] 跑 npm test (JSON reporter)...');
+  // RFC W5 / Patch E: use --reporter=json for precise file/test ID extraction
+  // instead of parsing human-readable verbose text (fragile to format changes).
+  const testResult = runCommand('npm', ['test', '--', '--reporter=json']);
+  const testParsed = parseVitestJSON(testResult.stdout) || parseVitestOutput(testResult.combined);
 
   console.error('[aliveness-report] 跑 npm run test:domain...');
   const domainResult = runCommand('npm', ['run', 'test:domain']);

@@ -18,6 +18,9 @@ for the complete document set.
 ## Start Here
 
 - `DOMAIN.md` — domain system documentation bundled with npm.
+- `quality/DEEP_AUDIT_2026-08-12.md` — current source-backed deep audit baseline.
+- `rfc/POST_V2_0_1_RELIABILITY_OPTIMIZATION_RFC.md` — staged reliability and
+  Integration Beta optimization plan derived from the current audit.
 - The GitHub source repository contains contributor guardrails, API and
   serialization contracts, testing architecture, active engineering notes, and RFCs.
 

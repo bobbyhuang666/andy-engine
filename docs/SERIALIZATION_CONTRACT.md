@@ -250,7 +250,7 @@ deep-equal result.  This section records the Wave 4 completion state.
 | `PersonalMemory` | `src/agent/memory/PersonalMemory.js` | ✅ memories array → ctor |
 | `ProceduralMemory` | `src/agent/memory/ProceduralMemory.js` | ✅ |
 | `Schedule` | `src/agent/schedule/Schedule.js` | ✅ json used as both config + savedState so `entries` round-trips |
-| `EventDispatcher` | `src/runtime/EventDispatcher.js` | ✅ rebuilds eventLog (truncated to last 100, matching `toJSON`) |
+| `EventDispatcher` | `src/runtime/EventDispatcher.js` | ✅ rebuilds eventLog (truncated to `maxEventLogSize`, default 2000, matching `toJSON`) |
 | `Personality` | `src/agent/psychology/Personality.js` | ✅ MBTI + OCEAN + emotionBaseline + driftWindow round-trips |
 | `BehaviorField` | `src/agent/psychology/BehaviorField.js` | ✅ B / velocity / _prevB / _lastLabel round-trips (explicit `personality` + `domain` deps) |
 | `AutoTick` | `src/sdk/AutoTick.js` | 持久化于 Character/Andy.save;有 fromJSON+toJSON(待补 round-trip 测试) |

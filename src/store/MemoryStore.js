@@ -10,6 +10,8 @@
  * - 临时演示
  */
 
+const { binaryCopy } = require('./binaryCopy');
+
 class MemoryStore {
   constructor() {
     this.stories = [];
@@ -67,7 +69,8 @@ class MemoryStore {
         }
         return b.timestamp - a.timestamp;
       })
-      .slice(0, limit);
+      .slice(0, limit)
+      .map(s => this._copyStory(s));
   }
 
   /**
@@ -90,7 +93,18 @@ class MemoryStore {
         }
         return b.timestamp - a.timestamp;
       })
-      .slice(0, limit);
+      .slice(0, limit)
+      .map(s => this._copyStory(s));
+  }
+
+  /**
+   * Return a shallow copy of a story object so query callers cannot mutate
+   * store internals (RFC W1 / Patch B). Meta is a flat object of JSON-compatible
+   * primitives, so a shallow copy is sufficient.
+   * @private
+   */
+  _copyStory(s) {
+    return { ...s };
   }
 
   /**
@@ -167,9 +181,10 @@ class MemoryStore {
     // 删除同 tick 的旧快照（模拟 INSERT OR REPLACE）
     this.snapshots = this.snapshots.filter(s => s.tick !== tick);
 
-    // R39 P1 fix: 拷贝 Buffer 防止共享引用污染。
-    // 原实现直接存入 data 引用,保存后修改原 Buffer 会反向污染 store 内部快照。
-    const dataCopy = Buffer.isBuffer(data) ? Buffer.from(data) : data;
+    // RFC W1 / Patch B: defensive copy at write boundary via binaryCopy.
+    // Copies Buffer, Uint8Array (ArrayBufferView), and ArrayBuffer — previously
+    // only Buffer was copied, leaking plain Uint8Array references into the store.
+    const dataCopy = binaryCopy(data);
 
     this.snapshots.push({
       tick,
@@ -186,7 +201,7 @@ class MemoryStore {
     if (latest && tick < latest.tick) {
       throw new Error(`checkpoint tick ${tick} is older than durable tick ${latest.tick}`);
     }
-    if (latest && tick === latest.tick && !Buffer.from(latest.data).equals(Buffer.from(data))) {
+    if (latest && tick === latest.tick && !Buffer.from(latest.data).equals(binaryCopy(data))) {
       throw new Error(`checkpoint tick ${tick} conflicts with an existing durable checkpoint`);
     }
     this.saveSnapshot(tick, virtualTime, data, meta);
@@ -205,9 +220,8 @@ class MemoryStore {
     const sorted = [...this.snapshots].sort((a, b) => b.tick - a.tick);
     const snapshot = sorted[0];
 
-    // R39 P1 fix: 拷贝 Buffer 防止共享引用污染。
-    // 原实现返回内部 data 引用,修改 load 出来的 Buffer 会污染 store。
-    const dataCopy = Buffer.isBuffer(snapshot.data) ? Buffer.from(snapshot.data) : snapshot.data;
+    // RFC W1 / Patch B: defensive copy at read boundary via binaryCopy.
+    const dataCopy = binaryCopy(snapshot.data);
 
     return {
       tick: snapshot.tick,
@@ -227,7 +241,7 @@ class MemoryStore {
       .map(snapshot => ({
         tick: snapshot.tick,
         virtualTime: snapshot.virtualTime,
-        data: Buffer.isBuffer(snapshot.data) ? Buffer.from(snapshot.data) : snapshot.data,
+        data: binaryCopy(snapshot.data),
         meta: snapshot.meta ? JSON.parse(snapshot.meta) : null,
         createdAt: snapshot.createdAt,
       }));
@@ -242,8 +256,8 @@ class MemoryStore {
     const snapshot = this.snapshots.find(s => s.tick === tick);
     if (!snapshot) return null;
 
-    // R39 P1 fix: 拷贝 Buffer 防止共享引用污染。
-    const dataCopy = Buffer.isBuffer(snapshot.data) ? Buffer.from(snapshot.data) : snapshot.data;
+    // RFC W1 / Patch B: defensive copy at read boundary via binaryCopy.
+    const dataCopy = binaryCopy(snapshot.data);
 
     return {
       tick: snapshot.tick,
@@ -272,10 +286,18 @@ class MemoryStore {
 
   /**
    * 保留最近 N 个快照
+   *
+   * RFC W1 / Patch B: `keepCount <= 0` 删除全部快照，与 SQLiteStore 对齐。
+   * 此前 `slice(0, keepCount)` 对负数会从尾部截断，意外保留快照。
    * @param {number} keepCount
    * @returns {number} 删除的快照数
    */
   prune(keepCount = 720) {
+    if (keepCount <= 0) {
+      const deleted = this.snapshots.length;
+      this.snapshots = [];
+      return deleted;
+    }
     if (this.snapshots.length <= keepCount) return 0;
 
     // 按 tick 降序排序
@@ -370,16 +392,42 @@ class MemoryStore {
   }
 
   // ═══════════════════════════════════════════
-  // 事务支持（内存实现为空操作）
+  // 事务支持
   // ═══════════════════════════════════════════
 
   /**
-   * 在事务中执行多个操作（内存实现直接执行）
+   * 在事务中执行多个操作。
+   *
+   * RFC W1 / Patch B: 内存实现现在提供真正的回滚——在入口快照内部
+   * collections/counters，回调抛错时完整恢复后重抛，与 SQLiteStore 的
+   * `db.transaction(fn)` 语义对齐。此前是 `return fn()`，写入在抛错后保留。
+   *
+   * 嵌套事务策略：MemoryStore 不支持嵌套回滚（与 SQLite 的 savepoint 不同）。
+   * 嵌套调用时，内层 transaction 仍正常执行，但外层的回滚快照是在外层入口
+   * 拍的，所以外层 catch 会恢复到外层入口状态（包括内层的副作用）。
+   * 这由契约测试固定。
+   *
    * @param {Function} fn
-   * @returns {*}
+   * @returns {*} fn 的返回值
+   * @throws {*} fn 抛出的错误（恢复后重抛）
    */
   transaction(fn) {
-    return fn();
+    // Snapshot mutable state at entry.
+    const storiesBackup = this.stories.slice();
+    const snapshotsBackup = this.snapshots.slice();
+    const metaBackup = { ...this.meta };
+    const nextStoryIdBackup = this._nextStoryId;
+
+    try {
+      return fn();
+    } catch (err) {
+      // Restore to entry state.
+      this.stories = storiesBackup;
+      this.snapshots = snapshotsBackup;
+      this.meta = metaBackup;
+      this._nextStoryId = nextStoryIdBackup;
+      throw err;
+    }
   }
 
   // ═══════════════════════════════════════════
