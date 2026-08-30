@@ -46,7 +46,9 @@ const { compile } = require('./src/agent/psychology/AffectCompiler');
 class AndyEngine {
   /**
    * @param {Object} [config]
-   * @param {Date}   [config.startTime] - 初始模拟时间（默认当前）
+   * @param {Date}   [config.startTime] - 初始模拟时间。**未指定时默认 Unix epoch
+   *   (`1970-01-01T00:00:00Z`)** 而非当前时间——这是一个确定性的 sentinel,
+   *   确保不传 startTime 的默认构造可复现。若需要真实世界时间请显式传入。
    * @param {string} [config.weather]   - 初始天气（默认 'sunny'）
    * @param {Object} [config.domain]    - 自定义 domain 配置（默认 campus）
    * @param {string|number} [config.seed] - 可播种 RNG 种子（可选）

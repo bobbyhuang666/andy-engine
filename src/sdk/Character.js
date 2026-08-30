@@ -626,13 +626,20 @@ class Character {
    */
 
   /**
-   * 流式对话（逐 token 产出，适合 Web 实时显示）
+   * 流式对话。
+   *
+   * **契约说明（DEEP_AUDIT_2026-08-13）**：尽管方法名与签名是 async generator，
+   * 当前实现采用 *verified buffered reply* 语义——它会先完整消费底层 LLM 流、
+   * 缓存全部回复，经一致性校验/grounding 锚点核验后，再 **一次性 yield** 校验
+   * 通过的内容。这与"逐 token 实时显示"不同：安全性高（拒答/幻觉内容不会先暴露
+   * 再撤回），但首 token 延迟等于整段生成时间。若需要真正的 token 级流式，请
+   * 直接使用 `LLMAdapter.chatStream()`（不带 grounding 校验）。
    *
    * @param {string} message - 用户消息
    * @param {Object} [options]
    * @param {Object} [options.llm] - 临时覆盖 LLM 配置
    * @param {Object} [options.structuredClaims] - 结构化 claim sidecar（M2-R3 透传管道）
-   * @returns {AsyncGenerator<string>} 逐 token 产出
+   * @returns {AsyncGenerator<string>} 校验后产出（当前为单次 yield 整段回复）
    *
    * @example
    *   for await (const token of maya.chatStream("你好")) {

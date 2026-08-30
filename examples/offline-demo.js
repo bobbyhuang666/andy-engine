@@ -83,9 +83,9 @@ async function demo() {
   const afterCtx = maya.getContext();
   const afterWorld = afterCtx.worldContext;
   console.log(`位置: ${afterWorld.currentRegion}`);
-  console.log(`情绪: ${afterWorld.emotionState?.substring(0, 60)}...`);
-  console.log(`需求: ${afterWorld.needsState}`);
-  console.log(`记忆数: ${afterCtx.narrative}`);
+  console.log(`时段: ${afterWorld.timeOfDay} / 天气: ${afterWorld.weather}`);
+  console.log(`附近的人: ${(afterWorld.nearbyPeople || []).map(p => p.name || p.id).join(', ') || '无'}`);
+  console.log(`叙事: ${afterCtx.narrative?.substring(0, 60) || '(无)'}...`);
 
   // ─── 保存/恢复 ───
   console.log('\n─'.repeat(50));

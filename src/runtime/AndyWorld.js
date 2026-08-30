@@ -522,6 +522,18 @@ class AndyWorld {
     if (_effectAcc.errored > 0) {
       errors.push({ phase: 'effectCommit', message: `${_effectAcc.errored} effect delta(s) failed to apply` });
     }
+    // DEEP_AUDIT_2026-08-13 P0: critical phase failures must degrade the tick.
+    // eventDispatch and canonEventPipeline are world-authority phases — if they
+    // fail, events/facts may not have been recorded, so the tick cannot be
+    // trusted as committed. Without this, atomicTicks rollback never triggers
+    // (it keys on status === 'degraded' | 'aborted') and onTick callbacks
+    // publish a partially-applied tick as committed.
+    if (result.phase.eventDispatch?.dispatchError) {
+      errors.push({ phase: 'eventDispatch', message: result.phase.eventDispatch.dispatchError });
+    }
+    if (result.phase.canonEventPipeline?.pipelineError) {
+      errors.push({ phase: 'canonEventPipeline', message: result.phase.canonEventPipeline.pipelineError });
+    }
     if (errors.length > 0) {
       result.status = 'degraded';
       result.errors = errors;
@@ -737,12 +749,21 @@ class AndyWorld {
       }
     }
     let dispatched = [];
+    let dispatchError = null;
     try {
       dispatched = this.eventDispatcher.dispatch();
     } catch (err) {
+      // DEEP_AUDIT_2026-08-13 P0: event dispatch is a critical phase. A failed
+      // dispatch means tick-generated events did not enter the event log, so
+      // downstream canon/knowledge/effects would operate on a partial world.
+      // Record the error so step() degrades this tick (and atomicTicks rolls
+      // it back) instead of marking it committed. Previously this only warned
+      // and the tick stayed `committed`, contradicting the fail-closed contract.
+      dispatchError = err.message;
       diagnostics.warn(`EventDispatcher.dispatch failed: ${err.message}`);
     }
     result.phase.eventDispatch = { eventCount: dispatched.length };
+    if (dispatchError) result.phase.eventDispatch.dispatchError = dispatchError;
     return dispatched;
   }
 

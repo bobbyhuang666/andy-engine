@@ -53,8 +53,8 @@ const states = world.getStates();
 for (const [id, state] of Object.entries(states)) {
   console.log(`\n--- ${state.name} ---`);
   console.log(`位置: ${state.currentRegion}`);
-  console.log(`情绪: ${state.emotionState?.substring(0, 80)}...`);
-  console.log(`需求: ${state.needsState}`);
+  console.log(`时段: ${state.timeOfDay} / 天气: ${state.weather}`);
+  console.log(`社交能量: ${state.agentStatus?.socialEnergy ?? '?'}%`);
 }
 
 // ─── 查看社交关系 ───

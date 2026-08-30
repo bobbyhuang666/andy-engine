@@ -44,21 +44,26 @@ const TAVERN_SCENARIO = {
   ],
   /**
    * Segment plan for seven-day tavern run with two fresh-process resume
-   * boundaries:
-   *   Segment 0: ticks 0–1007 (Day 1–3 evening)
+   * boundaries. SEVEN_DAYS_TICKS = 7 * 24 * 12 = 2016 (5-min ticks).
+   * Segments are evenly split so the full 7 days are simulated:
+   *   Segment 0: ticks 0–671    (Day 1–2 evening, 672 ticks)
    *   → checkpoint, process exit
-   *   Segment 1: ticks 1008–2015 (Day 3 evening–Day 5 afternoon)
+   *   Segment 1: ticks 672–1343 (Day 2 evening–Day 4 evening, 672 ticks)
    *   → checkpoint, process exit
-   *   Segment 2: ticks 2016–2015+SEVEN_DAYS_TICKS (Day 5 afternoon–Day 7 end)
+   *   Segment 2: ticks 1344–2015 (Day 4 evening–Day 7 end, 672 ticks)
+   *
+   * DEEP_AUDIT_2026-08-13: the previous plan had segment 2 as
+   * 2016→2016 (0 ticks) because SEVEN_DAYS_TICKS == 2016, so the third
+   * segment advanced nothing and the "Day 5–7" window was never simulated.
    */
   segments: [
-    { id: 0, startTick: 0, targetTick: 1008 },
-    { id: 1, startTick: 1008, targetTick: 2016 },
-    { id: 2, startTick: 2016, targetTick: SEVEN_DAYS_TICKS },
+    { id: 0, startTick: 0, targetTick: 672 },
+    { id: 1, startTick: 672, targetTick: 1344 },
+    { id: 2, startTick: 1344, targetTick: SEVEN_DAYS_TICKS },
   ],
   resumeBoundaries: [
-    { afterSegment: 0, label: 'Day-3-evening checkpoint' },
-    { afterSegment: 1, label: 'Day-5-afternoon checkpoint' },
+    { afterSegment: 0, label: 'Day-2-evening checkpoint' },
+    { afterSegment: 1, label: 'Day-4-evening checkpoint' },
   ],
   expectedObservables: {
     minEvents: 1,
